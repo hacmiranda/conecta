@@ -10,16 +10,16 @@ function mostrarSecao(secaoId) {
     document.querySelectorAll('.secao').forEach(secao => {
         secao.classList.remove('active');
     });
-    
+
     document.querySelectorAll('.btn-nav').forEach(btn => {
         btn.classList.remove('active');
     });
-    
+
     document.getElementById(secaoId).classList.add('active');
-    
+
     // Salvar seção ativa no localStorage
     localStorage.setItem('secaoAtiva', secaoId);
-    
+
     // Ativar botão correspondente
     const botoes = document.querySelectorAll('.btn-nav');
     if (secaoId === 'tickets') {
@@ -44,13 +44,13 @@ function mostrarSecao(secaoId) {
         // Verificar se é admin
         const usuario = JSON.parse(localStorage.getItem('usuario'));
         if (usuario.tipo !== 'admin') {
-            mostrarAlert('Acesso Negado', 'Apenas administradores podem acessar as configurações.', function() {
+            mostrarAlert('Acesso Negado', 'Apenas administradores podem acessar as configurações.', function () {
                 mostrarSecao('tickets');
             });
             return;
         }
         botoes[4].classList.add('active');
-        
+
         // Carregar subseção padrão se não houver uma salva
         const subSecaoSalva = localStorage.getItem('subSecaoAtiva');
         if (!subSecaoSalva) {
@@ -66,7 +66,7 @@ const MAX_ARQUIVOS = 5;
 const MAX_TAMANHO = 20 * 1024 * 1024; // 20MB
 const TIPOS_PERMITIDOS = ['.pdf', '.doc', '.docx', '.txt', '.csv', '.xls', '.xlsx', '.png', '.jpg', '.jpeg'];
 
-document.getElementById('anexos').addEventListener('change', function(e) {
+document.getElementById('anexos').addEventListener('change', function (e) {
     adicionarArquivos(Array.from(e.target.files));
     e.target.value = ''; // Limpar input para permitir nova seleção
 });
@@ -82,21 +82,21 @@ function adicionarMaisAnexos() {
 function adicionarArquivos(novosArquivos) {
     const infoDiv = document.getElementById('anexos-info');
     const erroDiv = document.getElementById('anexos-erro');
-    
+
     // Limpar mensagens de erro
     erroDiv.innerHTML = '';
-    
+
     // Validar tipos de arquivo
     const arquivosInvalidos = novosArquivos.filter(arquivo => {
         const extensao = '.' + arquivo.name.split('.').pop().toLowerCase();
         return !TIPOS_PERMITIDOS.includes(extensao);
     });
-    
+
     if (arquivosInvalidos.length > 0) {
         mostrarAlert('Tipo Inválido', `Tipos não permitidos: ${arquivosInvalidos.map(a => a.name).join(', ')}`);
         return;
     }
-    
+
     // Verificar limite de quantidade
     const totalArquivos = anexosSelecionados.length + novosArquivos.length;
     if (totalArquivos > MAX_ARQUIVOS) {
@@ -104,18 +104,18 @@ function adicionarArquivos(novosArquivos) {
         mostrarAlert('Limite de Arquivos', `Máximo ${MAX_ARQUIVOS} arquivos. Você pode adicionar apenas ${permitidos} arquivo(s).`);
         return;
     }
-    
+
     // Verificar limite de tamanho
     const tamanhoAtual = anexosSelecionados.reduce((total, arquivo) => total + arquivo.size, 0);
     const tamanhoNovos = novosArquivos.reduce((total, arquivo) => total + arquivo.size, 0);
     const tamanhoTotal = tamanhoAtual + tamanhoNovos;
-    
+
     if (tamanhoTotal > MAX_TAMANHO) {
         const disponivelMB = ((MAX_TAMANHO - tamanhoAtual) / 1024 / 1024).toFixed(2);
         mostrarAlert('Limite de Tamanho', `Tamanho total excede 20MB. Espaço disponível: ${disponivelMB}MB`);
         return;
     }
-    
+
     // Adicionar arquivos válidos
     anexosSelecionados = [...anexosSelecionados, ...novosArquivos];
     atualizarListaAnexos();
@@ -123,12 +123,12 @@ function adicionarArquivos(novosArquivos) {
 
 function atualizarListaAnexos() {
     const infoDiv = document.getElementById('anexos-info');
-    
+
     if (anexosSelecionados.length === 0) {
         infoDiv.innerHTML = '';
         return;
     }
-    
+
     let infoHtml = '';
     anexosSelecionados.forEach((arquivo, index) => {
         const tamanhoMB = (arquivo.size / 1024 / 1024).toFixed(2);
@@ -140,10 +140,10 @@ function atualizarListaAnexos() {
             </div>
         `;
     });
-    
+
     const tamanhoTotal = anexosSelecionados.reduce((total, arquivo) => total + arquivo.size, 0);
     const totalMB = (tamanhoTotal / 1024 / 1024).toFixed(2);
-    
+
     infoDiv.innerHTML = `
         <div style="margin-bottom: 0.5rem; font-weight: bold;">Arquivos selecionados (${anexosSelecionados.length}/${MAX_ARQUIVOS} - ${totalMB}MB/20MB):</div>
         ${infoHtml}
@@ -169,28 +169,28 @@ function setSecurityHeaders(xhr) {
 }
 
 // Formulário de novo ticket - VERSÃO COM XMLHttpRequest
-document.getElementById('form-ticket').addEventListener('submit', function(e) {
+document.getElementById('form-ticket').addEventListener('submit', function (e) {
     e.preventDefault();
-    
+
     const titulo = document.getElementById('titulo').value;
     const descricao = document.getElementById('descricao').value;
     const prioridade = document.getElementById('prioridade').value;
     const categoria_id = document.getElementById('categoria-id').value;
     const email_solicitante = document.getElementById('email-solicitante').value;
-    
+
     if (!titulo || !descricao) {
         mostrarAlert('Erro', 'Título e descrição são obrigatórios');
         return;
     }
-    
+
     if (!categoria_id) {
         mostrarAlert('Erro', 'Selecione uma categoria');
         return;
     }
-    
+
     // Mostrar loader
     mostrarLoader();
-    
+
     // Criar FormData para incluir arquivos
     const formData = new FormData();
     formData.append('titulo', titulo);
@@ -202,22 +202,22 @@ document.getElementById('form-ticket').addEventListener('submit', function(e) {
     if (email_solicitante) {
         formData.append('email_solicitante', email_solicitante);
     }
-    
+
     // Adicionar anexos se houver
     if (anexosSelecionados.length > 0) {
         anexosSelecionados.forEach((arquivo, index) => {
             formData.append('anexos[]', arquivo);
         });
     }
-    
+
     const xhr = new XMLHttpRequest();
     xhr.open('POST', '/crpdesk/api/controllers/tickets.php', true);
     xhr.timeout = 30000; // 30 segundos
-    
+
     // Configurar headers de segurança
     setSecurityHeaders(xhr);
-    
-    xhr.onload = function() {
+
+    xhr.onload = function () {
         ocultarLoader();
         if (xhr.status === 200) {
             try {
@@ -237,17 +237,17 @@ document.getElementById('form-ticket').addEventListener('submit', function(e) {
             }
         }
     };
-    
-    xhr.onerror = function() {
+
+    xhr.onerror = function () {
         ocultarLoader();
         mostrarAlert('Erro', 'Erro de conexão');
     };
-    
-    xhr.ontimeout = function() {
+
+    xhr.ontimeout = function () {
         ocultarLoader();
         mostrarAlert('Erro', 'Timeout na requisição');
     };
-    
+
     xhr.send(formData);
 });
 
@@ -255,8 +255,8 @@ document.getElementById('form-ticket').addEventListener('submit', function(e) {
 function carregarTickets() {
     const xhr = new XMLHttpRequest();
     xhr.open('GET', '/crpdesk/api/controllers/tickets.php', true);
-    
-    xhr.onload = function() {
+
+    xhr.onload = function () {
         if (xhr.status === 200) {
             const todosTickets = JSON.parse(xhr.responseText);
             const ticketsAbertos = todosTickets.filter(ticket => ticket.status !== 'encerrado' && ticket.status !== 'cancelado');
@@ -267,58 +267,58 @@ function carregarTickets() {
             document.getElementById('lista-tickets').innerHTML = '<p>Erro ao carregar tickets.</p>';
         }
     };
-    
-    xhr.onerror = function() {
+
+    xhr.onerror = function () {
         console.error('Erro de conexão ao carregar tickets');
         document.getElementById('lista-tickets').innerHTML = '<p>Erro de conexão.</p>';
     };
-    
+
     xhr.send();
 }
 
 function aplicarFiltroMeusTickets() {
     const filtroAtivo = document.getElementById('filtro-meus-tickets').checked;
     let ticketsFiltrados = ticketsAtuais;
-    
+
     if (filtroAtivo) {
         const usuarioLogado = JSON.parse(localStorage.getItem('usuario'));
         ticketsFiltrados = ticketsAtuais.filter(ticket => ticket.agente_id == usuarioLogado.id);
     }
-    
+
     mostrarTicketsNaTela(ticketsFiltrados);
 }
 
 function aplicarFiltroMeusTicketsFechados() {
     const filtroAtivo = document.getElementById('filtro-meus-tickets-fechados').checked;
     let ticketsFiltrados = ticketsFechadosAtuais;
-    
+
     if (filtroAtivo) {
         const usuarioLogado = JSON.parse(localStorage.getItem('usuario'));
         ticketsFiltrados = ticketsFechadosAtuais.filter(ticket => ticket.agente_id == usuarioLogado.id);
     }
-    
+
     mostrarTicketsFechadosNaTela(ticketsFiltrados);
 }
 
 // Mostrar tickets na tela
 function mostrarTicketsNaTela(tickets) {
     const listaTickets = document.getElementById('lista-tickets');
-    
+
     // Atualizar contadores
     const usuarioLogado = JSON.parse(localStorage.getItem('usuario'));
     const totalAbertos = ticketsAtuais.length;
     const meusTickets = ticketsAtuais.filter(t => t.agente_id == usuarioLogado.id).length;
     document.getElementById('total-tickets-abertos').textContent = `(${totalAbertos})`;
     document.getElementById('total-meus-tickets').textContent = meusTickets > 0 ? `(${meusTickets})` : '';
-    
+
     if (tickets.length === 0) {
         listaTickets.innerHTML = '<p>Nenhum ticket encontrado.</p>';
         return;
     }
-    
+
     // Salvar tickets globalmente para SLA
     window.ticketsAtuais = tickets;
-    
+
     let tabelaHTML = `
         <table class="tickets-tabela">
             <thead>
@@ -335,11 +335,11 @@ function mostrarTicketsNaTela(tickets) {
             </thead>
             <tbody>
     `;
-    
-    
+
+
     tickets.forEach(ticket => {
         const isMeuTicket = ticket.agente_id && ticket.agente_id == usuarioLogado.id;
-        
+
         tabelaHTML += `
             <tr data-ticket-id="${ticket.id}" class="${isMeuTicket ? 'meu-ticket-row' : ''}" ${modoMergeAtivo ? 'style="cursor: pointer;"' : ''}>
                 <td>
@@ -360,24 +360,24 @@ function mostrarTicketsNaTela(tickets) {
             </tr>
         `;
     });
-    
+
     tabelaHTML += `
             </tbody>
         </table>
     `;
-    
+
     listaTickets.innerHTML = tabelaHTML;
-    
+
     // Adicionar event listeners para modo merge
     if (modoMergeAtivo) {
         document.querySelectorAll('tr[data-ticket-id]').forEach(row => {
-            row.addEventListener('click', function(e) {
+            row.addEventListener('click', function (e) {
                 const ticketId = parseInt(this.getAttribute('data-ticket-id'));
                 selecionarTicketParaMerge(ticketId, this);
             });
         });
     }
-    
+
     // Atualizar indicadores de SLA após renderizar
     setTimeout(() => {
         if (typeof atualizarIndicadoresSLA === 'function') {
@@ -391,16 +391,16 @@ function atribuirTicket(ticketId) {
     // Carregar lista de agentes
     const xhr = new XMLHttpRequest();
     xhr.open('GET', '/crpdesk/api/controllers/agentes.php', true);
-    
-    xhr.onload = function() {
+
+    xhr.onload = function () {
         if (xhr.status === 200) {
             const agentes = JSON.parse(xhr.responseText);
-            
+
             mostrarSelect(
                 'Atribuir Ticket',
                 'Selecione o agente responsável:',
                 agentes,
-                function(agenteEscolhido) {
+                function (agenteEscolhido) {
                     if (agenteEscolhido) {
                         confirmarAtribuicao(ticketId, agenteEscolhido.id, agenteEscolhido.nome);
                     }
@@ -410,7 +410,7 @@ function atribuirTicket(ticketId) {
             mostrarAlert('Erro', 'Erro ao carregar agentes');
         }
     };
-    
+
     xhr.send();
 }
 
@@ -419,9 +419,9 @@ function confirmarAtribuicao(ticketId, agenteId, agenteNome) {
     mostrarConfirm(
         'Confirmar Atribuição',
         `Atribuir ticket para ${agenteNome}?`,
-        function(confirmado) {
+        function (confirmado) {
             if (!confirmado) return;
-            
+
             executarAtribuicao(ticketId, agenteId, agenteNome);
         }
     );
@@ -432,43 +432,43 @@ function executarAtribuicao(ticketId, agenteId, agenteNome) {
     // Buscar status atual do ticket
     const ticketAtual = ticketsAtuais.find(t => t.id === ticketId);
     const usuario = JSON.parse(localStorage.getItem('usuario'));
-    const dados = { 
+    const dados = {
         agente_id: agenteId,
         atribuido_por: usuario ? usuario.id : 1
     };
-    
+
     // NÃO enviar status - o backend gerencia automaticamente
     // Se ticket está "novo", backend muda para "em_atendimento"
-    
+
     mostrarLoader();
-    
+
     const xhr = new XMLHttpRequest();
     xhr.open('PUT', `/crpdesk/api/controllers/tickets.php?id=${ticketId}`, true);
     xhr.setRequestHeader('Content-Type', 'application/json');
-    
-    xhr.onload = function() {
+
+    xhr.onload = function () {
         ocultarLoader();
         if (xhr.status === 200) {
             // Recarregar lista de tickets
             carregarTickets();
-            
+
             // Se estiver na página de detalhes, recarregar detalhes
             const ticketAtivo = localStorage.getItem('ticketAtivo');
             if (ticketAtivo && parseInt(ticketAtivo) === ticketId) {
                 setTimeout(() => verDetalhes(ticketId), 300);
             }
-            
-            const mensagem = dados.status ? 
+
+            const mensagem = dados.status ?
                 `Ticket atribuído para ${agenteNome} e status alterado para "Em atendimento"!` :
                 `Ticket atribuído para ${agenteNome} com sucesso!`;
-            
+
             mostrarToast('Sucesso', mensagem, 'success');
         } else {
             ocultarLoader();
             mostrarAlert('Erro', 'Erro ao atribuir ticket');
         }
     };
-    
+
     xhr.send(JSON.stringify(dados));
 }
 
@@ -486,12 +486,12 @@ function alterarStatus(ticketId) {
         { id: 'encerrado', nome: '🏁 Encerrado' },
         { id: 'cancelado', nome: '❌ Cancelado' }
     ];
-    
+
     mostrarSelect(
         'Alterar Status',
         'Selecione o novo status do ticket:',
         statusOpcoes,
-        function(statusEscolhido) {
+        function (statusEscolhido) {
             if (statusEscolhido) {
                 executarAlteracaoStatus(ticketId, statusEscolhido.id);
             }
@@ -503,16 +503,16 @@ function alterarStatus(ticketId) {
 function alterarCategoria(ticketId) {
     const xhr = new XMLHttpRequest();
     xhr.open('GET', '/crpdesk/api/controllers/categorias.php', true);
-    
-    xhr.onload = function() {
+
+    xhr.onload = function () {
         if (xhr.status === 200) {
             const categorias = JSON.parse(xhr.responseText);
-            
+
             mostrarSelect(
                 'Alterar Categoria',
                 'Selecione a nova categoria do ticket:',
                 categorias,
-                function(categoriaEscolhida) {
+                function (categoriaEscolhida) {
                     if (categoriaEscolhida) {
                         executarAlteracaoCategoria(ticketId, categoriaEscolhida.id);
                     }
@@ -522,62 +522,62 @@ function alterarCategoria(ticketId) {
             mostrarAlert('Erro', 'Erro ao carregar categorias');
         }
     };
-    
+
     xhr.send();
 }
 
 // Executar alteração de categoria
 function executarAlteracaoCategoria(ticketId, categoriaId) {
     mostrarLoader();
-    
+
     const xhr = new XMLHttpRequest();
     xhr.open('PUT', `/crpdesk/api/controllers/tickets.php?id=${ticketId}`, true);
     xhr.setRequestHeader('Content-Type', 'application/json');
-    
-    xhr.onload = function() {
+
+    xhr.onload = function () {
         ocultarLoader();
         if (xhr.status === 200) {
             // Recarregar lista de tickets
             carregarTickets();
-            
+
             // Se estiver na página de detalhes, recarregar detalhes
             const ticketAtivo = localStorage.getItem('ticketAtivo');
             if (ticketAtivo && parseInt(ticketAtivo) === ticketId) {
                 setTimeout(() => verDetalhes(ticketId), 300);
             }
-            
+
             mostrarToast('Sucesso', 'Categoria alterada com sucesso!', 'success');
         } else {
             ocultarLoader();
             mostrarAlert('Erro', 'Erro ao alterar categoria: ' + xhr.responseText);
         }
     };
-    
-    xhr.onerror = function() {
+
+    xhr.onerror = function () {
         mostrarAlert('Erro', 'Erro de conexão ao alterar categoria');
     };
-    
+
     xhr.send(JSON.stringify({ categoria_id: categoriaId }));
 }
 
 // Alterar prioridade do ticket
 function alterarPrioridade(ticketId) {
     console.log('🔄 alterarPrioridade chamada para ticket:', ticketId);
-    
+
     const prioridadeOpcoes = [
         { id: 'baixa', nome: 'Baixa' },
         { id: 'normal', nome: 'Normal' },
         { id: 'alta', nome: 'Alta' },
         { id: 'urgente', nome: 'Urgente' }
     ];
-    
+
     console.log('📋 Opções de prioridade:', prioridadeOpcoes);
-    
+
     mostrarSelect(
         'Alterar Prioridade',
         'Selecione a nova prioridade do ticket:',
         prioridadeOpcoes,
-        function(prioridadeEscolhida) {
+        function (prioridadeEscolhida) {
             console.log('🎯 Prioridade escolhida:', prioridadeEscolhida);
             if (prioridadeEscolhida) {
                 executarAlteracaoPrioridade(ticketId, prioridadeEscolhida.id);
@@ -592,23 +592,23 @@ function executarAlteracaoPrioridade(ticketId, novaPrioridade) {
     console.log('📍 Chamando mostrarLoader...');
     mostrarLoader();
     console.log('✅ mostrarLoader chamado');
-    
+
     const xhr = new XMLHttpRequest();
     xhr.open('PUT', `/crpdesk/api/controllers/tickets.php?id=${ticketId}`, true);
     xhr.setRequestHeader('Content-Type', 'application/json');
-    
-    xhr.onload = function() {
+
+    xhr.onload = function () {
         console.log('📡 Resposta do servidor:', xhr.status, xhr.responseText);
         if (xhr.status === 200) {
             // Recarregar lista de tickets
             carregarTickets();
-            
+
             // Se estiver na página de detalhes, recarregar detalhes
             const ticketAtivo = localStorage.getItem('ticketAtivo');
             if (ticketAtivo && parseInt(ticketAtivo) === ticketId) {
                 setTimeout(() => verDetalhes(ticketId), 300);
             }
-            
+
             ocultarLoader();
             mostrarToast('Sucesso', 'Prioridade alterada com sucesso!', 'success');
         } else {
@@ -616,12 +616,12 @@ function executarAlteracaoPrioridade(ticketId, novaPrioridade) {
             mostrarAlert('Erro', 'Erro ao alterar prioridade: ' + xhr.responseText);
         }
     };
-    
-    xhr.onerror = function() {
+
+    xhr.onerror = function () {
         ocultarLoader();
         mostrarAlert('Erro', 'Erro de conexão');
     };
-    
+
     const dados = { prioridade: novaPrioridade };
     console.log('📤 Enviando dados:', dados);
     xhr.send(JSON.stringify(dados));
@@ -629,26 +629,26 @@ function executarAlteracaoPrioridade(ticketId, novaPrioridade) {
 
 // Executar alteração de status
 function executarAlteracaoStatus(ticketId, novoStatus, callback) {
-    
+
     mostrarLoader();
-    
+
     const usuario = JSON.parse(localStorage.getItem('usuario'));
-    
+
     const xhr = new XMLHttpRequest();
     xhr.open('PUT', `/crpdesk/api/controllers/tickets.php?id=${ticketId}`, true);
     xhr.setRequestHeader('Content-Type', 'application/json');
-    
+
     // Adicionar token de autenticação
     const token = localStorage.getItem('token');
     if (token) {
         xhr.setRequestHeader('Authorization', `Bearer ${token}`);
     }
-    
-    xhr.onload = function() {
+
+    xhr.onload = function () {
         ocultarLoader();
         if (xhr.status === 200) {
             const mensagem = (novoStatus === 'aberto' || novoStatus === 'atendimento') ? 'Ticket reaberto com sucesso!' : 'Status alterado com sucesso!';
-            
+
             // Se for encerramento, animar remoção da lista
             if (novoStatus === 'encerrado' || novoStatus === 'cancelado') {
                 const row = document.querySelector(`tr[data-ticket-id="${ticketId}"]`);
@@ -661,18 +661,18 @@ function executarAlteracaoStatus(ticketId, novoStatus, callback) {
             } else {
                 carregarTickets();
             }
-            
+
             // Se estiver na página de detalhes, recarregar detalhes
             const ticketAtivo = localStorage.getItem('ticketAtivo');
             if (ticketAtivo && parseInt(ticketAtivo) === ticketId && !callback) {
                 setTimeout(() => verDetalhes(ticketId), 300);
             }
-            
+
             // Executar callback se houver
             if (callback) {
                 callback();
             }
-            
+
             mostrarToast('Sucesso', mensagem, 'success');
         } else {
             try {
@@ -683,17 +683,17 @@ function executarAlteracaoStatus(ticketId, novoStatus, callback) {
             }
         }
     };
-    
-    xhr.onerror = function() {
+
+    xhr.onerror = function () {
         ocultarLoader();
         mostrarAlert('Erro', 'Erro de conexão');
     };
-    
+
     const dados = { status: novoStatus };
     if (novoStatus === 'encerrado' || novoStatus === 'cancelado') {
         dados.fechado_por = usuario.id;
     }
-    
+
     console.log('📧 Enviando dados para API:', dados);
     xhr.send(JSON.stringify(dados));
 }
@@ -705,22 +705,22 @@ let secaoOrigem = 'tickets';
 function verDetalhes(ticketId) {
     // Marcar comentários como lidos
     marcarComentariosLidos(ticketId);
-    
+
     // Detectar seção atual apenas se não estiver já nos detalhes
     const secaoAtiva = document.querySelector('.secao.active');
     if (secaoAtiva && secaoAtiva.id !== 'detalhes') {
         secaoOrigem = secaoAtiva.id;
         localStorage.setItem('secaoOrigem', secaoOrigem);
     }
-    
+
     // Salvar ticket ativo
     localStorage.setItem('ticketAtivo', ticketId);
     localStorage.setItem('secaoAtiva', 'detalhes');
-    
+
     const xhr = new XMLHttpRequest();
     xhr.open('GET', `/crpdesk/api/controllers/tickets.php?id=${ticketId}`, true);
-    
-    xhr.onload = function() {
+
+    xhr.onload = function () {
         if (xhr.status === 200) {
             const ticket = JSON.parse(xhr.responseText);
             // Salvar dados do ticket para saber se é fechado
@@ -735,12 +735,12 @@ function verDetalhes(ticketId) {
             mostrarAlert('Erro', 'Erro ao carregar detalhes do ticket');
         }
     };
-    
-    xhr.onerror = function() {
+
+    xhr.onerror = function () {
         console.error('Erro de conexão ao carregar detalhes');
         mostrarAlert('Erro', 'Erro de conexão');
     };
-    
+
     xhr.send();
 }
 
@@ -755,16 +755,16 @@ function marcarComentariosLidos(ticketId) {
 function formatarAcaoHistorico(acao, valorAnterior, valorNovo) {
     const formatarStatus = (status) => {
         if (!status) return 'N/A';
-        return typeof formatarNomeStatus === 'function' ? formatarNomeStatus(status) : 
-               (STATUS_CONFIG[status]?.nome || status.charAt(0).toUpperCase() + status.slice(1).toLowerCase());
+        return typeof formatarNomeStatus === 'function' ? formatarNomeStatus(status) :
+            (STATUS_CONFIG[status]?.nome || status.charAt(0).toUpperCase() + status.slice(1).toLowerCase());
     };
-    
+
     const formatarPrioridade = (prioridade) => {
         if (!prioridade) return 'N/A';
         return typeof formatarNomePrioridade === 'function' ? formatarNomePrioridade(prioridade) :
-               (prioridade.charAt(0).toUpperCase() + prioridade.slice(1).toLowerCase());
+            (prioridade.charAt(0).toUpperCase() + prioridade.slice(1).toLowerCase());
     };
-    
+
     switch (acao) {
         case 'status':
             const statusAnt = formatarStatus(valorAnterior);
@@ -796,16 +796,16 @@ function formatarAcaoHistorico(acao, valorAnterior, valorNovo) {
 // Mostrar detalhes do ticket
 function mostrarDetalhesTicket(ticket) {
     const detalhesDiv = document.getElementById('ticket-detalhes');
-    
+
     if (!detalhesDiv) {
         return;
     }
-    
+
     // Garantir que ticket tenha propriedades necessárias
     ticket.comentarios = ticket.comentarios || [];
     ticket.anexos = ticket.anexos || [];
     ticket.historico = ticket.historico || [];
-    
+
     let comentariosHtml = '';
     if (ticket.comentarios && ticket.comentarios.length > 0) {
         ticket.comentarios.forEach(item => {
@@ -820,7 +820,7 @@ function mostrarDetalhesTicket(ticket) {
                             ${item.comentario}
                         </div>
                 `;
-                
+
                 if (item.anexos && item.anexos.length > 0) {
                     comentariosHtml += `
                         <div style="margin-top: 0.75rem;">
@@ -847,7 +847,7 @@ function mostrarDetalhesTicket(ticket) {
                     });
                     comentariosHtml += `</div>`;
                 }
-                
+
                 comentariosHtml += `</div>`;
             } else if (item.tipo === 'historico') {
                 let acao;
@@ -868,7 +868,7 @@ function mostrarDetalhesTicket(ticket) {
                 } else {
                     acao = formatarAcaoHistorico(item.acao, item.valor_anterior, item.valor_novo);
                 }
-                
+
                 comentariosHtml += `
                     <div class="historico-wrapper">
                         <div class="historico-info">
@@ -882,21 +882,21 @@ function mostrarDetalhesTicket(ticket) {
             }
         });
     }
-    
+
     if (!comentariosHtml) {
         comentariosHtml = '<p style="color: #999; font-style: italic;">Nenhum comentário ou histórico ainda.</p>';
     }
-    
+
     const usuario = JSON.parse(localStorage.getItem('usuario'));
     const isAdmin = usuario && usuario.tipo === 'admin';
-    
+
     detalhesDiv.innerHTML = `
         <div style="margin-top: 100px; margin-bottom: 2rem; padding: 1rem 0; position: relative; z-index: 999;">
             <button class="btn-voltar" onclick="voltarParaOrigem()">← Voltar</button>
-            ${ticket.status === 'encerrado' || ticket.status === 'fechado' ? 
-                `<button class="btn-reabrir" onclick="reabrirTicket(${ticket.id})" style="margin-left: 1rem; background-color: #28a745;">🔄 Reabrir</button>` : 
-                ''
-            }
+            ${ticket.status === 'encerrado' || ticket.status === 'fechado' ?
+            `<button class="btn-reabrir" onclick="reabrirTicket(${ticket.id})" style="margin-left: 1rem; background-color: #28a745;">🔄 Reabrir</button>` :
+            ''
+        }
             <button class="btn-excluir" onclick="excluirTicket(${ticket.id})" style="margin-left: 1rem; background-color: var(--vermelho);">🗑️ Excluir</button>
         </div>
         
@@ -930,10 +930,10 @@ function mostrarDetalhesTicket(ticket) {
             <p><strong>Criado por:</strong> ${ticket.email_solicitante || ticket.usuario_nome}</p>
             <p><strong>Prioridade:</strong> ${ticket.prioridade}</p>
             <p><strong>Data:</strong> ${new Date(ticket.criado_em).toLocaleString('pt-BR')}</p>
-            ${ticket.status === 'encerrado' && ticket.fechado_por_nome ? 
-                `<p><strong>Encerrado por:</strong> ${ticket.fechado_por_nome} em ${new Date(ticket.fechado_em).toLocaleString('pt-BR')}</p>` : 
-                ''
-            }
+            ${ticket.status === 'encerrado' && ticket.fechado_por_nome ?
+            `<p><strong>Encerrado por:</strong> ${ticket.fechado_por_nome} em ${new Date(ticket.fechado_em).toLocaleString('pt-BR')}</p>` :
+            ''
+        }
             
             ${ticket.anexos.length > 0 ? `
                 <div class="anexos-section" style="margin-top: 1.5rem; border-top: 1px solid #eee; padding-top: 1rem;">
@@ -946,10 +946,10 @@ function mostrarDetalhesTicket(ticket) {
                                     <small style="color: #666;">${(anexo.tamanho / 1024 / 1024).toFixed(2)}MB - ${new Date(anexo.criado_em).toLocaleDateString('pt-BR')}</small>
                                 </div>
                                 <div style="display: flex; gap: 0.5rem;">
-                                    ${(anexo.tipo || anexo.tipo_mime) === 'application/pdf' || (anexo.tipo || anexo.tipo_mime).startsWith('image/') ? 
-                                        `<button class="btn-visualizar" onclick="visualizarAnexo(${anexo.id}, '${anexo.tipo || anexo.tipo_mime}')">👁️ Visualizar</button>` : 
-                                        ''
-                                    }
+                                    ${(anexo.tipo || anexo.tipo_mime) === 'application/pdf' || (anexo.tipo || anexo.tipo_mime).startsWith('image/') ?
+                `<button class="btn-visualizar" onclick="visualizarAnexo(${anexo.id}, '${anexo.tipo || anexo.tipo_mime}')">👁️ Visualizar</button>` :
+                ''
+            }
                                     <a href="/crpdesk/api/controllers/anexos.php?id=${anexo.id}&action=download" class="btn-small" style="text-decoration: none;">📥 Download</a>
                                 </div>
                             </div>
@@ -1030,15 +1030,15 @@ function mostrarDetalhesTicket(ticket) {
 // Visualizar anexo inline
 function visualizarAnexo(anexoId, tipoMime) {
     console.log('🔍 Visualizando anexo:', anexoId, tipoMime);
-    
+
     const modal = document.getElementById('visualizador-anexo');
     const conteudo = document.getElementById('conteudo-anexo');
-    
+
     if (!modal || !conteudo) {
         console.error('❌ Modal ou conteúdo não encontrado');
         return;
     }
-    
+
     if (tipoMime === 'application/pdf') {
         conteudo.innerHTML = `
             <iframe src="/crpdesk/api/controllers/anexos.php?id=${anexoId}&action=view" width="100%" height="600px" style="border: none;" 
@@ -1053,7 +1053,7 @@ function visualizarAnexo(anexoId, tipoMime) {
     } else {
         conteudo.innerHTML = `<p>Tipo de arquivo não suportado para visualização: ${tipoMime}</p>`;
     }
-    
+
     console.log('📄 Conteúdo definido:', conteudo.innerHTML);
     modal.style.display = 'block';
 }
@@ -1069,7 +1069,7 @@ function toggleCampoComCopia() {
     const campoComCopia = document.getElementById('campo-com-copia');
     const campoEmailCopia = document.getElementById('campo-email-copia');
     const btnAdicionar = document.getElementById('btn-adicionar-comentario');
-    
+
     if (enviarEmail) {
         campoComCopia.style.display = 'block';
         btnAdicionar.textContent = 'Adicionar Comentário e Enviar E-mail';
@@ -1087,7 +1087,7 @@ function toggleCampoEmailCopia() {
     const toggleCopia = document.getElementById('toggle-com-copia').checked;
     const campoEmailCopia = document.getElementById('campo-email-copia');
     const inputEmail = document.getElementById('com-copia');
-    
+
     if (toggleCopia) {
         campoEmailCopia.style.display = 'block';
         inputEmail.setAttribute('required', 'required');
@@ -1102,21 +1102,21 @@ function toggleCampoEmailCopia() {
 function validarAnexosComentario() {
     const input = document.getElementById('anexos-comentario');
     const novosArquivos = Array.from(input.files);
-    
+
     if (novosArquivos.length === 0) return;
-    
+
     // Validar tipos
     const arquivosInvalidos = novosArquivos.filter(arquivo => {
         const extensao = '.' + arquivo.name.split('.').pop().toLowerCase();
         return !TIPOS_PERMITIDOS.includes(extensao);
     });
-    
+
     if (arquivosInvalidos.length > 0) {
         mostrarAlert('Tipo Inválido', `Tipos não permitidos: ${arquivosInvalidos.map(a => a.name).join(', ')}`);
         input.value = '';
         return;
     }
-    
+
     // Validar quantidade
     const totalArquivos = anexosComentarioSelecionados.length + novosArquivos.length;
     if (totalArquivos > MAX_ARQUIVOS) {
@@ -1125,19 +1125,19 @@ function validarAnexosComentario() {
         input.value = '';
         return;
     }
-    
+
     // Validar tamanho
     const tamanhoAtual = anexosComentarioSelecionados.reduce((total, arquivo) => total + arquivo.size, 0);
     const tamanhoNovos = novosArquivos.reduce((total, arquivo) => total + arquivo.size, 0);
     const tamanhoTotal = tamanhoAtual + tamanhoNovos;
-    
+
     if (tamanhoTotal > MAX_TAMANHO) {
         const disponivelMB = ((MAX_TAMANHO - tamanhoAtual) / 1024 / 1024).toFixed(2);
         mostrarAlert('Limite de Tamanho', `Tamanho total excede 20MB. Espaço disponível: ${disponivelMB}MB`);
         input.value = '';
         return;
     }
-    
+
     // Adicionar arquivos válidos
     anexosComentarioSelecionados = [...anexosComentarioSelecionados, ...novosArquivos];
     input.value = '';
@@ -1147,12 +1147,12 @@ function validarAnexosComentario() {
 
 function atualizarListaAnexosComentario() {
     const info = document.getElementById('anexos-comentario-info');
-    
+
     if (anexosComentarioSelecionados.length === 0) {
         info.innerHTML = '';
         return;
     }
-    
+
     let infoHtml = '';
     anexosComentarioSelecionados.forEach((arquivo, index) => {
         const tamanhoMB = (arquivo.size / 1024 / 1024).toFixed(2);
@@ -1164,10 +1164,10 @@ function atualizarListaAnexosComentario() {
             </div>
         `;
     });
-    
+
     const tamanhoTotal = anexosComentarioSelecionados.reduce((total, arquivo) => total + arquivo.size, 0);
     const totalMB = (tamanhoTotal / 1024 / 1024).toFixed(2);
-    
+
     info.innerHTML = `
         <div style="margin-bottom: 0.5rem; font-weight: bold;">Arquivos selecionados (${anexosComentarioSelecionados.length}/${MAX_ARQUIVOS} - ${totalMB}MB/20MB):</div>
         ${infoHtml}
@@ -1182,9 +1182,9 @@ function removerAnexoComentario(index) {
 function verificarAnexosEmail() {
     const enviarEmail = document.getElementById('enviar-email');
     const anexosInput = document.getElementById('anexos-comentario');
-    
+
     if (!enviarEmail || !anexosInput) return;
-    
+
     if (enviarEmail.checked && anexosInput.files.length > 0) {
         mostrarToast('Informação', 'Os anexos adicionados serão enviados por e-mail para o solicitante e para o endereço em cópia.', 'info');
     }
@@ -1195,18 +1195,18 @@ function adicionarComentario(event, ticketId) {
         event.preventDefault();
         event.stopPropagation();
     }
-    
+
     // Validar antes de adicionar comentário
     if (!validarAntesComentario(ticketId)) {
         return;
     }
-    
+
     const comentario = document.getElementById('novo-comentario').value;
     const enviarEmail = document.getElementById('enviar-email').checked;
     const comCopia = document.getElementById('com-copia').value;
     const usuario = JSON.parse(localStorage.getItem('usuario'));
     const token = localStorage.getItem('token');
-    
+
     // Usar FormData para suportar anexos
     const formData = new FormData();
     formData.append('ticket_id', ticketId);
@@ -1214,18 +1214,18 @@ function adicionarComentario(event, ticketId) {
     formData.append('usuario_id', usuario.id);
     formData.append('enviar_email', enviarEmail);
     formData.append('com_copia', comCopia);
-    
+
     // Adicionar anexos acumulados se houver
     if (anexosComentarioSelecionados.length > 0) {
         anexosComentarioSelecionados.forEach(arquivo => {
             formData.append('anexos[]', arquivo);
         });
     }
-    
+
     console.log('Enviando comentário com', anexosComentarioSelecionados.length, 'anexos');
-    
+
     mostrarLoader();
-    
+
     fetch('/crpdesk/api/controllers/comentarios.php', {
         method: 'POST',
         headers: {
@@ -1233,33 +1233,33 @@ function adicionarComentario(event, ticketId) {
         },
         body: formData
     })
-    .then(response => response.json())
-    .then(data => {
-        ocultarLoader();
-        const mensagem = enviarEmail ? 
-            (comCopia ? 'Comentário adicionado e e-mails enviados!' : 'Comentário adicionado e e-mail enviado!') :
-            'Comentário adicionado com sucesso!';
-        
-        mostrarToast('Sucesso', mensagem, 'success');
-        
-        // Limpar formulário
-        document.getElementById('novo-comentario').value = '';
-        document.getElementById('enviar-email').checked = false;
-        document.getElementById('toggle-com-copia').checked = false;
-        document.getElementById('com-copia').value = '';
-        document.getElementById('com-copia').removeAttribute('required');
-        document.getElementById('campo-com-copia').style.display = 'none';
-        document.getElementById('campo-email-copia').style.display = 'none';
-        document.getElementById('btn-adicionar-comentario').textContent = 'Adicionar Comentário';
-        document.getElementById('anexos-comentario').value = '';
-        anexosComentarioSelecionados = [];
-        atualizarListaAnexosComentario();
-        
-        // Adicionar comentário na lista
-        if (data.comentario) {
-            const listaComentarios = document.getElementById('lista-comentarios');
-            if (listaComentarios) {
-                let novoComentarioHtml = `
+        .then(response => response.json())
+        .then(data => {
+            ocultarLoader();
+            const mensagem = enviarEmail ?
+                (comCopia ? 'Comentário adicionado e e-mails enviados!' : 'Comentário adicionado e e-mail enviado!') :
+                'Comentário adicionado com sucesso!';
+
+            mostrarToast('Sucesso', mensagem, 'success');
+
+            // Limpar formulário
+            document.getElementById('novo-comentario').value = '';
+            document.getElementById('enviar-email').checked = false;
+            document.getElementById('toggle-com-copia').checked = false;
+            document.getElementById('com-copia').value = '';
+            document.getElementById('com-copia').removeAttribute('required');
+            document.getElementById('campo-com-copia').style.display = 'none';
+            document.getElementById('campo-email-copia').style.display = 'none';
+            document.getElementById('btn-adicionar-comentario').textContent = 'Adicionar Comentário';
+            document.getElementById('anexos-comentario').value = '';
+            anexosComentarioSelecionados = [];
+            atualizarListaAnexosComentario();
+
+            // Adicionar comentário na lista
+            if (data.comentario) {
+                const listaComentarios = document.getElementById('lista-comentarios');
+                if (listaComentarios) {
+                    let novoComentarioHtml = `
                     <div class="comentario-wrapper">
                         <div class="comentario-info">
                             <strong>💬 ${data.comentario.autor_nome}</strong> - ${new Date(data.comentario.criado_em).toLocaleString('pt-BR')}<br>
@@ -1269,38 +1269,38 @@ function adicionarComentario(event, ticketId) {
                             ${data.comentario.comentario}
                         </div>
                 `;
-                
-                if (data.anexos && data.anexos.length > 0) {
-                    novoComentarioHtml += `
+
+                    if (data.anexos && data.anexos.length > 0) {
+                        novoComentarioHtml += `
                         <div style="margin-top: 0.5rem; padding-left: 1rem;">
                             <strong style="color: #666; font-size: 0.9em;">Anexos:</strong><br>
                     `;
-                    data.anexos.forEach(anexo => {
-                        const tipo = anexo.tipo || anexo.tipo_mime || '';
-                        const isPDF = tipo === 'application/pdf';
-                        const isImage = tipo.startsWith('image/');
-                        const nomeExibir = anexo.nome_original || anexo.nome_arquivo;
-                        novoComentarioHtml += `
+                        data.anexos.forEach(anexo => {
+                            const tipo = anexo.tipo || anexo.tipo_mime || '';
+                            const isPDF = tipo === 'application/pdf';
+                            const isImage = tipo.startsWith('image/');
+                            const nomeExibir = anexo.nome_original || anexo.nome_arquivo;
+                            novoComentarioHtml += `
                             <div style="margin-top: 0.3rem;">
                                 <a href="/crpdesk/api/controllers/anexos.php?id=${anexo.id}" download="${nomeExibir}" style="color: #007bff; text-decoration: none;"><img src="images/clipe-de-anexo.png" style="width: 14px; height: 14px; vertical-align: middle; margin-right: 4px;"> ${nomeExibir}</a>
                                 ${isPDF || isImage ? `<button onclick="visualizarAnexo(${anexo.id}, '${tipo}')" style="margin-left: 0.5rem; padding: 0.2rem 0.5rem; font-size: 0.8rem; cursor: pointer; border: 1px solid #007bff; background: white; color: #007bff; border-radius: 3px;">👁️ Ver</button>` : ''}
                             </div>
                         `;
-                    });
+                        });
+                        novoComentarioHtml += `</div>`;
+                    }
+
                     novoComentarioHtml += `</div>`;
-                }
-                
-                novoComentarioHtml += `</div>`;
-                
-                // Adicionar registros de email se enviado
-                if (enviarEmail) {
-                    const usuario = JSON.parse(localStorage.getItem('usuario'));
-                    const agora = new Date().toLocaleString('pt-BR');
-                    
-                    // Buscar email do solicitante do ticketAtual
-                    const ticketAtual = JSON.parse(localStorage.getItem('ticketAtual'));
-                    if (ticketAtual && ticketAtual.usuario_email) {
-                        novoComentarioHtml += `
+
+                    // Adicionar registros de email se enviado
+                    if (enviarEmail) {
+                        const usuario = JSON.parse(localStorage.getItem('usuario'));
+                        const agora = new Date().toLocaleString('pt-BR');
+
+                        // Buscar email do solicitante do ticketAtual
+                        const ticketAtual = JSON.parse(localStorage.getItem('ticketAtual'));
+                        if (ticketAtual && ticketAtual.usuario_email) {
+                            novoComentarioHtml += `
                             <div class="historico-wrapper">
                                 <div class="historico-info">
                                     <strong>🕒 ${usuario.nome}</strong> - ${agora}
@@ -1310,10 +1310,10 @@ function adicionarComentario(event, ticketId) {
                                 </div>
                             </div>
                         `;
-                    }
-                    
-                    if (comCopia) {
-                        novoComentarioHtml += `
+                        }
+
+                        if (comCopia) {
+                            novoComentarioHtml += `
                             <div class="historico-wrapper">
                                 <div class="historico-info">
                                     <strong>🕒 ${usuario.nome}</strong> - ${agora}
@@ -1323,18 +1323,18 @@ function adicionarComentario(event, ticketId) {
                                 </div>
                             </div>
                         `;
+                        }
                     }
+
+                    listaComentarios.insertAdjacentHTML('beforeend', novoComentarioHtml);
                 }
-                
-                listaComentarios.insertAdjacentHTML('beforeend', novoComentarioHtml);
             }
-        }
-    })
-    .catch(error => {
-        ocultarLoader();
-        console.error('Erro:', error);
-        mostrarAlert('Erro', 'Erro ao adicionar comentário');
-    });
+        })
+        .catch(error => {
+            ocultarLoader();
+            console.error('Erro:', error);
+            mostrarAlert('Erro', 'Erro ao adicionar comentário');
+        });
 }
 
 // === LOADER ===
@@ -1359,7 +1359,7 @@ function ocultarLoader() {
     const tempoDecorrido = Date.now() - loaderStartTime;
     const tempoRestante = Math.max(0, 2000 - tempoDecorrido);
     console.log('🔴 Tempo decorrido:', tempoDecorrido, 'ms, tempo restante:', tempoRestante, 'ms');
-    
+
     setTimeout(() => {
         const loaderElement = document.getElementById('loader-overlay');
         if (loaderElement) {
@@ -1379,17 +1379,17 @@ function mostrarToast(titulo, mensagem, tipo = 'info') {
     const container = document.getElementById('toast-container');
     const toast = document.createElement('div');
     toast.className = `toast ${tipo}`;
-    
+
     toast.innerHTML = `
         <div class="toast-header">${titulo}</div>
         <div class="toast-body">${mensagem}</div>
     `;
-    
+
     container.appendChild(toast);
-    
+
     // Animar entrada
     setTimeout(() => toast.classList.add('show'), 100);
-    
+
     // Remover após 5 segundos
     setTimeout(() => {
         toast.classList.remove('show');
@@ -1405,23 +1405,23 @@ function mostrarAlert(titulo, mensagem, callback) {
         if (callback) callback();
         return;
     }
-    
+
     document.getElementById('modal-alert-title').textContent = titulo;
     document.getElementById('modal-alert-message').innerHTML = mensagem;
-    
+
     const header = document.querySelector('#modal-alert .modal-header');
     const btnOk = document.querySelector('#modal-alert .btn-modal');
-    
+
     header.classList.remove('sucesso', 'erro');
     btnOk.classList.remove('btn-success-modal', 'btn-danger-modal', 'btn-primary-modal');
-    
+
     if (titulo.toLowerCase().includes('erro')) {
         header.classList.add('erro');
         btnOk.classList.add('btn-danger-modal');
     } else {
         btnOk.classList.add('btn-primary-modal');
     }
-    
+
     document.getElementById('modal-overlay').classList.add('show');
     document.getElementById('modal-alert').classList.add('show');
     modalCallback = callback;
@@ -1431,15 +1431,20 @@ function mostrarAlert(titulo, mensagem, callback) {
 function mostrarConfirm(titulo, mensagem, callback, isPerigoso = false) {
     document.getElementById('modal-confirm-title').textContent = titulo;
     document.getElementById('modal-confirm-message').textContent = mensagem;
-    
+
     // Mudar cor do cabeçalho e botão
     const header = document.querySelector('#modal-confirm .modal-header');
     const btnConfirm = document.getElementById('btn-confirm-action');
-    
+
     header.classList.remove('erro', 'laranja', 'vermelho', 'atribuicao');
     btnConfirm.classList.remove('btn-danger-modal', 'btn-primary-modal', 'btn-laranja-modal', 'btn-vermelho-modal');
-    
-    if (titulo.toLowerCase().includes('excluir')) {
+
+    if (titulo.toLowerCase().includes('enviar e fechar')) {
+        // Modal "Enviar e Fechar Ticket" usa botão "Sim"
+        header.classList.add('atribuicao');
+        btnConfirm.classList.add('btn-primary-modal');
+        btnConfirm.textContent = 'Sim';
+    } else if (titulo.toLowerCase().includes('excluir')) {
         // Modal de exclusão usa laranja CRPRS
         header.classList.add('laranja');
         btnConfirm.classList.add('btn-laranja-modal');
@@ -1462,7 +1467,7 @@ function mostrarConfirm(titulo, mensagem, callback, isPerigoso = false) {
         btnConfirm.classList.add('btn-primary-modal');
         btnConfirm.textContent = 'Confirmar';
     }
-    
+
     document.getElementById('modal-overlay').classList.add('show');
     document.getElementById('modal-confirm').classList.add('show');
     modalCallback = callback;
@@ -1483,9 +1488,9 @@ function mostrarPrompt(titulo, mensagem, callback) {
 function mostrarSelect(titulo, mensagem, opcoes, callback) {
     document.getElementById('modal-select-title').textContent = titulo;
     document.getElementById('modal-select-message').textContent = mensagem;
-    
+
     const optionsDiv = document.getElementById('modal-select-options');
-    
+
     // Adicionar campo de pesquisa se for categoria
     if (titulo.includes('Categoria')) {
         optionsDiv.innerHTML = `
@@ -1495,17 +1500,17 @@ function mostrarSelect(titulo, mensagem, opcoes, callback) {
             </div>
             <div id="opcoes-lista"></div>
         `;
-        
+
         const pesquisaInput = document.getElementById('pesquisa-categoria');
         const opcoesLista = document.getElementById('opcoes-lista');
-        
+
         function renderizarOpcoes(opcoesFiltradas) {
             opcoesLista.innerHTML = '';
             opcoesFiltradas.forEach((opcao) => {
                 const div = document.createElement('div');
                 div.className = 'select-option';
                 div.textContent = opcao.nome;
-                div.onclick = function() {
+                div.onclick = function () {
                     document.querySelectorAll('.select-option').forEach(opt => opt.classList.remove('selected'));
                     div.classList.add('selected');
                     setTimeout(() => {
@@ -1515,19 +1520,19 @@ function mostrarSelect(titulo, mensagem, opcoes, callback) {
                 opcoesLista.appendChild(div);
             });
         }
-        
+
         // Renderizar todas as opções inicialmente
         renderizarOpcoes(opcoes);
-        
+
         // Filtrar ao digitar
-        pesquisaInput.addEventListener('input', function() {
+        pesquisaInput.addEventListener('input', function () {
             const termo = this.value.toLowerCase();
-            const opcoesFiltradas = opcoes.filter(opcao => 
+            const opcoesFiltradas = opcoes.filter(opcao =>
                 opcao.nome.toLowerCase().includes(termo)
             );
             renderizarOpcoes(opcoesFiltradas);
         });
-        
+
         // Focar no campo de pesquisa
         setTimeout(() => pesquisaInput.focus(), 100);
     } else {
@@ -1537,7 +1542,7 @@ function mostrarSelect(titulo, mensagem, opcoes, callback) {
             const div = document.createElement('div');
             div.className = 'select-option';
             div.textContent = opcao.nome;
-            div.onclick = function() {
+            div.onclick = function () {
                 document.querySelectorAll('.select-option').forEach(opt => opt.classList.remove('selected'));
                 div.classList.add('selected');
                 setTimeout(() => {
@@ -1547,7 +1552,7 @@ function mostrarSelect(titulo, mensagem, opcoes, callback) {
             optionsDiv.appendChild(div);
         });
     }
-    
+
     document.getElementById('modal-overlay').classList.add('show');
     document.getElementById('modal-select').classList.add('show');
     modalSelectCallback = callback;
@@ -1557,7 +1562,7 @@ function mostrarSelect(titulo, mensagem, opcoes, callback) {
 function fecharModal() {
     document.getElementById('modal-overlay').classList.remove('show');
     document.querySelectorAll('.modal').forEach(modal => modal.classList.remove('show'));
-    
+
     // Executar callback apenas se for alert
     if (modalCallback && document.getElementById('modal-alert').classList.contains('show')) {
         const callback = modalCallback;
@@ -1590,17 +1595,17 @@ function promptModal(valor) {
 function selecionarModal(opcao) {
     console.log('selecionarModal chamado com:', opcao);
     console.log('modalSelectCallback:', modalSelectCallback);
-    
+
     const callback = modalSelectCallback;
-    
+
     // Fechar modal
     document.getElementById('modal-overlay').classList.remove('show');
     document.querySelectorAll('.modal').forEach(modal => modal.classList.remove('show'));
-    
+
     // Limpar callback
     modalSelectCallback = null;
     modalCallback = null;
-    
+
     // Executar callback apenas se houver opção selecionada
     if (opcao && callback) {
         callback(opcao);
@@ -1614,10 +1619,10 @@ function mostrarUsuarios() {
     // Ativar botão
     document.querySelectorAll('.btn-config').forEach(btn => btn.classList.remove('active'));
     document.getElementById('btn-usuarios').classList.add('active');
-    
+
     // Salvar subseção
     localStorage.setItem('subSecaoAtiva', 'usuarios');
-    
+
     const content = document.getElementById('config-content');
     if (content) {
         content.style.animation = 'none';
@@ -1635,11 +1640,11 @@ function mostrarUsuarios() {
 function carregarUsuarios() {
     const xhr = new XMLHttpRequest();
     xhr.open('GET', '/crpdesk/api/controllers/usuarios.php', true);
-    
+
     // Adicionar token de autenticação
     setSecurityHeaders(xhr);
-    
-    xhr.onload = function() {
+
+    xhr.onload = function () {
         if (xhr.status === 200) {
             const usuarios = JSON.parse(xhr.responseText);
             mostrarListaUsuarios(usuarios);
@@ -1647,34 +1652,34 @@ function carregarUsuarios() {
             document.getElementById('config-content').innerHTML = '<p>Erro ao carregar usuários.</p>';
         }
     };
-    
+
     xhr.send();
 }
 
 // Mostrar lista de usuários
 function mostrarListaUsuarios(usuarios) {
     const content = document.getElementById('config-content');
-    
+
     // Debug: verificar tipos existentes
     console.log('Usuários recebidos:', usuarios.map(u => ({ nome: u.nome, tipo: u.tipo })));
-    
+
     // Separar usuários por tipo (tratar vazios como usuários comuns)
     const admins = usuarios.filter(u => u.tipo === 'admin');
     const agentes = usuarios.filter(u => u.tipo === 'agente');
     const usuariosComuns = usuarios.filter(u => u.tipo === 'usuario' || u.tipo === '' || !u.tipo);
     const outrosTipos = usuarios.filter(u => u.tipo && !['admin', 'agente', 'usuario', ''].includes(u.tipo));
-    
+
     console.log('Separação:', { admins: admins.length, agentes: agentes.length, usuariosComuns: usuariosComuns.length, outros: outrosTipos.length });
     console.log('Outros tipos encontrados:', outrosTipos.map(u => u.tipo));
-    
+
     function gerarCardUsuario(usuario) {
-        const tipoExibicao = (usuario.tipo === 'usuario' || usuario.tipo === '' || !usuario.tipo) ? 'Usuário' : 
-                           usuario.tipo === 'agente' ? 'Agente' : 
-                           usuario.tipo === 'admin' ? 'Administrador' : usuario.tipo;
-        
+        const tipoExibicao = (usuario.tipo === 'usuario' || usuario.tipo === '' || !usuario.tipo) ? 'Usuário' :
+            usuario.tipo === 'agente' ? 'Agente' :
+                usuario.tipo === 'admin' ? 'Administrador' : usuario.tipo;
+
         const isAgenteOuAdmin = usuario.tipo === 'agente' || usuario.tipo === 'admin';
         const statusAtivo = usuario.ativo === 1 || usuario.ativo === '1';
-        
+
         return `
             <div class="usuario-card ${!statusAtivo ? 'usuario-inativo' : ''}">
                 <div class="usuario-info">
@@ -1694,24 +1699,24 @@ function mostrarListaUsuarios(usuarios) {
             </div>
         `;
     }
-    
+
     let adminsHtml = '';
     admins.forEach(admin => {
         adminsHtml += gerarCardUsuario(admin);
     });
-    
+
     let agentesHtml = '';
     agentes.forEach(agente => {
         agentesHtml += gerarCardUsuario(agente);
     });
-    
+
     let usuariosComunsHtml = '';
     usuariosComuns.forEach(usuario => {
         usuariosComunsHtml += gerarCardUsuario(usuario);
     });
-    
+
     let secoes = '';
-    
+
     if (admins.length > 0) {
         secoes += `
             <h3>👑 Administradores (${admins.length})</h3>
@@ -1720,7 +1725,7 @@ function mostrarListaUsuarios(usuarios) {
             </div>
         `;
     }
-    
+
     if (agentes.length > 0) {
         secoes += `
             <h3>🛠️ Agentes (${agentes.length})</h3>
@@ -1729,7 +1734,7 @@ function mostrarListaUsuarios(usuarios) {
             </div>
         `;
     }
-    
+
     if (usuariosComuns.length > 0) {
         secoes += `
             <h3>👥 Usuários (${usuariosComuns.length})</h3>
@@ -1738,14 +1743,14 @@ function mostrarListaUsuarios(usuarios) {
             </div>
         `;
     }
-    
+
     // Mostrar outros tipos se existirem
     if (outrosTipos.length > 0) {
         let outrosHtml = '';
         outrosTipos.forEach(usuario => {
             outrosHtml += gerarCardUsuario(usuario);
         });
-        
+
         secoes += `
             <h3>🔄 Outros Tipos (${outrosTipos.length})</h3>
             <div class="usuarios-grid">
@@ -1753,7 +1758,7 @@ function mostrarListaUsuarios(usuarios) {
             </div>
         `;
     }
-    
+
     content.innerHTML = `
         <button onclick="toggleFormUsuario()" class="btn-primary" style="margin-bottom: 1rem;">
             ➕ Adicionar Novo Usuário
@@ -1788,19 +1793,19 @@ function mostrarListaUsuarios(usuarios) {
 // Criar novo usuário
 function criarUsuario(event) {
     event.preventDefault();
-    
+
     const nome = document.getElementById('nome-usuario').value;
     const email = document.getElementById('email-usuario').value;
     const tipo = document.getElementById('tipo-usuario').value;
-    
+
     const xhr = new XMLHttpRequest();
     xhr.open('POST', '/crpdesk/api/controllers/usuarios.php', true);
     xhr.setRequestHeader('Content-Type', 'application/json');
-    
+
     // Adicionar token de autenticação
     setSecurityHeaders(xhr);
-    
-    xhr.onload = function() {
+
+    xhr.onload = function () {
         if (xhr.status === 200) {
             mostrarToast('Sucesso', 'Usuário criado com sucesso!', 'success');
             document.getElementById('form-usuario').reset();
@@ -1809,7 +1814,7 @@ function criarUsuario(event) {
             mostrarAlert('Erro', 'Erro ao criar usuário');
         }
     };
-    
+
     xhr.send(JSON.stringify({ nome, email, tipo }));
 }
 
@@ -1818,21 +1823,21 @@ function editarUsuario(usuarioId) {
     // Buscar dados atuais do usuário
     const xhr = new XMLHttpRequest();
     xhr.open('GET', '/crpdesk/api/controllers/usuarios.php', true);
-    
+
     // Adicionar token de autenticação
     setSecurityHeaders(xhr);
-    
-    xhr.onload = function() {
+
+    xhr.onload = function () {
         if (xhr.status === 200) {
             const usuarios = JSON.parse(xhr.responseText);
             const usuario = usuarios.find(u => u.id === usuarioId);
-            
+
             if (usuario) {
                 mostrarFormularioEdicaoUsuario(usuario);
             }
         }
     };
-    
+
     xhr.send();
 }
 
@@ -1852,24 +1857,24 @@ function mostrarFormularioEdicaoUsuario(usuario) {
             </select>
         </div>
     `;
-    
+
     document.getElementById('modal-prompt-message').innerHTML = content;
     document.getElementById('modal-prompt-title').textContent = 'Editar Usuário';
     document.getElementById('modal-prompt-input').style.display = 'none';
-    
+
     document.getElementById('modal-overlay').classList.add('show');
     document.getElementById('modal-prompt').classList.add('show');
-    
-    modalCallback = function(confirmado) {
+
+    modalCallback = function (confirmado) {
         if (confirmado) {
             const nome = document.getElementById('edit-nome').value;
             const tipo = document.getElementById('edit-tipo').value;
-            
+
             if (nome && tipo) {
                 executarEdicaoUsuario(usuario.id, nome, usuario.email, tipo);
             }
         }
-        
+
         // Restaurar modal
         document.getElementById('modal-prompt-input').style.display = 'block';
         document.getElementById('modal-prompt-message').innerHTML = '';
@@ -1879,15 +1884,15 @@ function mostrarFormularioEdicaoUsuario(usuario) {
 // Executar edição de usuário
 function executarEdicaoUsuario(usuarioId, nome, email, tipo) {
     console.log('🔄 Editando Usuário:', { usuarioId, nome, email, tipo });
-    
+
     const xhr = new XMLHttpRequest();
     xhr.open('PUT', `/crpdesk/api/controllers/usuarios.php/${usuarioId}`, true);
     xhr.setRequestHeader('Content-Type', 'application/json');
-    
+
     // Adicionar token de autenticação
     setSecurityHeaders(xhr);
-    
-    xhr.onload = function() {
+
+    xhr.onload = function () {
         console.log('📞 Resposta edição Usuário:', xhr.status, xhr.responseText);
         if (xhr.status === 200) {
             carregarUsuarios();
@@ -1897,7 +1902,7 @@ function executarEdicaoUsuario(usuarioId, nome, email, tipo) {
             mostrarAlert('Erro', response.error || 'Erro ao atualizar usuário');
         }
     };
-    
+
     xhr.send(JSON.stringify({ nome, email, tipo }));
 }
 
@@ -1906,9 +1911,9 @@ function excluirUsuario(usuarioId) {
     mostrarConfirm(
         'Excluir Usuário',
         'Tem certeza que deseja excluir este usuário?',
-        function(confirmado) {
+        function (confirmado) {
             if (!confirmado) return;
-            
+
             executarExclusaoUsuario(usuarioId);
         }
     );
@@ -1918,11 +1923,11 @@ function excluirUsuario(usuarioId) {
 function executarExclusaoUsuario(usuarioId) {
     const xhr = new XMLHttpRequest();
     xhr.open('DELETE', `/crpdesk/api/controllers/usuarios.php?id=${usuarioId}`, true);
-    
+
     // Adicionar token de autenticação
     setSecurityHeaders(xhr);
-    
-    xhr.onload = function() {
+
+    xhr.onload = function () {
         if (xhr.status === 200) {
             mostrarToast('Sucesso', 'Usuário excluído com sucesso!', 'success');
             carregarUsuarios();
@@ -1931,7 +1936,7 @@ function executarExclusaoUsuario(usuarioId) {
             mostrarAlert('Erro', response.error);
         }
     };
-    
+
     xhr.send();
 }
 
@@ -1940,16 +1945,16 @@ function excluirTicket(ticketId) {
     mostrarConfirm(
         'Excluir Ticket',
         'Tem certeza que deseja excluir este ticket? Esta ação não pode ser desfeita.',
-        function(confirmado) {
+        function (confirmado) {
             if (!confirmado) return;
-            
+
             // Segunda confirmação com cabeçalho vermelho
             mostrarConfirm(
                 'Confirmação Final',
                 'ATENÇÃO: O ticket e todos os seus comentários serão excluídos permanentemente. Confirma?',
-                function(confirmadoFinal) {
+                function (confirmadoFinal) {
                     if (!confirmadoFinal) return;
-                    
+
                     executarExclusaoTicket(ticketId);
                 },
                 true // isPerigoso = true
@@ -1963,31 +1968,31 @@ function executarExclusaoTicket(ticketId, callback) {
     // Verificar se ticket está fechado antes de excluir
     const ticketAtual = JSON.parse(localStorage.getItem('ticketAtual') || '{}');
     const isTicketFechado = ticketAtual.status === 'encerrado' || ticketAtual.status === 'cancelado';
-    
+
     // Validar se ticket tem responsável
     if (!ticketAtual.agente_id) {
         mostrarAlert('Atenção', 'Este ticket não possui responsável. Atribua o ticket antes de excluí-lo.');
         return;
     }
-    
+
     // Validar se ticket tem categoria
     if (!ticketAtual.categoria_id) {
         mostrarAlert('Atenção', 'Este ticket não possui categoria. Defina uma categoria antes de excluí-lo.');
         return;
     }
-    
+
     const xhr = new XMLHttpRequest();
     xhr.open('DELETE', `/crpdesk/api/controllers/tickets.php?id=${ticketId}`, true);
-    
-    xhr.onload = function() {
+
+    xhr.onload = function () {
         if (xhr.status === 200) {
             const row = document.querySelector(`tr[data-ticket-id="${ticketId}"]`);
             if (row) {
                 row.classList.add('ticket-removendo');
             }
-            
+
             mostrarToast('Sucesso', 'Ticket removido com sucesso!', 'success');
-            
+
             // Aguardar um pouco e redirecionar
             setTimeout(() => {
                 if (callback) {
@@ -1996,7 +2001,7 @@ function executarExclusaoTicket(ticketId, callback) {
                     // Limpar dados e ir para lista apropriada
                     localStorage.removeItem('ticketAtivo');
                     localStorage.removeItem('ticketAtual');
-                    
+
                     if (isTicketFechado) {
                         mostrarTicketsFechados();
                     } else {
@@ -2009,11 +2014,11 @@ function executarExclusaoTicket(ticketId, callback) {
             mostrarAlert('Erro', response.error || 'Erro ao remover ticket');
         }
     };
-    
-    xhr.onerror = function() {
+
+    xhr.onerror = function () {
         mostrarAlert('Erro', 'Erro de conexão');
     };
-    
+
     xhr.send();
 }
 
@@ -2026,8 +2031,8 @@ function carregarCategorias() {
     console.log('📁 Carregando categorias...');
     const xhr = new XMLHttpRequest();
     xhr.open('GET', '/crpdesk/api/controllers/categorias.php', true);
-    
-    xhr.onload = function() {
+
+    xhr.onload = function () {
         if (xhr.status === 200) {
             todasCategorias = JSON.parse(xhr.responseText);
             console.log('📁 Categorias carregadas:', todasCategorias.length);
@@ -2036,11 +2041,11 @@ function carregarCategorias() {
             console.error('❌ Erro ao carregar categorias:', xhr.status);
         }
     };
-    
-    xhr.onerror = function() {
+
+    xhr.onerror = function () {
         console.error('❌ Erro de conexão ao carregar categorias');
     };
-    
+
     xhr.send();
 }
 
@@ -2048,22 +2053,22 @@ function carregarCategorias() {
 function configurarPesquisaCategoria() {
     const input = document.getElementById('categoria-busca');
     const lista = document.getElementById('categoria-lista-form');
-    
+
     if (!input || !lista) {
         console.log('⚠️ Elementos de categoria não encontrados');
         return;
     }
-    
+
     console.log('🔧 Configurando pesquisa de categoria...');
-    
+
     // Limpar eventos anteriores
     input.removeEventListener('click', mostrarListaCategorias);
     input.removeEventListener('focus', mostrarListaCategorias);
     input.removeEventListener('input', filtrarCategorias);
-    
+
     // Renderizar todas as categorias inicialmente (ocultas)
     renderizarCategoriasForm(todasCategorias);
-    
+
     // Função para mostrar lista
     function mostrarListaCategorias() {
         if (todasCategorias.length > 0) {
@@ -2071,38 +2076,38 @@ function configurarPesquisaCategoria() {
             lista.classList.add('show');
         }
     }
-    
+
     // Função para filtrar categorias
     function filtrarCategorias() {
         const termo = input.value.toLowerCase().trim();
         let categoriasFiltradas;
-        
+
         if (termo === '') {
             categoriasFiltradas = todasCategorias;
         } else {
-            categoriasFiltradas = todasCategorias.filter(cat => 
+            categoriasFiltradas = todasCategorias.filter(cat =>
                 cat.nome.toLowerCase().includes(termo)
             );
         }
-        
+
         renderizarCategoriasForm(categoriasFiltradas);
         lista.classList.add('show');
     }
-    
+
     // Mostrar lista ao clicar no campo
     input.addEventListener('click', mostrarListaCategorias);
-    
+
     // Mostrar lista ao focar no campo
     input.addEventListener('focus', mostrarListaCategorias);
-    
+
     // Filtrar ao digitar
     input.addEventListener('input', filtrarCategorias);
-    
+
     // Navegação por teclado
-    input.addEventListener('keydown', function(e) {
+    input.addEventListener('keydown', function (e) {
         const itens = lista.querySelectorAll('.categoria-item-form');
         let itemAtivo = lista.querySelector('.categoria-item-form.selected');
-        
+
         if (e.key === 'ArrowDown') {
             e.preventDefault();
             if (!itemAtivo) {
@@ -2147,14 +2152,14 @@ function configurarPesquisaCategoria() {
             input.blur();
         }
     });
-    
+
     // Ocultar lista ao clicar fora
-    document.addEventListener('click', function(e) {
+    document.addEventListener('click', function (e) {
         if (!e.target.closest('.categoria-container')) {
             lista.classList.remove('show');
         }
     });
-    
+
     console.log('✅ Pesquisa de categoria configurada com sucesso!');
 }
 
@@ -2162,9 +2167,9 @@ function configurarPesquisaCategoria() {
 function renderizarCategoriasForm(categorias) {
     const lista = document.getElementById('categoria-lista-form');
     if (!lista) return;
-    
+
     lista.innerHTML = '';
-    
+
     if (categorias.length === 0) {
         const item = document.createElement('div');
         item.className = 'categoria-item-form';
@@ -2175,14 +2180,14 @@ function renderizarCategoriasForm(categorias) {
         lista.appendChild(item);
         return;
     }
-    
+
     categorias.forEach((categoria, index) => {
         const item = document.createElement('div');
         item.className = 'categoria-item-form';
         item.textContent = categoria.nome;
         item.setAttribute('data-categoria-id', categoria.id);
-        
-        item.onclick = function() {
+
+        item.onclick = function () {
             // Remover seleção anterior
             document.querySelectorAll('.categoria-item-form').forEach(i => i.classList.remove('selected'));
             // Selecionar atual
@@ -2192,16 +2197,16 @@ function renderizarCategoriasForm(categorias) {
             document.getElementById('categoria-id').value = categoria.id;
             // Ocultar lista
             document.getElementById('categoria-lista-form').classList.remove('show');
-            
+
             console.log('📁 Categoria selecionada:', categoria.nome, 'ID:', categoria.id);
         };
-        
+
         // Adicionar hover para navegação por teclado
-        item.addEventListener('mouseenter', function() {
+        item.addEventListener('mouseenter', function () {
             document.querySelectorAll('.categoria-item-form').forEach(i => i.classList.remove('selected'));
             item.classList.add('selected');
         });
-        
+
         lista.appendChild(item);
     });
 }
@@ -2210,29 +2215,29 @@ function renderizarCategoriasForm(categorias) {
 function mostrarCategoriasDropdown(categorias) {
     const dropdown = document.getElementById('categoria-lista');
     if (!dropdown) return;
-    
+
     dropdown.innerHTML = '';
-    
+
     if (categorias.length === 0) {
         dropdown.innerHTML = '<div class="categoria-item">Nenhuma categoria encontrada</div>';
         dropdown.classList.add('show');
         return;
     }
-    
+
     categorias.forEach(categoria => {
         const item = document.createElement('div');
         item.className = 'categoria-item';
         item.textContent = categoria.nome;
-        
-        item.onclick = function() {
+
+        item.onclick = function () {
             document.getElementById('categoria').value = categoria.nome;
             document.getElementById('categoria-id').value = categoria.id;
             dropdown.classList.remove('show');
         };
-        
+
         dropdown.appendChild(item);
     });
-    
+
     dropdown.classList.add('show');
 }
 
@@ -2241,10 +2246,10 @@ function mostrarCategorias() {
     // Ativar botão
     document.querySelectorAll('.btn-config').forEach(btn => btn.classList.remove('active'));
     document.getElementById('btn-categorias').classList.add('active');
-    
+
     // Salvar subseção
     localStorage.setItem('subSecaoAtiva', 'categorias');
-    
+
     const content = document.getElementById('config-content');
     content.style.animation = 'none';
     setTimeout(() => {
@@ -2258,40 +2263,40 @@ function carregarMacrocategorias() {
     console.log('🔌 Carregando macrocategorias...');
     const xhr = new XMLHttpRequest();
     xhr.open('GET', '/crpdesk/api/controllers/macrocategorias.php', true);
-    
-    xhr.onload = function() {
+
+    xhr.onload = function () {
         console.log('📡 Status:', xhr.status);
         console.log('📡 Resposta:', xhr.responseText);
-        
+
         if (xhr.status === 200) {
             const macrocategorias = JSON.parse(xhr.responseText);
             console.log('📁 Macrocategorias:', macrocategorias);
-            
+
             const select = document.getElementById('macrocategoria-categoria');
             console.log('🔍 Select encontrado:', !!select);
-            
+
             if (select) {
                 // Limpar opções existentes (exceto a primeira)
                 select.innerHTML = '<option value="">Selecione uma macrocategoria</option>';
-                
+
                 macrocategorias.forEach(macro => {
                     const option = document.createElement('option');
                     option.value = macro.id;
                     option.textContent = macro.nome;
                     select.appendChild(option);
                 });
-                
+
                 console.log('✅ Macrocategorias carregadas no select');
             }
         } else {
             console.error('❌ Erro ao carregar macrocategorias:', xhr.status, xhr.responseText);
         }
     };
-    
-    xhr.onerror = function() {
+
+    xhr.onerror = function () {
         console.error('❌ Erro de conexão ao carregar macrocategorias');
     };
-    
+
     xhr.send();
 }
 
@@ -2299,44 +2304,44 @@ function carregarMacrocategorias() {
 function carregarListaCategorias() {
     const xhr = new XMLHttpRequest();
     xhr.open('GET', '/crpdesk/api/controllers/categorias.php', true);
-    
-    xhr.onload = function() {
+
+    xhr.onload = function () {
         if (xhr.status === 200) {
             const categorias = JSON.parse(xhr.responseText);
-            
+
             // Carregar macrocategorias para exibição
             const xhr2 = new XMLHttpRequest();
             xhr2.open('GET', '/crpdesk/api/controllers/macrocategorias.php', true);
-            
-            xhr2.onload = function() {
+
+            xhr2.onload = function () {
                 if (xhr2.status === 200) {
                     const macrocategorias = JSON.parse(xhr2.responseText);
                     mostrarListaCategorias(categorias, macrocategorias);
                 }
             };
-            
+
             xhr2.send();
         } else {
             document.getElementById('config-content').innerHTML = '<p>Erro ao carregar categorias.</p>';
         }
     };
-    
+
     xhr.send();
 }
 
 // Mostrar lista de categorias
 function mostrarListaCategorias(categorias, macrocategorias) {
     const content = document.getElementById('config-content');
-    
+
     // Agrupar categorias por macrocategoria
     const categoriasPorMacro = {};
     const macroMap = {};
-    
+
     macrocategorias.forEach(macro => {
         macroMap[macro.id] = macro.nome;
         categoriasPorMacro[macro.nome] = [];
     });
-    
+
     categorias.forEach(categoria => {
         const macroNome = macroMap[categoria.macrocategoria_id] || 'Sem Macrocategoria';
         if (!categoriasPorMacro[macroNome]) {
@@ -2344,14 +2349,14 @@ function mostrarListaCategorias(categorias, macrocategorias) {
         }
         categoriasPorMacro[macroNome].push(categoria);
     });
-    
+
     let categoriasHtml = '';
-    
+
     Object.keys(categoriasPorMacro).forEach(macroNome => {
         const cats = categoriasPorMacro[macroNome];
         if (cats.length > 0) {
             categoriasHtml += `<h3>📁 ${macroNome} (${cats.length})</h3><div class="usuarios-grid">`;
-            
+
             cats.forEach(categoria => {
                 categoriasHtml += `
                     <div class="usuario-card">
@@ -2366,11 +2371,11 @@ function mostrarListaCategorias(categorias, macrocategorias) {
                     </div>
                 `;
             });
-            
+
             categoriasHtml += '</div>';
         }
     });
-    
+
     content.innerHTML = `
         <button onclick="toggleFormCategoria()" class="btn-primary" style="margin-bottom: 1rem;">
             ➕ Adicionar Nova Categoria
@@ -2398,7 +2403,7 @@ function mostrarListaCategorias(categorias, macrocategorias) {
         
         ${categoriasHtml}
     `;
-    
+
     // Carregar macrocategorias após renderizar o HTML
     setTimeout(() => carregarMacrocategorias(), 100);
 }
@@ -2406,39 +2411,39 @@ function mostrarListaCategorias(categorias, macrocategorias) {
 // Criar nova categoria
 function criarCategoria(event) {
     event.preventDefault();
-    
+
     const nomeOriginal = document.getElementById('nome-categoria').value.trim();
     const nome = formatarNomeCategoria(nomeOriginal);
     const macrocategoria_id = document.getElementById('macrocategoria-categoria').value;
-    
+
     if (!macrocategoria_id) {
         mostrarAlert('Erro', 'Selecione uma macrocategoria!');
         return;
     }
-    
+
     // Verificar se categoria já existe
     const xhr1 = new XMLHttpRequest();
     xhr1.open('GET', '/crpdesk/api/controllers/categorias.php', true);
-    
-    xhr1.onload = function() {
+
+    xhr1.onload = function () {
         if (xhr1.status === 200) {
             const categorias = JSON.parse(xhr1.responseText);
             const categoriaExiste = categorias.some(cat => cat.nome.toLowerCase() === nome.toLowerCase());
-            
+
             if (categoriaExiste) {
                 mostrarAlert('Erro', 'Esta categoria já existe!');
                 return;
             }
-            
+
             // Criar categoria
             const xhr2 = new XMLHttpRequest();
             xhr2.open('POST', '/crpdesk/api/controllers/categorias.php', true);
             xhr2.setRequestHeader('Content-Type', 'application/json');
-            
+
             // Adicionar token de autenticação
             setSecurityHeaders(xhr2);
-            
-            xhr2.onload = function() {
+
+            xhr2.onload = function () {
                 if (xhr2.status === 200) {
                     document.getElementById('form-categoria').reset();
                     carregarListaCategorias();
@@ -2447,18 +2452,18 @@ function criarCategoria(event) {
                     mostrarAlert('Erro', 'Erro ao criar categoria');
                 }
             };
-            
+
             xhr2.send(JSON.stringify({ nome, macrocategoria_id }));
         }
     };
-    
+
     xhr1.send();
 }
 
 // Formatar nome da categoria
 function formatarNomeCategoria(nome) {
     const abreviaturas = ['SEI', 'BRC', 'VPN', 'TI', 'RH', 'CEO', 'CTO', 'CFO', 'CPF', 'CNPJ', 'PDF', 'XML', 'HTML', 'CSS', 'JS', 'SQL', 'API', 'URL', 'HTTP', 'HTTPS', 'FTP', 'SSH', 'DNS', 'IP', 'TCP', 'UDP', 'USB', 'HD', 'SSD', 'RAM', 'CPU', 'GPU', 'RFID', 'NFC', 'QR'];
-    
+
     // Preservar palavras entre asteriscos
     const palavrasPreservadas = [];
     let nomeProcessado = nome.replace(/\*([^*]+)\*/g, (match, palavra) => {
@@ -2466,45 +2471,45 @@ function formatarNomeCategoria(nome) {
         palavrasPreservadas.push(palavra);
         return placeholder;
     });
-    
+
     // Formatar o resto normalmente
     nomeProcessado = nomeProcessado.split(' ').map(palavra => {
         // Se é um placeholder, pular formatação
         if (palavra.includes('__PRESERVAR_')) {
             return palavra;
         }
-        
+
         const palavraUpper = palavra.toUpperCase();
         if (abreviaturas.includes(palavraUpper)) {
             return palavraUpper;
         }
         return palavra.charAt(0).toUpperCase() + palavra.slice(1).toLowerCase();
     }).join(' ');
-    
+
     // Restaurar palavras preservadas
     palavrasPreservadas.forEach((palavra, index) => {
         nomeProcessado = nomeProcessado.replace(`__PRESERVAR_${index}__`, palavra);
     });
-    
+
     return nomeProcessado;
 }
 
 // Editar categoria
 function editarCategoria(categoriaId) {
     console.log('✏️ Editando categoria ID:', categoriaId);
-    
+
     // Buscar dados atuais da categoria
     const xhr = new XMLHttpRequest();
     xhr.open('GET', '/crpdesk/api/controllers/categorias.php', true);
-    
-    xhr.onload = function() {
+
+    xhr.onload = function () {
         console.log('📡 Categorias carregadas para edição:', xhr.status);
         if (xhr.status === 200) {
             const categorias = JSON.parse(xhr.responseText);
             const categoria = categorias.find(c => c.id === categoriaId);
-            
+
             console.log('🔍 Categoria encontrada:', categoria);
-            
+
             if (categoria) {
                 mostrarFormularioEdicaoCategoria(categoria);
             } else {
@@ -2512,31 +2517,31 @@ function editarCategoria(categoriaId) {
             }
         }
     };
-    
+
     xhr.send();
 }
 
 // Mostrar formulário de edição de categoria
 function mostrarFormularioEdicaoCategoria(categoria) {
     console.log('📝 Criando modal para categoria:', categoria);
-    
+
     // Carregar macrocategorias
     const xhr = new XMLHttpRequest();
     xhr.open('GET', '/crpdesk/api/controllers/macrocategorias.php', true);
-    
-    xhr.onload = function() {
+
+    xhr.onload = function () {
         console.log('📡 Macrocategorias para modal:', xhr.status);
         if (xhr.status === 200) {
             const macrocategorias = JSON.parse(xhr.responseText);
             console.log('📁 Macrocategorias recebidas:', macrocategorias.length);
-            
+
             let opcoesHtml = '<option value="">Selecione uma macrocategoria</option>';
             macrocategorias.forEach(macro => {
                 const selected = macro.id === categoria.macrocategoria_id ? 'selected' : '';
                 opcoesHtml += `<option value="${macro.id}" ${selected}>${macro.nome}</option>`;
                 console.log(`🔘 Opção: ${macro.nome} (ID: ${macro.id}) - Selected: ${selected}`);
             });
-            
+
             const content = `
                 <div class="form-group">
                     <label for="edit-nome-cat">Nome:</label>
@@ -2552,25 +2557,25 @@ function mostrarFormularioEdicaoCategoria(categoria) {
                     </select>
                 </div>
             `;
-            
+
             document.getElementById('modal-prompt-message').innerHTML = content;
             document.getElementById('modal-prompt-title').textContent = 'Editar Categoria';
             document.getElementById('modal-prompt-input').style.display = 'none';
-            
+
             document.getElementById('modal-overlay').classList.add('show');
             document.getElementById('modal-prompt').classList.add('show');
-            
+
             console.log('🔓 Modal aberto, aguardando confirmação...');
-            
-            modalCallback = function(confirmado) {
+
+            modalCallback = function (confirmado) {
                 console.log('🔘 Modal callback:', confirmado);
-                
+
                 if (confirmado === true) {
                     const nome = document.getElementById('edit-nome-cat').value;
                     const macrocategoriaId = document.getElementById('edit-macro-cat').value;
-                    
+
                     console.log('📝 Valores do modal:', { nome, macrocategoriaId });
-                    
+
                     if (nome && macrocategoriaId) {
                         executarEdicaoCategoria(categoria.id, nome.trim(), macrocategoriaId);
                     } else {
@@ -2578,28 +2583,28 @@ function mostrarFormularioEdicaoCategoria(categoria) {
                         mostrarAlert('Erro', 'Preencha todos os campos obrigatórios');
                     }
                 }
-                
+
                 // Restaurar modal
                 document.getElementById('modal-prompt-input').style.display = 'block';
                 document.getElementById('modal-prompt-message').innerHTML = '';
             };
         }
     };
-    
+
     xhr.send();
 }
 
 // Executar edição de categoria
 function executarEdicaoCategoria(categoriaId, nomeOriginal, macrocategoriaId) {
     const nome = formatarNomeCategoria(nomeOriginal);
-    
+
     console.log('🔄 Enviando edição:', { categoriaId, nome, macrocategoriaId });
-    
+
     const xhr = new XMLHttpRequest();
     xhr.open('PUT', `/crpdesk/api/controllers/categorias.php/${categoriaId}`, true);
     xhr.setRequestHeader('Content-Type', 'application/json');
-    
-    xhr.onload = function() {
+
+    xhr.onload = function () {
         console.log('📞 Resposta do servidor:', xhr.status, xhr.responseText);
         if (xhr.status === 200) {
             console.log('🔄 Atualizando listas...');
@@ -2611,12 +2616,12 @@ function executarEdicaoCategoria(categoriaId, nomeOriginal, macrocategoriaId) {
             mostrarAlert('Erro', response.error || 'Erro ao atualizar categoria');
         }
     };
-    
-    xhr.onerror = function() {
+
+    xhr.onerror = function () {
         console.error('❌ Erro de conexão');
         mostrarAlert('Erro', 'Erro de conexão');
     };
-    
+
     xhr.send(JSON.stringify({ nome, macrocategoria_id: macrocategoriaId }));
 }
 
@@ -2625,9 +2630,9 @@ function excluirCategoria(categoriaId) {
     mostrarConfirm(
         'Excluir Categoria',
         'Tem certeza que deseja excluir esta categoria?',
-        function(confirmado) {
+        function (confirmado) {
             if (!confirmado) return;
-            
+
             executarExclusaoCategoria(categoriaId);
         }
     );
@@ -2637,8 +2642,8 @@ function excluirCategoria(categoriaId) {
 function executarExclusaoCategoria(categoriaId) {
     const xhr = new XMLHttpRequest();
     xhr.open('DELETE', `/crpdesk/api/controllers/categorias.php/${categoriaId}`, true);
-    
-    xhr.onload = function() {
+
+    xhr.onload = function () {
         if (xhr.status === 200) {
             mostrarToast('Sucesso', 'Categoria excluída com sucesso!', 'success');
             carregarListaCategorias();
@@ -2649,69 +2654,69 @@ function executarExclusaoCategoria(categoriaId) {
             mostrarAlert('Erro', response.error);
         }
     };
-    
+
     xhr.send();
 }
 
 // Função para limpar formulário de ticket completamente
 function limparFormularioTicket() {
     console.log('🧹 Limpando formulário de ticket...');
-    
+
     // Reset geral do formulário primeiro
     document.getElementById('form-ticket').reset();
-    
+
     // Limpar campos específicos
     document.getElementById('titulo').value = '';
     document.getElementById('descricao').value = '';
-    
+
     // Limpar campo de categoria
     const categoriaBusca = document.getElementById('categoria-busca');
     if (categoriaBusca) {
         categoriaBusca.value = '';
     }
-    
+
     const categoriaId = document.getElementById('categoria-id');
     if (categoriaId) {
         categoriaId.value = '';
     }
-    
+
     // Ocultar lista de categorias
     const categoriaLista = document.getElementById('categoria-lista-form');
     if (categoriaLista) {
         categoriaLista.classList.remove('show');
     }
-    
+
     // Resetar select de prioridade para Normal
     const prioridadeSelect = document.getElementById('prioridade');
     if (prioridadeSelect) {
         prioridadeSelect.value = 'normal';
     }
-    
+
     // Limpar anexos completamente
     const anexosInput = document.getElementById('anexos');
     if (anexosInput) {
         anexosInput.value = '';
     }
     anexosSelecionados = [];
-    
+
     const anexosInfo = document.getElementById('anexos-info');
     if (anexosInfo) {
         anexosInfo.innerHTML = '';
     }
-    
+
     const anexosErro = document.getElementById('anexos-erro');
     if (anexosErro) {
         anexosErro.innerHTML = '';
     }
-    
+
     // Remover seleção de categoria
     document.querySelectorAll('.categoria-item-form').forEach(i => i.classList.remove('selected'));
-    
+
     // Recarregar todas as categorias
     if (todasCategorias.length > 0) {
         renderizarCategoriasForm(todasCategorias);
     }
-    
+
     console.log('✅ Formulário limpo com sucesso!');
 }
 
@@ -2719,8 +2724,8 @@ function limparFormularioTicket() {
 function carregarTicketsFechados() {
     const xhr = new XMLHttpRequest();
     xhr.open('GET', '/crpdesk/api/controllers/tickets.php', true);
-    
-    xhr.onload = function() {
+
+    xhr.onload = function () {
         if (xhr.status === 200) {
             const todosTickets = JSON.parse(xhr.responseText);
             const ticketsFechados = todosTickets.filter(ticket => ticket.status === 'encerrado' || ticket.status === 'cancelado');
@@ -2730,19 +2735,19 @@ function carregarTicketsFechados() {
             document.getElementById('lista-fechados').innerHTML = '<p>Erro ao carregar tickets fechados.</p>';
         }
     };
-    
+
     xhr.send();
 }
 
 // Mostrar tickets fechados na tela
 function mostrarTicketsFechadosNaTela(tickets) {
     const listaFechados = document.getElementById('lista-fechados');
-    
+
     if (tickets.length === 0) {
         listaFechados.innerHTML = '<p>Nenhum ticket fechado encontrado.</p>';
         return;
     }
-    
+
     let tabelaHTML = `
         <table class="tickets-tabela">
             <thead>
@@ -2760,12 +2765,12 @@ function mostrarTicketsFechadosNaTela(tickets) {
             </thead>
             <tbody>
     `;
-    
+
     const usuarioLogado = JSON.parse(localStorage.getItem('usuario'));
-    
+
     tickets.forEach(ticket => {
         const isMeuTicket = ticket.agente_id && ticket.agente_id == usuarioLogado.id;
-        
+
         tabelaHTML += `
             <tr data-ticket-id="${ticket.id}" class="${isMeuTicket ? 'meu-ticket-row' : ''}" ${modoMergeFechadosAtivo ? 'style="cursor: pointer;"' : ''}>
                 <td>
@@ -2789,18 +2794,18 @@ function mostrarTicketsFechadosNaTela(tickets) {
             </tr>
         `;
     });
-    
+
     tabelaHTML += `
             </tbody>
         </table>
     `;
-    
+
     listaFechados.innerHTML = tabelaHTML;
-    
+
     // Adicionar event listeners para modo merge
     if (modoMergeFechadosAtivo) {
         document.querySelectorAll('#lista-fechados tr[data-ticket-id]').forEach(row => {
-            row.addEventListener('click', function(e) {
+            row.addEventListener('click', function (e) {
                 const ticketId = parseInt(this.getAttribute('data-ticket-id'));
                 selecionarTicketFechadoParaMerge(ticketId, this);
             });
@@ -2826,17 +2831,17 @@ function reabrirTicket(ticketId) {
     mostrarConfirm(
         'Reabrir Ticket',
         'Tem certeza que deseja reabrir este ticket?',
-        function(confirmado) {
+        function (confirmado) {
             if (!confirmado) return;
-            
+
             const row = document.querySelector(`tr[data-ticket-id="${ticketId}"]`);
             if (row) {
                 row.classList.add('ticket-removendo');
             }
-            
+
             // Usar status 'reaberto' ao reabrir um ticket encerrado
             setTimeout(() => {
-                executarAlteracaoStatus(ticketId, 'reaberto', function() {
+                executarAlteracaoStatus(ticketId, 'reaberto', function () {
                     carregarTicketsFechados(); // Recarregar lista de fechados
                 });
             }, 500);
@@ -2849,10 +2854,10 @@ function removerTicketFechado(ticketId) {
     mostrarConfirm(
         'Remover Ticket',
         'Tem certeza que deseja remover este ticket fechado? Esta ação não pode ser desfeita.',
-        function(confirmado) {
+        function (confirmado) {
             if (!confirmado) return;
-            
-            executarExclusaoTicket(ticketId, function() {
+
+            executarExclusaoTicket(ticketId, function () {
                 carregarTicketsFechados(); // Recarregar lista de fechados
             });
         },
@@ -2871,7 +2876,7 @@ function voltarParaOrigem() {
     // Limpar ticket ativo
     localStorage.removeItem('ticketAtivo');
     localStorage.removeItem('secaoOrigem');
-    
+
     if (secaoOrigem === 'fechados') {
         mostrarTicketsFechados();
     } else {
@@ -2891,19 +2896,19 @@ function carregarDashboard() {
     const xhrInit = new XMLHttpRequest();
     xhrInit.open('POST', '/crpdesk/api/controllers/init-tempo.php', true);
     xhrInit.setRequestHeader('Content-Type', 'application/json');
-    
-    xhrInit.onload = function() {
+
+    xhrInit.onload = function () {
         // Inicializar histórico
         const xhrHist = new XMLHttpRequest();
         xhrHist.open('POST', '/crpdesk/api/controllers/init-historico.php', true);
         xhrHist.setRequestHeader('Content-Type', 'application/json');
-        
-        xhrHist.onload = function() {
+
+        xhrHist.onload = function () {
             // Depois carregar dashboard
             const xhr = new XMLHttpRequest();
             xhr.open('GET', '/crpdesk/api/controllers/dashboard.php', true);
-            
-            xhr.onload = function() {
+
+            xhr.onload = function () {
                 if (xhr.status === 200) {
                     const dados = JSON.parse(xhr.responseText);
                     mostrarDashboardNaTela(dados);
@@ -2911,29 +2916,29 @@ function carregarDashboard() {
                     document.getElementById('dashboard-content').innerHTML = '<p>Erro ao carregar dashboard.</p>';
                 }
             };
-            
+
             xhr.send();
         };
-        
+
         xhrHist.send('{}');
     };
-    
+
     xhrInit.send('{}');
 }
 
 // Mostrar dashboard na tela
 function mostrarDashboardNaTela(dados) {
     const content = document.getElementById('dashboard-content');
-    
+
     function formatarTempo(segundos) {
         if (!segundos) return 'N/A';
         const horas = Math.floor(segundos / 3600);
         const minutos = Math.floor((segundos % 3600) / 60);
         return `${horas}h ${minutos}m`;
     }
-    
+
     const taxaConclusao = dados.sla_indicadores?.taxa_conclusao || 0;
-    
+
     let html = `
         <div class="dashboard-grid">
             <div class="dashboard-card">
@@ -3003,27 +3008,27 @@ function mostrarDashboardNaTela(dados) {
             <div class="dashboard-card">
                 <h3>👥 Top 5 Solicitantes</h3>
                 <div class="dashboard-list">`;
-    
+
     (dados.top_solicitantes || []).forEach((item, index) => {
         html += `<div class="dashboard-item dashboard-item-animate" data-delay="${index * 0.1}"><span>${item.nome}</span><span>${item.total}</span></div>`;
     });
-    
+
     html += `</div></div><div class="dashboard-card"><h3>🏆 Top 5 Categorias</h3><div class="dashboard-list">`;
-    
+
     (dados.top_categorias || []).forEach((item, index) => {
         html += `<div class="dashboard-item dashboard-item-animate" data-delay="${index * 0.1}"><span>${item.nome || 'Sem categoria'}</span><span>${item.total}</span></div>`;
     });
-    
+
     html += `</div></div><div class="dashboard-card"><h3>📁 Tickets por Macrocategoria</h3><div class="dashboard-list">`;
-    
+
     (dados.ticketsPorMacrocategoria || []).forEach((item, index) => {
         html += `<div class="dashboard-item dashboard-item-animate" data-delay="${index * 0.1}"><span>${item.nome || 'Sem macrocategoria'}</span><span>${item.quantidade}</span></div>`;
     });
-    
+
     html += `</div></div></div>`;
-    
+
     content.innerHTML = html;
-    
+
     setTimeout(() => {
         criarGraficoStatus(dados);
         criarGraficoPrioridade(dados);
@@ -3033,7 +3038,7 @@ function mostrarDashboardNaTela(dados) {
         criarGraficoDiaSemana(dados);
         criarGraficoStatusAgente(dados);
         criarGraficoFunil(dados);
-        
+
         // Animar itens do dashboard quando visíveis
         setTimeout(() => {
             const observer = new IntersectionObserver((entries) => {
@@ -3047,18 +3052,18 @@ function mostrarDashboardNaTela(dados) {
                     }
                 });
             });
-            
+
             document.querySelectorAll('.dashboard-item-animate').forEach(item => {
                 observer.observe(item);
             });
-            
+
             // Animar contadores
             document.querySelectorAll('.count-up').forEach(counter => {
                 const target = parseInt(counter.getAttribute('data-target'));
                 const duration = 2000;
                 const increment = target / (duration / 16);
                 let current = 0;
-                
+
                 const updateCounter = () => {
                     current += increment;
                     if (current < target) {
@@ -3097,35 +3102,35 @@ function ordenarTabela(campo) {
         ordemAtual.campo = campo;
         ordemAtual.direcao = 'asc';
     }
-    
+
     // Ordenar tickets
     const ticketsOrdenados = [...ticketsAtuais].sort((a, b) => {
         let valorA = a[campo] || '';
         let valorB = b[campo] || '';
-        
+
         // Tratamento especial para datas
         if (campo === 'criado_em') {
             valorA = new Date(valorA);
             valorB = new Date(valorB);
         }
-        
+
         // Tratamento especial para números
         if (campo === 'id') {
             valorA = parseInt(valorA);
             valorB = parseInt(valorB);
         }
-        
+
         // Comparar valores
         if (valorA < valorB) return ordemAtual.direcao === 'asc' ? -1 : 1;
         if (valorA > valorB) return ordemAtual.direcao === 'asc' ? 1 : -1;
         return 0;
     });
-    
+
     // Atualizar setas nos cabeçalhos
     document.querySelectorAll('.sort-arrows').forEach(arrow => {
         arrow.textContent = '↕'; // Seta dupla
     });
-    
+
     // Mostrar seta da coluna ativa
     const colunas = {
         'id': 0,
@@ -3137,7 +3142,7 @@ function ordenarTabela(campo) {
         'status': 6,
         'prioridade': 7
     };
-    
+
     const indiceColuna = colunas[campo];
     if (indiceColuna !== undefined) {
         const seta = document.querySelectorAll('.sort-arrows')[indiceColuna];
@@ -3145,7 +3150,7 @@ function ordenarTabela(campo) {
             seta.textContent = ordemAtual.direcao === 'asc' ? '↑' : '↓';
         }
     }
-    
+
     // Armazenar tickets ordenados e mostrar
     ticketsAtuais = ticketsOrdenados;
     mostrarTicketsNaTela(ticketsOrdenados);
@@ -3160,30 +3165,30 @@ function ordenarTabelaFechados(campo) {
         ordemFechados.campo = campo;
         ordemFechados.direcao = 'asc';
     }
-    
+
     // Ordenar tickets fechados
     const ticketsOrdenados = [...ticketsFechadosAtuais].sort((a, b) => {
         let valorA = a[campo] || '';
         let valorB = b[campo] || '';
-        
+
         // Tratamento especial para datas
         if (campo === 'criado_em' || campo === 'fechado_em') {
             valorA = new Date(valorA);
             valorB = new Date(valorB);
         }
-        
+
         // Tratamento especial para números
         if (campo === 'id') {
             valorA = parseInt(valorA);
             valorB = parseInt(valorB);
         }
-        
+
         // Comparar valores
         if (valorA < valorB) return ordemFechados.direcao === 'asc' ? -1 : 1;
         if (valorA > valorB) return ordemFechados.direcao === 'asc' ? 1 : -1;
         return 0;
     });
-    
+
     // Mostrar tickets ordenados
     mostrarTicketsFechadosNaTela(ticketsOrdenados);
 }
@@ -3192,7 +3197,7 @@ function ordenarTabelaFechados(campo) {
 function obterIconePrioridade(prioridade) {
     const icones = {
         'baixa': '⬇️',
-        'normal': '➡️', 
+        'normal': '➡️',
         'alta': '⬆️',
         'urgente': '🔥'
     };
@@ -3205,12 +3210,12 @@ function restaurarSecaoAtiva() {
     const subSecaoSalva = localStorage.getItem('subSecaoAtiva');
     const secaoOrigemSalva = localStorage.getItem('secaoOrigem');
     const ticketAtivo = localStorage.getItem('ticketAtivo');
-    
+
     // Restaurar seção de origem se houver
     if (secaoOrigemSalva) {
         secaoOrigem = secaoOrigemSalva;
     }
-    
+
     if (secaoSalva === 'detalhes' && ticketAtivo) {
         // Restaurar detalhes do ticket
         verDetalhes(parseInt(ticketAtivo));
@@ -3276,13 +3281,13 @@ function mostrarAlterarSenha() {
     document.querySelectorAll('.secao').forEach(secao => {
         secao.classList.remove('active');
     });
-    
+
     document.querySelectorAll('.btn-nav').forEach(btn => {
         btn.classList.remove('active');
     });
-    
+
     document.getElementById('alterar-senha-secao').classList.add('active');
-    
+
     setTimeout(() => {
         verificarComplexidade();
     }, 100);
@@ -3309,7 +3314,7 @@ function carregarFiltrosRelatorio() {
     // Carregar categorias
     const xhr1 = new XMLHttpRequest();
     xhr1.open('GET', '/crpdesk/api/controllers/categorias.php', true);
-    xhr1.onload = function() {
+    xhr1.onload = function () {
         if (xhr1.status === 200) {
             const categorias = JSON.parse(xhr1.responseText);
             const select = document.getElementById('filtro-categoria');
@@ -3322,11 +3327,11 @@ function carregarFiltrosRelatorio() {
         }
     };
     xhr1.send();
-    
+
     // Carregar agentes
     const xhr2 = new XMLHttpRequest();
     xhr2.open('GET', '/crpdesk/api/controllers/agentes.php', true);
-    xhr2.onload = function() {
+    xhr2.onload = function () {
         if (xhr2.status === 200) {
             const agentes = JSON.parse(xhr2.responseText);
             const select = document.getElementById('filtro-agente');
@@ -3342,12 +3347,12 @@ function carregarFiltrosRelatorio() {
 }
 
 // Controlar exibição de datas personalizadas
-document.addEventListener('DOMContentLoaded', function() {
+document.addEventListener('DOMContentLoaded', function () {
     const filtroPeriodo = document.getElementById('filtro-periodo');
     const datasPersonalizadas = document.getElementById('datas-personalizadas');
-    
+
     if (filtroPeriodo) {
-        filtroPeriodo.addEventListener('change', function() {
+        filtroPeriodo.addEventListener('change', function () {
             if (this.value === 'personalizado') {
                 datasPersonalizadas.style.display = 'block';
             } else {
@@ -3364,9 +3369,9 @@ function gerarRelatorio() {
     const prioridade = document.getElementById('filtro-prioridade').value;
     const categoria = document.getElementById('filtro-categoria').value;
     const agente = document.getElementById('filtro-agente').value;
-    
+
     let dataInicio, dataFim;
-    
+
     // Calcular datas baseado no período
     const hoje = new Date();
     switch (periodo) {
@@ -3393,7 +3398,7 @@ function gerarRelatorio() {
             dataFim = document.getElementById('data-fim').value;
             break;
     }
-    
+
     const params = new URLSearchParams({
         dataInicio,
         dataFim,
@@ -3402,10 +3407,10 @@ function gerarRelatorio() {
         categoria,
         agente
     });
-    
+
     const xhr = new XMLHttpRequest();
     xhr.open('GET', `/crpdesk/api/controllers/relatorios.php?${params}`, true);
-    xhr.onload = function() {
+    xhr.onload = function () {
         if (xhr.status === 200) {
             const dados = JSON.parse(xhr.responseText);
             exibirRelatorio(dados);
@@ -3420,14 +3425,14 @@ function gerarRelatorio() {
 function exibirRelatorio(dados) {
     dadosRelatorioAtual = dados;
     const container = document.getElementById('relatorio-resultado');
-    
+
     function formatarTempo(segundos) {
         if (!segundos) return 'N/A';
         const horas = Math.floor(segundos / 3600);
         const minutos = Math.floor((segundos % 3600) / 60);
         return `${horas}h ${minutos}m`;
     }
-    
+
     let html = `
         <div class="relatorio-resumo">
             <div class="resumo-card">
@@ -3465,18 +3470,18 @@ function exibirRelatorio(dados) {
                 </thead>
                 <tbody>
     `;
-    
+
     dados.tickets.forEach(ticket => {
         const dataAbertura = new Date(ticket.criado_em);
         const dataAberturaFormatada = dataAbertura.toLocaleDateString('pt-BR');
         const horaAberturaFormatada = dataAbertura.toLocaleTimeString('pt-BR');
-        
+
         let dataFechamento = '-';
         if (ticket.fechado_em) {
             const dataFech = new Date(ticket.fechado_em);
             dataFechamento = dataFech.toLocaleDateString('pt-BR') + '<br>' + dataFech.toLocaleTimeString('pt-BR');
         }
-        
+
         html += `
             <tr>
                 <td>
@@ -3494,13 +3499,13 @@ function exibirRelatorio(dados) {
             </tr>
         `;
     });
-    
+
     html += `
                 </tbody>
             </table>
         </div>
     `;
-    
+
     container.innerHTML = html;
 }
 
@@ -3512,7 +3517,7 @@ function exportarRelatorio(formato) {
         mostrarAlert('Erro', 'Gere um relatório antes de exportar.');
         return;
     }
-    
+
     if (formato === 'excel') {
         exportarExcel();
     } else if (formato === 'pdf') {
@@ -3524,12 +3529,12 @@ function exportarExcel() {
     const dados = dadosRelatorioAtual;
     let csv = '\uFEFF'; // BOM UTF-8
     csv += 'Nº Ticket;Data Abertura;Hora Abertura;Assunto;Solicitante;Responsável;Categoria;Status;Prioridade;Data Fechamento;Hora Fechamento\n';
-    
+
     dados.tickets.forEach(ticket => {
         const dataAbertura = new Date(ticket.criado_em);
         const dataAberturaFormatada = dataAbertura.toLocaleDateString('pt-BR');
         const horaAberturaFormatada = dataAbertura.toLocaleTimeString('pt-BR');
-        
+
         let dataFechamento = '-';
         let horaFechamento = '-';
         if (ticket.fechado_em) {
@@ -3537,7 +3542,7 @@ function exportarExcel() {
             dataFechamento = dataFech.toLocaleDateString('pt-BR');
             horaFechamento = dataFech.toLocaleTimeString('pt-BR');
         }
-        
+
         const numero = String(ticket.id).padStart(5, '0');
         const titulo = ticket.titulo.replace(/;/g, ',');
         const solicitante = (ticket.usuario_nome || 'N/A').replace(/;/g, ',');
@@ -3545,22 +3550,22 @@ function exportarExcel() {
         const categoria = (ticket.categoria_nome || 'Sem categoria').replace(/;/g, ',');
         const status = ticket.status.charAt(0).toUpperCase() + ticket.status.slice(1);
         const prioridade = ticket.prioridade.charAt(0).toUpperCase() + ticket.prioridade.slice(1);
-        
+
         csv += `#${numero};${dataAberturaFormatada};${horaAberturaFormatada};${titulo};${solicitante};${responsavel};${categoria};${status};${prioridade};${dataFechamento};${horaFechamento}\n`;
     });
-    
+
     const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
     const link = document.createElement('a');
     link.href = URL.createObjectURL(blob);
     link.download = `relatorio_tickets_${new Date().toISOString().split('T')[0]}.csv`;
     link.click();
-    
+
     mostrarToast('Sucesso', 'Relatório exportado para Excel!', 'success');
 }
 
 function exportarPDF() {
     const dados = dadosRelatorioAtual;
-    
+
     const printWindow = window.open('', '', 'width=800,height=600');
     printWindow.document.write(`
         <html>
@@ -3611,18 +3616,18 @@ function exportarPDF() {
                 </thead>
                 <tbody>
     `);
-    
+
     dados.tickets.forEach(ticket => {
         const dataAbertura = new Date(ticket.criado_em);
         const dataAberturaFormatada = dataAbertura.toLocaleDateString('pt-BR');
         const horaAberturaFormatada = dataAbertura.toLocaleTimeString('pt-BR');
-        
+
         let dataFechamento = '-';
         if (ticket.fechado_em) {
             const dataFech = new Date(ticket.fechado_em);
             dataFechamento = dataFech.toLocaleDateString('pt-BR') + '<br>' + dataFech.toLocaleTimeString('pt-BR');
         }
-        
+
         const numero = String(ticket.id).padStart(5, '0');
         printWindow.document.write(`
             <tr>
@@ -3638,19 +3643,19 @@ function exportarPDF() {
             </tr>
         `);
     });
-    
+
     printWindow.document.write(`
                 </tbody>
             </table>
         </body>
         </html>
     `);
-    
+
     printWindow.document.close();
     setTimeout(() => {
         printWindow.print();
     }, 250);
-    
+
     mostrarToast('Sucesso', 'Relatório preparado para impressão/PDF!', 'success');
 }
 
@@ -3658,9 +3663,9 @@ function exportarPDF() {
 function verificarComplexidade() {
     const senha = document.getElementById('nova-senha').value;
     const btnAlterar = document.getElementById('btn-alterar');
-    
+
     if (!senha || !btnAlterar) return;
-    
+
     const checks = {
         tamanho: senha.length >= 10,
         maiuscula: /[A-Z]/.test(senha),
@@ -3668,14 +3673,14 @@ function verificarComplexidade() {
         numero: /[0-9]/.test(senha),
         especial: /[!@#$%^&*(),.?":{}|<>]/.test(senha)
     };
-    
+
     // Atualizar indicadores visuais
     document.getElementById('check-tamanho').innerHTML = checks.tamanho ? '✅ Mínimo 10 caracteres' : '❌ Mínimo 10 caracteres';
     document.getElementById('check-maiuscula').innerHTML = checks.maiuscula ? '✅ 1 letra maiúscula' : '❌ 1 letra maiúscula';
     document.getElementById('check-minuscula').innerHTML = checks.minuscula ? '✅ 1 letra minúscula' : '❌ 1 letra minúscula';
     document.getElementById('check-numero').innerHTML = checks.numero ? '✅ 1 número' : '❌ 1 número';
     document.getElementById('check-especial').innerHTML = checks.especial ? '✅ 1 caractere especial' : '❌ 1 caractere especial';
-    
+
     // Habilitar botão se todos os critérios forem atendidos
     const todasValidas = Object.values(checks).every(check => check);
     btnAlterar.disabled = !todasValidas;
@@ -3684,23 +3689,23 @@ function verificarComplexidade() {
 // Alterar senha
 function alterarSenha(event) {
     event.preventDefault();
-    
+
     const senhaAtual = document.getElementById('senha-atual').value;
     const novaSenha = document.getElementById('nova-senha').value;
     const confirmarSenha = document.getElementById('confirmar-senha').value;
-    
+
     if (novaSenha !== confirmarSenha) {
         mostrarAlert('Erro', 'As senhas não coincidem.');
         return;
     }
-    
+
     const usuario = JSON.parse(localStorage.getItem('usuario'));
-    
+
     const xhr = new XMLHttpRequest();
     xhr.open('POST', '/crpdesk/api/controllers/alterar-senha.php', true);
     xhr.setRequestHeader('Content-Type', 'application/json');
-    
-    xhr.onload = function() {
+
+    xhr.onload = function () {
         if (xhr.status === 200) {
             mostrarToast('Sucesso', 'Senha alterada com sucesso!', 'success');
             document.getElementById('form-alterar-senha').reset();
@@ -3713,20 +3718,20 @@ function alterarSenha(event) {
             mostrarAlert('Erro', response.error || 'Erro ao alterar senha');
         }
     };
-    
-    xhr.onerror = function() {
+
+    xhr.onerror = function () {
         mostrarAlert('Erro', 'Erro de conexão');
     };
-    
-    xhr.send(JSON.stringify({ 
+
+    xhr.send(JSON.stringify({
         usuario_id: usuario.id,
-        senha_atual: senhaAtual, 
-        nova_senha: novaSenha 
+        senha_atual: senhaAtual,
+        nova_senha: novaSenha
     }));
 }
 
 // Fechar modal ao clicar fora
-window.onclick = function(event) {
+window.onclick = function (event) {
     const modal = document.getElementById('visualizador-anexo');
     if (event.target === modal) {
         fecharVisualizador();
@@ -3734,7 +3739,7 @@ window.onclick = function(event) {
 }
 
 // Atalhos de teclado
-document.addEventListener('keydown', function(e) {
+document.addEventListener('keydown', function (e) {
     // Ignorar atalhos se estiver digitando em input/textarea
     if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') {
         // Permitir apenas ESC em campos de texto
@@ -3744,7 +3749,7 @@ document.addEventListener('keydown', function(e) {
         }
         return;
     }
-    
+
     // Alt+N = Novo ticket
     if (e.altKey && e.key === 'n') {
         e.preventDefault();
@@ -3778,7 +3783,7 @@ document.addEventListener('keydown', function(e) {
 });
 
 // Inicializar aplicação
-document.addEventListener('DOMContentLoaded', function() {
+document.addEventListener('DOMContentLoaded', function () {
     // Verificar se há usuário logado e token válido
     const usuario = localStorage.getItem('usuario');
     const token = localStorage.getItem('token');
@@ -3787,14 +3792,14 @@ document.addEventListener('DOMContentLoaded', function() {
         window.location.href = './login.html';
         return;
     }
-    
+
     // Configurar informações do usuário
     const dadosUsuario = JSON.parse(usuario);
     const nomeUsuarioEl = document.getElementById('nome-usuario');
     if (nomeUsuarioEl) {
         nomeUsuarioEl.textContent = dadosUsuario.nome;
     }
-    
+
     // Mostrar/ocultar seções baseado no tipo de usuário
     if (dadosUsuario.tipo === 'admin') {
         const menuConfig = document.getElementById('menu-config');
@@ -3802,15 +3807,15 @@ document.addEventListener('DOMContentLoaded', function() {
             menuConfig.style.display = 'block';
         }
     }
-    
+
     // Inicializar sistema de SLA
     if (typeof inicializarSistemaSLA === 'function') {
         inicializarSistemaSLA();
     }
-    
+
     // Verificar se é primeiro acesso após login
     const primeiroAcesso = sessionStorage.getItem('primeiroAcesso');
-    
+
     if (!primeiroAcesso) {
         // Primeiro acesso - forçar lista de tickets
         sessionStorage.setItem('primeiroAcesso', 'false');
@@ -3822,17 +3827,17 @@ document.addEventListener('DOMContentLoaded', function() {
     } else {
         // Acesso normal - restaurar seção salva
         const secaoSalva = localStorage.getItem('secaoAtiva');
-        
+
         if (secaoSalva && secaoSalva !== 'tickets') {
             restaurarSecaoAtiva();
         } else {
             carregarTickets();
         }
     }
-    
+
     // Carregar categorias por último
     carregarCategorias();
-    
+
     // Atualizar lista de tickets a cada 1 minuto
     setInterval(() => {
         const secaoAtiva = document.querySelector('.secao.active');
@@ -3844,20 +3849,20 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         }
     }, 60000); // 60 segundos
-    
+
     // Configurar busca avançada
     configurarBuscaAvancada();
     configurarBuscaFechados();
-    
 
-    
+
+
     // Mostrar dica de atalhos
     mostrarDicaAtalhos();
-    
+
     // Mostrar dicas apenas no segundo login (após completar tutorial)
     const naoMostrar = localStorage.getItem('naoMostrarDicas') === 'true';
     const jaViuTutorial = localStorage.getItem('tutorialCompleto') === 'true';
-    
+
     if (!naoMostrar && jaViuTutorial && dadosUsuario && (dadosUsuario.tipo === 'agente' || dadosUsuario.tipo === 'admin')) {
         setTimeout(() => {
             mostrarDicas();
@@ -3869,10 +3874,10 @@ document.addEventListener('DOMContentLoaded', function() {
 // Merge para tickets fechados
 function toggleModoMergeFechados() {
     modoMergeFechadosAtivo = !modoMergeFechadosAtivo;
-    
+
     const btn = document.getElementById('btn-merge-fechados');
     const info = document.getElementById('merge-info-fechados');
-    
+
     if (modoMergeFechadosAtivo) {
         btn.textContent = '❌ Cancelar Merge';
         btn.classList.add('active');
@@ -3887,16 +3892,16 @@ function toggleModoMergeFechados() {
 function cancelarMergeFechados() {
     modoMergeFechadosAtivo = false;
     ticketsFechadosSelecionados = [];
-    
+
     const btn = document.getElementById('btn-merge-fechados');
     const info = document.getElementById('merge-info-fechados');
     const btnExecute = document.getElementById('btn-merge-execute-fechados');
-    
+
     btn.textContent = '🔗 Mesclar Tickets';
     btn.classList.remove('active');
     info.style.display = 'none';
     btnExecute.disabled = true;
-    
+
     document.querySelectorAll('#lista-fechados .ticket-selecionado, #lista-fechados .ticket-principal').forEach(row => {
         row.classList.remove('ticket-selecionado', 'ticket-principal');
     });
@@ -3904,9 +3909,9 @@ function cancelarMergeFechados() {
 
 function selecionarTicketFechadoParaMerge(ticketId, elemento) {
     if (!modoMergeFechadosAtivo) return;
-    
+
     const index = ticketsFechadosSelecionados.indexOf(ticketId);
-    
+
     if (index > -1) {
         ticketsFechadosSelecionados.splice(index, 1);
         elemento.classList.remove('ticket-selecionado', 'ticket-principal');
@@ -3918,10 +3923,10 @@ function selecionarTicketFechadoParaMerge(ticketId, elemento) {
             elemento.classList.add('ticket-selecionado');
         }
     }
-    
+
     const btnExecute = document.getElementById('btn-merge-execute-fechados');
     btnExecute.disabled = ticketsFechadosSelecionados.length < 2;
-    
+
     atualizarClassesMergeFechados();
 }
 
@@ -3929,7 +3934,7 @@ function atualizarClassesMergeFechados() {
     document.querySelectorAll('#lista-fechados .ticket-selecionado, #lista-fechados .ticket-principal').forEach(row => {
         row.classList.remove('ticket-selecionado', 'ticket-principal');
     });
-    
+
     ticketsFechadosSelecionados.forEach((ticketId, index) => {
         const row = document.querySelector(`#lista-fechados tr[data-ticket-id="${ticketId}"]`);
         if (row) {
@@ -3947,23 +3952,23 @@ function executarMergeFechados() {
         mostrarAlert('Erro', 'Selecione pelo menos 2 tickets para mesclar.');
         return;
     }
-    
+
     const ticketPrincipal = ticketsFechadosSelecionados[0];
     const ticketsSecundarios = ticketsFechadosSelecionados.slice(1);
-    
+
     mostrarConfirm(
         'Confirmar Merge',
         `Mesclar ${ticketsSecundarios.length} ticket(s) fechado(s) no ticket principal #${String(ticketPrincipal).padStart(5, '0')}?\n\n⚠️ ATENÇÃO: Esta ação não pode ser desfeita!`,
-        function(confirmado) {
+        function (confirmado) {
             if (!confirmado) return;
-            
+
             mostrarLoader();
-            
+
             const xhr = new XMLHttpRequest();
             xhr.open('POST', '/crpdesk/api/controllers/merge.php', true);
             xhr.setRequestHeader('Content-Type', 'application/json');
-            
-            xhr.onload = function() {
+
+            xhr.onload = function () {
                 ocultarLoader();
                 if (xhr.status === 200) {
                     let response;
@@ -3979,7 +3984,7 @@ function executarMergeFechados() {
                     mostrarAlert('Erro', 'Erro ao mesclar tickets fechados');
                 }
             };
-            
+
             xhr.send(JSON.stringify({
                 ticket_principal: ticketPrincipal,
                 tickets_secundarios: ticketsSecundarios
@@ -3992,8 +3997,8 @@ function executarMergeFechados() {
 function configurarBuscaAvancada() {
     const inputBusca = document.getElementById('busca-tickets');
     if (!inputBusca) return;
-    
-    inputBusca.addEventListener('input', function() {
+
+    inputBusca.addEventListener('input', function () {
         const termo = this.value.toLowerCase().trim();
         filtrarTickets(termo);
     });
@@ -4004,13 +4009,13 @@ function filtrarTickets(termo) {
         mostrarTicketsNaTela(ticketsAtuais);
         return;
     }
-    
-    const ticketsFiltrados = ticketsAtuais.filter(ticket => 
+
+    const ticketsFiltrados = ticketsAtuais.filter(ticket =>
         ticket.titulo.toLowerCase().includes(termo) ||
         ticket.descricao.toLowerCase().includes(termo) ||
         ticket.usuario_nome.toLowerCase().includes(termo)
     );
-    
+
     mostrarTicketsNaTela(ticketsFiltrados);
 }
 
@@ -4024,8 +4029,8 @@ function limparBusca() {
 function configurarBuscaFechados() {
     const inputBusca = document.getElementById('busca-fechados');
     if (!inputBusca) return;
-    
-    inputBusca.addEventListener('input', function() {
+
+    inputBusca.addEventListener('input', function () {
         const termo = this.value.toLowerCase().trim();
         filtrarTicketsFechados(termo);
     });
@@ -4036,13 +4041,13 @@ function filtrarTicketsFechados(termo) {
         mostrarTicketsFechadosNaTela(ticketsFechadosAtuais);
         return;
     }
-    
-    const ticketsFiltrados = ticketsFechadosAtuais.filter(ticket => 
+
+    const ticketsFiltrados = ticketsFechadosAtuais.filter(ticket =>
         ticket.titulo.toLowerCase().includes(termo) ||
         ticket.descricao.toLowerCase().includes(termo) ||
         ticket.usuario_nome.toLowerCase().includes(termo)
     );
-    
+
     mostrarTicketsFechadosNaTela(ticketsFiltrados);
 }
 
@@ -4057,20 +4062,20 @@ function limparBuscaFechados() {
 function toggleModoEscuro() {
     document.body.classList.toggle('modo-escuro');
     const isDark = document.body.classList.contains('modo-escuro');
-    
+
     localStorage.setItem('modoEscuro', isDark);
-    
+
     const btn = document.getElementById('btn-modo-escuro');
     if (btn) {
         btn.textContent = isDark ? '☀️' : '🌙';
         btn.title = isDark ? 'Modo claro' : 'Modo escuro';
     }
-    
+
     const label = document.getElementById('label-modo-escuro');
     if (label) {
         label.textContent = isDark ? 'Desativar Modo Escuro' : 'Ativar Modo Escuro';
     }
-    
+
     const icone = document.getElementById('icone-modo-escuro');
     const texto = document.getElementById('texto-modo-escuro');
     if (icone && texto) {
@@ -4097,7 +4102,7 @@ function getCorLabel() {
 function criarGraficoStatus(dados) {
     const canvas = document.getElementById('grafico-status');
     if (!canvas) return;
-    
+
     const ctx = canvas.getContext('2d');
     const coresStatus = {
         'novo': '#f79226',
@@ -4113,7 +4118,7 @@ function criarGraficoStatus(dados) {
         'cancelado': '#dc3545',
         'reaberto': '#e83e8c'
     };
-    
+
     const labelsStatus = {
         'novo': 'Novo',
         'aberto': 'Aberto',
@@ -4128,31 +4133,31 @@ function criarGraficoStatus(dados) {
         'cancelado': 'Cancelado',
         'reaberto': 'Reaberto'
     };
-    
+
     const statusOrdenados = Object.keys(dados.por_status || {});
     const valores = statusOrdenados.map(s => dados.por_status[s]);
     const labels = statusOrdenados.map(s => labelsStatus[s] || s);
     const cores = statusOrdenados.map(s => coresStatus[s] || '#6c757d');
-    
+
     const maxValor = Math.max(...valores) || 1;
     const alturaBarra = 30;
     const espacamento = 10;
     const margemEsquerda = 180;
     const alturaTotal = valores.length * (alturaBarra + espacamento) - espacamento;
     const offsetY = (canvas.height - alturaTotal) / 2;
-    
+
     ctx.clearRect(0, 0, canvas.width, canvas.height);
-    
+
     valores.forEach((valor, i) => {
         const larguraFinal = (valor / maxValor) * (canvas.width - margemEsquerda - 60);
         const y = offsetY + i * (alturaBarra + espacamento);
-        
+
         // Label à esquerda
         ctx.fillStyle = getCorLabel();
         ctx.font = '13px Arial';
         ctx.textAlign = 'right';
-        ctx.fillText(labels[i], margemEsquerda - 10, y + alturaBarra/2 + 5);
-        
+        ctx.fillText(labels[i], margemEsquerda - 10, y + alturaBarra / 2 + 5);
+
         // Animar barra
         let larguraAtual = 0;
         const animacao = setInterval(() => {
@@ -4164,12 +4169,12 @@ function criarGraficoStatus(dados) {
             }
             ctx.fillStyle = cores[i];
             ctx.fillRect(margemEsquerda, y, larguraAtual, alturaBarra);
-            
+
             // Valor à direita da barra
             ctx.fillStyle = getCorLabel();
             ctx.font = 'bold 13px Arial';
             ctx.textAlign = 'left';
-            ctx.fillText(valor, margemEsquerda + larguraAtual + 5, y + alturaBarra/2 + 5);
+            ctx.fillText(valor, margemEsquerda + larguraAtual + 5, y + alturaBarra / 2 + 5);
         }, 20);
     });
 }
@@ -4177,7 +4182,7 @@ function criarGraficoStatus(dados) {
 function criarGraficoPrioridade(dados) {
     const canvas = document.getElementById('grafico-prioridade');
     if (!canvas) return;
-    
+
     const ctx = canvas.getContext('2d');
     const cores = {
         'baixa': '#6c757d',
@@ -4185,30 +4190,30 @@ function criarGraficoPrioridade(dados) {
         'alta': '#f79226',
         'urgente': '#a8231e'
     };
-    
+
     const prioridades = ['urgente', 'alta', 'normal', 'baixa'];
     const valores = prioridades.map(p => dados.por_prioridade?.[p] || 0);
     const labels = ['Urgente', 'Alta', 'Normal', 'Baixa'];
-    
+
     const maxValor = Math.max(...valores) || 1;
     const alturaBarra = 30;
     const espacamento = 15;
     const margemEsquerda = 100;
     const alturaTotal = valores.length * (alturaBarra + espacamento) - espacamento;
     const offsetY = (canvas.height - alturaTotal) / 2;
-    
+
     ctx.clearRect(0, 0, canvas.width, canvas.height);
-    
+
     valores.forEach((valor, i) => {
         const larguraFinal = (valor / maxValor) * (canvas.width - margemEsquerda - 60);
         const y = offsetY + i * (alturaBarra + espacamento);
-        
+
         // Label à esquerda
         ctx.fillStyle = getCorLabel();
         ctx.font = '14px Arial';
         ctx.textAlign = 'right';
-        ctx.fillText(labels[i], margemEsquerda - 10, y + alturaBarra/2 + 5);
-        
+        ctx.fillText(labels[i], margemEsquerda - 10, y + alturaBarra / 2 + 5);
+
         // Animar barra
         let larguraAtual = 0;
         const animacao = setInterval(() => {
@@ -4220,12 +4225,12 @@ function criarGraficoPrioridade(dados) {
             }
             ctx.fillStyle = cores[prioridades[i]];
             ctx.fillRect(margemEsquerda, y, larguraAtual, alturaBarra);
-            
+
             // Valor à direita da barra
             ctx.fillStyle = getCorLabel();
             ctx.font = 'bold 14px Arial';
             ctx.textAlign = 'left';
-            ctx.fillText(valor, margemEsquerda + larguraAtual + 5, y + alturaBarra/2 + 5);
+            ctx.fillText(valor, margemEsquerda + larguraAtual + 5, y + alturaBarra / 2 + 5);
         }, 20);
     });
 }
@@ -4233,22 +4238,22 @@ function criarGraficoPrioridade(dados) {
 function criarGraficoMensal(dados) {
     const canvas = document.getElementById('grafico-mensal');
     if (!canvas) return;
-    
+
     const observer = new IntersectionObserver((entries) => {
         entries.forEach(entry => {
             if (entry.isIntersecting) {
                 const ctx = canvas.getContext('2d');
                 const meses = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
                 const valores = meses.map((_, i) => dados.por_mes?.[i + 1] || 0);
-                
+
                 const maxValor = Math.max(...valores) || 1;
                 const margemEsquerda = 30;
                 const margemDireita = 30;
                 const larguraUtil = canvas.width - margemEsquerda - margemDireita;
                 const stepX = larguraUtil / (valores.length - 1);
-                
+
                 ctx.clearRect(0, 0, canvas.width, canvas.height);
-                
+
                 // Labels dos meses
                 valores.forEach((valor, i) => {
                     const x = margemEsquerda + i * stepX;
@@ -4257,7 +4262,7 @@ function criarGraficoMensal(dados) {
                     ctx.textAlign = 'center';
                     ctx.fillText(meses[i], x, canvas.height - 5);
                 });
-                
+
                 // Animar linha
                 let progress = 0;
                 const animacao = setInterval(() => {
@@ -4266,40 +4271,40 @@ function criarGraficoMensal(dados) {
                         progress = 1;
                         clearInterval(animacao);
                     }
-                    
+
                     ctx.clearRect(0, 0, canvas.width, canvas.height - 30);
-                    
+
                     const pontosVisiveis = Math.floor(valores.length * progress);
-                    
+
                     // Desenhar linha
                     ctx.strokeStyle = '#4B79A1';
                     ctx.lineWidth = 3;
                     ctx.beginPath();
-                    
+
                     valores.forEach((valor, i) => {
                         if (i <= pontosVisiveis) {
                             const x = margemEsquerda + i * stepX;
                             const y = canvas.height - 40 - (valor / maxValor) * (canvas.height - 60);
-                            
+
                             if (i === 0) ctx.moveTo(x, y);
                             else ctx.lineTo(x, y);
                         }
                     });
                     ctx.stroke();
-                    
+
                     // Desenhar pontos
                     valores.forEach((valor, i) => {
                         if (i <= pontosVisiveis) {
                             const x = margemEsquerda + i * stepX;
                             const y = canvas.height - 40 - (valor / maxValor) * (canvas.height - 60);
-                            
+
                             ctx.fillStyle = '#4B79A1';
                             ctx.beginPath();
                             ctx.arc(x, y, 4, 0, Math.PI * 2);
                             ctx.fill();
                         }
                     });
-                    
+
                     // Redesenhar labels
                     valores.forEach((valor, i) => {
                         const x = margemEsquerda + i * stepX;
@@ -4309,7 +4314,7 @@ function criarGraficoMensal(dados) {
                         ctx.fillText(meses[i], x, canvas.height - 5);
                     });
                 }, 20);
-                
+
                 observer.unobserve(canvas);
             }
         });
@@ -4325,10 +4330,10 @@ let ticketsFechadosSelecionados = [];
 
 function toggleModoMerge() {
     modoMergeAtivo = !modoMergeAtivo;
-    
+
     const btn = document.getElementById('btn-merge');
     const info = document.getElementById('merge-info');
-    
+
     if (modoMergeAtivo) {
         btn.textContent = '❌ Cancelar Merge';
         btn.classList.add('active');
@@ -4344,16 +4349,16 @@ function toggleModoMerge() {
 function cancelarMerge() {
     modoMergeAtivo = false;
     ticketsSelecionados = [];
-    
+
     const btn = document.getElementById('btn-merge');
     const info = document.getElementById('merge-info');
     const btnExecute = document.getElementById('btn-merge-execute');
-    
+
     btn.textContent = '🔗 Mesclar Tickets';
     btn.classList.remove('active');
     info.style.display = 'none';
     btnExecute.disabled = true;
-    
+
     // Remover seleções visuais
     document.querySelectorAll('.ticket-selecionado, .ticket-principal').forEach(row => {
         row.classList.remove('ticket-selecionado', 'ticket-principal');
@@ -4362,9 +4367,9 @@ function cancelarMerge() {
 
 function selecionarTicketParaMerge(ticketId, elemento) {
     if (!modoMergeAtivo) return;
-    
+
     const index = ticketsSelecionados.indexOf(ticketId);
-    
+
     if (index > -1) {
         // Desselecionar
         ticketsSelecionados.splice(index, 1);
@@ -4378,11 +4383,11 @@ function selecionarTicketParaMerge(ticketId, elemento) {
             elemento.classList.add('ticket-selecionado');
         }
     }
-    
+
     // Atualizar botão executar
     const btnExecute = document.getElementById('btn-merge-execute');
     btnExecute.disabled = ticketsSelecionados.length < 2;
-    
+
     // Atualizar classes visuais
     atualizarClassesMerge();
 }
@@ -4391,7 +4396,7 @@ function atualizarClassesMerge() {
     document.querySelectorAll('.ticket-selecionado, .ticket-principal').forEach(row => {
         row.classList.remove('ticket-selecionado', 'ticket-principal');
     });
-    
+
     ticketsSelecionados.forEach((ticketId, index) => {
         const row = document.querySelector(`tr[data-ticket-id="${ticketId}"]`);
         if (row) {
@@ -4409,24 +4414,24 @@ function executarMerge() {
         mostrarAlert('Erro', 'Selecione pelo menos 2 tickets para mesclar.');
         return;
     }
-    
+
     const ticketPrincipal = ticketsSelecionados[0];
     const ticketsSecundarios = ticketsSelecionados.slice(1);
-    
+
     mostrarConfirm(
         'Confirmar Merge',
         `Mesclar ${ticketsSecundarios.length} ticket(s) no ticket principal #${String(ticketPrincipal).padStart(5, '0')}?\n\nOs tickets secundários serão encerrados e seus comentários/anexos serão transferidos.\n\n⚠️ ATENÇÃO: Esta ação não pode ser desfeita!`,
-        function(confirmado) {
+        function (confirmado) {
             if (!confirmado) return;
-            
+
             // Executar merge real
             mostrarLoader();
-            
+
             const xhr = new XMLHttpRequest();
             xhr.open('POST', '/crpdesk/api/controllers/merge.php', true);
             xhr.setRequestHeader('Content-Type', 'application/json');
-            
-            xhr.onload = function() {
+
+            xhr.onload = function () {
                 ocultarLoader();
                 if (xhr.status === 200) {
                     let response;
@@ -4438,7 +4443,7 @@ function executarMerge() {
                         return;
                     }
                     mostrarToast('Sucesso', `${response.tickets_mesclados} ticket(s) mesclado(s) com sucesso!`, 'success');
-                    
+
                     // Animar remoção dos tickets fechados
                     ticketsSecundarios.forEach((ticketId, index) => {
                         const row = document.querySelector(`tr[data-ticket-id="${ticketId}"]`);
@@ -4456,7 +4461,7 @@ function executarMerge() {
                             }, index * 150);
                         }
                     });
-                    
+
                     cancelarMerge();
                 } else {
                     let error;
@@ -4468,12 +4473,12 @@ function executarMerge() {
                     }
                 }
             };
-            
-            xhr.onerror = function() {
+
+            xhr.onerror = function () {
                 ocultarLoader();
                 mostrarAlert('Erro', 'Erro de conexão ao mesclar tickets');
             };
-            
+
             xhr.send(JSON.stringify({
                 ticket_principal: ticketPrincipal,
                 tickets_secundarios: ticketsSecundarios
@@ -4492,7 +4497,7 @@ function mostrarSLA() {
     document.querySelectorAll('.btn-ajuda').forEach(btn => btn.classList.remove('active'));
     document.getElementById('btn-sla').classList.add('active');
     localStorage.setItem('subSecaoAtiva', 'sla');
-    
+
     const content = document.getElementById('ajuda-content');
     content.style.animation = 'none';
     setTimeout(() => {
@@ -4598,33 +4603,33 @@ function carregarHorariosDinamicos() {
     const xhr1 = new XMLHttpRequest();
     xhr1.open('GET', '/crpdesk/api/controllers/horarios-sla.php', true);
     setSecurityHeaders(xhr1);
-    
-    xhr1.onload = function() {
+
+    xhr1.onload = function () {
         if (xhr1.status === 200) {
             const horarios = JSON.parse(xhr1.responseText);
-            
+
             const xhr2 = new XMLHttpRequest();
             xhr2.open('GET', '/crpdesk/api/controllers/horarios-sla.php?feriados=1', true);
             setSecurityHeaders(xhr2);
-            
-            xhr2.onload = function() {
+
+            xhr2.onload = function () {
                 if (xhr2.status === 200) {
                     const feriados = JSON.parse(xhr2.responseText);
                     mostrarHorariosDinamicos(horarios, feriados);
                 }
             };
-            
+
             xhr2.send();
         }
     };
-    
+
     xhr1.send();
 }
 
 function mostrarHorariosDinamicos(horarios, feriados) {
     const container = document.getElementById('horarios-dinamicos');
     if (!container) return;
-    
+
     const diasSemana = {
         1: 'Domingo',
         2: 'Segunda-feira',
@@ -4634,9 +4639,9 @@ function mostrarHorariosDinamicos(horarios, feriados) {
         6: 'Sexta-feira',
         7: 'Sábado'
     };
-    
+
     let html = '<ul>';
-    
+
     for (let dia = 1; dia <= 7; dia++) {
         const horario = horarios.find(h => h.dia_semana == dia);
         if (horario && horario.ativo == 1) {
@@ -4647,11 +4652,11 @@ function mostrarHorariosDinamicos(horarios, feriados) {
             html += `<li><strong>${diasSemana[dia]}:</strong> Sem atendimento</li>`;
         }
     }
-    
+
     if (feriados.length > 0) {
         html += '<li style="margin-top: 0.5rem;"><strong>Feriados cadastrados:</strong> ' + feriados.length + ' feriado(s)</li>';
     }
-    
+
     html += '</ul>';
     container.innerHTML = html;
 }
@@ -4660,7 +4665,7 @@ function mostrarStatusGuia() {
     document.querySelectorAll('.btn-ajuda').forEach(btn => btn.classList.remove('active'));
     document.getElementById('btn-status').classList.add('active');
     localStorage.setItem('subSecaoAtiva', 'status');
-    
+
     const content = document.getElementById('ajuda-content');
     content.style.animation = 'none';
     setTimeout(() => {
@@ -4759,7 +4764,7 @@ function mostrarPrioridadeGuia() {
     document.querySelectorAll('.btn-ajuda').forEach(btn => btn.classList.remove('active'));
     document.getElementById('btn-prioridade').classList.add('active');
     localStorage.setItem('subSecaoAtiva', 'prioridade');
-    
+
     const content = document.getElementById('ajuda-content');
     content.style.animation = 'none';
     setTimeout(() => {
@@ -4820,7 +4825,7 @@ function mostrarAtalhosGuia() {
     document.querySelectorAll('.btn-ajuda').forEach(btn => btn.classList.remove('active'));
     document.getElementById('btn-atalhos').classList.add('active');
     localStorage.setItem('subSecaoAtiva', 'atalhos');
-    
+
     const content = document.getElementById('ajuda-content');
     content.style.animation = 'none';
     setTimeout(() => {
@@ -4873,7 +4878,7 @@ function mostrarDicaAtalhos() {
     dica.className = 'atalhos-info';
     dica.innerHTML = 'Alt+N: Novo | Alt+T: Tickets | Alt+D: Dashboard | Alt+F: Fechados';
     document.body.appendChild(dica);
-    
+
     setTimeout(() => dica.classList.add('show'), 1000);
     setTimeout(() => dica.classList.remove('show'), 5000);
 }
@@ -4899,7 +4904,7 @@ function cancelarNovoTicket() {
 function mostrarDicas() {
     document.getElementById('modal-overlay').classList.add('show');
     document.getElementById('modal-dicas').classList.add('show');
-    
+
     // Verificar se deve mostrar checkbox
     const checkbox = document.getElementById('nao-mostrar-dicas');
     const naoMostrar = localStorage.getItem('naoMostrarDicas') === 'true';
@@ -4922,7 +4927,7 @@ function toggleDicasIniciais() {
 function verificarPrimeiraVisita() {
     const naoMostrar = localStorage.getItem('naoMostrarDicas') === 'true';
     const jaVisitou = localStorage.getItem('jaVisitou') === 'true';
-    
+
     if (!naoMostrar && !jaVisitou) {
         setTimeout(() => {
             mostrarDicas();
@@ -4937,15 +4942,15 @@ function desativarUsuario(usuarioId) {
     mostrarConfirm(
         'Desativar Usuário',
         'Tem certeza que deseja desativar este usuário? Ele não aparecerá mais na lista de atribuição.',
-        function(confirmado) {
+        function (confirmado) {
             if (!confirmado) return;
-            
+
             const xhr = new XMLHttpRequest();
             xhr.open('PUT', `/crpdesk/api/controllers/usuarios.php/${usuarioId}`, true);
             xhr.setRequestHeader('Content-Type', 'application/json');
             setSecurityHeaders(xhr);
-            
-            xhr.onload = function() {
+
+            xhr.onload = function () {
                 if (xhr.status === 200) {
                     mostrarToast('Sucesso', 'Usuário desativado com sucesso!', 'success');
                     carregarUsuarios();
@@ -4953,7 +4958,7 @@ function desativarUsuario(usuarioId) {
                     mostrarAlert('Erro', 'Erro ao desativar usuário');
                 }
             };
-            
+
             xhr.send(JSON.stringify({ ativo: false }));
         }
     );
@@ -4965,8 +4970,8 @@ function ativarUsuario(usuarioId) {
     xhr.open('PUT', `/crpdesk/api/controllers/usuarios.php/${usuarioId}`, true);
     xhr.setRequestHeader('Content-Type', 'application/json');
     setSecurityHeaders(xhr);
-    
-    xhr.onload = function() {
+
+    xhr.onload = function () {
         if (xhr.status === 200) {
             mostrarToast('Sucesso', 'Usuário ativado com sucesso!', 'success');
             carregarUsuarios();
@@ -4974,7 +4979,7 @@ function ativarUsuario(usuarioId) {
             mostrarAlert('Erro', 'Erro ao ativar usuário');
         }
     };
-    
+
     xhr.send(JSON.stringify({ ativo: true }));
 }
 
@@ -4983,7 +4988,7 @@ function ativarUsuario(usuarioId) {
 function validarAntesComentario(ticketId) {
     const ticketAtual = JSON.parse(localStorage.getItem('ticketAtual') || '{}');
     const usuario = JSON.parse(localStorage.getItem('usuario'));
-    
+
     // Se for agente ou admin
     if (usuario.tipo === 'agente' || usuario.tipo === 'admin') {
         // Verificar se ticket tem responsável
@@ -4991,33 +4996,33 @@ function validarAntesComentario(ticketId) {
             mostrarAlert('Atenção', 'Este ticket não possui responsável. Atribua o ticket antes de adicionar comentários.');
             return false;
         }
-        
+
         // Verificar se ticket tem categoria
         if (!ticketAtual.categoria_id) {
             mostrarAlert('Atenção', 'Este ticket não possui categoria. Defina uma categoria antes de adicionar comentários.');
             return false;
         }
     }
-    
+
     return true;
 }
 
 // Validações antes de fechar ticket
 function validarAntesFechamento(ticketId) {
     const ticketAtual = JSON.parse(localStorage.getItem('ticketAtual') || '{}');
-    
+
     // Verificar se ticket tem responsável
     if (!ticketAtual.agente_id) {
         mostrarAlert('Atenção', 'Este ticket não possui responsável. Atribua o ticket antes de fechá-lo.');
         return false;
     }
-    
+
     // Verificar se ticket tem categoria
     if (!ticketAtual.categoria_id) {
         mostrarAlert('Atenção', 'Este ticket não possui categoria. Defina uma categoria antes de fechá-lo.');
         return false;
     }
-    
+
     return true;
 }
 // Função para mostrar auditoria
@@ -5025,7 +5030,7 @@ function mostrarAuditoria() {
     document.querySelectorAll('.btn-config').forEach(btn => btn.classList.remove('active'));
     document.getElementById('btn-auditoria').classList.add('active');
     localStorage.setItem('subSecaoAtiva', 'auditoria');
-    
+
     const content = document.getElementById('config-content');
     content.innerHTML = `
         <div class="auditoria-tabs">
@@ -5050,7 +5055,7 @@ function mostrarAuditoria() {
         <div id="auditoria-content"></div>
         <div id="auditoria-paginacao"></div>
     `;
-    
+
     carregarUsuariosFiltroAudit();
     carregarAuditoriaGeral();
 }
@@ -5060,8 +5065,8 @@ function carregarAuditoria() {
     const xhr = new XMLHttpRequest();
     xhr.open('GET', '/crpdesk/api/controllers/auditoria.php', true);
     setSecurityHeaders(xhr);
-    
-    xhr.onload = function() {
+
+    xhr.onload = function () {
         if (xhr.status === 200) {
             const registros = JSON.parse(xhr.responseText);
             mostrarListaAuditoria(registros);
@@ -5069,19 +5074,19 @@ function carregarAuditoria() {
             document.getElementById('config-content').innerHTML = '<p>Erro ao carregar auditoria.</p>';
         }
     };
-    
+
     xhr.send();
 }
 
 // Mostrar lista de auditoria
 function mostrarListaAuditoria(registros) {
     const content = document.getElementById('config-content');
-    
+
     // Salvar valores dos filtros
     const acaoAtual = document.getElementById('filtro-acao')?.value || '';
     const dataInicioAtual = document.getElementById('filtro-data-inicio')?.value || '';
     const dataFimAtual = document.getElementById('filtro-data-fim')?.value || '';
-    
+
     const acoesPorTipo = {
         'excluir_ticket': registros.filter(r => r.acao === 'excluir_ticket'),
         'criar_usuario': registros.filter(r => r.acao === 'criar_usuario'),
@@ -5091,7 +5096,7 @@ function mostrarListaAuditoria(registros) {
         'atualizar_categoria': registros.filter(r => r.acao === 'atualizar_categoria'),
         'excluir_categoria': registros.filter(r => r.acao === 'excluir_categoria')
     };
-    
+
     function formatarAcao(acao) {
         const acoes = {
             'excluir_ticket': '🗑️ Exclusão de Ticket',
@@ -5104,12 +5109,12 @@ function mostrarListaAuditoria(registros) {
         };
         return acoes[acao] || acao;
     }
-    
+
     function gerarCardAuditoria(registro) {
 
         const dados = registro.dados_anteriores ? JSON.parse(registro.dados_anteriores) :
-                     registro.dados_novos ? JSON.parse(registro.dados_novos) : {};
-        
+            registro.dados_novos ? JSON.parse(registro.dados_novos) : {};
+
         let detalhes = '';
         if (registro.acao.includes('ticket')) {
             detalhes = `Ticket #${String(registro.registro_id).padStart(5, '0')} - ${dados.titulo || 'N/A'}`;
@@ -5124,7 +5129,7 @@ function mostrarListaAuditoria(registros) {
         } else if (registro.acao.includes('categoria')) {
             detalhes = `${dados.nome || 'N/A'}`;
         }
-        
+
         return `
             <div class="usuario-card">
                 <div style="display: grid; grid-template-columns: 250px 400px 180px 250px 120px 180px; gap: 1rem; align-items: center; font-size: 14px;">
@@ -5138,7 +5143,7 @@ function mostrarListaAuditoria(registros) {
             </div>
         `;
     }
-    
+
     let html = `
         <div class="form-usuario">
             <h3>🔍 Filtros de Auditoria</h3>
@@ -5171,7 +5176,7 @@ function mostrarListaAuditoria(registros) {
             </div>
         </div>
     `;
-    
+
     if (registros.length === 0) {
         html += '<p>Nenhum registro de auditoria encontrado.</p>';
     } else {
@@ -5182,7 +5187,7 @@ function mostrarListaAuditoria(registros) {
         });
         html += '</div>';
     }
-    
+
     content.innerHTML = html;
 }
 
@@ -5191,23 +5196,23 @@ function filtrarAuditoria() {
     const acao = document.getElementById('filtro-acao').value;
     const dataInicio = document.getElementById('filtro-data-inicio').value;
     const dataFim = document.getElementById('filtro-data-fim').value;
-    
+
     const params = new URLSearchParams();
     if (acao) params.append('acao', acao);
     if (dataInicio) params.append('data_inicio', dataInicio);
     if (dataFim) params.append('data_fim', dataFim);
-    
+
     const xhr = new XMLHttpRequest();
     xhr.open('GET', `/crpdesk/api/controllers/auditoria.php?${params}`, true);
     setSecurityHeaders(xhr);
-    
-    xhr.onload = function() {
+
+    xhr.onload = function () {
         if (xhr.status === 200) {
             const registros = JSON.parse(xhr.responseText);
             mostrarListaAuditoria(registros);
         }
     };
-    
+
     xhr.send();
 }
 
@@ -5217,12 +5222,12 @@ function limparFiltrosAuditoria() {
     const dataInicio = document.getElementById('data-inicio-audit');
     const dataFim = document.getElementById('data-fim-audit');
     const usuario = document.getElementById('filtro-usuario-audit');
-    
+
     if (busca) busca.value = '';
     if (dataInicio) dataInicio.value = '';
     if (dataFim) dataFim.value = '';
     if (usuario) usuario.value = '';
-    
+
     const tabAtiva = document.querySelector('.tab-btn.active');
     if (tabAtiva.textContent.includes('Geral')) carregarAuditoriaGeral();
     else if (tabAtiva.textContent.includes('Tickets')) carregarAuditoriaTickets();
@@ -5234,8 +5239,8 @@ function carregarUsuariosFiltroAudit() {
     const xhr = new XMLHttpRequest();
     xhr.open('GET', '/crpdesk/api/controllers/usuarios.php', true);
     setSecurityHeaders(xhr);
-    
-    xhr.onload = function() {
+
+    xhr.onload = function () {
         if (xhr.status === 200) {
             const usuarios = JSON.parse(xhr.responseText);
             const select = document.getElementById('filtro-usuario-audit');
@@ -5264,26 +5269,26 @@ function aplicarFiltrosAuditoria() {
 function carregarAuditoriaGeral(pagina = 1) {
     document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
     document.querySelectorAll('.tab-btn')[0].classList.add('active');
-    
+
     const params = new URLSearchParams({ tipo: 'geral', pagina: pagina, limite: 50 });
-    
+
     const busca = document.getElementById('busca-auditoria')?.value;
     if (busca) params.append('busca', busca);
-    
+
     const dataInicio = document.getElementById('data-inicio-audit')?.value;
     if (dataInicio) params.append('data_inicio', dataInicio);
-    
+
     const dataFim = document.getElementById('data-fim-audit')?.value;
     if (dataFim) params.append('data_fim', dataFim);
-    
+
     const usuario = document.getElementById('filtro-usuario-audit')?.value;
     if (usuario) params.append('usuario_id', usuario);
-    
+
     const xhr = new XMLHttpRequest();
     xhr.open('GET', `/crpdesk/api/controllers/auditoria-avancada.php?${params}`, true);
     setSecurityHeaders(xhr);
-    
-    xhr.onload = function() {
+
+    xhr.onload = function () {
         if (xhr.status === 200) {
             const dados = JSON.parse(xhr.responseText);
             mostrarRegistrosAuditoria(dados.registros);
@@ -5296,14 +5301,14 @@ function carregarAuditoriaGeral(pagina = 1) {
 // Mostrar registros de auditoria
 function mostrarRegistrosAuditoria(registros) {
     const content = document.getElementById('auditoria-content');
-    
+
     if (registros.length === 0) {
         content.innerHTML = '<p>Nenhum registro encontrado.</p>';
         return;
     }
-    
+
     let html = '<div class="auditoria-lista">';
-    
+
     registros.forEach(reg => {
         html += `
             <div class="auditoria-card">
@@ -5320,7 +5325,7 @@ function mostrarRegistrosAuditoria(registros) {
             </div>
         `;
     });
-    
+
     html += '</div>';
     content.innerHTML = html;
 }
@@ -5329,14 +5334,14 @@ function mostrarRegistrosAuditoria(registros) {
 function carregarAuditoriaTickets(pagina = 1) {
     document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
     document.querySelectorAll('.tab-btn')[1].classList.add('active');
-    
+
     const params = new URLSearchParams({ tipo: 'tickets', pagina: pagina, limite: 50 });
-    
+
     const xhr = new XMLHttpRequest();
     xhr.open('GET', `/crpdesk/api/controllers/auditoria-avancada.php?${params}`, true);
     setSecurityHeaders(xhr);
-    
-    xhr.onload = function() {
+
+    xhr.onload = function () {
         if (xhr.status === 200) {
             const dados = JSON.parse(xhr.responseText);
             mostrarRegistrosTicketsAudit(dados.registros);
@@ -5349,14 +5354,14 @@ function carregarAuditoriaTickets(pagina = 1) {
 // Mostrar registros de tickets
 function mostrarRegistrosTicketsAudit(registros) {
     const content = document.getElementById('auditoria-content');
-    
+
     if (registros.length === 0) {
         content.innerHTML = '<p>Nenhuma alteração de ticket encontrada.</p>';
         return;
     }
-    
+
     let html = '<div class="auditoria-lista">';
-    
+
     registros.forEach(reg => {
         html += `
             <div class="auditoria-card">
@@ -5376,7 +5381,7 @@ function mostrarRegistrosTicketsAudit(registros) {
             </div>
         `;
     });
-    
+
     html += '</div>';
     content.innerHTML = html;
 }
@@ -5385,14 +5390,14 @@ function mostrarRegistrosTicketsAudit(registros) {
 function carregarAuditoriaLogin(pagina = 1) {
     document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
     document.querySelectorAll('.tab-btn')[2].classList.add('active');
-    
+
     const params = new URLSearchParams({ tipo: 'login', pagina: pagina, limite: 50 });
-    
+
     const xhr = new XMLHttpRequest();
     xhr.open('GET', `/crpdesk/api/controllers/auditoria-avancada.php?${params}`, true);
     setSecurityHeaders(xhr);
-    
-    xhr.onload = function() {
+
+    xhr.onload = function () {
         if (xhr.status === 200) {
             const dados = JSON.parse(xhr.responseText);
             mostrarRegistrosLoginAudit(dados.registros);
@@ -5405,18 +5410,18 @@ function carregarAuditoriaLogin(pagina = 1) {
 // Mostrar registros de login
 function mostrarRegistrosLoginAudit(registros) {
     const content = document.getElementById('auditoria-content');
-    
+
     if (registros.length === 0) {
         content.innerHTML = '<p>Nenhum registro de login encontrado.</p>';
         return;
     }
-    
+
     let html = '<div class="auditoria-lista">';
-    
+
     registros.forEach(reg => {
         const icone = reg.acao === 'login_sucesso' ? '✅' : reg.acao === 'login_falha' ? '❌' : '🚺';
         const classe = reg.acao === 'login_sucesso' ? 'sucesso' : reg.acao === 'login_falha' ? 'falha' : 'logout';
-        
+
         html += `
             <div class="auditoria-card ${classe}">
                 <div class="auditoria-header">
@@ -5432,7 +5437,7 @@ function mostrarRegistrosLoginAudit(registros) {
             </div>
         `;
     });
-    
+
     html += '</div>';
     content.innerHTML = html;
 }
@@ -5441,12 +5446,12 @@ function mostrarRegistrosLoginAudit(registros) {
 function carregarEstatisticasAudit() {
     document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
     document.querySelectorAll('.tab-btn')[3].classList.add('active');
-    
+
     const xhr = new XMLHttpRequest();
     xhr.open('GET', '/crpdesk/api/controllers/auditoria-avancada.php?tipo=estatisticas', true);
     setSecurityHeaders(xhr);
-    
-    xhr.onload = function() {
+
+    xhr.onload = function () {
         if (xhr.status === 200) {
             const dados = JSON.parse(xhr.responseText);
             mostrarEstatisticasAudit(dados);
@@ -5458,7 +5463,7 @@ function carregarEstatisticasAudit() {
 // Mostrar estatísticas
 function mostrarEstatisticasAudit(dados) {
     const content = document.getElementById('auditoria-content');
-    
+
     let html = `
         <div class="estatisticas-grid">
             <div class="estatistica-card">
@@ -5510,7 +5515,7 @@ function mostrarEstatisticasAudit(dados) {
             </div>
         </div>
     `;
-    
+
     content.innerHTML = html;
     document.getElementById('auditoria-paginacao').innerHTML = '';
 }
@@ -5549,24 +5554,24 @@ function formatarUserAgent(ua) {
 
 function mostrarPaginacaoAudit(paginaAtual, totalPaginas, funcao) {
     const container = document.getElementById('auditoria-paginacao');
-    
+
     if (totalPaginas <= 1) {
         container.innerHTML = '';
         return;
     }
-    
+
     let html = '<div class="paginacao">';
-    
+
     if (paginaAtual > 1) {
         html += `<button onclick="${funcao}(${paginaAtual - 1})">← Anterior</button>`;
     }
-    
+
     html += `<span>Página ${paginaAtual} de ${totalPaginas}</span>`;
-    
+
     if (paginaAtual < totalPaginas) {
         html += `<button onclick="${funcao}(${paginaAtual + 1})">Próxima →</button>`;
     }
-    
+
     html += '</div>';
     container.innerHTML = html;
 }
@@ -5575,13 +5580,13 @@ function mostrarPaginacaoAudit(paginaAtual, totalPaginas, funcao) {
 function exportarAuditoria() {
     const tabAtiva = document.querySelector('.tab-btn.active');
     const tipo = tabAtiva.textContent.includes('Geral') ? 'geral' :
-                 tabAtiva.textContent.includes('Tickets') ? 'tickets' : 'login';
-    
+        tabAtiva.textContent.includes('Tickets') ? 'tickets' : 'login';
+
     const xhr = new XMLHttpRequest();
     xhr.open('POST', `/crpdesk/api/controllers/auditoria-avancada.php?exportar=1&tipo=${tipo}`, true);
     setSecurityHeaders(xhr);
-    
-    xhr.onload = function() {
+
+    xhr.onload = function () {
         if (xhr.status === 200) {
             const dados = JSON.parse(xhr.responseText);
             baixarCSV(dados.registros, `auditoria_${tipo}_${new Date().toISOString().split('T')[0]}.csv`);
@@ -5595,10 +5600,10 @@ function baixarCSV(registros, filename) {
         mostrarAlert('Aviso', 'Nenhum registro para exportar');
         return;
     }
-    
+
     const headers = Object.keys(registros[0]);
     let csv = headers.join(',') + '\n';
-    
+
     registros.forEach(reg => {
         const row = headers.map(h => {
             const val = reg[h] || '';
@@ -5606,13 +5611,13 @@ function baixarCSV(registros, filename) {
         });
         csv += row.join(',') + '\n';
     });
-    
+
     const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
     const link = document.createElement('a');
     link.href = URL.createObjectURL(blob);
     link.download = filename;
     link.click();
-    
+
     mostrarToast('Sucesso', 'Arquivo CSV exportado com sucesso!', 'success');
 }
 
@@ -5620,7 +5625,7 @@ function baixarCSV(registros, filename) {
 function toggleFormUsuario() {
     const form = document.getElementById('form-novo-usuario');
     const isVisible = form.style.display === 'block';
-    
+
     if (isVisible) {
         form.style.maxHeight = '0';
         setTimeout(() => form.style.display = 'none', 300);
@@ -5634,7 +5639,7 @@ function toggleFormUsuario() {
 function toggleFormCategoria() {
     const form = document.getElementById('form-nova-categoria');
     const isVisible = form.style.display === 'block';
-    
+
     if (isVisible) {
         form.style.maxHeight = '0';
         setTimeout(() => form.style.display = 'none', 300);
@@ -5719,10 +5724,10 @@ function mostrarInfoGrafico(tipo) {
             analise: 'Identifique gargalos: onde os tickets ficam acumulados? Muitos "Abertos" indica falta de atribuição, muitos "Em Atendimento" pode indicar complexidade ou falta de recursos.'
         }
     };
-    
+
     const info = infos[tipo];
     if (!info) return;
-    
+
     const conteudo = `
         <div style="text-align: left;">
             <h4 style="margin-top: 0; color: var(--laranja);">${info.titulo}</h4>
@@ -5730,17 +5735,17 @@ function mostrarInfoGrafico(tipo) {
             <p><strong>Como analisar:</strong><br>${info.analise}</p>
         </div>
     `;
-    
+
     document.getElementById('modal-alert-title').textContent = 'Informações do Gráfico';
     document.getElementById('modal-alert-message').innerHTML = conteudo;
-    
+
     const header = document.querySelector('#modal-alert .modal-header');
     const btnOk = document.querySelector('#modal-alert .btn-modal');
-    
+
     header.classList.remove('sucesso', 'erro');
     btnOk.classList.remove('btn-success-modal', 'btn-danger-modal', 'btn-primary-modal');
     btnOk.classList.add('btn-primary-modal');
-    
+
     document.getElementById('modal-overlay').classList.add('show');
     document.getElementById('modal-alert').classList.add('show');
     modalCallback = null;
@@ -5753,7 +5758,7 @@ function mostrarPersonalizacao() {
     document.querySelectorAll('.btn-config').forEach(btn => btn.classList.remove('active'));
     document.getElementById('btn-personalizacao').classList.add('active');
     localStorage.setItem('subSecaoAtiva', 'personalizacao');
-    
+
     const content = document.getElementById('config-content');
     content.style.animation = 'none';
     setTimeout(() => {
@@ -5785,7 +5790,7 @@ function mostrarPersonalizacao() {
                 </div>
             </div>
         `;
-        
+
         fetch('/crpdesk/frontend/config.json')
             .then(r => r.json())
             .then(config => {
@@ -5803,18 +5808,18 @@ function uploadLogoHeader() {
         mostrarAlert('Erro', 'Selecione um arquivo PNG');
         return;
     }
-    
+
     const formData = new FormData();
     formData.append('logo', input.files[0]);
     formData.append('tipo', 'header');
-    
+
     mostrarLoader();
-    
+
     const xhr = new XMLHttpRequest();
     xhr.open('POST', '/crpdesk/api/controllers/personalizacao.php', true);
     setSecurityHeaders(xhr);
-    
-    xhr.onload = function() {
+
+    xhr.onload = function () {
         ocultarLoader();
         if (xhr.status === 200) {
             mostrarToast('Sucesso', 'Logo do header atualizado!', 'success');
@@ -5824,7 +5829,7 @@ function uploadLogoHeader() {
             mostrarAlert('Erro', response.error || 'Erro ao fazer upload');
         }
     };
-    
+
     xhr.send(formData);
 }
 
@@ -5834,18 +5839,18 @@ function uploadLogoLogin() {
         mostrarAlert('Erro', 'Selecione um arquivo PNG');
         return;
     }
-    
+
     const formData = new FormData();
     formData.append('logo', input.files[0]);
     formData.append('tipo', 'login');
-    
+
     mostrarLoader();
-    
+
     const xhr = new XMLHttpRequest();
     xhr.open('POST', '/crpdesk/api/controllers/personalizacao.php', true);
     setSecurityHeaders(xhr);
-    
-    xhr.onload = function() {
+
+    xhr.onload = function () {
         ocultarLoader();
         if (xhr.status === 200) {
             mostrarToast('Sucesso', 'Logo de login atualizado!', 'success');
@@ -5854,7 +5859,7 @@ function uploadLogoLogin() {
             mostrarAlert('Erro', response.error || 'Erro ao fazer upload');
         }
     };
-    
+
     xhr.send(formData);
 }
 
@@ -5864,21 +5869,21 @@ function salvarTituloHeader() {
         mostrarAlert('Erro', 'Campo de título não encontrado');
         return;
     }
-    
+
     const titulo = input.value.trim();
     if (!titulo) {
         mostrarAlert('Erro', 'Digite um título');
         return;
     }
-    
+
     mostrarLoader();
-    
+
     const xhr = new XMLHttpRequest();
     xhr.open('POST', '/crpdesk/api/controllers/personalizacao.php', true);
     xhr.setRequestHeader('Content-Type', 'application/json');
     setSecurityHeaders(xhr);
-    
-    xhr.onload = function() {
+
+    xhr.onload = function () {
         ocultarLoader();
         if (xhr.status === 200) {
             mostrarToast('Sucesso', 'Título atualizado!', 'success');
@@ -5888,7 +5893,7 @@ function salvarTituloHeader() {
             mostrarAlert('Erro', response.error || 'Erro ao salvar título');
         }
     };
-    
+
     xhr.send(JSON.stringify({ tipo: 'titulo', titulo: titulo }));
 }
 
@@ -5905,10 +5910,10 @@ function mostrarModoEscuro() {
     document.querySelectorAll('.btn-config').forEach(btn => btn.classList.remove('active'));
     document.getElementById('btn-modo-escuro-config').classList.add('active');
     localStorage.setItem('subSecaoAtiva', 'modo-escuro');
-    
+
     const content = document.getElementById('config-content');
     const isDark = document.body.classList.contains('modo-escuro');
-    
+
     content.style.animation = 'none';
     setTimeout(() => {
         content.style.animation = '';
@@ -5935,7 +5940,7 @@ function mostrarConfigEmail() {
     document.querySelectorAll('.btn-config').forEach(btn => btn.classList.remove('active'));
     document.getElementById('btn-config-email').classList.add('active');
     localStorage.setItem('subSecaoAtiva', 'config-email');
-    
+
     const content = document.getElementById('config-content');
     content.innerHTML = `
         <div class="config-email-container">
@@ -6004,7 +6009,7 @@ function mostrarConfigEmail() {
             </form>
         </div>
     `;
-    
+
     carregarConfigEmail();
 }
 
@@ -6012,8 +6017,8 @@ function carregarConfigEmail() {
     const xhr = new XMLHttpRequest();
     xhr.open('GET', '/crpdesk/api/controllers/config-email.php', true);
     setSecurityHeaders(xhr);
-    
-    xhr.onload = function() {
+
+    xhr.onload = function () {
         if (xhr.status === 200) {
             const config = JSON.parse(xhr.responseText);
             document.getElementById('imap_host').value = config.imap_host || '';
@@ -6026,13 +6031,13 @@ function carregarConfigEmail() {
             document.getElementById('from_name').value = config.from_name || '';
         }
     };
-    
+
     xhr.send();
 }
 
 function salvarConfigEmail(event) {
     event.preventDefault();
-    
+
     const data = {
         imap_host: document.getElementById('imap_host').value,
         imap_port: document.getElementById('imap_port').value,
@@ -6045,13 +6050,13 @@ function salvarConfigEmail(event) {
         from_email: document.getElementById('from_email').value,
         from_name: document.getElementById('from_name').value
     };
-    
+
     const xhr = new XMLHttpRequest();
     xhr.open('PUT', '/crpdesk/api/controllers/config-email.php', true);
     xhr.setRequestHeader('Content-Type', 'application/json');
     setSecurityHeaders(xhr);
-    
-    xhr.onload = function() {
+
+    xhr.onload = function () {
         if (xhr.status === 200) {
             mostrarToast('Sucesso', 'Configurações de email salvas com sucesso', 'success');
             document.getElementById('imap_password').value = '';
@@ -6060,7 +6065,7 @@ function salvarConfigEmail(event) {
             mostrarToast('Erro', 'Erro ao salvar configurações', 'error');
         }
     };
-    
+
     xhr.send(JSON.stringify(data));
 }
 
@@ -6075,47 +6080,47 @@ function testarConexaoEmail() {
         smtp_username: document.getElementById('smtp_username').value,
         smtp_password: document.getElementById('smtp_password').value
     };
-    
+
     mostrarLoader();
-    
+
     const xhr = new XMLHttpRequest();
     xhr.open('POST', '/crpdesk/api/controllers/testar-email.php', true);
     xhr.setRequestHeader('Content-Type', 'application/json');
     setSecurityHeaders(xhr);
-    
-    xhr.onload = function() {
+
+    xhr.onload = function () {
         ocultarLoader();
         if (xhr.status === 200) {
             const resultado = JSON.parse(xhr.responseText);
-            
+
             let mensagem = '<div style="text-align: left;">';
-            
+
             if (resultado.imap.sucesso) {
                 mensagem += '<p style="color: #28a745;">✅ <strong>IMAP:</strong> ' + resultado.imap.mensagem + '</p>';
             } else {
                 mensagem += '<p style="color: #dc3545;">❌ <strong>IMAP:</strong> ' + resultado.imap.mensagem + '</p>';
             }
-            
+
             if (resultado.smtp.sucesso) {
                 mensagem += '<p style="color: #28a745;">✅ <strong>SMTP:</strong> ' + resultado.smtp.mensagem + '</p>';
             } else {
                 mensagem += '<p style="color: #dc3545;">❌ <strong>SMTP:</strong> ' + resultado.smtp.mensagem + '</p>';
             }
-            
+
             mensagem += '</div>';
-            
+
             const titulo = (resultado.imap.sucesso && resultado.smtp.sucesso) ? 'Teste Bem-Sucedido' : 'Teste com Falhas';
             mostrarAlert(titulo, mensagem);
         } else {
             mostrarAlert('Erro', 'Erro ao testar conexão');
         }
     };
-    
-    xhr.onerror = function() {
+
+    xhr.onerror = function () {
         ocultarLoader();
         mostrarAlert('Erro', 'Erro de conexão ao testar');
     };
-    
+
     xhr.send(JSON.stringify(data));
 }
 
@@ -6135,7 +6140,7 @@ function enviarEFecharTicket(ticketId) {
         mostrarAlert('Atenção', 'Por favor, adicione um comentário antes de fechar o ticket.');
         return;
     }
-    mostrarConfirm('Enviar e Fechar Ticket', 'Deseja adicionar o comentário e encerrar este ticket?', function(confirmado) {
+    mostrarConfirm('Enviar e Fechar Ticket', 'Deseja adicionar o comentário e encerrar este ticket?', function (confirmado) {
         if (!confirmado) return;
         mostrarLoader();
         const formData = new FormData();
@@ -6156,10 +6161,10 @@ function enviarEFecharTicket(ticketId) {
         const xhr = new XMLHttpRequest();
         xhr.open('POST', '/crpdesk/api/controllers/comentarios.php', true);
         setSecurityHeaders(xhr);
-        xhr.onload = function() {
+        xhr.onload = function () {
             if (xhr.status === 200) {
                 const usuarioLogado = JSON.parse(localStorage.getItem('usuario'));
-                executarAlteracaoStatus(ticketId, 'encerrado', function() {
+                executarAlteracaoStatus(ticketId, 'encerrado', function () {
                     ocultarLoader();
                     mostrarToast('Sucesso', 'Comentário adicionado e ticket encerrado!', 'success');
                     setTimeout(() => {
@@ -6175,7 +6180,7 @@ function enviarEFecharTicket(ticketId) {
                 mostrarAlert('Erro', 'Erro ao adicionar comentário');
             }
         };
-        xhr.onerror = function() {
+        xhr.onerror = function () {
             ocultarLoader();
             mostrarAlert('Erro', 'Erro de conexão ao adicionar comentário');
         };
