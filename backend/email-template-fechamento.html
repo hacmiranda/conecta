@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ticket Fechado - CRPRS</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .header {
+            background-color: #71aa29;
+            color: white;
+            padding: 20px;
+            text-align: center;
+            border-radius: 8px 8px 0 0;
+        }
+        .content {
+            background-color: #ffffff;
+            padding: 30px;
+            border: 1px solid #ddd;
+            border-top: none;
+        }
+        .ticket-info {
+            background-color: #f9f9f9;
+            padding: 15px;
+            border-left: 4px solid #71aa29;
+            margin: 20px 0;
+        }
+        .footer {
+            background-color: #f5f5f5;
+            padding: 20px;
+            border-radius: 0 0 8px 8px;
+            border: 1px solid #ddd;
+            border-top: none;
+        }
+        .logo {
+            max-width: 150px;
+            height: auto;
+        }
+        .status-badge {
+            background-color: #71aa29;
+            color: white;
+            padding: 5px 10px;
+            border-radius: 4px;
+            font-weight: bold;
+            display: inline-block;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>✅ Ticket Fechado</h1>
+        <p>Conselho Regional de Psicologia do Rio Grande do Sul</p>
+    </div>
+    
+    <div class="content">
+        <p>Olá <strong>{{NOME_USUARIO}}</strong>,</p>
+        
+        <p>Seu ticket de suporte foi fechado com sucesso. O problema foi resolvido pela nossa equipe.</p>
+        
+        <div class="ticket-info">
+            <h3>📋 Informações do Ticket</h3>
+            <p><strong>Número:</strong> #{{NUMERO_TICKET}}</p>
+            <p><strong>Título:</strong> {{TITULO_TICKET}}</p>
+            <p><strong>Status:</strong> <span class="status-badge">FECHADO</span></p>
+            <p><strong>Fechado por:</strong> {{NOME_AGENTE}}</p>
+            <p><strong>Data de Fechamento:</strong> {{DATA_FECHAMENTO}}</p>
+        </div>
+        
+        <h3>🎉 Ticket Resolvido!</h3>
+        <ul>
+            <li>✅ Seu problema foi solucionado</li>
+            <li>📝 O ticket foi arquivado em nosso sistema</li>
+            <li>📊 Suas informações foram registradas para melhorias</li>
+            <li>🔄 Caso precise de ajuda novamente, abra um novo ticket</li>
+        </ul>
+        
+        <p><strong>💡 Avaliação:</strong> Sua opinião é importante! Se desejar, responda este e-mail com sua avaliação do atendimento.</p>
+        
+        <div style="background-color: #fff3cd; border: 1px solid #ffeaa7; padding: 15px; border-radius: 5px; margin: 20px 0;">
+            <p><strong>⚠️ IMPORTANTE:</strong> Este ticket foi fechado. <strong>Responda a este e-mail APENAS se desejar reabrir este ticket</strong> com informações adicionais sobre o mesmo problema.</p>
+            <p><strong>📧 Novo Problema?</strong> Para questões diferentes, envie um novo e-mail sem mencionar este número de ticket.</p>
+        </div>
+        
+        <p>Obrigado por utilizar nosso sistema de suporte!</p>
+    </div>
+    
+    <div class="footer">
+        {{ASSINATURA_EMAIL}}
+    </div>
+</body>
+</html>

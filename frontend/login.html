@@ -1,0 +1,586 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Login - Helpdesk CRPRS</title>
+    <link rel="icon" type="image/png" href="images/logo_vazado.png">
+    <link rel="stylesheet" href="style.css">
+    <style>
+        body {
+            background: url('images/background_login.png') no-repeat center center fixed;
+            background-size: cover;
+            min-height: 100vh;
+            margin: 0;
+            position: relative;
+        }
+        body::before {
+            content: '';
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.5);
+            z-index: 0;
+        }
+        .login-container {
+            max-width: 400px;
+            margin: 100px auto;
+            background: #F5F5F5;
+            padding: 2rem;
+            border-radius: 8px;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.4), 0 4px 16px rgba(0,0,0,0.2);
+            position: relative;
+            z-index: 1;
+            animation: slideIn 0.6s ease-out;
+        }
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateY(-30px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+        @keyframes slideOut {
+            from {
+                opacity: 1;
+                transform: scale(1);
+            }
+            to {
+                opacity: 0;
+                transform: scale(0.9);
+            }
+        }
+        .login-container.saindo {
+            animation: slideOut 0.4s ease-in forwards;
+        }
+        .logo {
+            text-align: center;
+            margin-bottom: 2rem;
+            color: var(--vermelho);
+            position: relative;
+            min-height: 200px;
+        }
+        .logo img {
+            transition: transform 0.3s ease;
+        }
+        .logo.bloqueado img {
+            transform-origin: top left;
+            animation: queda 0.6s ease-out forwards, balanco 2.5s ease-in-out 0.6s 1, despenca 0.8s ease-in 3.1s forwards;
+            position: relative;
+        }
+        .logo.bloqueado::after {
+            content: '';
+            display: block;
+            width: 200px;
+            height: 200px;
+            background: url('images/blocked.png') no-repeat center;
+            background-size: contain;
+            position: absolute;
+            top: 0;
+            left: 50%;
+            transform: translateX(-50%);
+            opacity: 0;
+            animation: surgir 1s ease-out 4s forwards;
+        }
+        .logo.desbloqueando::after {
+            animation: desaparecer 0.8s ease-out forwards;
+        }
+        .logo.desbloqueando img {
+            animation: restaurar 0.8s ease-out forwards;
+        }
+        @keyframes desaparecer {
+            0% { opacity: 1; }
+            100% { opacity: 0; }
+        }
+        @keyframes restaurar {
+            0% { opacity: 0; transform: rotate(0deg); top: -50px; }
+            100% { opacity: 1; transform: rotate(0deg); top: 0; }
+        }
+        @keyframes queda {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(54deg); }
+        }
+        @keyframes balanco {
+            0%, 100% { transform: rotate(54deg); }
+            50% { transform: rotate(50deg); }
+        }
+        @keyframes despenca {
+            0% { transform: rotate(54deg); top: 0; }
+            100% { transform: rotate(90deg); top: 1200px; visibility: hidden; }
+        }
+        @keyframes surgir {
+            0% { opacity: 0; transform: translateX(-50%) translateY(-20px); }
+            100% { opacity: 1; transform: translateX(-50%) translateY(0); }
+        }
+    </style>
+</head>
+<body>
+    <div class="login-container">
+        <div class="logo">
+            <img src="images/logo_crpdesk.jpg" alt="CRPRS" style="width: 200px; height: auto; margin-bottom: 1rem;">
+        </div>
+        
+        <form id="form-login">
+            <div class="form-group">
+                <label for="email">Email:</label>
+                <input type="email" id="email" required>
+            </div>
+            
+            <div class="form-group">
+                <label for="senha">Senha:</label>
+                <div style="position: relative; display: inline-block; width: 100%;">
+                    <input type="password" id="senha" required style="padding-right: 40px; width: 100%; box-sizing: border-box;">
+                    <span id="toggleSenha" onclick="togglePassword()" style="position: absolute; right: 12px; top: 50%; transform: translateY(-50%); cursor: pointer; user-select: none; font-size: 18px;">👁️</span>
+                </div>
+            </div>
+            
+            <div class="form-group">
+                <label for="captcha">Resolva: <span id="captcha-pergunta"></span></label>
+                <input type="number" id="captcha" required placeholder="Digite o resultado">
+            </div>
+            
+            <button type="submit" class="btn-primary" style="width: 100%;">Entrar</button>
+        </form>
+        
+        <div style="text-align: center; margin-top: 1rem;">
+            <a href="#" onclick="mostrarRecuperarSenha()" style="color: var(--laranja); text-decoration: none;">Esqueci minha senha</a>
+        </div>
+        
+        <div style="text-align: right; margin-top: 1rem; color: #999; font-size: 0.85rem;">
+            v2.0
+        </div>
+        
+        <div id="recuperar-senha" style="display: none; margin-top: 2rem; padding-top: 2rem; border-top: 1px solid #eee;">
+            <h3>Recuperar Senha</h3>
+            <form id="form-recuperar">
+                <div class="form-group">
+                    <label for="email-recuperar">Digite seu email:</label>
+                    <input type="email" id="email-recuperar" required>
+                </div>
+                <button type="submit" class="btn-primary" style="width: 100%;">Enviar Link de Recuperação</button>
+                <button type="button" onclick="voltarLogin()" class="btn-secondary" style="width: 100%; margin-top: 0.5rem;">Voltar ao Login</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Modais -->
+    <div id="modal-overlay" class="modal-overlay">
+        <div id="modal-alert" class="modal">
+            <div class="modal-header">
+                <h3 id="modal-alert-title">Aviso</h3>
+            </div>
+            <div class="modal-body">
+                <p id="modal-alert-message">Mensagem</p>
+            </div>
+            <div class="modal-footer">
+                <button onclick="fecharModal()" class="btn-primary">OK</button>
+            </div>
+        </div>
+    </div>
+
+    <style>
+        .modal-overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.5);
+            z-index: 1000;
+            justify-content: center;
+            align-items: center;
+        }
+        
+        .modal-overlay.show {
+            display: flex;
+        }
+        
+        .modal {
+            display: none;
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+            max-width: 400px;
+            width: 90%;
+        }
+        
+        .modal.show {
+            display: block;
+        }
+        
+        .modal-header {
+            background-color: var(--laranja);
+            color: white;
+            padding: 1rem;
+            border-radius: 8px 8px 0 0;
+        }
+        
+        .modal-header.sucesso {
+            background-color: var(--verde);
+        }
+        
+        .modal-header.erro {
+            background-color: var(--vermelho);
+        }
+        
+        .modal-header h3 {
+            margin: 0;
+        }
+        
+        .modal-body {
+            padding: 1.5rem;
+        }
+        
+        .modal-body p {
+            margin: 0;
+            line-height: 1.5;
+        }
+        
+        .modal-footer {
+            padding: 1rem 1.5rem;
+            border-top: 1px solid #eee;
+            display: flex;
+            justify-content: flex-end;
+        }
+    </style>
+
+    <script>
+        let captchaResposta = 0;
+        let tentativasLogin = 0;
+        let bloqueadoAte = null;
+        let timerInterval = null;
+        let ultimaTentativa = null;
+        const TEMPO_RESET_TENTATIVAS = 15 * 60 * 1000; // 15 minutos
+        
+        // Gerar captcha
+        function gerarCaptcha() {
+            const num1 = Math.floor(Math.random() * 10) + 1;
+            const num2 = Math.floor(Math.random() * 10) + 1;
+            captchaResposta = num1 + num2;
+            document.getElementById('captcha-pergunta').textContent = `${num1} + ${num2} = ?`;
+        }
+        
+        // Gerar captcha ao carregar
+        gerarCaptcha();
+        
+        // Verificar se ainda está bloqueado ao carregar a página
+        verificarBloqueio();
+        
+        // Função para verificar bloqueio
+        function verificarBloqueio() {
+            const dadosBloqueio = localStorage.getItem('loginBloqueado');
+            if (dadosBloqueio) {
+                const dados = JSON.parse(dadosBloqueio);
+                bloqueadoAte = new Date(dados.bloqueadoAte);
+                tentativasLogin = dados.tentativas;
+                ultimaTentativa = dados.ultimaTentativa ? new Date(dados.ultimaTentativa) : null;
+                
+                // Verificar se passou do tempo de reset das tentativas (15 min)
+                if (ultimaTentativa && (new Date() - ultimaTentativa) > TEMPO_RESET_TENTATIVAS) {
+                    localStorage.removeItem('loginBloqueado');
+                    tentativasLogin = 0;
+                    bloqueadoAte = null;
+                    ultimaTentativa = null;
+                    return;
+                }
+                
+                if (new Date() < bloqueadoAte) {
+                    bloquearFormulario();
+                    iniciarTimer();
+                } else {
+                    // Bloqueio expirou
+                    localStorage.removeItem('loginBloqueado');
+                    tentativasLogin = 0;
+                    bloqueadoAte = null;
+                    ultimaTentativa = null;
+                }
+            }
+        }
+        
+        // Função para bloquear formulário
+        function bloquearFormulario() {
+            const form = document.getElementById('form-login');
+            const inputs = form.querySelectorAll('input, button');
+            inputs.forEach(input => {
+                input.disabled = true;
+                input.style.backgroundColor = '#f0f0f0';
+                input.style.cursor = 'not-allowed';
+                input.style.opacity = '0.6';
+            });
+            
+            // Desabilitar link de recuperar senha
+            const linkRecuperar = document.querySelector('a[onclick="mostrarRecuperarSenha()"]');
+            if (linkRecuperar) {
+                linkRecuperar.style.pointerEvents = 'none';
+                linkRecuperar.style.opacity = '0.4';
+                linkRecuperar.style.cursor = 'not-allowed';
+            }
+            
+            // Adicionar animação no logo
+            document.querySelector('.logo').classList.add('bloqueado');
+            
+            // Mostrar aviso de bloqueio
+            let avisoDiv = document.getElementById('aviso-bloqueio');
+            if (!avisoDiv) {
+                avisoDiv = document.createElement('div');
+                avisoDiv.id = 'aviso-bloqueio';
+                avisoDiv.style.cssText = `
+                    background-color: var(--vermelho);
+                    color: white;
+                    padding: 1rem;
+                    border-radius: 4px;
+                    margin-bottom: 1rem;
+                    text-align: center;
+                    font-weight: bold;
+                `;
+                form.parentNode.insertBefore(avisoDiv, form);
+            }
+        }
+        
+        // Função para desbloquear formulário
+        function desbloquearFormulario() {
+            const logo = document.querySelector('.logo');
+            
+            // Adicionar classe de desbloqueio para transição
+            logo.classList.add('desbloqueando');
+            
+            setTimeout(() => {
+                const form = document.getElementById('form-login');
+                const inputs = form.querySelectorAll('input, button');
+                inputs.forEach(input => {
+                    input.disabled = false;
+                    input.style.backgroundColor = '';
+                    input.style.cursor = '';
+                    input.style.opacity = '';
+                });
+                
+                // Reabilitar link de recuperar senha
+                const linkRecuperar = document.querySelector('a[onclick="mostrarRecuperarSenha()"]');
+                if (linkRecuperar) {
+                    linkRecuperar.style.pointerEvents = '';
+                    linkRecuperar.style.opacity = '';
+                    linkRecuperar.style.cursor = '';
+                }
+                
+                // Remover todas as classes de animação
+                logo.classList.remove('bloqueado', 'desbloqueando');
+                
+                const avisoDiv = document.getElementById('aviso-bloqueio');
+                if (avisoDiv) {
+                    avisoDiv.remove();
+                }
+                
+                if (timerInterval) {
+                    clearInterval(timerInterval);
+                    timerInterval = null;
+                }
+            }, 800);
+        }
+        
+        // Função para iniciar timer
+        function iniciarTimer() {
+            function atualizarTimer() {
+                const agora = new Date();
+                const tempoRestante = Math.max(0, Math.ceil((bloqueadoAte - agora) / 1000));
+                
+                if (tempoRestante > 0) {
+                    const minutos = Math.floor(tempoRestante / 60);
+                    const segundos = tempoRestante % 60;
+                    
+                    const avisoDiv = document.getElementById('aviso-bloqueio');
+                    if (avisoDiv) {
+                        avisoDiv.innerHTML = `
+                            🔒 Acesso bloqueado por muitas tentativas incorretas<br>
+                            Tempo restante: ${minutos}:${segundos.toString().padStart(2, '0')}
+                        `;
+                    }
+                } else {
+                    // Bloqueio expirou
+                    localStorage.removeItem('loginBloqueado');
+                    tentativasLogin = 0;
+                    bloqueadoAte = null;
+                    desbloquearFormulario();
+                }
+            }
+            
+            atualizarTimer();
+            timerInterval = setInterval(atualizarTimer, 1000);
+        }
+        
+        // Função para registrar tentativa falhada
+        function registrarTentativaFalhada() {
+            ultimaTentativa = new Date();
+            tentativasLogin++;
+            
+            if (tentativasLogin >= 3) {
+                // Bloquear por 300 segundos (5 minutos)
+                bloqueadoAte = new Date(Date.now() + 300000);
+                
+                // Salvar no localStorage
+                localStorage.setItem('loginBloqueado', JSON.stringify({
+                    tentativas: tentativasLogin,
+                    bloqueadoAte: bloqueadoAte.toISOString(),
+                    ultimaTentativa: ultimaTentativa.toISOString()
+                }));
+                
+                bloquearFormulario();
+                iniciarTimer();
+            } else {
+                // Salvar tentativas parciais no localStorage
+                localStorage.setItem('loginBloqueado', JSON.stringify({
+                    tentativas: tentativasLogin,
+                    ultimaTentativa: ultimaTentativa.toISOString()
+                }));
+                
+                const tentativasRestantes = 3 - tentativasLogin;
+                mostrarAlert('Erro', `Email, senha ou captcha incorretos. ${tentativasRestantes} tentativa(s) restante(s).`);
+            }
+        }
+        
+        // Mostrar formulário de recuperar senha
+        function mostrarRecuperarSenha() {
+            document.getElementById('form-login').style.display = 'none';
+            document.getElementById('recuperar-senha').style.display = 'block';
+        }
+        
+        // Voltar ao login
+        function voltarLogin() {
+            document.getElementById('form-login').style.display = 'block';
+            document.getElementById('recuperar-senha').style.display = 'none';
+            document.getElementById('email-recuperar').value = '';
+        }
+        
+        // Formulário de recuperar senha
+        document.getElementById('form-recuperar').addEventListener('submit', function(e) {
+            e.preventDefault();
+            
+            const email = document.getElementById('email-recuperar').value;
+            
+            const xhr = new XMLHttpRequest();
+            xhr.open('POST', '/crpdesk/api/controllers/recuperar-senha.php', true);
+            xhr.setRequestHeader('Content-Type', 'application/json');
+            
+            xhr.onload = function() {
+                if (xhr.status === 200) {
+                    mostrarAlert('Sucesso', 'Link de recuperação enviado para seu email!', function() {
+                        voltarLogin();
+                    });
+                } else {
+                    mostrarAlert('Erro', 'Email não encontrado no sistema.');
+                }
+            };
+            
+            xhr.onerror = function() {
+                mostrarAlert('Erro', 'Erro de conexão');
+            };
+            
+            xhr.send(JSON.stringify({ email }));
+        });
+        
+        
+        // Função para mostrar modal
+        function mostrarAlert(titulo, mensagem, callback) {
+            document.getElementById('modal-alert-title').textContent = titulo;
+            document.getElementById('modal-alert-message').textContent = mensagem;
+            
+            const header = document.querySelector('#modal-alert .modal-header');
+            header.classList.remove('sucesso', 'erro');
+            if (titulo.toLowerCase().includes('sucesso')) {
+                header.classList.add('sucesso');
+            } else if (titulo.toLowerCase().includes('erro')) {
+                header.classList.add('erro');
+            }
+            
+            document.getElementById('modal-overlay').classList.add('show');
+            document.getElementById('modal-alert').classList.add('show');
+            
+            window.modalCallback = callback;
+        }
+        
+        // Função para fechar modal
+        function fecharModal() {
+            document.getElementById('modal-overlay').classList.remove('show');
+            document.getElementById('modal-alert').classList.remove('show');
+            
+            if (window.modalCallback) {
+                const callback = window.modalCallback;
+                window.modalCallback = null;
+                callback();
+            }
+        }
+        
+        function togglePassword() {
+            const senhaInput = document.getElementById('senha');
+            const toggleIcon = document.getElementById('toggleSenha');
+            
+            if (senhaInput.type === 'password') {
+                senhaInput.type = 'text';
+                toggleIcon.textContent = '🙈'; // macaco cobrindo olhos
+            } else {
+                senhaInput.type = 'password';
+                toggleIcon.textContent = '👁️'; // olho
+            }
+        }
+        
+        document.getElementById('form-login').addEventListener('submit', function(e) {
+            e.preventDefault();
+            
+            // Verificar se está bloqueado
+            if (bloqueadoAte && new Date() < bloqueadoAte) {
+                mostrarAlert('Acesso Bloqueado', 'Aguarde o tempo de bloqueio expirar.');
+                return;
+            }
+            
+            const email = document.getElementById('email').value;
+            const senha = document.getElementById('senha').value;
+            const captchaUsuario = parseInt(document.getElementById('captcha').value);
+            
+            // Verificar captcha
+            if (captchaUsuario !== captchaResposta) {
+                registrarTentativaFalhada();
+                gerarCaptcha();
+                document.getElementById('captcha').value = '';
+                return;
+            }
+            
+            const xhr = new XMLHttpRequest();
+            xhr.open('POST', '/crpdesk/api/controllers/auth.php', true);
+            xhr.setRequestHeader('Content-Type', 'application/json');
+            
+            xhr.onload = function() {
+                if (xhr.status === 200) {
+                    const response = JSON.parse(xhr.responseText);
+                    // Login bem-sucedido - limpar tentativas
+                    tentativasLogin = 0;
+                    localStorage.removeItem('loginBloqueado');
+                    localStorage.setItem('usuario', JSON.stringify(response.usuario));
+                    localStorage.setItem('token', response.token);
+                    // Adicionar animação de saída
+                    document.querySelector('.login-container').classList.add('saindo');
+                    setTimeout(() => {
+                        window.location.href = './index.html';
+                    }, 400);
+                } else {
+                    registrarTentativaFalhada();
+                    gerarCaptcha();
+                    document.getElementById('captcha').value = '';
+                }
+            };
+            
+            xhr.onerror = function() {
+                registrarTentativaFalhada();
+                gerarCaptcha();
+                document.getElementById('captcha').value = '';
+            };
+            
+            xhr.send(JSON.stringify({ email, senha }));
+        });
+    </script>
+</body>
+</html>

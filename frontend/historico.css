@@ -1,0 +1,21 @@
+/* Estilos para histórico do ticket */
+.historico-wrapper {
+    background: #f8f9fa;
+    border-left: 4px solid #6c757d;
+    padding: 0.75rem;
+    margin-bottom: 0.75rem;
+    border-radius: 0 4px 4px 0;
+}
+
+.historico-info {
+    font-size: 0.9rem;
+    color: #495057;
+    margin-bottom: 0.5rem;
+}
+
+.historico-acao {
+    font-size: 0.9rem;
+    color: #6c757d;
+    font-style: italic;
+}
+

@@ -1,0 +1,18 @@
+# Desabilitar listagem de diretórios
+Options -Indexes
+
+# Configurar charset UTF-8
+AddDefaultCharset UTF-8
+
+# Proteger arquivos sensíveis
+<FilesMatch "\.(env|sql|log)$">
+    Require all denied
+</FilesMatch>
+
+# Permitir header Authorization e redirecionar
+RewriteEngine On
+RewriteCond %{HTTP:Authorization} .
+RewriteRule .* - [E=HTTP_AUTHORIZATION:%{HTTP:Authorization}]
+
+RewriteCond %{REQUEST_URI} ^/crpdesk/?$
+RewriteRule ^(.*)$ /crpdesk/frontend/login.html [L,R=301]
