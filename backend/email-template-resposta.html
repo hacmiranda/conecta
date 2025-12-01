@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Resposta do Ticket</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .header {
+            background-color: #f79226;
+            color: white;
+            padding: 20px;
+            text-align: center;
+            border-radius: 8px 8px 0 0;
+        }
+        .content {
+            background-color: #f9f9f9;
+            padding: 30px;
+            border-radius: 0 0 8px 8px;
+            border: 1px solid #ddd;
+        }
+        .ticket-info {
+            background-color: white;
+            padding: 15px;
+            border-radius: 6px;
+            margin: 20px 0;
+            border-left: 4px solid #f79226;
+        }
+        .resposta-box {
+            background-color: white;
+            padding: 20px;
+            border-radius: 6px;
+            margin: 20px 0;
+            border: 1px solid #ddd;
+            font-family: monospace;
+            white-space: pre-wrap;
+        }
+        .footer {
+            margin-top: 30px;
+            padding-top: 20px;
+            border-top: 1px solid #ddd;
+            font-size: 0.9rem;
+            color: #666;
+        }
+        .btn {
+            display: inline-block;
+            background-color: #71aa29;
+            color: white;
+            padding: 12px 24px;
+            text-decoration: none;
+            border-radius: 4px;
+            margin: 10px 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>🎫 Nova Resposta no seu Ticket</h1>
+    </div>
+    
+    <div class="content">
+        <p>Olá <strong>{{NOME_USUARIO}}</strong>,</p>
+        
+        <p>Você recebeu uma nova resposta da nossa equipe de suporte:</p>
+        
+        <div class="ticket-info">
+            <strong>Ticket:</strong> #{{NUMERO_TICKET}}<br>
+            <strong>Assunto:</strong> {{TITULO_TICKET}}<br>
+            <strong>Responsável:</strong> {{NOME_AGENTE}}<br>
+            <strong>Data da Resposta:</strong> {{DATA_RESPOSTA}}
+        </div>
+        
+        <h3>📝 Resposta da Equipe:</h3>
+        <div class="resposta-box">{{COMENTARIO_AGENTE}}</div>
+        
+        <div class="footer">
+            <p><strong>💡 Como responder:</strong></p>
+            <p>Para continuar a conversa, basta responder (reply) a este e-mail. Sua resposta será automaticamente adicionada ao ticket.</p>
+            
+            <p>Atenciosamente,<br>
+            </p>
+        </div>
+    </div>
+    
+    {{ASSINATURA_EMAIL}}
+</body>
+</html>

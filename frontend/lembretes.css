@@ -1,0 +1,83 @@
+/* Estilos para Lembretes */
+.lembretes-section {
+    margin-top: 2rem;
+    border-top: 1px solid #eee;
+    padding-top: 1rem;
+}
+
+.lembrete-card {
+    background: #fff9e6;
+    border-left: 4px solid var(--verde);
+    border-radius: 0 8px 8px 0;
+    padding: 1rem;
+    margin-bottom: 1rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    transition: all 0.3s ease;
+}
+
+.lembrete-card:hover {
+    transform: translateX(5px);
+    box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+}
+
+.lembrete-card.lembrete-notificado {
+    background: #f0f0f0;
+    border-left-color: #6c757d;
+    opacity: 0.7;
+}
+
+.lembrete-info {
+    flex: 1;
+}
+
+.lembrete-info strong {
+    color: var(--verde);
+    font-size: 1.1rem;
+}
+
+.lembrete-info p {
+    margin: 0.5rem 0;
+    color: #333;
+    font-size: 1rem;
+}
+
+.lembrete-info small {
+    color: #666;
+    font-size: 0.85rem;
+}
+
+.badge-notificado {
+    display: inline-block;
+    background: #28a745;
+    color: white;
+    padding: 0.25rem 0.5rem;
+    border-radius: 4px;
+    font-size: 0.75rem;
+    margin-left: 0.5rem;
+}
+
+/* Modo escuro */
+.modo-escuro .lembrete-card {
+    background: #3d3d3d;
+    border-left-color: var(--verde);
+}
+
+.modo-escuro .lembrete-card.lembrete-notificado {
+    background: #2d2d2d;
+    border-left-color: #6c757d;
+}
+
+.modo-escuro .lembrete-info strong {
+    color: var(--verde);
+}
+
+.modo-escuro .lembrete-info p {
+    color: #e0e0e0;
+}
+
+.modo-escuro .lembrete-info small {
+    color: #b0b0b0;
+}

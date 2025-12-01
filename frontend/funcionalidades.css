@@ -1,0 +1,841 @@
+/* Busca Avançada */
+.tickets-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-top: 4rem;
+    margin-bottom: 2rem;
+    flex-wrap: wrap;
+    gap: 1rem;
+    background: #f8f9fa;
+    padding: 1.5rem;
+    border-radius: 12px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+}
+
+.busca-avancada {
+    display: flex;
+    align-items: center;
+    position: relative;
+    min-width: 350px;
+    max-width: 500px;
+    flex: 1;
+}
+
+.input-busca {
+    flex: 1;
+    padding: 12px 45px 12px 16px;
+    border: 2px solid #4B79A1;
+    border-radius: 25px;
+    font-size: 1rem;
+    transition: all 0.3s ease;
+    background: white;
+    box-shadow: 0 4px 12px rgba(75, 121, 161, 0.15);
+    outline: none;
+}
+
+.input-busca:focus {
+    outline: none;
+    border-color: #4B79A1;
+    box-shadow: 0 0 0 3px rgba(75, 121, 161, 0.1);
+    transform: translateY(-1px);
+}
+
+.btn-limpar-busca {
+    position: absolute;
+    right: 8px;
+    background: #6c757d;
+    color: white;
+    border: none;
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    cursor: pointer;
+    font-size: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s ease;
+}
+
+.btn-limpar-busca:hover {
+    background: #495057;
+    transform: scale(1.1);
+}
+
+
+
+/* Modo Escuro Refinado */
+body.modo-escuro {
+    background: linear-gradient(135deg, #0f1419 0%, #1a202c 100%);
+    color: #e2e8f0;
+    transition: all 0.3s ease;
+}
+
+.modo-escuro header {
+    background: linear-gradient(135deg, #1a202c 0%, #2d3748 100%);
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+}
+
+.modo-escuro .btn-nav {
+    background: rgba(45, 55, 72, 0.8);
+    color: #e2e8f0;
+    border: 1px solid rgba(74, 85, 104, 0.3);
+}
+
+.modo-escuro .btn-nav:hover {
+    background: rgba(74, 85, 104, 0.9);
+    transform: translateY(-1px);
+}
+
+.modo-escuro .btn-nav.active {
+    background: linear-gradient(135deg, #4299e1 0%, #3182ce 100%);
+    box-shadow: 0 4px 12px rgba(66, 153, 225, 0.3);
+}
+
+.modo-escuro .modal {
+    background: linear-gradient(135deg, #1a202c 0%, #2d3748 100%);
+    color: #e2e8f0;
+    border: 1px solid #4299e1;
+    box-shadow: 0 25px 80px rgba(0, 0, 0, 0.6), 0 0 0 1px rgba(66, 153, 225, 0.2);
+    backdrop-filter: blur(10px);
+}
+
+.modo-escuro .modal-header {
+    background: linear-gradient(135deg, #4299e1 0%, #3182ce 100%);
+    color: white;
+    border-bottom: 1px solid #2b6cb0;
+}
+
+.modo-escuro .modal-body {
+    background: linear-gradient(180deg, #2d3748 0%, #1a202c 100%);
+    border: none;
+}
+
+.modo-escuro .modal-footer {
+    background: linear-gradient(135deg, #1a202c 0%, #2d3748 100%);
+    border-top: 1px solid #4a5568;
+}
+
+.modo-escuro .btn-close-modal {
+    background: rgba(255, 255, 255, 0.1);
+    color: white;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.modo-escuro .btn-close-modal:hover {
+    background: rgba(255, 255, 255, 0.2);
+    transform: scale(1.1);
+}
+
+.modo-escuro .modal-input {
+    background: #4a5568;
+    color: #e2e8f0;
+    border: 2px solid #718096;
+}
+
+.modo-escuro .modal-input:focus {
+    border-color: #4299e1;
+    box-shadow: 0 0 0 3px rgba(66, 153, 225, 0.3);
+}
+
+.modo-escuro .select-option {
+    background: #4a5568;
+    color: #e2e8f0;
+    border-bottom: 1px solid #718096;
+}
+
+.modo-escuro .select-option:hover {
+    background: linear-gradient(135deg, #4299e1 0%, #3182ce 100%);
+    color: white;
+}
+
+.modo-escuro .select-option.selected {
+    background: linear-gradient(135deg, #4299e1 0%, #3182ce 100%);
+    color: white;
+}
+
+.modo-escuro .input-busca {
+    background: #4a5568;
+    color: #e2e8f0;
+    border-color: #718096;
+}
+
+.modo-escuro .input-busca:focus {
+    border-color: #4299e1;
+    box-shadow: 0 0 0 3px rgba(66, 153, 225, 0.2);
+}
+
+.modo-escuro .tickets-tabela {
+    background: #2d3748;
+    border: 1px solid #4a5568;
+}
+
+.modo-escuro .tickets-tabela th {
+    background: linear-gradient(135deg, #4a5568 0%, #2d3748 100%);
+    color: #e2e8f0;
+    border-color: #718096;
+}
+
+.modo-escuro .tickets-tabela td {
+    border-color: #4a5568;
+    color: #e2e8f0;
+    background: rgba(45, 55, 72, 0.5);
+}
+
+.modo-escuro .tickets-tabela tr:hover {
+    background: rgba(74, 85, 104, 0.3);
+}
+
+.modo-escuro .ticket-link {
+    color: #63b3ed;
+}
+
+.modo-escuro .ticket-link:hover {
+    color: #90cdf4;
+}
+
+/* Gráficos */
+.graficos-container {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+    gap: 2rem;
+    margin-top: 2rem;
+}
+
+.grafico-card {
+    background: white;
+    padding: 1.5rem;
+    border-radius: 12px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+    border: 1px solid #e9ecef;
+}
+
+.grafico-card h3 {
+    margin: 0 0 1rem 0;
+    color: #495057;
+    font-size: 1.1rem;
+}
+
+.modo-escuro .grafico-card {
+    background: #2c3e50;
+    border-color: #495057;
+}
+
+.modo-escuro .grafico-card h3 {
+    color: #e9ecef;
+}
+
+/* Indicador de atalhos */
+.atalhos-info {
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    background: rgba(0,0,0,0.8);
+    color: white;
+    padding: 10px 15px;
+    border-radius: 8px;
+    font-size: 0.8rem;
+    opacity: 0;
+    transition: opacity 0.3s ease;
+    z-index: 1000;
+}
+
+.atalhos-info.show {
+    opacity: 1;
+}
+
+/* Merge de Tickets */
+.tickets-actions {
+    display: flex;
+    gap: 1rem;
+    align-items: center;
+    flex-wrap: wrap;
+}
+
+.btn-merge {
+    background: linear-gradient(135deg, #17a2b8 0%, #138496 100%);
+    color: white;
+    border: none;
+    padding: 12px 20px;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 0.9rem;
+    font-weight: 500;
+    transition: all 0.3s ease;
+    white-space: nowrap;
+}
+
+.btn-merge:hover {
+    background: linear-gradient(135deg, #138496 0%, #117a8b 100%);
+    transform: translateY(-1px);
+}
+
+.btn-merge.active {
+    background: linear-gradient(135deg, #dc3545 0%, #c82333 100%);
+}
+
+.merge-info {
+    background: linear-gradient(135deg, #e3f2fd 0%, #bbdefb 100%);
+    border: 2px solid #2196f3;
+    border-radius: 12px;
+    padding: 1rem;
+    margin-bottom: 1rem;
+    animation: slideDown 0.3s ease;
+}
+
+@keyframes slideDown {
+    from { opacity: 0; transform: translateY(-10px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+.merge-actions {
+    display: flex;
+    gap: 1rem;
+    margin-top: 1rem;
+}
+
+.btn-merge-execute {
+    background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+    color: white;
+    border: none;
+    padding: 8px 16px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 0.85rem;
+    transition: all 0.3s ease;
+}
+
+.btn-merge-execute:disabled {
+    background: #6c757d;
+    cursor: not-allowed;
+    opacity: 0.6;
+}
+
+.btn-merge-execute:not(:disabled):hover {
+    background: linear-gradient(135deg, #218838 0%, #1e7e34 100%);
+    transform: translateY(-1px);
+}
+
+.btn-merge-cancel {
+    background: linear-gradient(135deg, #6c757d 0%, #495057 100%);
+    color: white;
+    border: none;
+    padding: 8px 16px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 0.85rem;
+    transition: all 0.3s ease;
+}
+
+.btn-merge-cancel:hover {
+    background: linear-gradient(135deg, #495057 0%, #343a40 100%);
+    transform: translateY(-1px);
+}
+
+.ticket-selecionado {
+    background: linear-gradient(135deg, #fff3cd 0%, #ffeaa7 100%) !important;
+    border: 2px solid #ffc107 !important;
+    transform: scale(1.02);
+    box-shadow: 0 4px 12px rgba(255, 193, 7, 0.3) !important;
+}
+
+.ticket-principal {
+    background: linear-gradient(135deg, #d1ecf1 0%, #bee5eb 100%) !important;
+    border: 2px solid #17a2b8 !important;
+    transform: scale(1.02);
+    box-shadow: 0 4px 12px rgba(23, 162, 184, 0.3) !important;
+}
+
+/* Animações de Remoção */
+.ticket-removendo {
+    transition: all 0.5s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+    transform: translateX(-100%);
+    opacity: 0;
+    background: linear-gradient(135deg, #ffebee 0%, #ffcdd2 100%) !important;
+}
+
+.ticket-mesclado {
+    animation: ticketMesclado 0.6s ease-out forwards;
+}
+
+@keyframes ticketMesclado {
+    0% {
+        transform: scale(1) translateX(0);
+        opacity: 1;
+        background: inherit;
+    }
+    25% {
+        transform: scale(1.02);
+        background: linear-gradient(135deg, #e8f5e8 0%, #c8e6c9 100%);
+    }
+    50% {
+        transform: scale(0.98) translateX(-20px);
+        opacity: 0.8;
+    }
+    100% {
+        transform: scale(0) translateX(-100%);
+        opacity: 0;
+        height: 0;
+        padding: 0;
+        margin: 0;
+    }
+}
+
+/* Seção de Ajuda */
+.ajuda-menu {
+    display: flex;
+    gap: 1rem;
+    margin-bottom: 2rem;
+    flex-wrap: wrap;
+}
+
+.btn-ajuda {
+    background: linear-gradient(135deg, #6c757d 0%, #495057 100%);
+    color: white;
+    border: none;
+    padding: 12px 20px;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 0.9rem;
+    font-weight: 500;
+    transition: all 0.3s ease;
+    white-space: nowrap;
+}
+
+.btn-ajuda:hover {
+    background: linear-gradient(135deg, #495057 0%, #343a40 100%);
+    transform: translateY(-1px);
+}
+
+.btn-ajuda.active {
+    background: linear-gradient(135deg, #4B79A1 0%, #283E51 100%);
+}
+
+.ajuda-card {
+    background: white;
+    border-radius: 12px;
+    padding: 2rem;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+    border: 1px solid #e9ecef;
+    margin-bottom: 1.5rem;
+}
+
+.ajuda-card h3 {
+    color: #4B79A1;
+    margin-bottom: 1rem;
+    font-size: 1.3rem;
+}
+
+.sla-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 1rem 0;
+}
+
+.sla-table th,
+.sla-table td {
+    padding: 12px;
+    text-align: left;
+    border: 1px solid #dee2e6;
+}
+
+.sla-table th {
+    background: linear-gradient(135deg, #4B79A1 0%, #283E51 100%);
+    color: white;
+    font-weight: 600;
+}
+
+.sla-table tr:nth-child(even) {
+    background: #f8f9fa;
+}
+
+.status-item {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    padding: 1rem;
+    margin: 0.5rem 0;
+    background: #f8f9fa;
+    border-radius: 8px;
+    border-left: 4px solid #4B79A1;
+}
+
+.status-badge {
+    padding: 4px 12px;
+    border-radius: 20px;
+    font-size: 0.85rem;
+    font-weight: 600;
+    min-width: 100px;
+    text-align: center;
+}
+
+.prioridade-item {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    padding: 1rem;
+    margin: 0.5rem 0;
+    background: #f8f9fa;
+    border-radius: 8px;
+}
+
+.atalho-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.75rem 1rem;
+    margin: 0.25rem 0;
+    background: #f8f9fa;
+    border-radius: 6px;
+}
+
+.atalho-tecla {
+    background: #495057;
+    color: white;
+    padding: 4px 8px;
+    border-radius: 4px;
+    font-family: monospace;
+    font-size: 0.85rem;
+}
+
+.modo-escuro .ajuda-card {
+    background: linear-gradient(135deg, #2d3748 0%, #4a5568 100%);
+    border-color: #718096;
+    color: #e2e8f0;
+    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.3);
+}
+
+.modo-escuro .sla-table th {
+    background: linear-gradient(135deg, #4a5568 0%, #2d3748 100%);
+    color: #e2e8f0;
+}
+
+.modo-escuro .sla-table td {
+    border-color: #4a5568;
+    color: #e2e8f0;
+    background: rgba(45, 55, 72, 0.3);
+}
+
+.modo-escuro .sla-table tr:nth-child(even) td {
+    background: rgba(74, 85, 104, 0.2);
+}
+
+.modo-escuro .status-item,
+.modo-escuro .prioridade-item,
+.modo-escuro .atalho-item {
+    background: linear-gradient(135deg, #4a5568 0%, #2d3748 100%);
+    color: #e2e8f0;
+    border-left-color: #4299e1;
+}
+
+.modo-escuro .btn-ajuda {
+    background: linear-gradient(135deg, #4a5568 0%, #2d3748 100%);
+    color: #e2e8f0;
+    border: 1px solid #718096;
+}
+
+.modo-escuro .btn-ajuda:hover {
+    background: linear-gradient(135deg, #718096 0%, #4a5568 100%);
+}
+
+.modo-escuro .btn-ajuda.active {
+    background: linear-gradient(135deg, #4299e1 0%, #3182ce 100%);
+    border-color: #4299e1;
+}
+
+.modo-escuro .atalho-tecla {
+    background: linear-gradient(135deg, #1a202c 0%, #2d3748 100%);
+    color: #63b3ed;
+    border: 1px solid #4a5568;
+}
+
+.modo-escuro .dashboard-card {
+    background: linear-gradient(135deg, #2d3748 0%, #4a5568 100%);
+    border-color: #718096;
+    color: #e2e8f0;
+    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.3);
+}
+
+.modo-escuro .dashboard-card h3 {
+    color: #63b3ed;
+}
+
+.modo-escuro .form-usuario {
+    background: linear-gradient(135deg, #2d3748 0%, #4a5568 100%);
+    border: 1px solid #718096;
+    border-radius: 12px;
+    padding: 2rem;
+}
+
+.modo-escuro input,
+.modo-escuro select,
+.modo-escuro textarea {
+    background: #4a5568;
+    color: #e2e8f0;
+    border-color: #718096;
+}
+
+.modo-escuro input:focus,
+.modo-escuro select:focus,
+.modo-escuro textarea:focus {
+    border-color: #4299e1;
+    box-shadow: 0 0 0 3px rgba(66, 153, 225, 0.2);
+}
+
+.modo-escuro .btn-primary {
+    background: linear-gradient(135deg, #4299e1 0%, #3182ce 100%);
+    border-color: #4299e1;
+}
+
+.modo-escuro .btn-primary:hover {
+    background: linear-gradient(135deg, #3182ce 0%, #2c5282 100%);
+    transform: translateY(-1px);
+}
+
+.modo-escuro .status {
+    border: 1px solid rgba(113, 128, 150, 0.3);
+}
+
+.modo-escuro .tickets-header {
+    background: linear-gradient(135deg, #2d3748 0%, #4a5568 100%);
+    border: 1px solid #718096;
+}
+
+.modo-escuro .grafico-card {
+    background: linear-gradient(135deg, #2d3748 0%, #4a5568 100%);
+    border-color: #718096;
+}
+
+.modo-escuro .grafico-card h3 {
+    color: #63b3ed;
+}
+
+/* Detalhes do Ticket - Tema Escuro */
+.modo-escuro .ticket-detalhes {
+    background: linear-gradient(135deg, #1a202c 0%, #2d3748 100%);
+    border: 1px solid #4a5568;
+    border-radius: 16px;
+    padding: 2rem;
+    box-shadow: 0 12px 40px rgba(0, 0, 0, 0.4);
+}
+
+.modo-escuro .ticket-header {
+    background: linear-gradient(135deg, #2d3748 0%, #4a5568 100%);
+    border: 1px solid #718096;
+    border-radius: 12px;
+    padding: 1.5rem;
+    margin-bottom: 2rem;
+}
+
+.modo-escuro .ticket-id {
+    color: #63b3ed;
+    text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+}
+
+.modo-escuro .descricao-ticket {
+    background: linear-gradient(135deg, #4a5568 0%, #2d3748 100%);
+    border: 1px solid #718096;
+    border-radius: 8px;
+    padding: 1.5rem;
+    color: #e2e8f0;
+    margin: 1rem 0;
+}
+
+.modo-escuro .anexos-section {
+    background: linear-gradient(135deg, #2d3748 0%, #4a5568 100%);
+    border: 1px solid #718096;
+    border-radius: 12px;
+    padding: 1.5rem;
+    margin-top: 2rem;
+}
+
+.modo-escuro .anexos-section h3 {
+    color: #63b3ed;
+    margin-bottom: 1rem;
+}
+
+.modo-escuro .anexo-item {
+    background: linear-gradient(135deg, #4a5568 0%, #718096 100%) !important;
+    border: 1px solid #a0aec0;
+    color: #e2e8f0 !important;
+}
+
+.modo-escuro .btn-visualizar {
+    background: linear-gradient(135deg, #4299e1 0%, #3182ce 100%);
+    color: white;
+    border: none;
+}
+
+.modo-escuro .btn-visualizar:hover {
+    background: linear-gradient(135deg, #3182ce 0%, #2c5282 100%);
+    transform: translateY(-1px);
+}
+
+.modo-escuro .btn-small {
+    background: linear-gradient(135deg, #38a169 0%, #2f855a 100%);
+    color: white;
+    border: none;
+}
+
+.modo-escuro .btn-small:hover {
+    background: linear-gradient(135deg, #2f855a 0%, #276749 100%);
+    transform: translateY(-1px);
+}
+
+.modo-escuro .comentarios-section {
+    background: linear-gradient(135deg, #2d3748 0%, #4a5568 100%);
+    border: 1px solid #718096;
+    border-radius: 12px;
+    padding: 2rem;
+    margin-top: 2rem;
+}
+
+.modo-escuro .comentarios-section h3 {
+    color: #63b3ed;
+    margin-bottom: 1.5rem;
+}
+
+.modo-escuro .comentario-wrapper {
+    background: linear-gradient(135deg, #4a5568 0%, #2d3748 100%);
+    border: 1px solid #718096;
+    border-radius: 8px;
+    padding: 1rem;
+    margin: 1rem 0;
+    border-left: 4px solid #4299e1;
+}
+
+.modo-escuro .comentario-info {
+    color: #63b3ed;
+    font-weight: 600;
+    margin-bottom: 0.5rem;
+}
+
+.modo-escuro .comentario {
+    color: #e2e8f0;
+    line-height: 1.6;
+}
+
+.modo-escuro .historico-wrapper {
+    background: linear-gradient(135deg, #1a202c 0%, #2d3748 100%);
+    border: 1px solid #4a5568;
+    border-radius: 8px;
+    padding: 1rem;
+    margin: 1rem 0;
+    border-left: 4px solid #38a169;
+}
+
+.modo-escuro .historico-info {
+    color: #68d391;
+    font-weight: 600;
+    margin-bottom: 0.5rem;
+}
+
+.modo-escuro .historico-acao {
+    color: #e2e8f0;
+    font-style: italic;
+}
+
+.modo-escuro .btn-voltar {
+    background: linear-gradient(135deg, #718096 0%, #4a5568 100%);
+    color: white;
+    border: 1px solid #a0aec0;
+}
+
+.modo-escuro .btn-voltar:hover {
+    background: linear-gradient(135deg, #4a5568 0%, #2d3748 100%);
+    transform: translateY(-1px);
+}
+
+.modo-escuro .btn-reabrir {
+    background: linear-gradient(135deg, #38a169 0%, #2f855a 100%) !important;
+    border: 1px solid #48bb78;
+}
+
+.modo-escuro .btn-reabrir:hover {
+    background: linear-gradient(135deg, #2f855a 0%, #276749 100%) !important;
+    transform: translateY(-1px);
+}
+
+.modo-escuro .btn-excluir {
+    background: linear-gradient(135deg, #e53e3e 0%, #c53030 100%) !important;
+    border: 1px solid #fc8181;
+}
+
+.modo-escuro .btn-excluir:hover {
+    background: linear-gradient(135deg, #c53030 0%, #9c2626 100%) !important;
+    transform: translateY(-1px);
+}
+
+.modo-escuro .checkbox-container {
+    color: #e2e8f0;
+}
+
+.modo-escuro .checkmark {
+    background: #4a5568;
+    border: 2px solid #718096;
+}
+
+.modo-escuro .checkbox-container input:checked ~ .checkmark {
+    background: linear-gradient(135deg, #4299e1 0%, #3182ce 100%);
+    border-color: #4299e1;
+}
+
+/* Modal de Anexo - Tema Escuro */
+.modo-escuro .modal-anexo {
+    background: rgba(0, 0, 0, 0.8);
+    backdrop-filter: blur(5px);
+}
+
+.modo-escuro .modal-anexo-content {
+    background: linear-gradient(135deg, #1a202c 0%, #2d3748 100%);
+    border: 1px solid #4299e1;
+    box-shadow: 0 25px 80px rgba(0, 0, 0, 0.6);
+}
+
+.modo-escuro .modal-anexo-header {
+    background: linear-gradient(135deg, #4299e1 0%, #3182ce 100%);
+    color: white;
+    border-bottom: 1px solid #2b6cb0;
+}
+
+.modo-escuro .modal-anexo-body {
+    background: #2d3748;
+    color: #e2e8f0;
+}
+
+.modo-escuro .btn-close-anexo {
+    background: rgba(255, 255, 255, 0.1);
+    color: white;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.modo-escuro .btn-close-anexo:hover {
+    background: rgba(255, 255, 255, 0.2);
+    transform: scale(1.1);
+}
+
+/* Responsivo */
+@media (max-width: 768px) {
+    .tickets-header {
+        flex-direction: column;
+        align-items: stretch;
+    }
+    
+    .tickets-actions {
+        flex-direction: column;
+        gap: 1rem;
+    }
+    
+    .busca-avancada {
+        min-width: auto;
+    }
+    
+    .graficos-container {
+        grid-template-columns: 1fr;
+    }
+    
+    .merge-actions {
+        flex-direction: column;
+    }
+}

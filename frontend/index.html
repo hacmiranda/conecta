@@ -1,0 +1,545 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Helpdesk - CRPRS</title>
+    <link rel="icon" type="image/png" href="images/logo_vazado.png">
+    <link rel="stylesheet" href="style.css?v=3.5">
+    <link rel="stylesheet" href="historico.css">
+    <link rel="stylesheet" href="modal-modern.css">
+    <link rel="stylesheet" href="funcionalidades.css">
+    <link rel="stylesheet" href="status-sla.css">
+    <link rel="stylesheet" href="responsive.css">
+    <link rel="stylesheet" href="tutorial.css">
+    <link rel="stylesheet" href="lembretes.css">
+    <link rel="stylesheet" href="auditoria.css">
+</head>
+<body>
+    <header>
+        <div class="container header-container">
+            <div class="header-logo">
+                <img src="images/logo_vazado.png" alt="CRPRS" class="logo-img">
+                <h1 id="titulo-header">Helpdesk CRPRS</h1>
+            </div>
+            <nav>
+                <button onclick="mostrarSecao('tickets'); carregarTickets()" class="btn-nav active">Tickets</button>
+                <button onclick="mostrarDashboard()" class="btn-nav">Dashboard</button>
+                <button onclick="mostrarRelatorios()" class="btn-nav">Relatórios</button>
+                <button onclick="mostrarAjuda()" class="btn-nav">📋 Ajuda</button>
+                <button onclick="mostrarSecao('config')" class="btn-nav">Configurações</button>
+                <div style="position: relative; display: inline-block; margin-left: 1rem;">
+                    <span id="usuario-logado" style="color: white; cursor: pointer;" onclick="toggleMenuUsuario()"></span>
+                    <div id="menu-usuario" class="menu-usuario" style="display: none;">
+                        <a href="#" onclick="toggleModoEscuro(); toggleMenuUsuario(); return false;"><span id="icone-modo-escuro">🌙</span> <span id="texto-modo-escuro">Modo Escuro</span></a>
+                        <a href="#" onclick="mostrarAlterarSenha(); toggleMenuUsuario(); return false;">🔑 Alterar Senha</a>
+                    </div>
+                </div>
+                <button onclick="logout()" class="btn-nav" style="margin-left: 1rem;">Sair</button>
+            </nav>
+        </div>
+    </header>
+
+    <main class="container">
+        <!-- Lista de Tickets -->
+        <section id="tickets" class="secao active">
+            <div class="tickets-header">
+                <h2 style="color: var(--laranja); font-size: 1.8rem; font-weight: bold; margin: 0;">🎫 Tickets Abertos <span id="total-tickets-abertos" style="color: var(--laranja);"></span></h2>
+                <div class="tickets-actions">
+                    <div class="busca-avancada" style="display: flex; align-items: center; gap: 1rem;">
+                        <label class="switch-label" title="Visualizar apenas tickets atribuídos a mim">
+                            <label class="switch">
+                                <input type="checkbox" id="filtro-meus-tickets" onchange="aplicarFiltroMeusTickets()">
+                                <span class="slider"></span>
+                            </label>
+                            <span>Meus Tickets <span id="total-meus-tickets"></span></span>
+                        </label>
+                        <input type="text" id="busca-tickets" placeholder="🔍 Buscar por título, descrição ou solicitante..." class="input-busca" title="Pesquisa por: Título do ticket, Descrição e Nome do solicitante">
+                        <button onclick="limparBusca()" class="btn-limpar-busca" title="Limpar busca">✕</button>
+                    </div>
+                    <button onclick="mostrarSecao('fechados'); carregarTicketsFechados()" class="btn-small" id="btn-tickets-fechados" style="background-color: #6c757d;">📋 Encerrados</button>
+                    <button onclick="mostrarSecao('novo')" class="btn-small" id="btn-novo-ticket" style="background-color: #28a745;">➕ Novo Ticket</button>
+                    <button onclick="toggleModoMerge()" class="btn-merge" id="btn-merge">🔗 Mesclar Tickets</button>
+                </div>
+            </div>
+            <div id="merge-info" class="merge-info" style="display: none;">
+                <p>🔗 <strong>Modo Mesclar:</strong> Selecione 2 ou mais tickets para mesclar. O primeiro selecionado será o ticket principal.</p>
+                <div class="merge-actions">
+                    <button onclick="executarMerge()" class="btn-merge-execute" id="btn-merge-execute" disabled>🔗 Mesclar Selecionados</button>
+                    <button onclick="cancelarMerge()" class="btn-merge-cancel">✕ Cancelar</button>
+                </div>
+            </div>
+            <div id="lista-tickets">
+                <p>Carregando tickets...</p>
+            </div>
+        </section>
+        
+        <!-- Tickets Fechados -->
+        <section id="fechados" class="secao">
+            <div class="tickets-header">
+                <h2 style="color: #6c757d; font-size: 1.8rem; font-weight: bold; margin: 0;">🏁 Tickets Encerrados</h2>
+                <div class="tickets-actions">
+                    <div class="busca-avancada" style="display: flex; align-items: center; gap: 1rem;">
+                        <label class="switch-label" title="Visualizar apenas tickets atribuídos a mim">
+                            <label class="switch">
+                                <input type="checkbox" id="filtro-meus-tickets-fechados" onchange="aplicarFiltroMeusTicketsFechados()">
+                                <span class="slider"></span>
+                            </label>
+                            <span>Meus Tickets</span>
+                        </label>
+                        <input type="text" id="busca-fechados" placeholder="🔍 Buscar por título, descrição ou solicitante..." class="input-busca" title="Pesquisa por: Título do ticket, Descrição e Nome do solicitante">
+                        <button onclick="limparBuscaFechados()" class="btn-limpar-busca" title="Limpar busca">✕</button>
+                    </div>
+                    <button onclick="mostrarSecao('tickets'); carregarTickets()" class="btn-small">📋 Abertos</button>
+                    <button onclick="toggleModoMergeFechados()" class="btn-merge" id="btn-merge-fechados">🔗 Mesclar Tickets</button>
+                </div>
+            </div>
+            <div id="merge-info-fechados" class="merge-info" style="display: none;">
+                <p>🔗 <strong>Modo Mesclar:</strong> Selecione 2 ou mais tickets para mesclar. O primeiro selecionado será o ticket principal.</p>
+                <div class="merge-actions">
+                    <button onclick="executarMergeFechados()" class="btn-merge-execute" id="btn-merge-execute-fechados" disabled>🔗 Mesclar Selecionados</button>
+                    <button onclick="cancelarMergeFechados()" class="btn-merge-cancel">✕ Cancelar</button>
+                </div>
+            </div>
+            <div id="lista-fechados"></div>
+        </section>
+
+        <!-- Detalhes do Ticket -->
+        <section id="detalhes" class="secao">
+            <div id="ticket-detalhes"></div>
+        </section>
+
+        <!-- Configurações -->
+        <section id="config" class="secao">
+            <h2>⚙️ Configurações</h2>
+            
+            <div class="config-menu">
+                <button onclick="mostrarUsuarios()" class="btn-config active" id="btn-usuarios">👥 Gerenciar Usuários</button>
+                <button onclick="mostrarCategorias()" class="btn-config" id="btn-categorias">📁 Gerenciar Categorias</button>
+                <button onclick="mostrarHorariosSLA()" class="btn-config" id="btn-horarios-sla">⏰ Horários e Feriados</button>
+                <button onclick="mostrarConfigEmail()" class="btn-config" id="btn-config-email">📧 Configurar Email</button>
+                <button onclick="mostrarPersonalizacao()" class="btn-config" id="btn-personalizacao">🎨 Personalização</button>
+                <button onclick="mostrarAuditoria()" class="btn-config" id="btn-auditoria">📋 Auditoria</button>
+            </div>
+            
+            <div id="config-content">
+                <!-- Conteúdo das configurações -->
+            </div>
+        </section>
+        
+        <!-- Alterar Senha (acessível a todos) -->
+        <section id="alterar-senha-secao" class="secao">
+            <h2>🔑 Alterar Minha Senha</h2>
+            <div class="form-usuario">
+                <form id="form-alterar-senha" onsubmit="alterarSenha(event)">
+                    <div class="form-group">
+                        <label for="senha-atual">Senha Atual:</label>
+                        <input type="password" id="senha-atual" required>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="nova-senha">Nova Senha:</label>
+                        <input type="password" id="nova-senha" required minlength="10" oninput="verificarComplexidade()">
+                        <div id="complexidade-info" class="complexidade-info">
+                            <div id="check-tamanho" class="check-item">❌ Mínimo 10 caracteres</div>
+                            <div id="check-maiuscula" class="check-item">❌ 1 letra maiúscula</div>
+                            <div id="check-minuscula" class="check-item">❌ 1 letra minúscula</div>
+                            <div id="check-numero" class="check-item">❌ 1 número</div>
+                            <div id="check-especial" class="check-item">❌ 1 caractere especial</div>
+                        </div>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="confirmar-senha">Confirmar Nova Senha:</label>
+                        <input type="password" id="confirmar-senha" required minlength="10">
+                    </div>
+                    
+                    <button type="submit" class="btn-primary" id="btn-alterar" disabled>Alterar Senha</button>
+                </form>
+            </div>
+        </section>
+
+        <!-- Dashboard -->
+        <section id="dashboard" class="secao">
+            <h2>📊 Dashboard</h2>
+            <div id="dashboard-content">
+                <p>Carregando estatísticas...</p>
+            </div>
+        </section>
+
+        <!-- Ajuda -->
+        <section id="ajuda" class="secao">
+            <h2>📋 Ajuda e Documentação</h2>
+            
+            <div class="ajuda-menu">
+                <button onclick="mostrarSLA()" class="btn-ajuda active" id="btn-sla">⏰ SLA - Acordo de Nível de Serviço</button>
+                <button onclick="mostrarStatusGuia()" class="btn-ajuda" id="btn-status">📊 Status dos Tickets</button>
+                <button onclick="mostrarPrioridadeGuia()" class="btn-ajuda" id="btn-prioridade">🔥 Prioridades</button>
+                <button onclick="mostrarFluxosEmail()" class="btn-ajuda" id="btn-fluxos-email">📧 Fluxos de Email</button>
+                <button onclick="mostrarAtalhosGuia()" class="btn-ajuda" id="btn-atalhos">⌨️ Atalhos de Teclado</button>
+                <button onclick="mostrarTutorialAjuda()" class="btn-ajuda" id="btn-tutorial-ajuda">🎓 Tutorial Interativo</button>
+                <button onclick="mostrarDicasAjuda()" class="btn-ajuda" id="btn-dicas-ajuda">💡 Dicas do Sistema</button>
+            </div>
+            
+            <div id="ajuda-content">
+                <!-- Conteúdo da ajuda -->
+            </div>
+        </section>
+
+        <!-- Relatórios -->
+        <section id="relatorios" class="secao">
+            <h2>📈 Relatórios</h2>
+            
+            <div class="relatorio-filtros">
+                <div class="filtros-grid">
+                    <div class="filtro-grupo">
+                        <label>Período:</label>
+                        <select id="filtro-periodo">
+                            <option value="mes-atual">Mês Atual</option>
+                            <option value="mes-anterior">Mês Anterior</option>
+                            <option value="trimestre">Trimestre Atual</option>
+                            <option value="ano">Ano Atual</option>
+                            <option value="personalizado">Personalizado</option>
+                        </select>
+                    </div>
+                    
+                    <div class="filtro-grupo" id="datas-personalizadas" style="display: none;">
+                        <label>De:</label>
+                        <input type="date" id="data-inicio">
+                        <label>Até:</label>
+                        <input type="date" id="data-fim">
+                    </div>
+                    
+                    <div class="filtro-grupo">
+                        <label>Status:</label>
+                        <select id="filtro-status">
+                            <option value="todos">Todos</option>
+                            <option value="aberto">Aberto</option>
+                            <option value="em_atendimento">Em atendimento</option>
+                            <option value="aguardando_resposta">Aguardando resposta</option>
+                            <option value="aguardando_terceiros">Aguardando terceiros</option>
+                            <option value="aguardando_aprovacao">Aguardando aprovação</option>
+                            <option value="resolvido">Resolvido</option>
+                            <option value="encerrado">Encerrado</option>
+                            <option value="cancelado">Cancelado</option>
+                            <option value="reaberto">Reaberto</option>
+                        </select>
+                    </div>
+                    
+                    <div class="filtro-grupo">
+                        <label>Prioridade:</label>
+                        <select id="filtro-prioridade">
+                            <option value="todas">Todas</option>
+                            <option value="baixa">Baixa</option>
+                            <option value="normal">Normal</option>
+                            <option value="alta">Alta</option>
+                            <option value="urgente">Urgente</option>
+                        </select>
+                    </div>
+                    
+                    <div class="filtro-grupo">
+                        <label>Categoria:</label>
+                        <select id="filtro-categoria">
+                            <option value="todas">Todas</option>
+                        </select>
+                    </div>
+                    
+                    <div class="filtro-grupo">
+                        <label>Agente:</label>
+                        <select id="filtro-agente">
+                            <option value="todos">Todos</option>
+                        </select>
+                    </div>
+                </div>
+                
+                <div class="filtros-acoes">
+                    <button onclick="gerarRelatorio()" class="btn-primary">🔍 Gerar Relatório</button>
+                    <button onclick="exportarRelatorio('excel')" class="btn-secondary">📄 Exportar Excel</button>
+                    <button onclick="exportarRelatorio('pdf')" class="btn-secondary">📄 Exportar PDF</button>
+                </div>
+            </div>
+            
+            <div id="relatorio-resultado">
+                <p>Configure os filtros e clique em "Gerar Relatório" para visualizar os dados.</p>
+            </div>
+        </section>
+
+        <!-- Novo Ticket -->
+        <section id="novo" class="secao">
+            <h2 style="margin-top: 2rem;">Abrir Novo Ticket</h2>
+            <form id="form-ticket">
+                <div class="form-group">
+                    <label for="titulo">Título do ticket: <span style="color: red;">*</span></label>
+                    <input type="text" id="titulo" required>
+                </div>
+                
+                <div class="form-group">
+                    <label for="descricao">Descrição detalhada: <span style="color: red;">*</span></label>
+                    <textarea id="descricao" rows="4" required></textarea>
+                </div>
+                
+                <div class="form-group">
+                    <label for="email-solicitante">E-mail do Solicitante (opcional):</label>
+                    <input type="email" id="email-solicitante" placeholder="Deixe em branco para usar seu e-mail">
+                    <small style="color: #666; font-size: 0.85rem;">Se preenchido, as notificações serão enviadas para este e-mail</small>
+                </div>
+                
+                <div class="form-group">
+                    <label for="categoria">Categoria: <span style="color: red;">*</span></label>
+                    <div class="categoria-container">
+                        <input type="text" id="categoria-busca" placeholder="Clique aqui ou digite para buscar categoria..." autocomplete="off" required>
+                        <input type="hidden" id="categoria-id" required>
+                        <div id="categoria-lista-form" class="categoria-lista-form">
+                            <!-- Lista de categorias será carregada aqui -->
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="form-group">
+                    <label for="prioridade">Prioridade:</label>
+                    <select id="prioridade">
+                        <option value="baixa">Baixa</option>
+                        <option value="normal" selected>Normal</option>
+                        <option value="alta">Alta</option>
+                        <option value="urgente">Urgente</option>
+                    </select>
+                </div>
+                
+                <div class="form-group">
+                    <label for="anexos">Anexos (máx. 5 arquivos, 20MB total):</label>
+                    <input type="file" id="anexos" multiple accept=".pdf,.doc,.docx,.txt,.csv,.xls,.xlsx,.png,.jpg,.jpeg">
+                    <div style="background: linear-gradient(135deg, #e3f2fd 0%, #f3e5f5 100%); border: 1px solid #4299e1; border-radius: 8px; padding: 0.75rem; margin-top: 0.5rem; font-size: 0.85rem;">
+                        <div style="color: #2d3748; margin-bottom: 0.25rem;">
+                            📎 <strong>Tipos aceitos:</strong> PDF, DOC, DOCX, TXT, CSV, XLS, XLSX, PNG, JPG, ZIP, RAR
+                        </div>
+                        <div style="color: #2d3748;">
+                            📏 <strong>Limite:</strong> Máximo 5 arquivos com 20MB no total
+                        </div>
+                    </div>
+                    <div id="anexos-info" class="anexos-info"></div>
+                    <div id="anexos-erro" class="anexos-erro"></div>
+                    <button type="button" onclick="adicionarMaisAnexos()" class="btn-secondary" style="margin-top: 0.5rem;">+ Adicionar Mais Arquivos</button>
+                </div>
+                
+                <div style="display: flex; gap: 1rem;">
+                    <button type="submit" class="btn-primary">Abrir Ticket</button>
+                    <button type="button" onclick="cancelarNovoTicket()" class="btn-secondary">Cancelar</button>
+                </div>
+            </form>
+        </section>
+    </main>
+
+    <!-- Toast Container -->
+    <div id="toast-container" class="toast-container"></div>
+
+    <!-- Loader -->
+    <div id="loader-overlay" class="loader-overlay">
+        <div class="loader-content">
+            <img src="images/logo_vazado.png" alt="Carregando..." class="loader-logo">
+            <div class="loader-text">Salvando...</div>
+        </div>
+    </div>
+
+    <!-- Modals customizados -->
+    <div id="modal-overlay" class="modal-overlay">
+        <div id="modal-alert" class="modal">
+            <div class="modal-header">
+                <h3 id="modal-alert-title">Aviso</h3>
+                <button onclick="fecharModal()" class="btn-close-modal">×</button>
+            </div>
+            <div class="modal-body">
+                <p id="modal-alert-message"></p>
+            </div>
+            <div class="modal-footer">
+                <button onclick="fecharModal()" class="btn-modal btn-primary-modal">OK</button>
+            </div>
+        </div>
+        
+        <div id="modal-confirm" class="modal">
+            <div class="modal-header">
+                <h3 id="modal-confirm-title">Confirmação</h3>
+                <button onclick="fecharModal()" class="btn-close-modal">×</button>
+            </div>
+            <div class="modal-body">
+                <p id="modal-confirm-message"></p>
+            </div>
+            <div class="modal-footer">
+                <button onclick="confirmarModal(false)" class="btn-modal btn-secondary-modal">Cancelar</button>
+                <button onclick="confirmarModal(true)" class="btn-modal btn-danger-modal" id="btn-confirm-action">Confirmar</button>
+            </div>
+        </div>
+        
+        <div id="modal-prompt" class="modal">
+            <div class="modal-header">
+                <h3 id="modal-prompt-title">Informação</h3>
+            </div>
+            <div class="modal-body">
+                <p id="modal-prompt-message"></p>
+                <input type="text" id="modal-prompt-input" class="modal-input">
+            </div>
+            <div class="modal-footer">
+                <button onclick="promptModal(null)" class="btn-voltar">Cancelar</button>
+                <button onclick="promptModal(document.getElementById('modal-prompt-input').value)" class="btn-primary">OK</button>
+            </div>
+        </div>
+        
+        <div id="modal-select" class="modal">
+            <div class="modal-header modal-select-header">
+                <h3 id="modal-select-title">Selecionar</h3>
+                <button onclick="selecionarModal(null)" class="btn-close-modal">×</button>
+            </div>
+            <div class="modal-body modal-select-body">
+                <p id="modal-select-message"></p>
+                <div id="modal-select-options"></div>
+            </div>
+            <div class="modal-footer">
+                <button onclick="selecionarModal(null)" class="btn-modal btn-secondary-modal">Cancelar</button>
+            </div>
+        </div>
+        
+        <div id="modal-dicas" class="modal modal-dicas">
+            <div class="modal-header">
+                <h3>💡 Dicas do Sistema</h3>
+                <button onclick="fecharModalDicas()" class="btn-close-modal">×</button>
+            </div>
+            <div class="modal-body">
+                <div class="dicas-container">
+                    <div class="dica-item">
+                        <div class="dica-icon">📊</div>
+                        <div class="dica-content">
+                            <h4>Categorize seus tickets</h4>
+                            <p>Categorize seus tickets para que o Dashboard contabilize as categorias e macrocategorias corretamente</p>
+                        </div>
+                    </div>
+                    <div class="dica-item">
+                        <div class="dica-icon">🔥</div>
+                        <div class="dica-content">
+                            <h4>Defina a prioridade</h4>
+                            <p>Não esqueça de atribuir a devida prioridade ao ticket para garantir o atendimento adequado</p>
+                        </div>
+                    </div>
+                    <div class="dica-item">
+                        <div class="dica-icon">⏰</div>
+                        <div class="dica-content">
+                            <h4>Mantenha o status atualizado</h4>
+                            <p>Mantenha o Status do ticket atualizado para a correta contabilização do SLA</p>
+                        </div>
+                    </div>
+                    <div class="dica-item">
+                        <div class="dica-icon">👤</div>
+                        <div class="dica-content">
+                            <h4>Atribua tickets aos agentes</h4>
+                            <p>Sempre atribua tickets aos agentes responsáveis para melhor organização. Ao iniciar o atendimento, não esqueça de atribuir o ticket ao seu usuário</p>
+                        </div>
+                    </div>
+                    <div class="dica-item">
+                        <div class="dica-icon">📎</div>
+                        <div class="dica-content">
+                            <h4>Use anexos quando necessário</h4>
+                            <p>Anexe arquivos relevantes (prints, documentos) para facilitar o entendimento do problema</p>
+                        </div>
+                    </div>
+                    <div class="dica-item">
+                        <div class="dica-icon">💬</div>
+                        <div class="dica-content">
+                            <h4>Documente as soluções</h4>
+                            <p>Adicione comentários detalhando as soluções aplicadas para futuras consultas</p>
+                        </div>
+                    </div>
+
+                    <div class="dica-item">
+                        <div class="dica-icon">🔍</div>
+                        <div class="dica-content">
+                            <h4>Use a busca avançada</h4>
+                            <p>Utilize a busca para encontrar tickets rapidamente por título, descrição ou solicitante</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <label class="checkbox-container">
+                    <input type="checkbox" id="nao-mostrar-dicas" onchange="toggleDicasIniciais()">
+                    <span class="checkmark"></span>
+                    Não mostrar dicas na inicialização
+                </label>
+                <button onclick="fecharModalDicas()" class="btn-modal btn-primary-modal">Entendi</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Carregar título personalizado
+        fetch('config.json')
+            .then(res => res.json())
+            .then(config => {
+                if (config.titulo) {
+                    document.getElementById('titulo-header').textContent = config.titulo;
+                }
+            })
+            .catch(() => {});
+        
+        // Verificar se está logado
+        const usuario = JSON.parse(localStorage.getItem('usuario') || 'null');
+        if (!usuario) {
+            window.location.href = './login.html';
+        } else {
+            const usuarioEl = document.getElementById('usuario-logado');
+            usuarioEl.innerHTML = `Olá, ${usuario.nome} ▼`;
+            
+            // Esconder configurações para agentes
+            if (usuario.tipo !== 'admin') {
+                const btnConfig = document.querySelector('button[onclick="mostrarSecao(\'config\')"]');
+                if (btnConfig) {
+                    btnConfig.style.display = 'none';
+                }
+            }
+            
+            // Atualizar ícone do modo escuro
+            const isDark = localStorage.getItem('modoEscuro') === 'true';
+            if (isDark) {
+                document.body.classList.add('modo-escuro');
+                document.getElementById('icone-modo-escuro').textContent = '☀️';
+                document.getElementById('texto-modo-escuro').textContent = 'Modo Claro';
+            }
+        }
+        
+        function toggleMenuUsuario() {
+            const menu = document.getElementById('menu-usuario');
+            menu.style.display = menu.style.display === 'none' ? 'block' : 'none';
+        }
+        
+        // Fechar menu ao clicar fora
+        document.addEventListener('click', function(e) {
+            const menu = document.getElementById('menu-usuario');
+            const usuario = document.getElementById('usuario-logado');
+            if (menu && usuario && !menu.contains(e.target) && !usuario.contains(e.target)) {
+                menu.style.display = 'none';
+            }
+        });
+        
+        function logout() {
+            localStorage.removeItem('usuario');
+            localStorage.removeItem('token');
+            localStorage.removeItem('secaoAtiva');
+            localStorage.removeItem('subSecaoAtiva');
+            window.location.href = './login.html';
+        }
+    </script>
+    <!-- Socket.io removido para PHP -->
+
+    <script src="script.js"></script>
+    <script src="graficos-dashboard.js"></script>
+    <script src="status-sla.js"></script>
+    <script src="tutorial.js?v=3.4"></script>
+    <script src="lembretes.js"></script>
+    <script src="fluxos-email-func.js"></script>
+    <script src="horarios-sla.js"></script>
+    
+    <footer>
+        <div class="container" style="position: relative; text-align: center;">
+            <p>&copy; 2025 Sistema Helpdesk CRPRS - Conselho Regional de Psicologia do Rio Grande do Sul</p>
+            <p style="position: absolute; right: 0; top: 50%; transform: translateY(-50%);">v2.0</p>
+        </div>
+    </footer>
+</body>
+</html>
