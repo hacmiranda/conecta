@@ -2843,3 +2843,80 @@ input:checked + .slider:before {
 .modo-escuro .tab-btn.active {
     color: var(--laranja) !important;
 }
+
+/* === BOTÃO VOLTAR AO TOPO === */
+#btn-voltar-topo {
+    position: fixed;
+    bottom: 30px;
+    right: 30px;
+    width: 50px;
+    height: 50px;
+    background: linear-gradient(135deg, var(--laranja) 0%, #e67e22 100%);
+    color: white;
+    border: none;
+    border-radius: 50%;
+    cursor: pointer;
+    font-size: 24px;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 4px 12px rgba(247, 146, 38, 0.4);
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    z-index: 999;
+    opacity: 0;
+    transform: scale(0.8) translateY(10px);
+}
+
+#btn-voltar-topo.show {
+    display: flex;
+    opacity: 1;
+    transform: scale(1) translateY(0);
+}
+
+#btn-voltar-topo:hover {
+    background: linear-gradient(135deg, #e67e22 0%, var(--laranja) 100%);
+    transform: scale(1.1) translateY(-2px);
+    box-shadow: 0 6px 20px rgba(247, 146, 38, 0.6);
+}
+
+#btn-voltar-topo:active {
+    transform: scale(0.95) translateY(0);
+}
+
+/* Animação do ícone */
+#btn-voltar-topo::before {
+    content: '↑';
+    font-weight: bold;
+    animation: bounce 2s infinite;
+}
+
+@keyframes bounce {
+    0%, 100% {
+        transform: translateY(0);
+    }
+    50% {
+        transform: translateY(-3px);
+    }
+}
+
+/* Modo escuro */
+.modo-escuro #btn-voltar-topo {
+    background: linear-gradient(135deg, var(--vermelho) 0%, #8b1a16 100%);
+    box-shadow: 0 4px 12px rgba(168, 35, 30, 0.4);
+}
+
+.modo-escuro #btn-voltar-topo:hover {
+    background: linear-gradient(135deg, #8b1a16 0%, var(--vermelho) 100%);
+    box-shadow: 0 6px 20px rgba(168, 35, 30, 0.6);
+}
+
+/* Responsivo */
+@media (max-width: 768px) {
+    #btn-voltar-topo {
+        bottom: 20px;
+        right: 20px;
+        width: 45px;
+        height: 45px;
+        font-size: 20px;
+    }
+}
