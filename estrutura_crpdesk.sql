@@ -3,7 +3,7 @@
 -- https://www.phpmyadmin.net/
 --
 -- Host: crpdesk.vpshost0269.mysql.dbaas.com.br
--- Generation Time: 01-Dez-2025 às 14:45
+-- Generation Time: 12-Dez-2025 às 14:42
 -- Versão do servidor: 5.7.32-35-log
 -- PHP Version: 5.6.40-0+deb8u12
 
@@ -368,9 +368,9 @@ CREATE TABLE `ticket_prioridade_sla` (
 CREATE TABLE `ticket_sla` (
   `id` int(11) NOT NULL,
   `ticket_id` int(11) NOT NULL,
-  `prioridade` varchar(50) NOT NULL,
-  `sla_resposta_minutos` int(11) NOT NULL,
-  `sla_resolucao_horas` int(11) NOT NULL,
+  `prioridade` varchar(50) NOT NULL DEFAULT 'normal',
+  `sla_resposta_minutos` int(11) NOT NULL DEFAULT '480',
+  `sla_resolucao_horas` int(11) NOT NULL DEFAULT '24',
   `primeira_resposta_em` timestamp NULL DEFAULT NULL,
   `sla_resposta_vencido` tinyint(1) DEFAULT '0',
   `resolvido_em` timestamp NULL DEFAULT NULL,
@@ -583,7 +583,8 @@ ALTER TABLE `ticket_historico_status`
 -- Indexes for table `ticket_prioridades`
 --
 ALTER TABLE `ticket_prioridades`
-  ADD PRIMARY KEY (`id`);
+  ADD PRIMARY KEY (`id`),
+  ADD UNIQUE KEY `unique_nome` (`nome`);
 
 --
 -- Indexes for table `ticket_prioridade_sla`
@@ -624,25 +625,25 @@ ALTER TABLE `usuarios`
 -- AUTO_INCREMENT for table `anexos`
 --
 ALTER TABLE `anexos`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=47;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=69;
 
 --
 -- AUTO_INCREMENT for table `auditoria`
 --
 ALTER TABLE `auditoria`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=118;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=127;
 
 --
 -- AUTO_INCREMENT for table `auditoria_login`
 --
 ALTER TABLE `auditoria_login`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=81;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=95;
 
 --
 -- AUTO_INCREMENT for table `auditoria_tickets`
 --
 ALTER TABLE `auditoria_tickets`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=699;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=886;
 
 --
 -- AUTO_INCREMENT for table `categorias`
@@ -654,13 +655,13 @@ ALTER TABLE `categorias`
 -- AUTO_INCREMENT for table `comentarios`
 --
 ALTER TABLE `comentarios`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=174;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=223;
 
 --
 -- AUTO_INCREMENT for table `comentarios_nao_lidos`
 --
 ALTER TABLE `comentarios_nao_lidos`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=37;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=62;
 
 --
 -- AUTO_INCREMENT for table `feriados`
@@ -672,7 +673,7 @@ ALTER TABLE `feriados`
 -- AUTO_INCREMENT for table `historico`
 --
 ALTER TABLE `historico`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=25;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=27;
 
 --
 -- AUTO_INCREMENT for table `horarios_uteis`
@@ -696,25 +697,25 @@ ALTER TABLE `macrocategorias`
 -- AUTO_INCREMENT for table `tickets`
 --
 ALTER TABLE `tickets`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=226;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=271;
 
 --
 -- AUTO_INCREMENT for table `ticket_historico`
 --
 ALTER TABLE `ticket_historico`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=797;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=991;
 
 --
 -- AUTO_INCREMENT for table `ticket_historico_status`
 --
 ALTER TABLE `ticket_historico_status`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=714;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=869;
 
 --
 -- AUTO_INCREMENT for table `ticket_prioridades`
 --
 ALTER TABLE `ticket_prioridades`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=5;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=6;
 
 --
 -- AUTO_INCREMENT for table `ticket_prioridade_sla`
@@ -726,7 +727,7 @@ ALTER TABLE `ticket_prioridade_sla`
 -- AUTO_INCREMENT for table `ticket_sla`
 --
 ALTER TABLE `ticket_sla`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=226;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=274;
 
 --
 -- AUTO_INCREMENT for table `ticket_status`
@@ -744,7 +745,7 @@ ALTER TABLE `tokens_recuperacao`
 -- AUTO_INCREMENT for table `usuarios`
 --
 ALTER TABLE `usuarios`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=40;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=44;
 COMMIT;
 
 /*!40101 SET CHARACTER_SET_CLIENT=@OLD_CHARACTER_SET_CLIENT */;

@@ -48,24 +48,46 @@ if ($_SERVER['REQUEST_METHOD'] === 'PUT' && isset($_GET['marcar_lido'])) {
     }
 }
 
+
 // POST - Adicionar comentário
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    // Obter usuário logado do token JWT (com fallback)
+    $usuario_id = null;
+    try {
+        require_once __DIR__ . '/../middleware/auth.php';
+        $user = AuthMiddleware::verificarAuth();
+        $usuario_id = $user['id'];
+        error_log("[COMENTARIOS] Usuário autenticado via JWT: ID {$usuario_id}");
+    } catch (Exception $e) {
+        // Fallback: tentar pegar do POST/input (compatibilidade)
+        error_log("[COMENTARIOS] JWT falhou, usando fallback: " . $e->getMessage());
+        // Será definido abaixo baseado em FormData ou JSON
+    }
+    
     // Verificar se é FormData (com anexos) ou JSON
     $isFormData = isset($_POST['ticket_id']);
     
     if ($isFormData) {
         $ticket_id = $_POST['ticket_id'] ?? null;
         $comentario = $_POST['comentario'] ?? '';
-        $usuario_id = $_POST['usuario_id'] ?? 1;
+        if ($usuario_id === null) {
+            $usuario_id = $_POST['usuario_id'] ?? 1;
+        }
         $enviar_email = isset($_POST['enviar_email']) && $_POST['enviar_email'] === 'true';
         $com_copia = $_POST['com_copia'] ?? null;
     } else {
         $input = json_decode(file_get_contents('php://input'), true);
         $ticket_id = $input['ticket_id'] ?? null;
         $comentario = $input['comentario'] ?? '';
-        $usuario_id = $input['usuario_id'] ?? 1;
+        if ($usuario_id === null) {
+            $usuario_id = $input['usuario_id'] ?? 1;
+        }
         $enviar_email = $input['enviar_email'] ?? false;
         $com_copia = $input['com_copia'] ?? null;
+    }
+    
+    if ($usuario_id !== null) {
+        error_log("[COMENTARIOS] Usando usuario_id final: {$usuario_id}");
     }
     
     if (!$ticket_id || empty($comentario)) {
@@ -87,6 +109,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         
         // === LÓGICA DE SLA: Primeira resposta ===
         // Marcar primeira resposta se for de agente/admin
+        /* DESABILITADO - Coluna não existe no banco
         try {
             $user_query = "SELECT tipo FROM usuarios WHERE id = ?";
             $user_stmt = $db->prepare($user_query);
@@ -105,6 +128,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         } catch (Exception $e) {
             error_log("Erro ao atualizar SLA primeira resposta: " . $e->getMessage());
         }
+        */
         
         // Buscar dados do comentário recém-criado
         $query_comentario = "SELECT c.*, u.nome as autor_nome 

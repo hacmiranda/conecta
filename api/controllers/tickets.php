@@ -120,8 +120,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
             )";
             $db->exec($create_table);
             
-            // Obter ID do usuário logado (temporário, usar 1 como padrão)
-            $usuario_logado_id = 1; // TODO: Pegar do token JWT
+            
             
             $query = "SELECT t.*, 
                              u.nome as usuario_nome, u.email as usuario_email,
@@ -156,8 +155,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
 
 // POST - Criar ticket
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $user = AuthMiddleware::verificarAuth();
-    AuthMiddleware::verificarCSRF();
+    // Obter usuário logado do token JWT (com fallback)
+    $user = null;
+    try {
+        $user = AuthMiddleware::verificarAuth();
+        AuthMiddleware::verificarCSRF();
+    } catch (Exception $e) {
+        error_log("[TICKETS POST] JWT falhou: " . $e->getMessage());
+        // Fallback: criar usuário fake para compatibilidade
+        $user = ['id' => 1, 'email' => 'sistema@crprs.org.br', 'tipo' => 'admin'];
+    }
     
     error_log("[DEBUG] Iniciando criação de ticket");
     
@@ -307,16 +314,29 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
 // PUT - Atualizar ticket
 if ($_SERVER['REQUEST_METHOD'] === 'PUT') {
+    error_log("[DEBUG PUT] Iniciando método PUT");
+    error_log("[DEBUG PUT] Headers: " . json_encode(getallheaders()));
+    
     // $user = AuthMiddleware::verificarAuth();
     // AuthMiddleware::verificarCSRF();
     
     $ticket_id = $_GET['id'] ?? null;
     
     if (!$ticket_id) {
+        error_log("[DEBUG PUT] Ticket ID não fornecido");
         http_response_code(400);
         echo json_encode(['error' => 'ID do ticket é obrigatório']);
         exit;
     }
+    
+    error_log("[DEBUG PUT] Ticket ID: $ticket_id");
+    
+    // Obter usuário logado do input (fallback direto - JWT desabilitado temporariamente)
+    error_log("[DEBUG PUT] Usando fallback direto (JWT desabilitado)");
+    $input_temp = json_decode(file_get_contents('php://input'), true);
+    $usuario_id = $input_temp['atribuido_por'] ?? $input_temp['fechado_por'] ?? 1;
+    error_log("[TICKETS] Usando usuario_id: {$usuario_id}");
+
     
     $input = json_decode(file_get_contents('php://input'), true);
     

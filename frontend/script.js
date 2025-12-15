@@ -5,6 +5,13 @@ function sanitizeHTML(str) {
     return div.innerHTML;
 }
 
+// Função de logout
+function fazerLogout() {
+    localStorage.removeItem('usuario');
+    localStorage.removeItem('token');
+    window.location.href = './login.html';
+}
+
 // Navegação entre seções
 function mostrarSecao(secaoId) {
     document.querySelectorAll('.secao').forEach(secao => {
@@ -5041,12 +5048,15 @@ function mostrarAuditoria() {
         </div>
         
         <div class="auditoria-filtros">
-            <input type="text" id="busca-auditoria" placeholder="🔍 Buscar...">
+            <label>Data Início:</label>
             <input type="date" id="data-inicio-audit">
+            <label>Data Fim:</label>
             <input type="date" id="data-fim-audit">
-            <select id="filtro-usuario-audit">
-                <option value="">Todos os usuários</option>
-            </select>
+            <div class="categoria-container" style="position: relative; display: inline-block;">
+                <input type="text" id="filtro-usuario-audit" placeholder="👤 Digite o nome do agente/admin..." autocomplete="off">
+                <input type="hidden" id="filtro-usuario-id">
+                <div id="lista-usuarios-audit" class="categoria-lista-form" style="display: none;"></div>
+            </div>
             <button class="btn-primary" onclick="aplicarFiltrosAuditoria()">Filtrar</button>
             <button class="btn-secondary" onclick="limparFiltrosAuditoria()">Limpar</button>
             <button class="btn-primary" onclick="exportarAuditoria()">📥 Exportar CSV</button>
@@ -5218,15 +5228,15 @@ function filtrarAuditoria() {
 
 // Limpar filtros de auditoria
 function limparFiltrosAuditoria() {
-    const busca = document.getElementById('busca-auditoria');
     const dataInicio = document.getElementById('data-inicio-audit');
     const dataFim = document.getElementById('data-fim-audit');
     const usuario = document.getElementById('filtro-usuario-audit');
+    const usuarioId = document.getElementById('filtro-usuario-id');
 
-    if (busca) busca.value = '';
     if (dataInicio) dataInicio.value = '';
     if (dataFim) dataFim.value = '';
     if (usuario) usuario.value = '';
+    if (usuarioId) usuarioId.value = '';
 
     const tabAtiva = document.querySelector('.tab-btn.active');
     if (tabAtiva.textContent.includes('Geral')) carregarAuditoriaGeral();
@@ -5234,7 +5244,9 @@ function limparFiltrosAuditoria() {
     else if (tabAtiva.textContent.includes('Login')) carregarAuditoriaLogin();
 }
 
-// Carregar usuários para filtro
+// Carregar usuários para filtro (apenas agentes e admins)
+let todosUsuariosAudit = [];
+
 function carregarUsuariosFiltroAudit() {
     const xhr = new XMLHttpRequest();
     xhr.open('GET', '/crpdesk/api/controllers/usuarios.php', true);
@@ -5243,18 +5255,80 @@ function carregarUsuariosFiltroAudit() {
     xhr.onload = function () {
         if (xhr.status === 200) {
             const usuarios = JSON.parse(xhr.responseText);
-            const select = document.getElementById('filtro-usuario-audit');
-            if (select) {
-                usuarios.forEach(u => {
-                    const option = document.createElement('option');
-                    option.value = u.id;
-                    option.textContent = u.nome;
-                    select.appendChild(option);
-                });
-            }
+            // Filtrar apenas agentes e admins (ativos e inativos)
+            todosUsuariosAudit = usuarios.filter(u => u.tipo === 'agente' || u.tipo === 'admin');
+            configurarBuscaUsuarioAudit();
         }
     };
     xhr.send();
+}
+
+// Configurar busca de usuário
+function configurarBuscaUsuarioAudit() {
+    const input = document.getElementById('filtro-usuario-audit');
+    const lista = document.getElementById('lista-usuarios-audit');
+    const inputId = document.getElementById('filtro-usuario-id');
+
+    if (!input || !lista) return;
+
+    // Mostrar lista ao focar
+    input.addEventListener('focus', function () {
+        if (todosUsuariosAudit.length > 0) {
+            renderizarUsuariosAudit(todosUsuariosAudit);
+            lista.style.display = 'block';
+        }
+    });
+
+    // Filtrar ao digitar
+    input.addEventListener('input', function () {
+        const termo = this.value.toLowerCase();
+        if (termo === '') {
+            inputId.value = '';
+            renderizarUsuariosAudit(todosUsuariosAudit);
+        } else {
+            const filtrados = todosUsuariosAudit.filter(u =>
+                u.nome.toLowerCase().includes(termo) ||
+                u.email.toLowerCase().includes(termo)
+            );
+            renderizarUsuariosAudit(filtrados);
+        }
+        lista.style.display = 'block';
+    });
+
+    // Fechar ao clicar fora
+    document.addEventListener('click', function (e) {
+        if (!input.contains(e.target) && !lista.contains(e.target)) {
+            lista.style.display = 'none';
+        }
+    });
+}
+
+// Renderizar lista de usuários
+function renderizarUsuariosAudit(usuarios) {
+    const lista = document.getElementById('lista-usuarios-audit');
+    if (!lista) return;
+
+    lista.innerHTML = '';
+
+    if (usuarios.length === 0) {
+        lista.innerHTML = '<div class="categoria-item-form" style="padding: 0.75rem; color: #999;">Nenhum usuário encontrado</div>';
+        return;
+    }
+
+    usuarios.forEach(usuario => {
+        const div = document.createElement('div');
+        div.className = 'categoria-item-form';
+        div.textContent = `${usuario.nome} (${usuario.email})`;
+        div.style.cursor = 'pointer';
+
+        div.onclick = function () {
+            document.getElementById('filtro-usuario-audit').value = usuario.nome;
+            document.getElementById('filtro-usuario-id').value = usuario.id;
+            lista.style.display = 'none';
+        };
+
+        lista.appendChild(div);
+    });
 }
 
 // Aplicar filtros
@@ -5272,17 +5346,14 @@ function carregarAuditoriaGeral(pagina = 1) {
 
     const params = new URLSearchParams({ tipo: 'geral', pagina: pagina, limite: 50 });
 
-    const busca = document.getElementById('busca-auditoria')?.value;
-    if (busca) params.append('busca', busca);
-
     const dataInicio = document.getElementById('data-inicio-audit')?.value;
     if (dataInicio) params.append('data_inicio', dataInicio);
 
     const dataFim = document.getElementById('data-fim-audit')?.value;
     if (dataFim) params.append('data_fim', dataFim);
 
-    const usuario = document.getElementById('filtro-usuario-audit')?.value;
-    if (usuario) params.append('usuario_id', usuario);
+    const usuarioId = document.getElementById('filtro-usuario-id')?.value;
+    if (usuarioId) params.append('usuario_id', usuarioId);
 
     const xhr = new XMLHttpRequest();
     xhr.open('GET', `/crpdesk/api/controllers/auditoria-avancada.php?${params}`, true);
@@ -5336,6 +5407,15 @@ function carregarAuditoriaTickets(pagina = 1) {
     document.querySelectorAll('.tab-btn')[1].classList.add('active');
 
     const params = new URLSearchParams({ tipo: 'tickets', pagina: pagina, limite: 50 });
+
+    const dataInicio = document.getElementById('data-inicio-audit')?.value;
+    if (dataInicio) params.append('data_inicio', dataInicio);
+
+    const dataFim = document.getElementById('data-fim-audit')?.value;
+    if (dataFim) params.append('data_fim', dataFim);
+
+    const usuarioId = document.getElementById('filtro-usuario-id')?.value;
+    if (usuarioId) params.append('usuario_id', usuarioId);
 
     const xhr = new XMLHttpRequest();
     xhr.open('GET', `/crpdesk/api/controllers/auditoria-avancada.php?${params}`, true);
@@ -5392,6 +5472,15 @@ function carregarAuditoriaLogin(pagina = 1) {
     document.querySelectorAll('.tab-btn')[2].classList.add('active');
 
     const params = new URLSearchParams({ tipo: 'login', pagina: pagina, limite: 50 });
+
+    const dataInicio = document.getElementById('data-inicio-audit')?.value;
+    if (dataInicio) params.append('data_inicio', dataInicio);
+
+    const dataFim = document.getElementById('data-fim-audit')?.value;
+    if (dataFim) params.append('data_fim', dataFim);
+
+    const usuarioId = document.getElementById('filtro-usuario-id')?.value;
+    if (usuarioId) params.append('usuario_id', usuarioId);
 
     const xhr = new XMLHttpRequest();
     xhr.open('GET', `/crpdesk/api/controllers/auditoria-avancada.php?${params}`, true);
@@ -6187,3 +6276,23 @@ function enviarEFecharTicket(ticketId) {
         xhr.send(formData);
     }, true);
 }
+
+// === BOTÃO VOLTAR AO TOPO ===
+function voltarAoTopo() {
+    window.scrollTo({
+        top: 0,
+        behavior: 'smooth'
+    });
+}
+
+// Mostrar/ocultar botão baseado no scroll
+window.addEventListener('scroll', function () {
+    const btn = document.getElementById('btn-voltar-topo');
+    if (btn) {
+        if (window.pageYOffset > 300) {
+            btn.classList.add('show');
+        } else {
+            btn.classList.remove('show');
+        }
+    }
+});

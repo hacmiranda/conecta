@@ -37,12 +37,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
             exit;
         }
         
-        // Caminho do arquivo
-        $caminho_arquivo = '../../backend/anexos/' . $anexo['nome_arquivo'];
+        // Caminho do arquivo (absoluto)
+        $caminho_arquivo = dirname(__DIR__, 2) . '/backend/anexos/' . $anexo['nome_arquivo'];
+        
+        // Log de debug
+        error_log("[ANEXO DEBUG] ID: {$anexo_id}");
+        error_log("[ANEXO DEBUG] Nome arquivo DB: {$anexo['nome_arquivo']}");
+        error_log("[ANEXO DEBUG] Caminho completo: $caminho_arquivo");
+        error_log("[ANEXO DEBUG] Arquivo existe? " . (file_exists($caminho_arquivo) ? 'SIM' : 'NAO'));
         
         if (!file_exists($caminho_arquivo)) {
+            error_log("[ANEXO DEBUG] ERRO 404 - Arquivo não encontrado!");
             http_response_code(404);
-            echo json_encode(['error' => 'Arquivo não encontrado no servidor']);
+            echo json_encode(['error' => 'Arquivo não encontrado no servidor', 'caminho' => $caminho_arquivo, 'nome_db' => $anexo['nome_arquivo']]);
             exit;
         }
         
@@ -68,6 +75,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
         exit;
         
     } catch (Exception $e) {
+        error_log("[ANEXO DEBUG] Exception: " . $e->getMessage());
         http_response_code(500);
         echo json_encode(['error' => 'Erro ao processar anexo']);
     }
