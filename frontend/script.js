@@ -847,7 +847,7 @@ function mostrarDetalhesTicket(ticket) {
                                 </div>
                                 <div style="display: flex; gap: 0.5rem;">
                                     ${isPDF || isImage ? `<button class="btn-visualizar" onclick="visualizarAnexo(${anexo.id}, '${tipo}')">👁️ Visualizar</button>` : ''}
-                                    <a href="/crpdesk/api/controllers/anexos.php?id=${anexo.id}&action=download" class="btn-small" style="text-decoration: none;">⬇ Download</a>
+                                    <a href="../api/controllers/anexos.php?id=${anexo.id}&action=download" class="btn-small" style="text-decoration: none;">⬇ Download</a>
                                 </div>
                             </div>
                         `;
@@ -957,7 +957,7 @@ function mostrarDetalhesTicket(ticket) {
                 `<button class="btn-visualizar" onclick="visualizarAnexo(${anexo.id}, '${anexo.tipo || anexo.tipo_mime}')">👁️ Visualizar</button>` :
                 ''
             }
-                                    <a href="/crpdesk/api/controllers/anexos.php?id=${anexo.id}&action=download" class="btn-small" style="text-decoration: none;">📥 Download</a>
+                                    <a href="../api/controllers/anexos.php?id=${anexo.id}&action=download" class="btn-small" style="text-decoration: none;">📥 Download</a>
                                 </div>
                             </div>
                         `).join('')}
@@ -1046,17 +1046,19 @@ function visualizarAnexo(anexoId, tipoMime) {
         return;
     }
 
+    const baseUrl = '../api/controllers/anexos.php';
+
     if (tipoMime === 'application/pdf') {
         conteudo.innerHTML = `
-            <iframe src="/crpdesk/api/controllers/anexos.php?id=${anexoId}&action=view" width="100%" height="600px" style="border: none;" 
+            <iframe src="${baseUrl}?id=${anexoId}&action=view" width="100%" height="600px" style="border: none;" 
                     onload="console.log('PDF carregado')" 
                     onerror="console.error('Erro ao carregar PDF')"></iframe>
             <p style="margin-top: 15px; text-align: center; padding: 0 20px;">
-                <a href="/crpdesk/api/controllers/anexos.php?id=${anexoId}&action=download" target="_blank" class="btn-small" style="color: #000; white-space: nowrap; display: inline-block;">📄 Abrir em nova aba</a>
+                <a href="${baseUrl}?id=${anexoId}&action=download" target="_blank" class="btn-small" style="color: #000; white-space: nowrap; display: inline-block;">📄 Abrir em nova aba</a>
             </p>
         `;
     } else if (tipoMime.startsWith('image/')) {
-        conteudo.innerHTML = `<img src="/crpdesk/api/controllers/anexos.php?id=${anexoId}&action=view" style="max-width: 100%; height: auto; display: block; margin: 0 auto;" onload="console.log('Imagem carregada')" onerror="console.error('Erro ao carregar imagem')">`;
+        conteudo.innerHTML = `<img src="${baseUrl}?id=${anexoId}&action=view" style="max-width: 100%; height: auto; display: block; margin: 0 auto;" onload="console.log('Imagem carregada')" onerror="console.error('Erro ao carregar imagem')">`;
     } else {
         conteudo.innerHTML = `<p>Tipo de arquivo não suportado para visualização: ${tipoMime}</p>`;
     }
