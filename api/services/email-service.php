@@ -414,7 +414,7 @@ class EmailService {
             }
         }
         
-        $nome_arquivo = time() . '_email_' . preg_replace('/[^a-zA-Z0-9._-]/', '_', $anexo['nome']);
+        $nome_arquivo = time() . '_email_' . $anexo['nome'];
         $caminho_completo = $upload_dir . $nome_arquivo;
         
         error_log("[ANEXO SAVE] Nome arquivo: $nome_arquivo");
@@ -697,7 +697,10 @@ class EmailService {
     }
     
     private function decodificarTexto($texto) {
-        return mb_decode_mimeheader($texto);
+        $decoded = mb_decode_mimeheader($texto);
+        // Remover underlines que foram adicionados incorretamente
+        $decoded = str_replace('_', ' ', $decoded);
+        return $decoded;
     }
 }
 ?>
