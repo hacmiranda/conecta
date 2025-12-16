@@ -27,7 +27,9 @@ class SLAService {
         $dataAtual = clone $inicio;
         
         while ($dataAtual < $fim) {
-            $diaSemana = (int)$dataAtual->format('N'); // 1=Segunda, 7=Domingo
+            $diaSemana = (int)$dataAtual->format('w'); // 0=Domingo, 1=Segunda, ..., 6=Sábado
+            // Converter para formato da tabela: 1=Domingo, 2=Segunda, ..., 7=Sábado
+            $diaSemana = $diaSemana == 0 ? 1 : $diaSemana + 1;
             $dataStr = $dataAtual->format('Y-m-d');
             
             // Verificar se é feriado
