@@ -16,6 +16,13 @@ const STATUS_CONFIG = {
         descricao: 'O ticket está sendo analisado ou trabalhado por um atendente do helpdesk',
         congela_sla: false
     },
+    'aguardando': {
+        nome: 'Aguardando',
+        cor: '#ffc107',
+        icone: '⏳',
+        descricao: 'Ticket na fila ou aguardando ações gerais (SLA pausado)',
+        congela_sla: true
+    },
     'aguardando_resposta': {
         nome: 'Aguardando resposta',
         cor: '#ffc107',
@@ -223,7 +230,8 @@ function eFeriado(data) {
 function eHorarioUtil(data) {
     if (!HORARIOS_CONFIGURADOS) return false;
     
-    const dia = data.getDay();
+    const diaJS = data.getDay(); // 0=Domingo, 1=Segunda, ..., 6=Sábado
+    const dia = diaJS === 0 ? 1 : diaJS + 1; // Converter para formato do banco: 1=Domingo, 2=Segunda, ..., 7=Sábado
     const hora = data.getHours();
     const minuto = data.getMinutes();
     
@@ -289,7 +297,8 @@ function calcularSegundosUteisOtimizado(dataInicio, dataFim) {
     let dataAtual = new Date(dataInicio);
     
     while (dataAtual < dataFim) {
-        const dia = dataAtual.getDay();
+        const diaJS = dataAtual.getDay(); // 0=Domingo, 1=Segunda, ..., 6=Sábado
+        const dia = diaJS === 0 ? 1 : diaJS + 1; // Converter para formato do banco: 1=Domingo, 2=Segunda, ..., 7=Sábado
         
         // Buscar configuração do dia
         const diaConfig = HORARIOS_CONFIGURADOS.find(h => h.dia_semana == dia);
@@ -589,7 +598,7 @@ function calcularTempoRestanteSLA(ticket) {
     const prioridade = PRIORIDADE_CONFIG[ticket.prioridade] || PRIORIDADE_CONFIG['normal'];
     
     // Verificar se SLA está pausado
-    const statusPausaSLA = ['aguardando_resposta', 'aguardando_terceiros', 'aguardando_aprovacao', 'aguardando_data', 'resolvido'];
+    const statusPausaSLA = ['aguardando', 'aguardando_resposta', 'aguardando_terceiros', 'aguardando_aprovacao', 'aguardando_data', 'resolvido'];
     const slaPausado = statusPausaSLA.includes(ticket.status);
     
     // SLA de resposta (se ainda não teve primeira resposta)
@@ -677,8 +686,16 @@ function atualizarIndicadoresSLA() {
                         indicador.alt = 'SLA Atenção';
                     }
                     
-                    const statusTexto = slaInfo.pausado ? ' (pausado)' : '';
-                    indicador.title = `SLA ${slaInfo.tipo}: ${formatarTempo(slaInfo.tempoRestante)} (${Math.round(slaInfo.percentual)}%)${statusTexto}`;
+                    const tipoTexto = slaInfo.tipo === 'resposta' ? 'Primeira Resposta' : 'Resolução';
+                    const statusTexto = slaInfo.pausado ? '\n⏸️ SLA pausado (status aguardando)' : '';
+                    const vencidoTexto = slaInfo.vencido ? 'Vencido' : formatarTempo(slaInfo.tempoRestante);
+                    const percentualTexto = Math.round(slaInfo.percentual);
+                    
+                    indicador.title = `🕒 SLA de ${tipoTexto}\n` +
+                                     `📈 Progresso: ${percentualTexto}%\n` +
+                                     `⏱️ Tempo: ${vencidoTexto}${statusTexto}\n\n` +
+                                     `💡 O SLA mede o tempo útil (horário comercial)\n` +
+                                     `desde a abertura do ticket até a ${slaInfo.tipo === 'resposta' ? 'atribuição' : 'resolução'}.`;
                     indicador.style.marginLeft = '0.25rem';
                     indicador.style.width = '16px';
                     indicador.style.height = '16px';
