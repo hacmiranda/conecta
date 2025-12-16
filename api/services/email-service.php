@@ -397,18 +397,36 @@ class EmailService {
     private function salvarAnexo($ticket_id, $anexo, $comentario_id = null) {
         $upload_dir = dirname(__DIR__, 2) . '/backend/anexos/';
         
+        // Log de debug
+        error_log("[ANEXO SAVE] Ticket ID: $ticket_id");
+        error_log("[ANEXO SAVE] Upload dir: $upload_dir");
+        error_log("[ANEXO SAVE] Dir existe? " . (is_dir($upload_dir) ? 'SIM' : 'NAO'));
+        
         if (!is_dir($upload_dir)) {
-            mkdir($upload_dir, 0755, true);
-            echo "<p>📁 Pasta criada: $upload_dir</p>";
+            error_log("[ANEXO SAVE] Criando diretório...");
+            if (mkdir($upload_dir, 0755, true)) {
+                error_log("[ANEXO SAVE] Diretório criado com sucesso");
+                echo "<p>📁 Pasta criada: $upload_dir</p>";
+            } else {
+                error_log("[ANEXO SAVE] ERRO ao criar diretório!");
+                echo "<p>❌ Erro ao criar pasta: $upload_dir</p>";
+                return;
+            }
         }
         
         $nome_arquivo = time() . '_email_' . preg_replace('/[^a-zA-Z0-9._-]/', '_', $anexo['nome']);
         $caminho_completo = $upload_dir . $nome_arquivo;
         
+        error_log("[ANEXO SAVE] Nome arquivo: $nome_arquivo");
+        error_log("[ANEXO SAVE] Caminho completo: $caminho_completo");
+        error_log("[ANEXO SAVE] Tamanho conteúdo: " . strlen($anexo['conteudo']) . " bytes");
+        
         echo "<p>💾 Salvando em: $caminho_completo</p>";
         
-        if (file_put_contents($caminho_completo, $anexo['conteudo'])) {
-            echo "<p>✅ Arquivo salvo fisicamente</p>";
+        $bytes_escritos = file_put_contents($caminho_completo, $anexo['conteudo']);
+        if ($bytes_escritos !== false) {
+            error_log("[ANEXO SAVE] Arquivo salvo: $bytes_escritos bytes");
+            echo "<p>✅ Arquivo salvo fisicamente ($bytes_escritos bytes)</p>";
             
             $query = "INSERT INTO anexos (ticket_id, comentario_id, nome_original, nome_arquivo, tamanho, tipo) 
                      VALUES (:ticket_id, :comentario_id, :nome_original, :nome_arquivo, :tamanho, :tipo)";
@@ -421,9 +439,15 @@ class EmailService {
             $stmt->bindParam(':tipo', $anexo['tipo']);
             $stmt->execute();
             
-            echo "<p>✅ Registro no banco criado (ID: " . $this->db->lastInsertId() . ")</p>";
+            $anexo_id = $this->db->lastInsertId();
+            error_log("[ANEXO SAVE] Registro no banco criado (ID: $anexo_id)");
+            echo "<p>✅ Registro no banco criado (ID: $anexo_id)</p>";
         } else {
+            $error = error_get_last();
+            error_log("[ANEXO SAVE] ERRO ao salvar arquivo!");
+            error_log("[ANEXO SAVE] Erro PHP: " . print_r($error, true));
             echo "<p>❌ Falha ao salvar arquivo fisicamente</p>";
+            echo "<p>Erro: " . ($error['message'] ?? 'Desconhecido') . "</p>";
         }
     }
     
