@@ -1,9 +1,9 @@
 <?php
 class Database {
-    private $host = 'localhost';
+    private $host = 'crpdesk.vpshost0269.mysql.dbaas.com.br';
     private $db_name = 'crpdesk';
-    private $username = 'root';
-    private $password = '';
+    private $username = 'crpdesk';
+    private $password = '***REMOVIDO***';
     private $conn;
 
     public function getConnection() {
