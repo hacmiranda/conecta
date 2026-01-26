@@ -6,6 +6,8 @@
     <title>Login - Helpdesk CRPRS</title>
     <link rel="icon" type="image/png" href="images/logo_vazado.png">
     <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="modern-enhancements.css">
+    <script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>
     <style>
         body {
             background: url('images/background_login.png') no-repeat center center fixed;
@@ -139,10 +141,7 @@
                 </div>
             </div>
             
-            <div class="form-group">
-                <label for="captcha">Resolva: <span id="captcha-pergunta"></span></label>
-                <input type="number" id="captcha" required placeholder="Digite o resultado">
-            </div>
+            <div class="cf-turnstile" data-sitekey="0x4AAAAAACSR9w_nSv0Z5QIO" data-theme="light" style="margin: 1.5rem 0;"></div>
             
             <button type="submit" class="btn-primary" style="width: 100%;">Entrar</button>
         </form>
@@ -251,23 +250,11 @@
     </style>
 
     <script>
-        let captchaResposta = 0;
         let tentativasLogin = 0;
         let bloqueadoAte = null;
         let timerInterval = null;
         let ultimaTentativa = null;
         const TEMPO_RESET_TENTATIVAS = 15 * 60 * 1000; // 15 minutos
-        
-        // Gerar captcha
-        function gerarCaptcha() {
-            const num1 = Math.floor(Math.random() * 10) + 1;
-            const num2 = Math.floor(Math.random() * 10) + 1;
-            captchaResposta = num1 + num2;
-            document.getElementById('captcha-pergunta').textContent = `${num1} + ${num2} = ?`;
-        }
-        
-        // Gerar captcha ao carregar
-        gerarCaptcha();
         
         // Verificar se ainda está bloqueado ao carregar a página
         verificarBloqueio();
@@ -539,15 +526,7 @@
             
             const email = document.getElementById('email').value;
             const senha = document.getElementById('senha').value;
-            const captchaUsuario = parseInt(document.getElementById('captcha').value);
-            
-            // Verificar captcha
-            if (captchaUsuario !== captchaResposta) {
-                registrarTentativaFalhada();
-                gerarCaptcha();
-                document.getElementById('captcha').value = '';
-                return;
-            }
+            const turnstileToken = document.querySelector('[name="cf-turnstile-response"]')?.value || '';
             
             const xhr = new XMLHttpRequest();
             xhr.open('POST', '/crpdesk/api/controllers/auth.php', true);
@@ -568,18 +547,14 @@
                     }, 400);
                 } else {
                     registrarTentativaFalhada();
-                    gerarCaptcha();
-                    document.getElementById('captcha').value = '';
                 }
             };
             
             xhr.onerror = function() {
                 registrarTentativaFalhada();
-                gerarCaptcha();
-                document.getElementById('captcha').value = '';
             };
             
-            xhr.send(JSON.stringify({ email, senha }));
+            xhr.send(JSON.stringify({ email, senha, 'cf-turnstile-response': turnstileToken }));
         });
     </script>
 </body>

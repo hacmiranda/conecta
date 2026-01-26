@@ -1,0 +1,437 @@
+/* ========================================
+   CRPDESK - MODERN ENHANCEMENTS
+   Melhorias de design mantendo tom institucional
+   ======================================== */
+
+/* === TIPOGRAFIA MODERNA === */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+
+:root {
+    /* Cores existentes mantidas */
+    --laranja: #f79226;
+    --vermelho: #a8231e;
+    --verde: #71aa29;
+    --cinza: #f5f5f5;
+    --branco: #ffffff;
+    
+    /* Novas variáveis para consistência */
+    --shadow-sm: 0 1px 3px rgba(0,0,0,0.08);
+    --shadow-md: 0 4px 12px rgba(0,0,0,0.1);
+    --shadow-lg: 0 8px 24px rgba(0,0,0,0.12);
+    --shadow-xl: 0 16px 48px rgba(0,0,0,0.15);
+    
+    --radius-sm: 6px;
+    --radius-md: 10px;
+    --radius-lg: 14px;
+    
+    --transition-fast: 0.15s cubic-bezier(0.4, 0, 0.2, 1);
+    --transition-base: 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+    --transition-slow: 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+body {
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    letter-spacing: -0.01em;
+}
+
+/* === HEADER MODERNO === */
+header {
+    background: linear-gradient(135deg, #1a202c 0%, #2d3748 50%, #1a202c 100%);
+    backdrop-filter: blur(10px);
+    box-shadow: var(--shadow-lg);
+    border-bottom: 1px solid rgba(255,255,255,0.05);
+}
+
+header h1 {
+    font-weight: 700;
+    letter-spacing: -0.02em;
+}
+
+.btn-nav {
+    font-weight: 500;
+    letter-spacing: -0.01em;
+    border-radius: var(--radius-md);
+    transition: all var(--transition-base);
+    position: relative;
+    overflow: hidden;
+}
+
+.btn-nav::before {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 0;
+    height: 0;
+    border-radius: 50%;
+    background: rgba(255,255,255,0.1);
+    transform: translate(-50%, -50%);
+    transition: width var(--transition-slow), height var(--transition-slow);
+}
+
+.btn-nav:hover::before {
+    width: 300px;
+    height: 300px;
+}
+
+.btn-nav.active {
+    box-shadow: 0 4px 12px rgba(168, 35, 30, 0.4);
+}
+
+/* === CARDS MODERNOS === */
+.ticket-card,
+.dashboard-card,
+.usuario-card,
+.resumo-card {
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-sm);
+    transition: all var(--transition-base);
+    border: 1px solid rgba(0,0,0,0.04);
+}
+
+.ticket-card:hover,
+.dashboard-card:hover,
+.usuario-card:hover {
+    box-shadow: var(--shadow-md);
+    transform: translateY(-2px);
+}
+
+/* === BOTÕES MODERNOS === */
+.btn-primary,
+.btn-small,
+.btn-secondary {
+    font-weight: 600;
+    letter-spacing: -0.01em;
+    border-radius: var(--radius-md);
+    transition: all var(--transition-base);
+    box-shadow: var(--shadow-sm);
+    position: relative;
+    overflow: hidden;
+}
+
+.btn-primary::after,
+.btn-small::after {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 0;
+    height: 0;
+    border-radius: 50%;
+    background: rgba(255,255,255,0.2);
+    transform: translate(-50%, -50%);
+    transition: width var(--transition-fast), height var(--transition-fast);
+}
+
+.btn-primary:hover::after,
+.btn-small:hover::after {
+    width: 300px;
+    height: 300px;
+}
+
+.btn-primary:active,
+.btn-small:active {
+    transform: scale(0.97);
+}
+
+/* === TABELA MODERNA === */
+.tickets-tabela {
+    border-radius: var(--radius-lg);
+    overflow: hidden;
+    box-shadow: var(--shadow-md);
+    border: 1px solid rgba(0,0,0,0.06);
+}
+
+.tickets-tabela th {
+    background: linear-gradient(135deg, #2d3748 0%, #1a202c 100%);
+    font-weight: 600;
+    letter-spacing: 0.02em;
+    text-transform: uppercase;
+    font-size: 11px;
+    padding: 1rem;
+}
+
+.tickets-tabela tr {
+    transition: all var(--transition-fast);
+}
+
+.tickets-tabela tr:hover {
+    background-color: rgba(247, 146, 38, 0.03);
+    transform: scale(1.001);
+}
+
+/* === STATUS BADGES MODERNOS === */
+.status {
+    border-radius: var(--radius-sm);
+    font-weight: 600;
+    letter-spacing: -0.01em;
+    transition: all var(--transition-base);
+    border-left-width: 3px;
+}
+
+.status.clickable:hover {
+    transform: translateX(4px);
+    box-shadow: var(--shadow-sm);
+}
+
+/* === MODAIS MODERNOS === */
+.modal {
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-xl);
+    border: 1px solid rgba(0,0,0,0.08);
+    animation: modalSlideIn var(--transition-slow);
+}
+
+@keyframes modalSlideIn {
+    from {
+        opacity: 0;
+        transform: translateY(-20px) scale(0.95);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+    }
+}
+
+.modal-header {
+    border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+}
+
+/* === INPUTS MODERNOS === */
+input, textarea, select {
+    border-radius: var(--radius-md);
+    border: 2px solid #e2e8f0;
+    transition: all var(--transition-base);
+    font-family: 'Inter', sans-serif;
+}
+
+input:focus, textarea:focus, select:focus {
+    outline: none;
+    border-color: var(--laranja);
+    box-shadow: 0 0 0 4px rgba(247, 146, 38, 0.1);
+    transform: translateY(-1px);
+}
+
+/* === DASHBOARD CARDS COM GRADIENTE === */
+.dashboard-card {
+    position: relative;
+    overflow: hidden;
+}
+
+.dashboard-card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 4px;
+    background: linear-gradient(90deg, var(--laranja), var(--vermelho));
+}
+
+.dashboard-number {
+    font-weight: 700;
+    letter-spacing: -0.03em;
+}
+
+/* === ANIMAÇÕES SUAVES === */
+@keyframes fadeInUp {
+    from {
+        opacity: 0;
+        transform: translateY(30px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.secao.active {
+    animation: fadeInUp var(--transition-slow);
+}
+
+/* === SCROLLBAR MODERNA === */
+::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+}
+
+::-webkit-scrollbar-track {
+    background: #f1f5f9;
+    border-radius: 10px;
+}
+
+::-webkit-scrollbar-thumb {
+    background: linear-gradient(135deg, var(--laranja), var(--vermelho));
+    border-radius: 10px;
+    border: 2px solid #f1f5f9;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: linear-gradient(135deg, var(--vermelho), var(--laranja));
+}
+
+/* === TÍTULOS COM HIERARQUIA === */
+h2 {
+    font-weight: 700;
+    letter-spacing: -0.03em;
+    position: relative;
+    padding-bottom: 0.75rem;
+}
+
+h2::after {
+    content: '';
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    width: 60px;
+    height: 4px;
+    background: linear-gradient(90deg, var(--laranja), var(--vermelho));
+    border-radius: 2px;
+}
+
+/* === TOAST MODERNO === */
+.toast {
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-xl);
+    border: 1px solid rgba(0,0,0,0.08);
+    backdrop-filter: blur(10px);
+}
+
+/* === LOADER MODERNO === */
+.loader-overlay {
+    backdrop-filter: blur(8px);
+}
+
+.loader-logo {
+    filter: drop-shadow(0 8px 24px rgba(247, 146, 38, 0.4));
+}
+
+/* === MENU USUÁRIO MODERNO === */
+.menu-usuario {
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-xl);
+    border: 1px solid rgba(0,0,0,0.08);
+    backdrop-filter: blur(10px);
+    animation: dropdownSlide var(--transition-base);
+}
+
+@keyframes dropdownSlide {
+    from {
+        opacity: 0;
+        transform: translateY(-10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.menu-usuario a {
+    font-weight: 500;
+    transition: all var(--transition-fast);
+}
+
+.menu-usuario a:hover {
+    background: linear-gradient(90deg, rgba(247, 146, 38, 0.1), transparent);
+    padding-left: 1.25rem;
+}
+
+/* === BUSCA AVANÇADA MODERNA === */
+.input-busca {
+    border-radius: 24px;
+    border: 2px solid #e2e8f0;
+    transition: all var(--transition-base);
+    box-shadow: var(--shadow-sm);
+}
+
+.input-busca:focus {
+    box-shadow: var(--shadow-md);
+    border-color: var(--laranja);
+}
+
+/* === MODO ESCURO APRIMORADO === */
+.modo-escuro {
+    background-color: #0f172a;
+}
+
+.modo-escuro .ticket-card,
+.modo-escuro .dashboard-card,
+.modo-escuro .usuario-card,
+.modo-escuro .modal {
+    background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
+    border-color: rgba(255,255,255,0.05);
+}
+
+.modo-escuro .tickets-tabela th {
+    background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
+}
+
+.modo-escuro input,
+.modo-escuro textarea,
+.modo-escuro select {
+    background: #1e293b;
+    border-color: #334155;
+    color: #e2e8f0;
+}
+
+.modo-escuro input:focus,
+.modo-escuro textarea:focus,
+.modo-escuro select:focus {
+    border-color: var(--laranja);
+    background: #0f172a;
+}
+
+.modo-escuro ::-webkit-scrollbar-track {
+    background: #1e293b;
+}
+
+.modo-escuro ::-webkit-scrollbar-thumb {
+    border-color: #1e293b;
+}
+
+/* === RESPONSIVIDADE APRIMORADA === */
+@media (max-width: 768px) {
+    .btn-nav {
+        padding: 0.5rem 0.8rem;
+        font-size: 0.85rem;
+    }
+    
+    h2 {
+        font-size: 1.5rem;
+    }
+    
+    .dashboard-card {
+        padding: 1rem;
+    }
+}
+
+/* === MICRO-INTERAÇÕES === */
+.btn-nav,
+.btn-primary,
+.btn-small,
+.ticket-card,
+.status.clickable {
+    will-change: transform;
+}
+
+/* === ACESSIBILIDADE === */
+@media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+    }
+}
+
+/* === FOCUS VISÍVEL === */
+*:focus-visible {
+    outline: 3px solid var(--laranja);
+    outline-offset: 2px;
+    border-radius: var(--radius-sm);
+}

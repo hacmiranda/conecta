@@ -6251,8 +6251,8 @@ INSERT INTO `usuarios` (`id`, `nome`, `email`, `anydesk_id`, `tipo`, `ativo`, `c
 -- Stand-in structure for view `vw_tickets_sla`
 -- (See below for the actual view)
 --
-CREATE TABLE IF NOT EXISTS `vw_tickets_sla` (
-);
+-- CREATE TABLE IF NOT EXISTS `vw_tickets_sla` (
+-- );
 
 -- --------------------------------------------------------
 

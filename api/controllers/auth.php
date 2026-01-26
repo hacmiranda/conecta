@@ -11,6 +11,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
 require_once __DIR__ . '/../config/database.php';
 require_once __DIR__ . '/../middleware/auth.php';
 require_once __DIR__ . '/../services/auditoria-service.php';
+require_once __DIR__ . '/../config/turnstile.php';
 
 session_start();
 
@@ -18,6 +19,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $input = json_decode(file_get_contents('php://input'), true);
     $email = $input['email'] ?? '';
     $senha = $input['senha'] ?? '';
+    $turnstileToken = $input['cf-turnstile-response'] ?? '';
+    
+    // Validar Turnstile primeiro
+    if (!validateTurnstile($turnstileToken, $_SERVER['REMOTE_ADDR'])) {
+        http_response_code(400);
+        echo json_encode(['error' => 'Verificação de segurança falhou. Tente novamente.']);
+        exit;
+    }
     
     if (empty($email) || empty($senha)) {
         http_response_code(400);
