@@ -1,10 +1,19 @@
 <?php
+require_once __DIR__ . '/environment.php';
+
 class Database {
-    private $host = 'crpdesk.vpshost0269.mysql.dbaas.com.br';
-    private $db_name = 'crpdesk';
-    private $username = 'crpdesk';
-    private $password = '***REMOVIDO***';
+    private $host;
+    private $db_name;
+    private $username;
+    private $password;
     private $conn;
+
+    public function __construct() {
+        $this->host = Environment::get('db_host');
+        $this->db_name = Environment::get('db_name');
+        $this->username = Environment::get('db_user');
+        $this->password = Environment::get('db_pass');
+    }
 
     public function getConnection() {
         $this->conn = null;
