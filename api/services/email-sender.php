@@ -22,12 +22,12 @@ class EmailSender {
         $this->mailer->Debugoutput = function($str, $level) {
             error_log("[PHPMAILER] $str");
         };
-        $this->mailer->Host = EmailConfig::SMTP_HOST;
+        $this->mailer->Host = EmailConfig::get('SMTP_HOST');
         $this->mailer->SMTPAuth = true;
-        $this->mailer->Username = EmailConfig::SMTP_USERNAME;
-        $this->mailer->Password = EmailConfig::SMTP_PASSWORD;
+        $this->mailer->Username = EmailConfig::get('SMTP_USERNAME');
+        $this->mailer->Password = EmailConfig::get('SMTP_PASSWORD');
         $this->mailer->SMTPSecure = PHPMailer::ENCRYPTION_SMTPS;
-        $this->mailer->Port = EmailConfig::SMTP_PORT;
+        $this->mailer->Port = EmailConfig::get('SMTP_PORT');
         $this->mailer->CharSet = 'UTF-8';
         $this->mailer->Timeout = 10;
         $this->mailer->SMTPOptions = array(
@@ -37,7 +37,7 @@ class EmailSender {
                 'allow_self_signed' => true
             )
         );
-        $this->mailer->setFrom(EmailConfig::FROM_EMAIL, EmailConfig::FROM_NAME);
+        $this->mailer->setFrom(EmailConfig::get('FROM_EMAIL'), EmailConfig::get('FROM_NAME'));
     }
     
     public function enviarEmailNovoTicket($ticket_id, $anexos_rejeitados = []) {
@@ -151,7 +151,7 @@ class EmailSender {
         try {
             $this->configurarMailer();
             
-            $this->mailer->setFrom(EmailConfig::SMTP_USERNAME, 'Suporte CRPRS');
+            $this->mailer->setFrom(EmailConfig::get('SMTP_USERNAME'), 'Suporte CRPRS');
             $this->mailer->addAddress($para);
             $this->mailer->Subject = $assunto;
             $this->mailer->Body = $html;

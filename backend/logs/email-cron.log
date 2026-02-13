@@ -411759,3 +411759,171 @@
 [2026-01-26 16:44:01] Verificação de lembretes concluída
 [2026-01-26 16:44:01] Fim da execução
 
+[2026-02-13 08:57:58] Conectando em: {email-ssl.com.br:993/imap/ssl/novalidate-cert}INBOX
+[2026-02-13 08:58:02] Conectando em: {email-ssl.com.br:993/imap/ssl/novalidate-cert}INBOX
+[2026-02-13 08:58:02] Conectado com sucesso
+[2026-02-13 08:58:02] Encontrados 3 emails não lidos
+[2026-02-13 08:58:03] Processando UID: 130
+[2026-02-13 08:58:03] Processando UID: 131
+[2026-02-13 08:58:03] Processando UID: 132
+[2026-02-13 08:58:03] Total na caixa: 18
+[2026-02-13 08:58:07] Conectado com sucesso
+[2026-02-13 08:58:07] Nenhum email não lido
+[2026-02-13 08:58:07] Total na caixa: 18
+[2026-02-13 09:01:01] Conectando em: {email-ssl.com.br:993/imap/ssl/novalidate-cert}INBOX
+[2026-02-13 09:01:06] Conectado com sucesso
+[2026-02-13 09:01:06] Nenhum email não lido
+[2026-02-13 09:01:06] Total na caixa: 18
+[2026-02-13 09:04:01] Conectando em: {email-ssl.com.br:993/imap/ssl/novalidate-cert}INBOX
+[2026-02-13 09:04:06] Conectado com sucesso
+[2026-02-13 09:04:06] Nenhum email não lido
+[2026-02-13 09:04:06] Total na caixa: 18
+[2026-02-13 09:06:36] Conectando em: {email-ssl.com.br:993/imap/ssl/novalidate-cert}INBOX
+[2026-02-13 09:06:41] Conectado com sucesso
+[2026-02-13 09:06:41] Encontrados 1 emails não lidos
+[2026-02-13 09:06:41] Processando UID: 133
+[2026-02-13 09:06:48] Total na caixa: 19
+[2026-02-13 09:07:01] Conectando em: {email-ssl.com.br:993/imap/ssl/novalidate-cert}INBOX
+[2026-02-13 09:07:06] Conectado com sucesso
+[2026-02-13 09:07:06] Nenhum email não lido
+[2026-02-13 09:07:06] Total na caixa: 19
+[2026-02-13 09:10:01] Conectando em: {email-ssl.com.br:993/imap/ssl/novalidate-cert}INBOX
+[2026-02-13 09:10:06] Conectado com sucesso
+[2026-02-13 09:10:06] Nenhum email não lido
+[2026-02-13 09:10:06] Total na caixa: 19
+[2026-02-13 09:13:01] Conectando em: {email-ssl.com.br:993/imap/ssl/novalidate-cert}INBOX
+[2026-02-13 09:13:06] Conectado com sucesso
+[2026-02-13 09:13:06] Nenhum email não lido
+[2026-02-13 09:13:06] Total na caixa: 19
+[2026-02-13 09:16:01] Conectando em: {email-ssl.com.br:993/imap/ssl/novalidate-cert}INBOX
+[2026-02-13 09:16:06] Conectado com sucesso
+[2026-02-13 09:16:06] Nenhum email não lido
+[2026-02-13 09:16:06] Total na caixa: 19
+[2026-02-13 09:19:01] Conectando em: {email-ssl.com.br:993/imap/ssl/novalidate-cert}INBOX
+[2026-02-13 09:19:06] Conectado com sucesso
+[2026-02-13 09:19:06] Nenhum email não lido
+[2026-02-13 09:19:06] Total na caixa: 19
+[2026-02-13 09:22:00] Conectando em: {email-ssl.com.br:993/imap/ssl/novalidate-cert}INBOX
+[2026-02-13 09:22:05] Conectado com sucesso
+[2026-02-13 09:22:05] Nenhum email não lido
+[2026-02-13 09:22:05] Total na caixa: 19
+[2026-02-13 09:25:01] Conectando em: {email-ssl.com.br:993/imap/ssl/novalidate-cert}INBOX
+[2026-02-13 09:25:06] Conectado com sucesso
+[2026-02-13 09:25:06] Nenhum email não lido
+[2026-02-13 09:25:06] Total na caixa: 19
+[2026-02-13 09:28:01] Conectando em: {email-ssl.com.br:993/imap/ssl/novalidate-cert}INBOX
+[2026-02-13 09:28:06] Conectado com sucesso
+[2026-02-13 09:28:06] Nenhum email não lido
+[2026-02-13 09:28:06] Total na caixa: 19
+[2026-02-13 09:31:01] Conectando em: {email-ssl.com.br:993/imap/ssl/novalidate-cert}INBOX
+[2026-02-13 09:31:06] Conectado com sucesso
+[2026-02-13 09:31:06] Nenhum email não lido
+[2026-02-13 09:31:06] Total na caixa: 19
+[2026-02-13 09:34:01] Conectando em: {email-ssl.com.br:993/imap/ssl/novalidate-cert}INBOX
+[2026-02-13 09:34:06] Conectado com sucesso
+[2026-02-13 09:34:06] Nenhum email não lido
+[2026-02-13 09:34:06] Total na caixa: 19
+[2026-02-13 09:37:01] Conectando em: {email-ssl.com.br:993/imap/ssl/novalidate-cert}INBOX
+[2026-02-13 09:37:06] Conectado com sucesso
+[2026-02-13 09:37:06] Nenhum email não lido
+[2026-02-13 09:37:06] Total na caixa: 19
+[2026-02-13 09:40:01] Conectando em: {email-ssl.com.br:993/imap/ssl/novalidate-cert}INBOX
+[2026-02-13 09:40:06] Conectado com sucesso
+[2026-02-13 09:40:06] Nenhum email não lido
+[2026-02-13 09:40:06] Total na caixa: 19
+[2026-02-13 09:43:01] Conectando em: {email-ssl.com.br:993/imap/ssl/novalidate-cert}INBOX
+[2026-02-13 09:43:06] Conectado com sucesso
+[2026-02-13 09:43:06] Nenhum email não lido
+[2026-02-13 09:43:06] Total na caixa: 19
+[2026-02-13 09:46:01] Conectando em: {email-ssl.com.br:993/imap/ssl/novalidate-cert}INBOX
+[2026-02-13 09:46:06] Conectado com sucesso
+[2026-02-13 09:46:06] Nenhum email não lido
+[2026-02-13 09:46:06] Total na caixa: 19
+[2026-02-13 09:49:01] Conectando em: {email-ssl.com.br:993/imap/ssl/novalidate-cert}INBOX
+[2026-02-13 09:49:06] Conectado com sucesso
+[2026-02-13 09:49:06] Nenhum email não lido
+[2026-02-13 09:49:06] Total na caixa: 19
+[2026-02-13 09:52:01] Conectando em: {email-ssl.com.br:993/imap/ssl/novalidate-cert}INBOX
+[2026-02-13 09:52:06] Conectado com sucesso
+[2026-02-13 09:52:06] Nenhum email não lido
+[2026-02-13 09:52:06] Total na caixa: 19
+[2026-02-13 09:55:02] Conectando em: {email-ssl.com.br:993/imap/ssl/novalidate-cert}INBOX
+[2026-02-13 09:55:06] Conectado com sucesso
+[2026-02-13 09:55:07] Nenhum email não lido
+[2026-02-13 09:55:07] Total na caixa: 19
+[2026-02-13 09:58:01] Conectando em: {email-ssl.com.br:993/imap/ssl/novalidate-cert}INBOX
+[2026-02-13 09:58:06] Conectado com sucesso
+[2026-02-13 09:58:06] Nenhum email não lido
+[2026-02-13 09:58:06] Total na caixa: 19
+[2026-02-13 10:01:01] Conectando em: {email-ssl.com.br:993/imap/ssl/novalidate-cert}INBOX
+[2026-02-13 10:01:06] Conectado com sucesso
+[2026-02-13 10:01:06] Nenhum email não lido
+[2026-02-13 10:01:06] Total na caixa: 19
+[2026-02-13 10:04:01] Conectando em: {email-ssl.com.br:993/imap/ssl/novalidate-cert}INBOX
+[2026-02-13 10:04:06] Conectado com sucesso
+[2026-02-13 10:04:06] Nenhum email não lido
+[2026-02-13 10:04:06] Total na caixa: 19
+[2026-02-13 10:07:01] Conectando em: {email-ssl.com.br:993/imap/ssl/novalidate-cert}INBOX
+[2026-02-13 10:07:06] Conectado com sucesso
+[2026-02-13 10:07:06] Nenhum email não lido
+[2026-02-13 10:07:06] Total na caixa: 19
+[2026-02-13 10:10:01] Conectando em: {email-ssl.com.br:993/imap/ssl/novalidate-cert}INBOX
+[2026-02-13 10:10:06] Conectado com sucesso
+[2026-02-13 10:10:06] Nenhum email não lido
+[2026-02-13 10:10:06] Total na caixa: 19
+[2026-02-13 10:13:01] Conectando em: {email-ssl.com.br:993/imap/ssl/novalidate-cert}INBOX
+[2026-02-13 10:13:06] Conectado com sucesso
+[2026-02-13 10:13:06] Nenhum email não lido
+[2026-02-13 10:13:06] Total na caixa: 19
+[2026-02-13 10:16:01] Conectando em: {email-ssl.com.br:993/imap/ssl/novalidate-cert}INBOX
+[2026-02-13 10:16:06] Conectado com sucesso
+[2026-02-13 10:16:06] Nenhum email não lido
+[2026-02-13 10:16:06] Total na caixa: 19
+[2026-02-13 10:19:01] Conectando em: {email-ssl.com.br:993/imap/ssl/novalidate-cert}INBOX
+[2026-02-13 10:19:06] Conectado com sucesso
+[2026-02-13 10:19:06] Nenhum email não lido
+[2026-02-13 10:19:06] Total na caixa: 19
+[2026-02-13 10:22:01] Conectando em: {email-ssl.com.br:993/imap/ssl/novalidate-cert}INBOX
+[2026-02-13 10:22:06] Conectado com sucesso
+[2026-02-13 10:22:06] Nenhum email não lido
+[2026-02-13 10:22:06] Total na caixa: 19
+[2026-02-13 10:25:01] Conectando em: {email-ssl.com.br:993/imap/ssl/novalidate-cert}INBOX
+[2026-02-13 10:25:06] Conectado com sucesso
+[2026-02-13 10:25:06] Nenhum email não lido
+[2026-02-13 10:25:06] Total na caixa: 19
+[2026-02-13 10:28:02] Conectando em: {email-ssl.com.br:993/imap/ssl/novalidate-cert}INBOX
+[2026-02-13 10:28:07] Conectado com sucesso
+[2026-02-13 10:28:07] Nenhum email não lido
+[2026-02-13 10:28:07] Total na caixa: 19
+[2026-02-13 10:31:01] Conectando em: {email-ssl.com.br:993/imap/ssl/novalidate-cert}INBOX
+[2026-02-13 10:31:06] Conectado com sucesso
+[2026-02-13 10:31:06] Nenhum email não lido
+[2026-02-13 10:31:06] Total na caixa: 19
+[2026-02-13 10:34:01] Conectando em: {email-ssl.com.br:993/imap/ssl/novalidate-cert}INBOX
+[2026-02-13 10:34:06] Conectado com sucesso
+[2026-02-13 10:34:06] Nenhum email não lido
+[2026-02-13 10:34:06] Total na caixa: 19
+[2026-02-13 10:37:01] Conectando em: {email-ssl.com.br:993/imap/ssl/novalidate-cert}INBOX
+[2026-02-13 10:37:06] Conectado com sucesso
+[2026-02-13 10:37:06] Nenhum email não lido
+[2026-02-13 10:37:06] Total na caixa: 19
+[2026-02-13 10:40:01] Conectando em: {email-ssl.com.br:993/imap/ssl/novalidate-cert}INBOX
+[2026-02-13 10:40:06] Conectado com sucesso
+[2026-02-13 10:40:06] Nenhum email não lido
+[2026-02-13 10:40:06] Total na caixa: 19
+[2026-02-13 10:43:01] Conectando em: {email-ssl.com.br:993/imap/ssl/novalidate-cert}INBOX
+[2026-02-13 10:43:07] Conectado com sucesso
+[2026-02-13 10:43:07] Nenhum email não lido
+[2026-02-13 10:43:07] Total na caixa: 19
+[2026-02-13 10:46:02] Conectando em: {email-ssl.com.br:993/imap/ssl/novalidate-cert}INBOX
+[2026-02-13 10:46:06] Conectado com sucesso
+[2026-02-13 10:46:07] Nenhum email não lido
+[2026-02-13 10:46:07] Total na caixa: 19
+[2026-02-13 10:49:02] Conectando em: {email-ssl.com.br:993/imap/ssl/novalidate-cert}INBOX
+[2026-02-13 10:49:07] Conectado com sucesso
+[2026-02-13 10:49:07] Nenhum email não lido
+[2026-02-13 10:49:07] Total na caixa: 19
+[2026-02-13 10:52:01] Conectando em: {email-ssl.com.br:993/imap/ssl/novalidate-cert}INBOX
+[2026-02-13 10:52:06] Conectado com sucesso
+[2026-02-13 10:52:06] Nenhum email não lido
+[2026-02-13 10:52:06] Total na caixa: 19

@@ -9,10 +9,10 @@ class EmailService {
     private $db;
     
     public function __construct($db) {
-        $this->host = EmailConfig::IMAP_HOST;
-        $this->port = EmailConfig::IMAP_PORT;
-        $this->username = EmailConfig::IMAP_USERNAME;
-        $this->password = EmailConfig::IMAP_PASSWORD;
+        $this->host = EmailConfig::get('IMAP_HOST');
+        $this->port = EmailConfig::get('IMAP_PORT');
+        $this->username = EmailConfig::get('IMAP_USERNAME');
+        $this->password = EmailConfig::get('IMAP_PASSWORD');
         $this->db = $db;
     }
     
@@ -20,24 +20,33 @@ class EmailService {
         $log_file = dirname(__DIR__, 2) . '/backend/logs/email-cron.log';
         
         try {
-            $mailbox = "{{$this->host}:{$this->port}/imap/ssl}INBOX";
+            // Tentar com novalidate-cert primeiro (Locaweb)
+            $mailbox = "{{$this->host}:{$this->port}/imap/ssl/novalidate-cert}INBOX";
             echo "<p>Conectando em: $mailbox</p>";
-            echo "<p>Usuário: {$this->username}</p>";
             file_put_contents($log_file, "[" . date('Y-m-d H:i:s') . "] Conectando em: $mailbox\n", FILE_APPEND);
             
-            $inbox = imap_open($mailbox, $this->username, $this->password);
+            $inbox = @imap_open($mailbox, $this->username, $this->password, 0, 3);
             
             if (!$inbox) {
-                $erro = imap_last_error();
-                file_put_contents($log_file, "[" . date('Y-m-d H:i:s') . "] ERRO: $erro\n", FILE_APPEND);
-                throw new Exception('Não foi possível conectar ao email: ' . $erro);
+                // Tentar sem novalidate-cert
+                $mailbox = "{{$this->host}:{$this->port}/imap/ssl}INBOX";
+                echo "<p>Tentando conexão alternativa: $mailbox</p>";
+                file_put_contents($log_file, "[" . date('Y-m-d H:i:s') . "] Tentando conexão alternativa\n", FILE_APPEND);
+                
+                $inbox = @imap_open($mailbox, $this->username, $this->password);
+                
+                if (!$inbox) {
+                    $erro = imap_last_error();
+                    file_put_contents($log_file, "[" . date('Y-m-d H:i:s') . "] ERRO: $erro\n", FILE_APPEND);
+                    throw new Exception('Não foi possível conectar ao email: ' . $erro);
+                }
             }
             
             echo "<p>✅ Conectado com sucesso!</p>";
             file_put_contents($log_file, "[" . date('Y-m-d H:i:s') . "] Conectado com sucesso\n", FILE_APPEND);
             
-            // Buscar emails não lidos
-            $emails = imap_search($inbox, 'UNSEEN');
+            // Buscar emails não lidos (usar UID para maior confiabilidade)
+            $emails = imap_search($inbox, 'UNSEEN', SE_UID);
             
             echo "<p>Verificando emails não lidos...</p>";
             
@@ -46,10 +55,18 @@ class EmailService {
                 echo "<p>📧 Encontrados $count emails não lidos</p>";
                 file_put_contents($log_file, "[" . date('Y-m-d H:i:s') . "] Encontrados $count emails não lidos\n", FILE_APPEND);
                 
-                foreach ($emails as $email_number) {
-                    echo "<p>Processando email #$email_number...</p>";
-                    file_put_contents($log_file, "[" . date('Y-m-d H:i:s') . "] Processando email #$email_number\n", FILE_APPEND);
-                    $this->processarEmail($inbox, $email_number);
+                foreach ($emails as $uid) {
+                    $msgno = imap_msgno($inbox, $uid);
+                    echo "<p>Processando UID: $uid (MSG: $msgno)...</p>";
+                    file_put_contents($log_file, "[" . date('Y-m-d H:i:s') . "] Processando UID: $uid\n", FILE_APPEND);
+                    
+                    try {
+                        $this->processarEmail($inbox, $msgno, $uid);
+                    } catch (Exception $e) {
+                        echo "<p style='color: red;'>❌ Erro ao processar email: " . $e->getMessage() . "</p>";
+                        file_put_contents($log_file, "[" . date('Y-m-d H:i:s') . "] ERRO ao processar UID $uid: " . $e->getMessage() . "\n", FILE_APPEND);
+                        // Não marcar como lido se houver erro
+                    }
                 }
             } else {
                 echo "<p>📄 Nenhum email não lido encontrado</p>";
@@ -72,11 +89,25 @@ class EmailService {
         }
     }
     
-    private function processarEmail($inbox, $email_number) {
+    private function processarEmail($inbox, $email_number, $uid = null) {
         echo "<p>--- Processando Email #$email_number ---</p>";
         
         $header = imap_headerinfo($inbox, $email_number);
         $structure = imap_fetchstructure($inbox, $email_number);
+        
+        // Extrair Message-ID para evitar duplicatas
+        $message_id = $header->message_id ?? uniqid('email_', true);
+        
+        // Verificar se já foi processado
+        if ($this->emailJaProcessado($message_id)) {
+            echo "<p>⏭️ Email já processado anteriormente (Message-ID: $message_id)</p>";
+            if ($uid) {
+                imap_setflag_full($inbox, $uid, "\\Seen", ST_UID);
+            } else {
+                imap_setflag_full($inbox, $email_number, "\\Seen");
+            }
+            return;
+        }
         
         // Extrair corpo do email (texto ou HTML)
         $body = $this->extrairCorpoEmail($inbox, $email_number, $structure);
@@ -118,13 +149,52 @@ class EmailService {
             $anexos_processados = $this->processarAnexosEmail($inbox, $email_number);
             
             $this->adicionarComentario($ticket_id, $body, $remetente, $anexos_processados, $inbox, $email_number);
+            $this->registrarEmailProcessado($message_id, $remetente, $assunto, $ticket_id, 'comentario');
         } else {
             echo "<p>🆕 Criando novo ticket...</p>";
-            $this->criarTicketPorEmail($assunto, $body, $remetente, $inbox, $email_number);
+            $ticket_id = $this->criarTicketPorEmail($assunto, $body, $remetente, $inbox, $email_number);
+            $this->registrarEmailProcessado($message_id, $remetente, $assunto, $ticket_id, 'novo_ticket');
         }
         
-        // Marcar email como lido
-        imap_setflag_full($inbox, $email_number, "\\Seen");
+        // Marcar email como lido APENAS após sucesso
+        if ($uid) {
+            imap_setflag_full($inbox, $uid, "\\Seen", ST_UID);
+        } else {
+            imap_setflag_full($inbox, $email_number, "\\Seen");
+        }
+        echo "<p>✅ Email processado e marcado como lido</p>";
+    }
+    
+    private function emailJaProcessado($message_id) {
+        try {
+            $query = "SELECT id FROM emails_processados WHERE message_id = :message_id";
+            $stmt = $this->db->prepare($query);
+            $stmt->bindParam(':message_id', $message_id);
+            $stmt->execute();
+            return $stmt->fetch() !== false;
+        } catch (Exception $e) {
+            // Se tabela não existe, retornar false
+            return false;
+        }
+    }
+    
+    private function registrarEmailProcessado($message_id, $remetente, $assunto, $ticket_id, $tipo) {
+        try {
+            $query = "INSERT INTO emails_processados (message_id, email_remetente, assunto, ticket_id, tipo) 
+                      VALUES (:message_id, :remetente, :assunto, :ticket_id, :tipo)
+                      ON DUPLICATE KEY UPDATE tentativas = tentativas + 1";
+            $stmt = $this->db->prepare($query);
+            $stmt->bindParam(':message_id', $message_id);
+            $stmt->bindParam(':remetente', $remetente);
+            $stmt->bindParam(':assunto', $assunto);
+            $stmt->bindParam(':ticket_id', $ticket_id);
+            $stmt->bindParam(':tipo', $tipo);
+            $stmt->execute();
+            echo "<p>📝 Email registrado no histórico</p>";
+        } catch (Exception $e) {
+            // Se tabela não existe, apenas logar
+            echo "<p>⚠️ Aviso: Não foi possível registrar no histórico</p>";
+        }
     }
     
     private function criarTicketPorEmail($assunto, $corpo, $remetente, $inbox, $email_number) {

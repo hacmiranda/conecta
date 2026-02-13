@@ -1,0 +1,8 @@
+[2026-02-13 08:41:33] === INICIANDO VERIFICAÇÃO MANUAL ===
+[2026-02-13 08:41:33] Conectando: {email-ssl.com.br:993/imap/ssl/novalidate-cert}INBOX
+[2026-02-13 08:41:38] ✅ Conectado com sucesso
+[2026-02-13 08:41:38] Buscando emails desde: 14-Jan-2026
+[2026-02-13 08:41:39] 📧 Total de emails no período: 92
+[2026-02-13 08:41:39] ❌ ERRO: SQLSTATE[42S02]: Base table or view not found: 1146 Table 'crpdesk.emails_processados' doesn't exist
+[2026-02-13 08:41:39] === FIM DA VERIFICAÇÃO ===
+

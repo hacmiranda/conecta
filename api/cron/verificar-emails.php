@@ -10,6 +10,7 @@ if (php_sapi_name() !== 'cli' && (!isset($_GET['key']) || $_GET['key'] !== $chav
 
 // Definir diretório base
 $base_dir = dirname(__DIR__);
+require_once $base_dir . '/config/environment.php';
 require_once $base_dir . '/config/database.php';
 require_once $base_dir . '/config/email-config.php';
 require_once $base_dir . '/services/email-service.php';
