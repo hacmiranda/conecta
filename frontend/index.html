@@ -57,15 +57,18 @@
                     <div class="busca-avancada" style="display: flex; align-items: center; gap: 1rem;">
                         <label class="switch-label" title="Visualizar apenas tickets atribuídos a mim">
                             <label class="switch">
-                                <input type="checkbox" id="filtro-meus-tickets" onchange="aplicarFiltroMeusTickets()">
+                                <input type="checkbox" id="filtro-meus-tickets" onchange="aplicarFiltroMeusTickets()"
+                                    role="switch" aria-label="Visualizar apenas meus tickets">
                                 <span class="slider"></span>
                             </label>
                             <span>Meus Tickets <span id="total-meus-tickets"></span></span>
                         </label>
                         <input type="text" id="busca-tickets"
                             placeholder="🔍 Buscar por título, descrição ou solicitante..." class="input-busca"
-                            title="Pesquisa por: Título do ticket, Descrição e Nome do solicitante">
-                        <button onclick="limparBusca()" class="btn-limpar-busca" title="Limpar busca">✕</button>
+                            title="Pesquisa por: Título do ticket, Descrição e Nome do solicitante"
+                            aria-label="Buscar tickets">
+                        <button onclick="limparBusca()" class="btn-limpar-busca" title="Limpar busca"
+                            aria-label="Limpar busca">✕</button>
                     </div>
                     <button onclick="mostrarSecao('fechados'); carregarTicketsFechados()" class="btn-small"
                         id="btn-tickets-fechados" style="background-color: #6c757d;">📋 Encerrados</button>
@@ -97,7 +100,8 @@
                         <label class="switch-label" title="Visualizar apenas tickets atribuídos a mim">
                             <label class="switch">
                                 <input type="checkbox" id="filtro-meus-tickets-fechados"
-                                    onchange="aplicarFiltroMeusTicketsFechados()">
+                                    onchange="aplicarFiltroMeusTicketsFechados()" role="switch"
+                                    aria-label="Visualizar apenas meus tickets fechados">
                                 <span class="slider"></span>
                             </label>
                             <span>Meus Tickets</span>
@@ -223,7 +227,7 @@
             <div class="relatorio-filtros">
                 <div class="filtros-grid">
                     <div class="filtro-grupo">
-                        <label>Período:</label>
+                        <label for="filtro-periodo">Período:</label>
                         <select id="filtro-periodo">
                             <option value="mes-atual">Mês Atual</option>
                             <option value="mes-anterior">Mês Anterior</option>
@@ -234,14 +238,14 @@
                     </div>
 
                     <div class="filtro-grupo" id="datas-personalizadas" style="display: none;">
-                        <label>De:</label>
+                        <label for="data-inicio">De:</label>
                         <input type="date" id="data-inicio">
-                        <label>Até:</label>
+                        <label for="data-fim">Até:</label>
                         <input type="date" id="data-fim">
                     </div>
 
                     <div class="filtro-grupo">
-                        <label>Status:</label>
+                        <label for="filtro-status">Status:</label>
                         <select id="filtro-status">
                             <option value="todos">Todos</option>
                             <option value="aberto">Aberto</option>
@@ -257,7 +261,7 @@
                     </div>
 
                     <div class="filtro-grupo">
-                        <label>Prioridade:</label>
+                        <label for="filtro-prioridade">Prioridade:</label>
                         <select id="filtro-prioridade">
                             <option value="todas">Todas</option>
                             <option value="baixa">Baixa</option>
@@ -268,14 +272,14 @@
                     </div>
 
                     <div class="filtro-grupo">
-                        <label>Categoria:</label>
+                        <label for="filtro-categoria">Categoria:</label>
                         <select id="filtro-categoria">
                             <option value="todas">Todas</option>
                         </select>
                     </div>
 
                     <div class="filtro-grupo">
-                        <label>Agente:</label>
+                        <label for="filtro-agente">Agente:</label>
                         <select id="filtro-agente">
                             <option value="todos">Todos</option>
                         </select>
@@ -377,7 +381,7 @@
 
     <!-- Modals customizados -->
     <div id="modal-overlay" class="modal-overlay">
-        <div id="modal-alert" class="modal">
+        <div id="modal-alert" class="modal" role="dialog" aria-modal="true" aria-labelledby="modal-alert-title">
             <div class="modal-header">
                 <h3 id="modal-alert-title">Aviso</h3>
                 <button onclick="fecharModal()" class="btn-close-modal">×</button>
@@ -390,7 +394,7 @@
             </div>
         </div>
 
-        <div id="modal-confirm" class="modal">
+        <div id="modal-confirm" class="modal" role="dialog" aria-modal="true" aria-labelledby="modal-confirm-title">
             <div class="modal-header">
                 <h3 id="modal-confirm-title">Confirmação</h3>
                 <button onclick="fecharModal()" class="btn-close-modal">×</button>
@@ -583,12 +587,91 @@
     <button id="btn-voltar-topo" onclick="voltarAoTopo()" title="Voltar ao topo"></button>
 
     <footer>
-        <div class="container" style="position: relative; text-align: center;">
-            <p>&copy; 2025 Sistema Helpdesk CRPRS - Conselho Regional de Psicologia do Rio Grande do Sul</p>
-            <p style="position: absolute; right: 0; top: 50%; transform: translateY(-50%);">v2.0</p>
+        <div class="footer-container"
+            style="display: flex; justify-content: center; align-items: center; padding-bottom: 0;">
+            <ul class="footer-links" style="display: flex; gap: 2rem; list-style: none; padding: 0; margin: 0;">
+                <li><a href="politica-privacidade.html">Política de Privacidade</a></li>
+                <li><a href="#" class="trigger-cookie-modal">Gerenciar Cookies 🍪</a></li>
+            </ul>
+        </div>
+
+        <div class="footer-bottom">
+            <p>&copy; 2025-2026 Sistema de Helpdesk - Conselho Regional de Psicologia do Rio Grande do Sul | CRP-RS -
+                Todos os direitos reservados.<br>
+                Setor de Tecnologia da Informação</p>
         </div>
     </footer>
+
+    <!-- Cookie System -->
+    <div id="cookie-banner" class="cookie-banner">
+        <div class="cookie-content">
+            <div class="cookie-text">
+                <strong>🍪 Valorizamos sua privacidade</strong><br>
+                Utilizamos cookies para melhorar sua experiência e analisar o tráfego. Você pode aceitar todos ou
+                gerenciar suas preferências.
+            </div>
+            <div class="cookie-actions">
+                <button id="btn-manage-cookies" class="btn-secondary btn-small">Gerenciar Preferências</button>
+                <button id="btn-reject-all" class="btn-secondary btn-small">Rejeitar</button>
+                <button id="btn-accept-all" class="btn-primary btn-small">Aceitar Todos</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="cookie-modal" class="cookie-modal-overlay" role="dialog" aria-modal="true"
+        aria-labelledby="cookie-modal-title">
+        <div class="cookie-modal-content">
+            <div class="cookie-modal-header">
+                <h3 id="cookie-modal-title">Preferências de Cookies</h3>
+                <button class="close-cookie-modal" aria-label="Fechar modal">×</button>
+            </div>
+
+            <div class="cookie-modal-body">
+                <p style="margin-bottom: 1.5rem;">Gerencie quais cookies você deseja permitir. Cookies essenciais não
+                    podem ser desativados.</p>
+
+                <div class="cookie-preference-item">
+                    <div class="preference-info">
+                        <h5>Essenciais (Obrigatório)</h5>
+                        <p>Necessários para o funcionamento básico do sistema (login, sessão).</p>
+                    </div>
+                    <label class="toggle-switch">
+                        <input type="checkbox" checked disabled>
+                        <span class="toggle-slider"></span>
+                    </label>
+                </div>
+
+                <div class="cookie-preference-item">
+                    <div class="preference-info">
+                        <h5>Analíticos</h5>
+                        <p>Nos ajudam a entender como você usa o sistema para melhorá-lo.</p>
+                    </div>
+                    <label class="toggle-switch">
+                        <input type="checkbox" id="check-analytics">
+                        <span class="toggle-slider"></span>
+                    </label>
+                </div>
+
+                <div class="cookie-preference-item">
+                    <div class="preference-info">
+                        <h5>Marketing</h5>
+                        <p>Usados para fornecer conteúdo mais relevante.</p>
+                    </div>
+                    <label class="toggle-switch">
+                        <input type="checkbox" id="check-marketing">
+                        <span class="toggle-slider"></span>
+                    </label>
+                </div>
+            </div>
+
+            <div class="modal-footer" style="padding-top: 1.5rem; margin-top: 1rem; border-top: 1px solid #eee;">
+                <button id="btn-save-preferences" class="btn-primary" style="width: 100%;">Salvar Preferências</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Script Cookies -->
+    <script src="cookie-manager.js"></script>
 </body>
 
 </html>
-```

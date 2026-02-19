@@ -35,7 +35,7 @@ class Environment {
             'db_host' => 'localhost',
             'db_name' => 'crpdesk',
             'db_user' => 'root',
-            'db_pass' => 'crprs@2024#secure',
+            'db_pass' => '',
             'db_charset' => 'utf8mb4',
             
             // Email IMAP/SMTP (usar conta de teste)
@@ -60,6 +60,12 @@ class Environment {
             // Debug
             'debug' => true,
             'display_errors' => true,
+            'debug' => true,
+            'display_errors' => true,
+            
+            // Segurança
+            'jwt_secret' => 'crpdesk_dev_secret_key_2026_!@#',
+            'csrf_secret' => 'crpdesk_dev_csrf_secret_998877',
         ];
     }
     
@@ -97,6 +103,13 @@ class Environment {
             // Debug
             'debug' => false,
             'display_errors' => false,
+            // Debug
+            'debug' => false,
+            'display_errors' => false,
+            
+            // Segurança (Alterar em produção real se possível)
+            'jwt_secret' => 'cRpD3sK_Pr0d_S3cR3t_K3y_mV1t0_F0rT3_!@#_2026',
+            'csrf_secret' => 'cRpD3sK_Pr0d_CsRf_S3cR3t_XyZ_987',
         ];
     }
 }
