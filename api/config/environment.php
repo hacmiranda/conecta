@@ -35,7 +35,7 @@ class Environment {
             'db_host' => 'localhost',
             'db_name' => 'crpdesk',
             'db_user' => 'root',
-            'db_pass' => '***REMOVIDO***',
+            'db_pass' => '',
             'db_charset' => 'utf8mb4',
             
             // Email IMAP/SMTP (usar conta de teste)
@@ -60,6 +60,12 @@ class Environment {
             // Debug
             'debug' => true,
             'display_errors' => true,
+            'debug' => true,
+            'display_errors' => true,
+            
+            // Segurança
+            'jwt_secret' => '***REMOVIDO***',
+            'csrf_secret' => '***REMOVIDO***',
         ];
     }
     
@@ -97,6 +103,13 @@ class Environment {
             // Debug
             'debug' => false,
             'display_errors' => false,
+            // Debug
+            'debug' => false,
+            'display_errors' => false,
+            
+            // Segurança (Alterar em produção real se possível)
+            'jwt_secret' => '***REMOVIDO***',
+            'csrf_secret' => '***REMOVIDO***',
         ];
     }
 }

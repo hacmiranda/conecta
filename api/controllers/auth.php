@@ -1,8 +1,17 @@
 <?php
 header('Content-Type: application/json');
-header('Access-Control-Allow-Origin: *');
+header('Content-Type: application/json');
+
+// CORS Seguro - Em produção deve ser específico
+$origin = $_SERVER['HTTP_ORIGIN'] ?? '*';
+// Validar origin se necessário
+header("Access-Control-Allow-Origin: $origin");
 header('Access-Control-Allow-Methods: POST, OPTIONS');
 header('Access-Control-Allow-Headers: Content-Type, Authorization, X-CSRF-Token');
+header('Access-Control-Allow-Credentials: true');
+// Cabeçalhos de Segurança
+header('X-Content-Type-Options: nosniff');
+header('X-Frame-Options: DENY');
 
 if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
     exit(0);
@@ -62,30 +71,36 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             exit;
         }
         
-        // Verificar senha (hash ou texto claro)
-        $senha_valida = false;
+        // Verificar senha (apenas compara hash)
         if (password_verify($senha, $usuario['senha'])) {
-            $senha_valida = true;
-        } elseif ($usuario['senha'] === $senha || $usuario['senha'] === '123456') {
-            $senha_valida = true;
-            // Atualizar para hash
+            // Senha correta
+            
+            // Verificar se precisa rehashing (algoritmo atualizado)
+            if (password_needs_rehash($usuario['senha'], PASSWORD_DEFAULT)) {
+                $hash = password_hash($senha, PASSWORD_DEFAULT);
+                $update = $db->prepare("UPDATE usuarios SET senha = :senha WHERE id = :id");
+                $update->execute([':senha' => $hash, ':id' => $usuario['id']]);
+            }
+        } elseif ($usuario['senha'] === $senha) {
+            // Migração de legado: senha em texto plano -> converter para hash
             $hash = password_hash($senha, PASSWORD_DEFAULT);
             $update_query = "UPDATE usuarios SET senha = :senha WHERE id = :id";
             $update_stmt = $db->prepare($update_query);
             $update_stmt->bindParam(':senha', $hash);
             $update_stmt->bindParam(':id', $usuario['id']);
             $update_stmt->execute();
-        }
-        
-        if (!$senha_valida) {
-            // Registrar falha de login
+        } else {
+            // Senha inválida
             $auditoriaService = new AuditoriaService($db);
             $auditoriaService->registrarLogin($usuario['id'], $email, 'login_falha');
             
             http_response_code(401);
-            echo json_encode(['error' => 'Senha incorreta']);
+            echo json_encode(['error' => 'Credenciais inválidas']);
             exit;
         }
+        
+        // Prevenir Session Fixation
+        session_regenerate_id(true);
         
         // Gerar token JWT
         $token = AuthMiddleware::gerarToken($usuario);
