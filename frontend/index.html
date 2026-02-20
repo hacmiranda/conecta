@@ -6,7 +6,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Helpdesk - CRPRS</title>
     <link rel="icon" type="image/png" href="images/logo_vazado.png">
-    <link rel="stylesheet" href="style.css?v=3.5">
+    <link rel="stylesheet" href="style.css?v=3.6">
     <link rel="stylesheet" href="historico.css">
     <link rel="stylesheet" href="modal-modern.css">
     <link rel="stylesheet" href="funcionalidades.css">
@@ -16,6 +16,14 @@
     <link rel="stylesheet" href="lembretes.css">
     <link rel="stylesheet" href="auditoria.css">
     <link rel="stylesheet" href="modern-enhancements.css">
+    <link rel="stylesheet" href="nova_resposta.css">
+    <link rel="stylesheet" href="email-alert.css">
+    <link rel="stylesheet" href="nav-dropdown.css">
+    <link rel="stylesheet" href="tickets-melhorias.css">
+    <!-- Material Symbols para ícones da tabela -->
+    <link
+        href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200"
+        rel="stylesheet">
 </head>
 
 <body>
@@ -27,26 +35,125 @@
             </div>
             <nav>
                 <button onclick="mostrarSecao('tickets'); carregarTickets()" class="btn-nav active">Tickets</button>
+                <button onclick="mostrarSecao('fechados'); carregarTicketsFechados()" class="btn-nav"
+                    id="btn-nav-arquivo">Arquivo</button>
                 <button onclick="mostrarDashboard()" class="btn-nav">Dashboard</button>
                 <button onclick="mostrarRelatorios()" class="btn-nav">Relatórios</button>
-                <button onclick="mostrarAjuda()" class="btn-nav">📋 Ajuda</button>
-                <button onclick="mostrarSecao('config')" class="btn-nav">Configurações</button>
-                <div style="position: relative; display: inline-block; margin-left: 1rem;">
-                    <span id="usuario-logado" style="color: white; cursor: pointer;"
-                        onclick="toggleMenuUsuario()"></span>
-                    <div id="menu-usuario" class="menu-usuario" style="display: none;">
-                        <a href="#" onclick="toggleModoEscuro(); toggleMenuUsuario(); return false;"><span
-                                id="icone-modo-escuro">🌙</span> <span id="texto-modo-escuro">Modo Escuro</span></a>
-                        <a href="#" onclick="mostrarAlterarSenha(); toggleMenuUsuario(); return false;">🔑 Alterar
-                            Senha</a>
+
+                <!-- Menu Ajuda -->
+                <div class="nav-dropdown-wrapper" id="nav-ajuda-wrapper">
+                    <button class="btn-nav" id="btn-nav-ajuda" onclick="toggleNavDropdown('ajuda')" aria-haspopup="true"
+                        aria-expanded="false">
+                        Ajuda ▾
+                    </button>
+                    <div class="nav-dropdown" id="nav-ajuda-dropdown">
+                        <button class="nav-dropdown-item"
+                            onclick="mostrarAjuda(); mostrarSLA(); fecharNavDropdown('ajuda')">⏰ SLA</button>
+                        <button class="nav-dropdown-item"
+                            onclick="mostrarAjuda(); mostrarStatusGuia(); fecharNavDropdown('ajuda')">📊 Status dos
+                            Tickets</button>
+                        <button class="nav-dropdown-item"
+                            onclick="mostrarAjuda(); mostrarPrioridadeGuia(); fecharNavDropdown('ajuda')">🔥
+                            Prioridades</button>
+                        <button class="nav-dropdown-item"
+                            onclick="mostrarAjuda(); mostrarFluxosEmail(); fecharNavDropdown('ajuda')">📧 Fluxos de
+                            Email</button>
+                        <button class="nav-dropdown-item"
+                            onclick="mostrarAjuda(); mostrarAtalhosGuia(); fecharNavDropdown('ajuda')">⌨️ Atalhos de
+                            Teclado</button>
+                        <button class="nav-dropdown-item"
+                            onclick="mostrarAjuda(); mostrarTutorialAjuda(); fecharNavDropdown('ajuda')">🎓
+                            Tutorial</button>
+                        <button class="nav-dropdown-item"
+                            onclick="mostrarAjuda(); mostrarDicasAjuda(); fecharNavDropdown('ajuda')">💡 Dicas</button>
                     </div>
                 </div>
-                <button onclick="fazerLogout()" class="btn-nav" style="margin-left: 1rem;">Sair</button>
+
+                <!-- Menu Configurações -->
+                <div class="nav-dropdown-wrapper" id="nav-config-wrapper">
+                    <button class="btn-nav" id="btn-nav-config" onclick="toggleNavDropdown('config')"
+                        aria-haspopup="true" aria-expanded="false">
+                        Configurações ▾
+                        <span id="email-falha-badge" class="email-falha-badge" style="display:none;"></span>
+                    </button>
+                    <div class="nav-dropdown" id="nav-config-dropdown">
+                        <button class="nav-dropdown-item"
+                            onclick="mostrarSecao('config'); document.getElementById('config-content').innerHTML=''; mostrarUsuarios(); fecharNavDropdown('config')">👥
+                            Gerenciar Usuários</button>
+                        <button class="nav-dropdown-item"
+                            onclick="mostrarSecao('config'); document.getElementById('config-content').innerHTML=''; mostrarCategorias(); fecharNavDropdown('config')">📁
+                            Categorias</button>
+                        <button class="nav-dropdown-item"
+                            onclick="mostrarSecao('config'); document.getElementById('config-content').innerHTML=''; mostrarHorariosSLA(); fecharNavDropdown('config')">⏰
+                            Horários e Feriados</button>
+                        <button class="nav-dropdown-item"
+                            onclick="mostrarSecao('config'); document.getElementById('config-content').innerHTML=''; mostrarConfigEmail(); fecharNavDropdown('config')">📧
+                            Configurar Email</button>
+                        <button class="nav-dropdown-item"
+                            onclick="mostrarSecao('config'); document.getElementById('config-content').innerHTML=''; mostrarPersonalizacao(); fecharNavDropdown('config')">🎨
+                            Personalização</button>
+                        <button class="nav-dropdown-item"
+                            onclick="mostrarSecao('config'); document.getElementById('config-content').innerHTML=''; mostrarAuditoria(); fecharNavDropdown('config')">📋
+                            Auditoria</button>
+                    </div>
+                </div>
+                <!-- Avatar do usuário -->
+                <div class="header-avatar-wrapper" id="header-avatar-wrapper">
+                    <button class="header-avatar-btn" id="header-avatar-btn" onclick="toggleAvatarDropdown()"
+                        aria-haspopup="true" aria-expanded="false" aria-label="Menu do usuário">
+                        <div class="header-avatar-circle" id="header-avatar-circle">
+                            <span id="header-avatar-iniciais"></span>
+                        </div>
+                        <div class="header-avatar-info">
+                            <span class="header-avatar-nome" id="header-avatar-nome">Carregando...</span>
+                            <span class="header-avatar-role" id="header-avatar-role"></span>
+                        </div>
+                        <span class="header-avatar-chevron">▾</span>
+                    </button>
+
+                    <!-- Dropdown do avatar -->
+                    <div class="header-avatar-dropdown" id="header-avatar-dropdown" role="menu" aria-hidden="true">
+                        <div class="header-avatar-dropdown-header">
+                            <div class="header-avatar-circle-sm" id="header-avatar-circle-sm">
+                                <span id="header-avatar-iniciais-sm"></span>
+                            </div>
+                            <div>
+                                <div class="had-nome" id="had-nome"></div>
+                                <div class="had-email" id="had-email"></div>
+                            </div>
+                        </div>
+                        <div class="header-avatar-dropdown-divider"></div>
+                        <button class="had-item" role="menuitem" id="btn-alterar-avatar">
+                            📷 Alterar Avatar
+                        </button>
+                        <button class="had-item" role="menuitem" onclick="toggleModoEscuro(); fecharAvatarDropdown();">
+                            <span id="icone-modo-escuro">🌙</span>
+                            <span id="texto-modo-escuro">Modo Escuro</span>
+                        </button>
+                        <button class="had-item" role="menuitem"
+                            onclick="mostrarAlterarSenha(); fecharAvatarDropdown();">
+                            🔑 Alterar Senha
+                        </button>
+                        <div class="header-avatar-dropdown-divider"></div>
+                        <button class="had-item had-item--danger" role="menuitem" onclick="fazerLogout()">
+                            🚪 Sair
+                        </button>
+                    </div>
+                </div>
             </nav>
         </div>
     </header>
 
     <main class="container">
+        <!-- Banner de alerta de falha de e-mail -->
+        <div id="email-falha-banner" class="email-falha-banner" style="display:none;" role="alert"
+            aria-live="assertive">
+            <span class="email-falha-banner-icon">⚠️</span>
+            <span id="email-falha-banner-msg">Falhas no envio de e-mails detectadas nas últimas 24h.</span>
+            <button class="email-falha-banner-link" onclick="irParaLogEmails()">Ver detalhes</button>
+            <button class="email-falha-banner-fechar" onclick="fecharBannerEmailFalha()"
+                aria-label="Fechar alerta">✕</button>
+        </div>
         <!-- Lista de Tickets -->
         <section id="tickets" class="secao active">
             <div class="tickets-header">
@@ -54,7 +161,7 @@
                     <span id="total-tickets-abertos" style="color: var(--laranja);"></span>
                 </h2>
                 <div class="tickets-actions">
-                    <div class="busca-avancada" style="display: flex; align-items: center; gap: 1rem;">
+                    <div class="busca-avancada" style="display: flex; align-items: center; gap: 2rem;">
                         <label class="switch-label" title="Visualizar apenas tickets atribuídos a mim">
                             <label class="switch">
                                 <input type="checkbox" id="filtro-meus-tickets" onchange="aplicarFiltroMeusTickets()"
@@ -70,10 +177,6 @@
                         <button onclick="limparBusca()" class="btn-limpar-busca" title="Limpar busca"
                             aria-label="Limpar busca">✕</button>
                     </div>
-                    <button onclick="mostrarSecao('fechados'); carregarTicketsFechados()" class="btn-small"
-                        id="btn-tickets-fechados" style="background-color: #6c757d;">📋 Encerrados</button>
-                    <button onclick="mostrarSecao('novo')" class="btn-small" id="btn-novo-ticket"
-                        style="background-color: #28a745;">➕ Novo Ticket</button>
                     <button onclick="toggleModoMerge()" class="btn-merge" id="btn-merge">🔗 Mesclar Tickets</button>
                 </div>
             </div>
@@ -86,6 +189,39 @@
                     <button onclick="cancelarMerge()" class="btn-merge-cancel">✕ Cancelar</button>
                 </div>
             </div>
+            <!-- Filtros e Ações secundárias -->
+            <div
+                style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; margin-bottom: 0.5rem;">
+                <div class="filtros-rapidos" id="filtros-rapidos-container" aria-label="Filtros rápidos por status"
+                    style="padding: 0;">
+                    <span class="filtros-rapidos-label">Filtrar:</span>
+                    <button class="filtro-pill ativo" data-status="todos" onclick="aplicarFiltroPill(this)">
+                        Todos <span class="filtro-pill-count" id="pill-count-todos"></span>
+                    </button>
+                    <button class="filtro-pill" data-status="novo" onclick="aplicarFiltroPill(this)">
+                        🆕 Novo <span class="filtro-pill-count" id="pill-count-novo"></span>
+                    </button>
+                    <button class="filtro-pill" data-status="em_atendimento" onclick="aplicarFiltroPill(this)">
+                        🔧 Em atendimento <span class="filtro-pill-count" id="pill-count-em_atendimento"></span>
+                    </button>
+                    <button class="filtro-pill" data-status="aguardando" onclick="aplicarFiltroPill(this)">
+                        ⏳ Aguardando <span class="filtro-pill-count" id="pill-count-aguardando"></span>
+                    </button>
+                    <button class="filtro-pill" data-status="nova_resposta" onclick="aplicarFiltroPill(this)">
+                        💬 Nova resposta <span class="filtro-pill-count" id="pill-count-nova_resposta"></span>
+                    </button>
+                    <button class="filtro-pill" data-status="urgente" onclick="aplicarFiltroPill(this)">
+                        🔥 Urgente <span class="filtro-pill-count" id="pill-count-urgente"></span>
+                    </button>
+                </div>
+                <button onclick="mostrarSecao('novo')" class="btn-small" id="btn-novo-ticket"
+                    style="background-color: #28a745; display: inline-flex; align-items: center; gap: 0.4rem; padding: 0.6rem 1.2rem; font-weight: 600; font-size: 0.95rem; box-shadow: 0 4px 12px rgba(40,167,69,0.3); border-radius: 8px; transition: transform 0.2s, background 0.2s;"
+                    onmouseover="this.style.backgroundColor='#218838'; this.style.transform='translateY(-1px)'"
+                    onmouseout="this.style.backgroundColor='#28a745'; this.style.transform='translateY(0)'">
+                    <span class="material-symbols-outlined" style="font-size: 1.2rem;">add_circle</span> Novo Ticket
+                </button>
+            </div>
+
             <div id="lista-tickets">
                 <p>Carregando tickets...</p>
             </div>
@@ -96,7 +232,7 @@
             <div class="tickets-header">
                 <h2 style="color: #6c757d; font-size: 1.8rem; font-weight: bold; margin: 0;">🏁 Tickets Encerrados</h2>
                 <div class="tickets-actions">
-                    <div class="busca-avancada" style="display: flex; align-items: center; gap: 1rem;">
+                    <div class="busca-avancada" style="display: flex; align-items: center; gap: 2rem;">
                         <label class="switch-label" title="Visualizar apenas tickets atribuídos a mim">
                             <label class="switch">
                                 <input type="checkbox" id="filtro-meus-tickets-fechados"
@@ -108,10 +244,10 @@
                         </label>
                         <input type="text" id="busca-fechados"
                             placeholder="🔍 Buscar por título, descrição ou solicitante..." class="input-busca"
-                            title="Pesquisa por: Título do ticket, Descrição e Nome do solicitante">
+                            title="Pesquisa por: Título do ticket, Descrição e Nome do solicitante"
+                            oninput="aplicarBuscaFechadosComDebounce()">
                         <button onclick="limparBuscaFechados()" class="btn-limpar-busca" title="Limpar busca">✕</button>
                     </div>
-                    <button onclick="mostrarSecao('tickets'); carregarTickets()" class="btn-small">📋 Abertos</button>
                     <button onclick="toggleModoMergeFechados()" class="btn-merge" id="btn-merge-fechados">🔗 Mesclar
                         Tickets</button>
                 </div>
@@ -136,20 +272,6 @@
         <!-- Configurações -->
         <section id="config" class="secao">
             <h2>⚙️ Configurações</h2>
-
-            <div class="config-menu">
-                <button onclick="mostrarUsuarios()" class="btn-config active" id="btn-usuarios">👥 Gerenciar
-                    Usuários</button>
-                <button onclick="mostrarCategorias()" class="btn-config" id="btn-categorias">📁 Gerenciar
-                    Categorias</button>
-                <button onclick="mostrarHorariosSLA()" class="btn-config" id="btn-horarios-sla">⏰ Horários e
-                    Feriados</button>
-                <button onclick="mostrarConfigEmail()" class="btn-config" id="btn-config-email">📧 Configurar
-                    Email</button>
-                <button onclick="mostrarPersonalizacao()" class="btn-config" id="btn-personalizacao">🎨
-                    Personalização</button>
-                <button onclick="mostrarAuditoria()" class="btn-config" id="btn-auditoria">📋 Auditoria</button>
-            </div>
 
             <div id="config-content">
                 <!-- Conteúdo das configurações -->
@@ -200,20 +322,6 @@
         <!-- Ajuda -->
         <section id="ajuda" class="secao">
             <h2>📋 Ajuda e Documentação</h2>
-
-            <div class="ajuda-menu">
-                <button onclick="mostrarSLA()" class="btn-ajuda active" id="btn-sla">⏰ SLA - Acordo de Nível de
-                    Serviço</button>
-                <button onclick="mostrarStatusGuia()" class="btn-ajuda" id="btn-status">📊 Status dos Tickets</button>
-                <button onclick="mostrarPrioridadeGuia()" class="btn-ajuda" id="btn-prioridade">🔥 Prioridades</button>
-                <button onclick="mostrarFluxosEmail()" class="btn-ajuda" id="btn-fluxos-email">📧 Fluxos de
-                    Email</button>
-                <button onclick="mostrarAtalhosGuia()" class="btn-ajuda" id="btn-atalhos">⌨️ Atalhos de Teclado</button>
-                <button onclick="mostrarTutorialAjuda()" class="btn-ajuda" id="btn-tutorial-ajuda">🎓 Tutorial
-                    Interativo</button>
-                <button onclick="mostrarDicasAjuda()" class="btn-ajuda" id="btn-dicas-ajuda">💡 Dicas do
-                    Sistema</button>
-            </div>
 
             <div id="ajuda-content">
                 <!-- Conteúdo da ajuda -->
@@ -511,6 +619,50 @@
                 <button onclick="fecharModalDicas()" class="btn-modal btn-primary-modal">Entendi</button>
             </div>
         </div>
+
+        <!-- Modal Avatar -->
+        <div id="modal-avatar" class="modal" role="dialog" aria-modal="true" aria-labelledby="avatarModalTitle"
+            style="max-width: 500px;">
+            <div class="modal-header">
+                <h3 id="avatarModalTitle">Alterar Avatar</h3>
+                <button onclick="closeAvatarModal()" class="btn-close-modal">×</button>
+            </div>
+            <form id="avatarForm" enctype="multipart/form-data" class="modal-body">
+                <input type="hidden" id="avatarUserId" name="user_id">
+                <div id="uploadSection" style="text-align: center;">
+                    <div
+                        style="width: 160px; height: 160px; margin: 0 auto 1rem; border-radius: 50%; background: #f0f0f0; display: flex; align-items: center; justify-content: center; overflow: hidden;">
+                        <span style="font-size: 3.5rem; color: #ccc;">👤</span>
+                    </div>
+                    <label
+                        style="display: inline-flex; align-items: center; gap: 0.5rem; padding: 0.75rem 1.5rem; background: var(--laranja); color: white; border-radius: 8px; cursor: pointer; font-weight: 500;">
+                        📤 Selecionar Imagem
+                        <input type="file" id="avatarInput" accept="image/*" onchange="loadImageToCrop(this)"
+                            style="display: none;">
+                    </label>
+                    <p style="font-size: 0.85rem; color: #666; margin-top: 0.5rem;">JPG, PNG ou GIF (máx. 5MB)</p>
+                </div>
+                <div id="cropSection" style="display: none;">
+                    <div
+                        style="width: 100%; height: 280px; background: #f5f5f5; border-radius: 8px; overflow: hidden; margin-bottom: 1rem;">
+                        <img id="imageToCrop" style="max-width: 100%;">
+                    </div>
+                    <div style="display: flex; align-items: center; gap: 1rem;">
+                        <label style="font-size: 0.9rem; font-weight: 600;">Zoom:</label>
+                        <input type="range" id="zoomSlider" min="0.1" max="3" step="0.1" value="1" style="flex: 1;">
+                        <button type="button" onclick="resetCrop()"
+                            style="font-size: 0.85rem; color: var(--laranja); background: none; border: none; cursor: pointer;">Resetar</button>
+                    </div>
+                </div>
+            </form>
+            <div class="modal-footer">
+                <button type="button" onclick="closeAvatarModal()"
+                    class="btn-modal btn-secondary-modal">Cancelar</button>
+                <button type="button" id="cropButton" onclick="cropAndSave()" class="btn-modal btn-primary-modal"
+                    style="display: none;">Cortar e Salvar</button>
+            </div>
+        </div>
+
     </div>
 
     <script>
@@ -529,9 +681,6 @@
         if (!usuario) {
             window.location.href = './login.html';
         } else {
-            const usuarioEl = document.getElementById('usuario-logado');
-            usuarioEl.innerHTML = `Olá, ${usuario.nome} ▼`;
-
             // Esconder configurações para agentes
             if (usuario.tipo !== 'admin') {
                 const btnConfig = document.querySelector('button[onclick="mostrarSecao(\'config\')"]');
@@ -550,25 +699,48 @@
         }
 
         function toggleMenuUsuario() {
-            const menu = document.getElementById('menu-usuario');
-            menu.style.display = menu.style.display === 'none' ? 'block' : 'none';
+            // Função legada - removida
         }
 
         // Fechar menu ao clicar fora
         document.addEventListener('click', function (e) {
-            const menu = document.getElementById('menu-usuario');
-            const usuario = document.getElementById('usuario-logado');
-            if (menu && usuario && !menu.contains(e.target) && !usuario.contains(e.target)) {
-                menu.style.display = 'none';
+            const dropdown = document.getElementById('header-avatar-dropdown');
+            const btn = document.getElementById('header-avatar-btn');
+            if (dropdown && btn && !dropdown.contains(e.target) && !btn.contains(e.target)) {
+                dropdown.classList.remove('show');
+            }
+        });
+
+        function toggleNavDropdown(name) {
+            const dropdown = document.getElementById('nav-' + name + '-dropdown');
+            const btn = document.getElementById('btn-nav-' + name);
+            const isOpen = dropdown.classList.contains('open');
+            // Fechar todos
+            document.querySelectorAll('.nav-dropdown').forEach(d => d.classList.remove('open'));
+            document.querySelectorAll('.nav-dropdown-wrapper .btn-nav').forEach(b => b.setAttribute('aria-expanded', 'false'));
+            if (!isOpen) {
+                dropdown.classList.add('open');
+                btn.setAttribute('aria-expanded', 'true');
+            }
+        }
+
+        function fecharNavDropdown(name) {
+            const dropdown = document.getElementById('nav-' + name + '-dropdown');
+            const btn = document.getElementById('btn-nav-' + name);
+            if (dropdown) dropdown.classList.remove('open');
+            if (btn) btn.setAttribute('aria-expanded', 'false');
+        }
+
+        // Fechar nav dropdowns ao clicar fora
+        document.addEventListener('click', function (e) {
+            if (!e.target.closest('.nav-dropdown-wrapper')) {
+                document.querySelectorAll('.nav-dropdown').forEach(d => d.classList.remove('open'));
+                document.querySelectorAll('.nav-dropdown-wrapper .btn-nav').forEach(b => b.setAttribute('aria-expanded', 'false'));
             }
         });
 
         function logout() {
-            localStorage.removeItem('usuario');
-            localStorage.removeItem('token');
-            localStorage.removeItem('secaoAtiva');
-            localStorage.removeItem('subSecaoAtiva');
-            window.location.href = './login.html';
+            // Função legada - usar fazerLogout() do script.js
         }
     </script>
 
@@ -582,6 +754,7 @@
     <script src="lembretes.js"></script>
     <script src="fluxos-email-func.js"></script>
     <script src="horarios-sla.js"></script>
+    <script src="avatar.js?v=1.6"></script>
 
     <!-- Botão Voltar ao Topo -->
     <button id="btn-voltar-topo" onclick="voltarAoTopo()" title="Voltar ao topo"></button>
@@ -669,6 +842,10 @@
             </div>
         </div>
     </div>
+
+    <!-- Cropper.js CDN -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.1/cropper.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.1/cropper.min.js"></script>
 
     <!-- Script Cookies -->
     <script src="cookie-manager.js"></script>

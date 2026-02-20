@@ -116,7 +116,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 'id' => $usuario['id'],
                 'nome' => $usuario['nome'],
                 'email' => $usuario['email'],
-                'tipo' => $usuario['tipo']
+                'tipo' => $usuario['tipo'],
+                'avatar' => $usuario['avatar'] ?? null
             ]
         ]);
         

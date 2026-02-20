@@ -9,10 +9,24 @@ use PHPMailer\PHPMailer\Exception;
 class EmailSender {
     private $db;
     private $mailer;
+    // Contexto atual de envio (preenchido automaticamente ou via setEmailContext)
+    private $logContext = ['ticket_id' => null, 'tipo' => null];
     
     public function __construct($db) {
         $this->db = $db;
         $this->configurarMailer();
+    }
+
+    /**
+     * Define o contexto do próximo e-mail a ser enviado.
+     * Deve ser chamado antes de enviarEmail/enviarEmailTexto/enviarEmailComAnexos
+     * quando the contexto é conhecido (opcional — o sistema tenta detectar pelo assunto).
+     */
+    public function setEmailContext(int $ticket_id = null, string $tipo = null): void {
+        $this->logContext = [
+            'ticket_id' => $ticket_id,
+            'tipo'      => $tipo,
+        ];
     }
     
     private function configurarMailer() {
@@ -147,18 +161,19 @@ class EmailSender {
         }
     }
     
-    private function enviarEmailComAnexos($para, $assunto, $html, $anexos = []) {
+    private function enviarEmailComAnexos($para, $assunto, $html, $anexos = []): bool {
+        $status = 'falha';
+        $erro   = null;
         try {
             $this->configurarMailer();
             
             $this->mailer->setFrom(EmailConfig::get('SMTP_USERNAME'), 'Suporte CRPRS');
             $this->mailer->addAddress($para);
             $this->mailer->Subject = $assunto;
-            $this->mailer->Body = $html;
+            $this->mailer->Body    = $html;
             $this->mailer->isHTML(true);
             $this->mailer->CharSet = 'UTF-8';
             
-            // Adicionar anexos
             if (!empty($anexos)) {
                 $anexos_dir = dirname(__DIR__, 2) . '/backend/anexos/';
                 foreach ($anexos as $anexo) {
@@ -171,18 +186,71 @@ class EmailSender {
             }
             
             $resultado = $this->mailer->send();
+            $status    = $resultado ? 'sucesso' : 'falha';
             $this->mailer->clearAddresses();
             $this->mailer->clearAttachments();
-            
             return $resultado;
-            
         } catch (Exception $e) {
-            error_log('Erro ao enviar email com anexos: ' . $e->getMessage());
+            $erro = $e->getMessage();
+            error_log('Erro ao enviar email com anexos: ' . $erro);
             return false;
+        } finally {
+            $this->registrarLogEmail($para, $assunto, $status, $erro);
+        }
+    }
+
+    /**
+     * Registra cada tentativa de envio de e-mail na tabela email_logs.
+     * Detecta ticket_id e tipo automaticamente pelo assunto quando não configurados via setEmailContext().
+     */
+    private function registrarLogEmail(string $destinatario, string $assunto, string $status, ?string $erro = null): void {
+        try {
+            $ticket_id = $this->logContext['ticket_id'];
+            $tipo      = $this->logContext['tipo'];
+
+            // Auto-detectar ticket_id pelo assunto se não informado
+            if ($ticket_id === null && preg_match('/#(\d{5})/', $assunto, $m)) {
+                $ticket_id = (int) $m[1];
+            }
+
+            // Auto-detectar tipo pelo assunto se não informado
+            if ($tipo === null) {
+                $tipo = match(true) {
+                    str_contains($assunto, 'criado')           => 'novo_ticket',
+                    str_contains($assunto, 'fechado')          => 'fechamento',
+                    str_contains($assunto, 'reaberto')         => 'reabertura',
+                    str_contains($assunto, 'atribuído')       => 'atribuicao',
+                    str_contains($assunto, 'comentário')      => 'comentario',
+                    str_contains($assunto, 'Novo comentário') => 'notif_agente',
+                    str_contains($assunto, 'encaminhamento')   => 'encaminhamento',
+                    default                                    => 'outros',
+                };
+            }
+
+            $q = "INSERT INTO email_logs (destinatario, assunto, tipo, ticket_id, status, erro)
+                  VALUES (:destinatario, :assunto, :tipo, :ticket_id, :status, :erro)";
+            $s = $this->db->prepare($q);
+            $s->bindParam(':destinatario', $destinatario);
+            $s->bindParam(':assunto',      $assunto);
+            $s->bindParam(':tipo',         $tipo);
+            $s->bindParam(':ticket_id',    $ticket_id);
+            $s->bindParam(':status',       $status);
+            $s->bindParam(':erro',         $erro);
+            $s->execute();
+
+            // Resetar contexto após registrar
+            $this->logContext = ['ticket_id' => null, 'tipo' => null];
+
+        } catch (Exception $e) {
+            // Log de fallback no arquivo caso o banco falhe
+            error_log("[EMAIL-LOG] Falha ao registrar log no banco: " . $e->getMessage());
+            error_log("[EMAIL-LOG] $status | Para: $destinatario | Assunto: $assunto | Erro: $erro");
         }
     }
     
-    public function enviarEmail($para, $assunto, $html) {
+    public function enviarEmail($para, $assunto, $html): bool {
+        $status = 'falha';
+        $erro   = null;
         try {
             set_time_limit(30);
             error_log("[EMAIL] Tentando enviar HTML para: $para");
@@ -192,20 +260,25 @@ class EmailSender {
             $mail->addAddress($para);
             $mail->isHTML(true);
             $mail->Subject = $assunto;
-            $mail->Body = $html;
+            $mail->Body    = $html;
             $mail->AltBody = strip_tags($html);
             
             $resultado = $mail->send();
-            error_log("[EMAIL] Resultado envio: " . ($resultado ? "OK" : "FALHA"));
-            
+            $status    = $resultado ? 'sucesso' : 'falha';
+            error_log("[EMAIL] Resultado envio: " . ($resultado ? 'OK' : 'FALHA'));
             return $resultado;
         } catch (Exception $e) {
-            error_log("[EMAIL] ERRO ao enviar para $para: " . $e->getMessage());
+            $erro = $e->getMessage();
+            error_log("[EMAIL] ERRO ao enviar para $para: $erro");
             return false;
+        } finally {
+            $this->registrarLogEmail($para, $assunto, $status, $erro);
         }
     }
     
-    private function enviarEmailTexto($para, $assunto, $texto) {
+    private function enviarEmailTexto($para, $assunto, $texto): bool {
+        $status = 'falha';
+        $erro   = null;
         try {
             set_time_limit(30);
             $mail = clone $this->mailer;
@@ -213,18 +286,20 @@ class EmailSender {
             $mail->addAddress($para);
             $mail->isHTML(false);
             $mail->Subject = $assunto;
-            $mail->Body = $texto;
+            $mail->Body    = $texto;
             
             $resultado = $mail->send();
-            
+            $status    = $resultado ? 'sucesso' : 'falha';
             if (!$resultado) {
                 error_log("[EMAIL] Falha ao enviar email para: $para");
             }
-            
             return $resultado;
         } catch (Exception $e) {
-            error_log("[EMAIL] Erro ao enviar email para $para: " . $e->getMessage());
+            $erro = $e->getMessage();
+            error_log("[EMAIL] Erro ao enviar email para $para: $erro");
             return false;
+        } finally {
+            $this->registrarLogEmail($para, $assunto, $status, $erro);
         }
     }
     
@@ -322,24 +397,12 @@ class EmailSender {
             $autor = $stmt_autor->fetch();
             $autor_id = $autor ? $autor['usuario_id'] : $dados['usuario_id'];
             
-            $this->marcarComentarioNaoLido($ticket_id, $comentario_id, $autor_id);
-            
-            $assunto = "🎫 [#" . str_pad($ticket_id, 5, '0', STR_PAD_LEFT) . "] Novo comentário - " . $dados['titulo'];
-            
-            $mensagem = "💬 NOVO COMENTÁRIO\n\n";
-            $mensagem .= "Ticket: #" . str_pad($ticket_id, 5, '0', STR_PAD_LEFT) . "\n";
-            $mensagem .= "Título: " . $dados['titulo'] . "\n";
-            $mensagem .= "Autor do comentário: " . $dados['comentario_autor'] . "\n";
-            $mensagem .= "Data: " . date('d/m/Y H:i') . "\n\n";
-            $mensagem .= "Comentário:\n" . $dados['comentario'] . "\n\n";
-            $mensagem .= "Acesse o sistema para responder.\n\n";
-            $mensagem .= "Atenciosamente,\nSistema Helpdesk CRPRS";
-            
             if ($dados['agente_id']) {
                 if ($dados['agente_email']) {
                     $this->enviarEmailTexto($dados['agente_email'], $assunto, $mensagem);
                 }
             } else {
+                // ... (lógica existente)
                 $query_agentes = "SELECT email FROM usuarios WHERE tipo IN ('agente', 'admin') AND email IS NOT NULL AND ativo = 1";
                 $stmt_agentes = $this->db->prepare($query_agentes);
                 $stmt_agentes->execute();
@@ -358,54 +421,7 @@ class EmailSender {
         }
     }
     
-    private function marcarComentarioNaoLido($ticket_id, $comentario_id, $autor_id) {
-        try {
-            error_log("[EMAIL] Marcar não lido - Ticket: $ticket_id, Comentario: $comentario_id, Autor: $autor_id");
-            
-            // Buscar dados do ticket
-            $query_ticket = "SELECT agente_id FROM tickets WHERE id = ?";
-            $stmt_ticket = $this->db->prepare($query_ticket);
-            $stmt_ticket->execute([$ticket_id]);
-            $ticket = $stmt_ticket->fetch();
-            
-            if (!$ticket) {
-                error_log("[EMAIL] Ticket não encontrado");
-                return;
-            }
-            
-            error_log("[EMAIL] Agente do ticket: " . ($ticket['agente_id'] ?? 'NULL'));
-            
-            $agentes_notificar = [];
-            
-            if ($ticket['agente_id']) {
-                // Ticket tem responsável: notificar apenas ele (se não for o autor)
-                if ($ticket['agente_id'] != $autor_id) {
-                    $agentes_notificar[] = $ticket['agente_id'];
-                    error_log("[EMAIL] Notificar responsável: " . $ticket['agente_id']);
-                }
-            } else {
-                // Ticket sem responsável: notificar todos os agentes exceto o autor
-                $query_agentes = "SELECT id FROM usuarios WHERE tipo IN ('agente', 'admin') AND id != ?";
-                $stmt_agentes = $this->db->prepare($query_agentes);
-                $stmt_agentes->execute([$autor_id]);
-                $agentes_notificar = $stmt_agentes->fetchAll(PDO::FETCH_COLUMN);
-                error_log("[EMAIL] Notificar todos: " . implode(', ', $agentes_notificar));
-            }
-            
-            // Inserir registro para cada agente
-            foreach ($agentes_notificar as $agente_id) {
-                $query = "INSERT INTO comentarios_nao_lidos (ticket_id, usuario_id, comentario_id) 
-                         VALUES (?, ?, ?) 
-                         ON DUPLICATE KEY UPDATE comentario_id = ?, criado_em = CURRENT_TIMESTAMP";
-                $stmt = $this->db->prepare($query);
-                $stmt->execute([$ticket_id, $agente_id, $comentario_id, $comentario_id]);
-                error_log("[EMAIL] Inserido para agente: $agente_id");
-            }
-            
-        } catch (Exception $e) {
-            error_log('Erro ao marcar comentário não lido: ' . $e->getMessage());
-        }
-    }
+
     
     public function confirmarComentarioParaRemetente($ticket_id, $email_remetente, $anexos_rejeitados = []) {
         try {
@@ -487,7 +503,25 @@ class EmailSender {
             if (($ticket['email_solicitante'] ?: $ticket['usuario_email']) && strpos(($ticket['email_solicitante'] ?: $ticket['usuario_email']), '@')) {
                 $template_path = dirname(__DIR__, 2) . '/backend/email-template-fechamento.html';
                 $template = file_get_contents($template_path);
-                $template = str_replace('{{NOME_USUARIO}}', $ticket['usuario_nome'], $template);
+                
+                // Se foi criado por terceiros (email_solicitante), usar esse nome/email
+                $nome_exibir = $ticket['usuario_nome'];
+                if (!empty($ticket['email_solicitante'])) {
+                    // Tentar achar nome se existir usuário com esse email na base
+                    $stmt_nome = $this->db->prepare("SELECT nome FROM usuarios WHERE email = ?");
+                    $stmt_nome->execute([$ticket['email_solicitante']]);
+                    $user_nome = $stmt_nome->fetchColumn();
+                    
+                    if ($user_nome) {
+                        $nome_exibir = $user_nome;
+                    } else {
+                        // Senão, usar parte do email antes do @ formatada
+                        $partes = explode('@', $ticket['email_solicitante']);
+                        $nome_exibir = ucwords(str_replace(['.', '_'], ' ', $partes[0]));
+                    }
+                }
+                
+                $template = str_replace('{{NOME_USUARIO}}', $nome_exibir, $template);
                 $template = str_replace('{{NUMERO_TICKET}}', str_pad($ticket_id, 5, '0', STR_PAD_LEFT), $template);
                 $template = str_replace('{{TITULO_TICKET}}', $ticket['titulo'], $template);
                 $template = str_replace('{{NOME_AGENTE}}', $ticket['fechado_por_nome'] ?: 'Sistema', $template);
@@ -682,6 +716,80 @@ class EmailSender {
         }
     }
     
+    /**
+     * Notifica o agente responsável que outro agente/admin comentou no ticket dele.
+     * Também altera status para 'nova_resposta'.
+     */
+    public function notificarComentarioEntreAgentes($ticket_id, $comentario_id, $autor_nome, $agente_responsavel_id) {
+        try {
+            // Buscar dados do agente responsável
+            $q_agente = "SELECT nome, email FROM usuarios WHERE id = :id";
+            $s_agente = $this->db->prepare($q_agente);
+            $s_agente->bindParam(':id', $agente_responsavel_id);
+            $s_agente->execute();
+            $agente = $s_agente->fetch(PDO::FETCH_ASSOC);
+
+            if (!$agente || empty($agente['email'])) {
+                error_log("[EMAIL] notificarComentarioEntreAgentes: agente sem email (id: $agente_responsavel_id)");
+                return false;
+            }
+
+            // Buscar dados do ticket e comentário
+            $q_ticket = "SELECT t.titulo, c.comentario
+                         FROM tickets t
+                         LEFT JOIN comentarios c ON c.id = :comentario_id
+                         WHERE t.id = :ticket_id";
+            $s_ticket = $this->db->prepare($q_ticket);
+            $s_ticket->bindParam(':ticket_id', $ticket_id);
+            $s_ticket->bindParam(':comentario_id', $comentario_id);
+            $s_ticket->execute();
+            $dados = $s_ticket->fetch(PDO::FETCH_ASSOC);
+
+            if (!$dados) {
+                error_log("[EMAIL] notificarComentarioEntreAgentes: ticket/comentário não encontrado");
+                return false;
+            }
+
+            $num_ticket  = str_pad($ticket_id, 5, '0', STR_PAD_LEFT);
+            $titulo      = $dados['titulo'];
+            $trecho      = mb_substr(strip_tags($dados['comentario'] ?? ''), 0, 300);
+            if (mb_strlen($dados['comentario'] ?? '') > 300) {
+                $trecho .= '...';
+            }
+
+            $assunto = "💬 Novo comentário no Ticket #{$num_ticket} - {$titulo}";
+
+            $html = "
+            <div style='font-family: Arial, sans-serif; color: #333; max-width: 600px; margin: 0 auto;'>
+                <div style='background: #1e3a5f; padding: 20px; border-radius: 8px 8px 0 0;'>
+                    <h2 style='color: #fff; margin: 0; font-size: 18px;'>💬 Novo Comentário no Seu Ticket</h2>
+                </div>
+                <div style='background: #f9f9f9; padding: 24px; border-radius: 0 0 8px 8px; border: 1px solid #e0e0e0;'>
+                    <p style='margin: 0 0 12px 0;'>Olá, <strong>{$agente['nome']}</strong>!</p>
+                    <p style='margin: 0 0 16px 0;'>
+                        O agente <strong>{$autor_nome}</strong> adicionou um novo comentário no ticket
+                        <strong>#{$num_ticket}</strong> que está atribuído a você.
+                    </p>
+                    <div style='background: #fff; border-left: 4px solid #e0a800; padding: 14px 18px; border-radius: 4px; margin-bottom: 20px;'>
+                        <p style='margin: 0 0 6px 0; font-size: 13px; color: #888;'>Ticket: <strong>#{$num_ticket}</strong> — {$titulo}</p>
+                        <p style='margin: 0; font-size: 14px; color: #333;'>{$trecho}</p>
+                    </div>
+                    <p style='margin: 0 0 20px 0; font-size: 13px; color: #555;'>
+                        O status do ticket foi atualizado para <strong>\"Nova Resposta\"</strong>.
+                        Acesse o sistema para verificar e responder.
+                    </p>
+                    " . $this->getAssinatura() . "
+                </div>
+            </div>";
+
+            return $this->enviarEmail($agente['email'], $assunto, $html);
+
+        } catch (Exception $e) {
+            error_log('[EMAIL] Erro em notificarComentarioEntreAgentes: ' . $e->getMessage());
+            return false;
+        }
+    }
+
     private function registrarPrimeiraResposta($ticket_id) {
         try {
             // Registrar primeira resposta no SLA

@@ -1,0 +1,29 @@
+/* Estilos para ticket com NOVA RESPOSTA */
+tr.ticket-nova-resposta {
+    background-color: #fff3cd !important;
+    /* Amarelo claro */
+    border-left: 5px solid #17a2b8;
+    /* Borda azul da mesma cor do status */
+}
+
+tr.ticket-nova-resposta td:nth-child(3),
+/* Coluna Assunto */
+tr.ticket-nova-resposta td:nth-child(1) a {
+    /* Coluna ID */
+    font-weight: bold !important;
+    color: #000;
+}
+
+tr.ticket-nova-resposta:hover {
+    background-color: #ffe8a1 !important;
+    /* Amarelo um pouco mais escuro no hover */
+}
+
+/* Ajustar cor do status dentro da linha de nova resposta para combinar */
+tr.ticket-nova-resposta .status {
+    background-color: #fff3cd !important;
+}
+
+tr.ticket-nova-resposta:hover .status {
+    background-color: #ffe8a1 !important;
+}

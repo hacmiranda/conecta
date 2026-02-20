@@ -9,8 +9,222 @@ function sanitizeHTML(str) {
 function fazerLogout() {
     localStorage.removeItem('usuario');
     localStorage.removeItem('token');
+    localStorage.removeItem('token_exp');
     window.location.href = './login.html';
 }
+
+// Monitoramento de Sessão e Inatividade
+let tempoInatividade;
+const TEMPO_LIMITE_INATIVIDADE = 30 * 60 * 1000; // 30 minutos
+
+function iniciarMonitoramentoSessao() {
+    // 1. Monitorar expiração do Token (8h)
+    verificarExpiracaoToken();
+    setInterval(verificarExpiracaoToken, 60000); // Checar a cada minuto
+
+    // 2. Monitorar Inatividade do Usuário (30min)
+    window.onload = resetarTimerInatividade;
+    document.onmousemove = resetarTimerInatividade;
+    document.onkeydown = resetarTimerInatividade;
+    document.onclick = resetarTimerInatividade;
+    document.onscroll = resetarTimerInatividade;
+
+    // Iniciar timer
+    resetarTimerInatividade();
+}
+
+function resetarTimerInatividade() {
+    clearTimeout(tempoInatividade);
+    tempoInatividade = setTimeout(() => {
+        mostrarAlert('Sessão Expirada', 'Você ficou 30 minutos inativo. Por segurança, sua sessão foi encerrada.', () => {
+            fazerLogout();
+        });
+    }, TEMPO_LIMITE_INATIVIDADE);
+}
+
+function verificarExpiracaoToken() {
+    const token = localStorage.getItem('token');
+    if (!token) return;
+
+    try {
+        const payload = JSON.parse(atob(token.split('.')[1]));
+        const agora = Math.floor(Date.now() / 1000);
+
+        if (payload.exp < agora) {
+            mostrarAlert('Sessão Expirada', 'Seu token de acesso expirou. Por favor, faça login novamente.', () => {
+                fazerLogout();
+            });
+        }
+    } catch (e) {
+        // Token inválido
+        fazerLogout();
+    }
+}
+
+// ======================================================
+// 📧 ALERTA DE FALHAS DE E-MAIL
+// ======================================================
+const EMAIL_ALERT_INTERVAL = 5 * 60 * 1000; // Checar a cada 5 minutos
+const EMAIL_ALERT_DISMISSED = 'emailAlertDismissedAt';
+
+function iniciarMonitoramentoEmailFalhas() {
+    // Só monitora se for agente ou admin
+    const usuario = JSON.parse(localStorage.getItem('usuario') || '{}');
+    if (!['agente', 'admin'].includes(usuario.tipo)) return;
+
+    verificarFalhasEmail(); // verificação imediata
+    setInterval(verificarFalhasEmail, EMAIL_ALERT_INTERVAL);
+}
+
+function verificarFalhasEmail() {
+    const xhr = new XMLHttpRequest();
+    xhr.open('GET', '/crpdesk/api/controllers/email-alert.php', true);
+    setSecurityHeaders(xhr);
+
+    xhr.onload = function () {
+        if (xhr.status !== 200) return;
+        try {
+            const dados = JSON.parse(xhr.responseText);
+            if (dados.falhas_24h > 0) {
+                exibirAlertaEmailFalha(dados.falhas_24h, dados.ultima_falha);
+            } else {
+                ocultarAlertaEmailFalha();
+            }
+        } catch (e) { /* silencioso */ }
+    };
+
+    xhr.send();
+}
+
+function exibirAlertaEmailFalha(quantidade, ultimaFalha) {
+    // Badge no botão Configurações
+    const badge = document.getElementById('email-falha-badge');
+    if (badge) {
+        badge.textContent = quantidade > 99 ? '99+' : quantidade;
+        badge.style.display = 'inline-flex';
+        badge.title = `${quantidade} falha(s) de e-mail nas últimas 24h`;
+    }
+
+    // Banner: respeitar dismiss (não mostrar se o agente já fechou nas últimas 4h)
+    const dismissedAt = localStorage.getItem(EMAIL_ALERT_DISMISSED);
+    const agoraDismiss = Date.now();
+    if (dismissedAt && (agoraDismiss - parseInt(dismissedAt)) < 4 * 60 * 60 * 1000) {
+        return; // ainda dentro da janela de silêncio
+    }
+
+    const banner = document.getElementById('email-falha-banner');
+    const msg = document.getElementById('email-falha-banner-msg');
+    if (!banner || !msg) return;
+
+    let texto = `⚠️ ${quantidade} falha(s) no envio de e-mail detectada(s) nas últimas 24h.`;
+    if (ultimaFalha) {
+        const dt = new Date(ultimaFalha).toLocaleString('pt-BR');
+        texto += ` Última ocorrência: ${dt}.`;
+    }
+    msg.textContent = texto;
+    banner.style.display = 'flex';
+}
+
+function ocultarAlertaEmailFalha() {
+    const badge = document.getElementById('email-falha-badge');
+    if (badge) badge.style.display = 'none';
+
+    const banner = document.getElementById('email-falha-banner');
+    if (banner) banner.style.display = 'none';
+}
+
+function fecharBannerEmailFalha() {
+    const banner = document.getElementById('email-falha-banner');
+    if (banner) banner.style.display = 'none';
+    // Guardar timestamp do dismiss — não mostra novamente por 4 horas
+    localStorage.setItem(EMAIL_ALERT_DISMISSED, Date.now().toString());
+}
+
+function irParaLogEmails() {
+    fecharBannerEmailFalha();
+    mostrarSecao('config');
+    // Esperar seção de config renderizar, depois abrir Auditoria > log emails
+    setTimeout(() => {
+        if (typeof mostrarAuditoria === 'function') {
+            mostrarAuditoria();
+            setTimeout(() => {
+                if (typeof carregarLogEmails === 'function') {
+                    carregarLogEmails();
+                }
+            }, 300);
+        }
+    }, 150);
+}
+
+// ======================================================
+// 👤 HEADER AVATAR
+// ======================================================
+function inicializarAvatar() {
+    const usuario = JSON.parse(localStorage.getItem('usuario') || '{}');
+    if (!usuario.nome) return;
+
+    const nome = usuario.nome || '';
+    const email = usuario.email || '';
+    const tipo = usuario.tipo || '';
+
+    // Gerar iniciais (até 2)
+    const iniciais = nome
+        .split(' ')
+        .filter(Boolean)
+        .slice(0, 2)
+        .map(p => p[0].toUpperCase())
+        .join('');
+
+    // Preencher elementos do header
+    const setEl = (id, val) => { const el = document.getElementById(id); if (el) el.textContent = val; };
+
+    setEl('header-avatar-iniciais', iniciais);
+    setEl('header-avatar-iniciais-sm', iniciais);
+    setEl('header-avatar-nome', nome.split(' ')[0]); // primeiro nome no botão
+    setEl('header-avatar-role', tipo === 'admin' ? 'Administrador' : tipo === 'agente' ? 'Agente' : 'Usuário');
+    setEl('had-nome', nome);
+    setEl('had-email', email);
+}
+
+function toggleAvatarDropdown() {
+    const dropdown = document.getElementById('header-avatar-dropdown');
+    const btn = document.getElementById('header-avatar-btn');
+    if (!dropdown || !btn) return;
+
+    const isOpen = dropdown.classList.contains('open');
+
+    if (isOpen) {
+        fecharAvatarDropdown();
+    } else {
+        dropdown.classList.add('open');
+        btn.setAttribute('aria-expanded', 'true');
+        dropdown.setAttribute('aria-hidden', 'false');
+
+        // Fechar ao clicar fora
+        setTimeout(() => {
+            document.addEventListener('click', fecharAvatarDropdownFora, { once: true });
+        }, 0);
+    }
+}
+
+function fecharAvatarDropdownFora(e) {
+    const wrapper = document.getElementById('header-avatar-wrapper');
+    if (wrapper && !wrapper.contains(e.target)) {
+        fecharAvatarDropdown();
+    }
+}
+
+function fecharAvatarDropdown() {
+    const dropdown = document.getElementById('header-avatar-dropdown');
+    const btn = document.getElementById('header-avatar-btn');
+    if (dropdown) { dropdown.classList.remove('open'); dropdown.setAttribute('aria-hidden', 'true'); }
+    if (btn) { btn.setAttribute('aria-expanded', 'false'); }
+}
+
+// Fechar também com ESC
+document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') fecharAvatarDropdown();
+});
 
 // Navegação entre seções
 function mostrarSecao(secaoId) {
@@ -260,6 +474,7 @@ document.getElementById('form-ticket').addEventListener('submit', function (e) {
 
 // Carregar tickets do banco de dados (apenas não fechados e não cancelados)
 function carregarTickets() {
+    mostrarSkeletonTickets();
     const xhr = new XMLHttpRequest();
     xhr.open('GET', '/crpdesk/api/controllers/tickets.php', true);
 
@@ -268,6 +483,8 @@ function carregarTickets() {
             const todosTickets = JSON.parse(xhr.responseText);
             const ticketsAbertos = todosTickets.filter(ticket => ticket.status !== 'encerrado' && ticket.status !== 'cancelado');
             ticketsAtuais = ticketsAbertos;
+            ticketsFiltradosPorStatus = ticketsAbertos;
+            paginaAtual = 1;
             aplicarFiltroMeusTickets();
         } else {
             console.error('Erro ao carregar tickets:', xhr.status, xhr.responseText);
@@ -283,6 +500,12 @@ function carregarTickets() {
     xhr.send();
 }
 
+// Estado de paginação e filtros da tabela
+let paginaAtual = 1;
+let porPagina = parseInt(localStorage.getItem('ticketsPorPagina') || '50');
+let filtroStatusAtivo = 'todos';
+let ticketsFiltradosPorStatus = [];
+
 function aplicarFiltroMeusTickets() {
     const filtroAtivo = document.getElementById('filtro-meus-tickets').checked;
     let ticketsFiltrados = ticketsAtuais;
@@ -292,8 +515,33 @@ function aplicarFiltroMeusTickets() {
         ticketsFiltrados = ticketsAtuais.filter(ticket => ticket.agente_id == usuarioLogado.id);
     }
 
-    mostrarTicketsNaTela(ticketsFiltrados);
+    // Re-aplicar ordenação persistida antes de renderizar
+    if (ordemAtual.campo) {
+        const campo = ordemAtual.campo;
+        ticketsFiltrados = [...ticketsFiltrados].sort((a, b) => {
+            let valorA = a[campo] || '';
+            let valorB = b[campo] || '';
+
+            if (campo === 'criado_em') {
+                valorA = new Date(valorA);
+                valorB = new Date(valorB);
+            } else if (campo === 'id') {
+                valorA = parseInt(valorA);
+                valorB = parseInt(valorB);
+            }
+
+            if (valorA < valorB) return ordemAtual.direcao === 'asc' ? -1 : 1;
+            if (valorA > valorB) return ordemAtual.direcao === 'asc' ? 1 : -1;
+            return 0;
+        });
+
+        // Atualizar ticketsAtuais com a ordem (quando sem filtro de "meus tickets")
+        if (!filtroAtivo) ticketsAtuais = ticketsFiltrados;
+    }
+
+    filtrarEMostrarTickets(ticketsFiltrados);
 }
+
 
 function aplicarFiltroMeusTicketsFechados() {
     const filtroAtivo = document.getElementById('filtro-meus-tickets-fechados').checked;
@@ -307,6 +555,201 @@ function aplicarFiltroMeusTicketsFechados() {
     mostrarTicketsFechadosNaTela(ticketsFiltrados);
 }
 
+// Mostrar skeleton loading enquanto carrega
+function mostrarSkeletonTickets(idContainer = 'lista-tickets') {
+    const lista = document.getElementById(idContainer);
+    if (!lista) return;
+    const linhas = Array.from({ length: 8 }, () => `
+        <tr>
+            <td><div class="skeleton-block sm"></div></td>
+            <td><div class="skeleton-block md"></div></td>
+            <td><div class="skeleton-block lg"></div></td>
+            <td><div class="skeleton-block md"></div></td>
+            <td><div class="skeleton-block sm"></div></td>
+            <td><div class="skeleton-block sm"></div></td>
+            <td><div class="skeleton-block sm"></div></td>
+            <td><div class="skeleton-block sm"></div></td>
+        </tr>`).join('');
+    lista.innerHTML = `
+        <table class="skeleton-tabela" aria-hidden="true" aria-label="Carregando tickets...">
+            <thead><tr>${Array.from({ length: 8 }, () => '<th></th>').join('')}</tr></thead>
+            <tbody>${linhas}</tbody>
+        </table>`;
+}
+
+// Calcular texto do SLA restante
+function calcularTextoSLA(ticket) {
+    // O SLA vem do backend via status-sla.js
+    // Aqui apenas exibimos o badge com base nos dados disponíveis
+    if (!ticket.prazo_sla && !ticket.vencimento_sla) return null;
+
+    if (ticket.vencimento_sla) {
+        // Já vencido
+        const prazo = new Date(ticket.prazo_sla);
+        if (!isNaN(prazo)) {
+            const diffMin = Math.floor((Date.now() - prazo.getTime()) / 60000);
+            if (diffMin < 60) return { texto: `Vencido há ${diffMin}min`, classe: 'sla-vencido' };
+            const diffH = Math.floor(diffMin / 60);
+            if (diffH < 24) return { texto: `Vencido há ${diffH}h`, classe: 'sla-vencido' };
+            return { texto: `Vencido há ${Math.floor(diffH / 24)}d`, classe: 'sla-vencido' };
+        }
+        return { texto: 'SLA vencido', classe: 'sla-vencido' };
+    }
+
+    if (ticket.prazo_sla) {
+        const prazo = new Date(ticket.prazo_sla);
+        if (isNaN(prazo)) return null;
+        const diffMin = Math.ceil((prazo.getTime() - Date.now()) / 60000);
+        if (diffMin <= 0) return { texto: 'SLA vencido', classe: 'sla-vencido' };
+        if (diffMin <= 30) return { texto: `${diffMin}min restantes`, classe: 'sla-critico' };
+        if (diffMin <= 120) return { texto: `${Math.ceil(diffMin / 60)}h restantes`, classe: 'sla-alerta' };
+        const diffH = Math.ceil(diffMin / 60);
+        if (diffH < 24) return { texto: `${diffH}h restantes`, classe: 'sla-ok' };
+        return { texto: `${Math.ceil(diffH / 24)}d restantes`, classe: 'sla-ok' };
+    }
+    return null;
+}
+
+// Atualizar contadores dos pills de filtro
+function atualizarContadoresPill(tickets) {
+    const contagens = { todos: tickets.length };
+    const statusAgrupados = {
+        'novo': ['novo'],
+        'em_atendimento': ['em_atendimento'],
+        'aguardando': ['aguardando', 'aguardando_resposta', 'aguardando_terceiros', 'aguardando_aprovacao', 'aguardando_data'],
+        'nova_resposta': ['nova_resposta'],
+        'urgente': [] // filtro por prioridade
+    };
+
+    tickets.forEach(t => {
+        Object.entries(statusAgrupados).forEach(([pill, statuses]) => {
+            if (pill === 'urgente') {
+                if (t.prioridade === 'urgente') contagens[pill] = (contagens[pill] || 0) + 1;
+            } else if (statuses.includes(t.status)) {
+                contagens[pill] = (contagens[pill] || 0) + 1;
+            }
+        });
+    });
+
+    Object.entries(contagens).forEach(([key, val]) => {
+        const el = document.getElementById(`pill-count-${key}`);
+        if (el) el.textContent = val > 0 ? val : '';
+    });
+}
+
+// Aplicar filtro rápido por status
+function aplicarFiltroPill(btn) {
+    filtroStatusAtivo = btn.dataset.status;
+    paginaAtual = 1;
+    document.querySelectorAll('.filtro-pill').forEach(p => p.classList.remove('ativo'));
+    btn.classList.add('ativo');
+
+    const base = (() => {
+        const filtroMeus = document.getElementById('filtro-meus-tickets');
+        if (filtroMeus && filtroMeus.checked) {
+            const u = JSON.parse(localStorage.getItem('usuario'));
+            return ticketsAtuais.filter(t => t.agente_id == u.id);
+        }
+        return ticketsAtuais;
+    })();
+
+    filtrarEMostrarTickets(base);
+}
+
+function filtrarEMostrarTickets(tickets) {
+    const statusAgrupados = {
+        'novo': ['novo'],
+        'em_atendimento': ['em_atendimento'],
+        'aguardando': ['aguardando', 'aguardando_resposta', 'aguardando_terceiros', 'aguardando_aprovacao', 'aguardando_data'],
+        'nova_resposta': ['nova_resposta'],
+        'urgente': [] // por prioridade
+    };
+
+    let filtrados = tickets;
+    if (filtroStatusAtivo !== 'todos') {
+        if (filtroStatusAtivo === 'urgente') {
+            filtrados = tickets.filter(t => t.prioridade === 'urgente');
+        } else {
+            const grupo = statusAgrupados[filtroStatusAtivo] || [filtroStatusAtivo];
+            filtrados = tickets.filter(t => grupo.includes(t.status));
+        }
+    }
+
+    // Aplicar busca textual se ativa
+    const termoBusca = document.getElementById('busca-tickets')?.value.toLowerCase().trim();
+    if (termoBusca) {
+        filtrados = filtrados.filter(t =>
+            (t.titulo || '').toLowerCase().includes(termoBusca) ||
+            (t.descricao || '').toLowerCase().includes(termoBusca) ||
+            (t.usuario_nome || '').toLowerCase().includes(termoBusca)
+        );
+    }
+
+    ticketsFiltradosPorStatus = filtrados;
+    mostrarTicketsNaTela(filtrados);
+}
+
+// Renderizar números de páginas
+function renderizarPaginacaoNumeros(totalPaginas) {
+    const delta = 2;
+    const paginas = [];
+    for (let i = Math.max(1, paginaAtual - delta); i <= Math.min(totalPaginas, paginaAtual + delta); i++) {
+        paginas.push(i);
+    }
+    return paginas.map(p => `
+        <button class="btn-paginacao ${p === paginaAtual ? 'ativo' : ''}" onclick="irParaPagina(${p})" aria-label="Página ${p}" ${p === paginaAtual ? 'aria-current="page"' : ''}>${p}</button>
+    `).join('');
+}
+
+function irParaPagina(p) {
+    paginaAtual = p;
+    mostrarTicketsNaTela(ticketsFiltradosPorStatus.length > 0 ? ticketsFiltradosPorStatus : ticketsAtuais);
+    document.getElementById('lista-tickets')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+// Converter dados de SLA em badge visual para a tabela
+// Depende de calcularTempoRestanteSLA() e formatarTempo() do status-sla.js
+function calcularTextoSLA(ticket) {
+    // Só mostra SLA para tickets abertos e se o sistema de horários já carregou
+    if (!ticket || !ticket.criado_em) return null;
+    if (['encerrado', 'cancelado', 'fechado'].includes(ticket.status)) return null;
+    if (typeof calcularTempoRestanteSLA !== 'function') return null;
+
+    const slaInfo = calcularTempoRestanteSLA(ticket);
+    if (!slaInfo) return null;
+
+    const tipo = slaInfo.tipo === 'resposta' ? 'Resposta' : 'Resolução';
+
+    // SLA pausado: badge neutro, sem animação, apenas informa
+    if (slaInfo.pausado) {
+        return { texto: `⏸ ${tipo}: pausado`, classe: 'sla-pausado' };
+    }
+
+    const pct = slaInfo.percentual;
+
+    // Vencido
+    if (slaInfo.vencido || pct >= 100) {
+        const atrasadoSeg = Math.abs(slaInfo.tempoRestante);
+        const atrasadoTexto = formatarTempo(atrasadoSeg).replace('Vencido', '').trim();
+        const sufixo = atrasadoTexto ? ` há ${atrasadoTexto}` : '';
+        return { texto: `${tipo}: vencida${sufixo}`, classe: 'sla-vencido' };
+    }
+
+    // Crítico: ≥ 80%
+    if (pct >= 80) {
+        return { texto: `⚠ ${tipo}: ${formatarTempo(slaInfo.tempoRestante)}`, classe: 'sla-critico' };
+    }
+
+    // Alerta: ≥ 50%
+    if (pct >= 50) {
+        return { texto: `${tipo}: ${formatarTempo(slaInfo.tempoRestante)}`, classe: 'sla-alerta' };
+    }
+
+    // OK: < 50% — não exibe badge para não poluir a tabela
+    return null;
+}
+
+
 // Mostrar tickets na tela
 function mostrarTicketsNaTela(tickets) {
     const listaTickets = document.getElementById('lista-tickets');
@@ -318,79 +761,173 @@ function mostrarTicketsNaTela(tickets) {
     document.getElementById('total-tickets-abertos').textContent = `(${totalAbertos})`;
     document.getElementById('total-meus-tickets').textContent = meusTickets > 0 ? `(${meusTickets})` : '';
 
+    // Atualizar contadores dos pills
+    atualizarContadoresPill(ticketsAtuais);
+
+    // Salvar referência para paginação
+    ticketsFiltradosPorStatus = tickets;
+
     if (tickets.length === 0) {
-        listaTickets.innerHTML = '<p>Nenhum ticket encontrado.</p>';
+        listaTickets.innerHTML = `
+            <div style="text-align:center; padding: 3rem 1rem; color: #64748b;">
+                <span class="material-symbols-outlined" style="font-size:3rem; opacity:0.4;">inbox</span>
+                <p style="margin-top:0.5rem; font-size:0.95rem;">Nenhum ticket encontrado para este filtro.</p>
+            </div>`;
         return;
     }
 
     // Salvar tickets globalmente para SLA
     window.ticketsAtuais = tickets;
 
+    // Paginação
+    const totalPaginas = Math.ceil(tickets.length / porPagina);
+    if (paginaAtual > totalPaginas) paginaAtual = 1;
+    const inicio = (paginaAtual - 1) * porPagina;
+    const fim = Math.min(inicio + porPagina, tickets.length);
+    const ticketsPagina = tickets.slice(inicio, fim);
+
     let tabelaHTML = `
-        <table class="tickets-tabela">
+        <table class="tickets-tabela" role="grid" aria-label="Lista de tickets abertos">
             <thead>
                 <tr>
-                    <th onclick="ordenarTabela('id')" class="sortable">Nº Ticket <span class="sort-arrows">↕</span></th>
-                    <th onclick="ordenarTabela('criado_em')" class="sortable">Abertura <span class="sort-arrows">↕</span></th>
-                    <th onclick="ordenarTabela('titulo')" class="sortable">Assunto <span class="sort-arrows">↕</span></th>
-                    <th onclick="ordenarTabela('usuario_nome')" class="sortable">Solicitante <span class="sort-arrows">↕</span></th>
-                    <th onclick="ordenarTabela('agente_nome')" class="sortable">Responsável <span class="sort-arrows">↕</span></th>
-                    <th onclick="ordenarTabela('categoria_nome')" class="sortable">Categoria <span class="sort-arrows">↕</span></th>
-                    <th onclick="ordenarTabela('status')" class="sortable">Status <span class="sort-arrows">↕</span></th>
-                    <th onclick="ordenarTabela('prioridade')" class="sortable">Prioridade <span class="sort-arrows">↕</span></th>
+                    <th onclick="ordenarTabela('id')" class="sortable" data-campo="id" scope="col">Nº Ticket <span class="sort-arrows">↕</span></th>
+                    <th onclick="ordenarTabela('criado_em')" class="sortable" data-campo="criado_em" scope="col">Abertura <span class="sort-arrows">↕</span></th>
+                    <th onclick="ordenarTabela('titulo')" class="sortable" data-campo="titulo" scope="col">Assunto <span class="sort-arrows">↕</span></th>
+                    <th onclick="ordenarTabela('usuario_nome')" class="sortable" data-campo="usuario_nome" scope="col">Solicitante <span class="sort-arrows">↕</span></th>
+                    <th onclick="ordenarTabela('agente_nome')" class="sortable" data-campo="agente_nome" scope="col">Responsável <span class="sort-arrows">↕</span></th>
+                    <th onclick="ordenarTabela('categoria_nome')" class="sortable" data-campo="categoria_nome" scope="col">Categoria <span class="sort-arrows">↕</span></th>
+                    <th onclick="ordenarTabela('status')" class="sortable" data-campo="status" scope="col">Status <span class="sort-arrows">↕</span></th>
+                    <th onclick="ordenarTabela('prioridade')" class="sortable" data-campo="prioridade" scope="col">Prioridade <span class="sort-arrows">↕</span></th>
                 </tr>
             </thead>
             <tbody>
     `;
 
+    // Atualizar indicador de ordenação ativa
+    if (ordemAtual.campo) {
+        // Será aplicado depois da renderização
+    }
 
-    tickets.forEach(ticket => {
-        const isMeuTicket = ticket.agente_id && ticket.agente_id == usuarioLogado.id;
+    ticketsPagina.forEach(ticket => {
+        const isNovaResposta = ticket.status === 'nova_resposta';
+
+        // Ícones Material Symbols (substituindo PNGs)
+        const iconeAnexo = ticket.tem_anexos > 0
+            ? `<span class="material-symbols-outlined icone-tabela icone-anexo-ms" title="Ticket com anexos" aria-label="Tem anexos">attach_file</span>` : '';
+        const iconeComentario = ticket.tem_comentario_nao_lido
+            ? `<span class="material-symbols-outlined icone-tabela icone-comentario-ms" title="Novo comentário no ticket" aria-label="Novo comentário">chat_bubble</span>` : '';
+        const iconomeLembrete = ticket.proximo_lembrete
+            ? `<span class="material-symbols-outlined icone-tabela icone-lembrete-ms" title="Lembrete: ${new Date(ticket.proximo_lembrete).toLocaleString('pt-BR')}" aria-label="Tem lembrete">event</span>` : '';
+        const iconeMesclado = ticket.eh_mesclado > 0
+            ? `<span class="material-symbols-outlined icone-tabela" title="Ticket mesclado" aria-label="Mesclado" style="color:#6366f1">call_merge</span>` : '';
+
+        // SLA badge inline
+        const slaInfo = calcularTextoSLA(ticket);
+        const slaBadge = slaInfo
+            ? `<span class="sla-badge ${slaInfo.classe}" role="status" aria-label="SLA: ${slaInfo.texto}">⏱ ${slaInfo.texto}</span>` : '';
+
+        // Data formatada sem cor hardcoded
+        const dataObj = new Date(ticket.criado_em);
+        const data = dataObj.toLocaleDateString('pt-BR');
+        const hora = dataObj.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+
+        // Solicitante
+        const solicitante = ticket.email_solicitante || ticket.usuario_nome || '—';
+        const emailExibir = (ticket.email_solicitante && ticket.email_solicitante !== ticket.usuario_email)
+            ? '' : (ticket.usuario_email ? `<small class="ticket-data-hora">${ticket.usuario_email}</small>` : '');
+
+        // Título truncado
+        const tituloSeguro = (ticket.titulo || '').replace(/"/g, '&quot;').replace(/</g, '&lt;');
 
         tabelaHTML += `
-            <tr data-ticket-id="${ticket.id}" class="${isMeuTicket ? 'meu-ticket-row' : ''}" ${modoMergeAtivo ? 'style="cursor: pointer;"' : ''}>
+            <tr data-ticket-id="${ticket.id}" class="${isNovaResposta ? 'ticket-nova-resposta' : ''}" ${modoMergeAtivo ? 'style="cursor:pointer;"' : ''}>
                 <td>
                     <a href="#" onclick="${modoMergeAtivo ? 'event.stopPropagation();' : ''} verDetalhes(${ticket.id})" class="ticket-link">#${String(ticket.id).padStart(5, '0')}</a>
-                    ${ticket.eh_mesclado > 0 ? '<span title="Ticket mesclado">🔗</span>' : ''}
-                    ${ticket.tem_anexos > 0 ? '<img src="images/clipe-de-anexo.png" class="icone-anexo" title="Ticket com anexos" alt="Anexo">' : ''}
-                    ${ticket.tem_comentario_nao_lido ? '<img src="images/comentario.png" class="icone-comentario-novo" title="Novo comentário no ticket" alt="Comentário">' : ''}
-                    ${ticket.proximo_lembrete ? `<span class="icone-lembrete" title="Lembrete: ${new Date(ticket.proximo_lembrete).toLocaleString('pt-BR')}">📅</span>` : ''}
-                    ${ticket.vencimento_sla ? '<span class="icone-sla-vencido" title="SLA vencido">⚠️</span>' : ''}
+                    ${iconeMesclado}${iconeAnexo}${iconeComentario}${iconomeLembrete}
                 </td>
-                <td>${new Date(ticket.criado_em).toLocaleDateString('pt-BR')}<br><small style="color: #666;">${new Date(ticket.criado_em).toLocaleTimeString('pt-BR')}</small></td>
-                <td>${ticket.titulo}</td>
-                <td>${ticket.email_solicitante || ticket.usuario_nome}${(ticket.email_solicitante && ticket.email_solicitante !== ticket.usuario_email) ? '' : (ticket.usuario_email ? '<br><small style="color: #666;">' + ticket.usuario_email + '</small>' : '')}</td>
-                <td><span class="status ${ticket.agente_nome ? 'atribuido' : 'nao-atribuido'} ${isMeuTicket ? 'meu-ticket' : ''} ${modoMergeAtivo ? '' : 'clickable'}" ${modoMergeAtivo ? '' : `onclick="event.stopPropagation(); atribuirTicket(${ticket.id})" title="Clique para atribuir"`}>${ticket.agente_nome || 'Não atribuído'}</span></td>
+                <td>
+                    ${data}<span class="ticket-data-hora">${hora}</span>
+                    ${slaBadge}
+                </td>
+                <td class="ticket-titulo-cell">
+                    <span class="ticket-titulo-texto" title="${tituloSeguro}">${ticket.titulo}</span>
+                </td>
+                <td>${solicitante}${emailExibir}</td>
+                <td><span class="status ${ticket.agente_nome ? 'atribuido' : 'nao-atribuido'} ${modoMergeAtivo ? '' : 'clickable'}" ${modoMergeAtivo ? '' : `onclick="event.stopPropagation(); atribuirTicket(${ticket.id})" title="Clique para atribuir"`}>${ticket.agente_nome || 'Não atribuído'}</span></td>
                 <td><span class="status categoria ${ticket.categoria_nome ? '' : 'sem-categoria'} ${modoMergeAtivo ? '' : 'clickable'}" ${modoMergeAtivo ? '' : `onclick="event.stopPropagation(); alterarCategoria(${ticket.id})" title="Clique para alterar"`}>${ticket.categoria_nome || 'Sem categoria'}</span></td>
-                <td><span class="status ${ticket.status} ${modoMergeAtivo ? '' : 'clickable'}" ${modoMergeAtivo ? '' : `onclick="event.stopPropagation(); alterarStatus(${ticket.id})" title="Clique para alterar"`}>${typeof formatarNomeStatus === 'function' ? formatarNomeStatus(ticket.status) : (window.STATUS_CONFIG && window.STATUS_CONFIG[ticket.status] ? window.STATUS_CONFIG[ticket.status].nome : ticket.status.charAt(0).toUpperCase() + ticket.status.slice(1).toLowerCase())}</span></td>
+                <td><span class="status ${ticket.status} ${modoMergeAtivo ? '' : 'clickable'}" ${modoMergeAtivo ? '' : `onclick="event.stopPropagation(); alterarStatusNovo(${ticket.id})"`} title="Clique para alterar">${window.STATUS_CONFIG && window.STATUS_CONFIG[ticket.status] ? window.STATUS_CONFIG[ticket.status].nome : (typeof formatarNomeStatus === 'function' ? formatarNomeStatus(ticket.status) : ticket.status)}</span></td>
                 <td><span class="status prioridade ${ticket.prioridade || 'normal'} ${modoMergeAtivo ? '' : 'clickable'}" ${modoMergeAtivo ? '' : `onclick="event.stopPropagation(); alterarPrioridade(${ticket.id})" title="Clique para alterar"`}>${typeof formatarNomePrioridade === 'function' ? formatarNomePrioridade(ticket.prioridade) : (ticket.prioridade ? ticket.prioridade.charAt(0).toUpperCase() + ticket.prioridade.slice(1).toLowerCase() : 'Normal')}</span></td>
             </tr>
         `;
     });
 
+    // Footer: resumo + paginação
+    const inicioExib = inicio + 1;
+    const fimExib = fim;
+    const totalExib = tickets.length;
+
     tabelaHTML += `
             </tbody>
         </table>
+        <div class="tabela-footer" role="navigation" aria-label="Paginação de tickets">
+            <div class="tabela-resumo">
+                Exibindo <strong>${inicioExib}–${fimExib}</strong> de <strong>${totalExib}</strong> ticket${totalExib !== 1 ? 's' : ''}
+            </div>
+            <div class="paginacao">
+                <button class="btn-paginacao" onclick="irParaPagina(${paginaAtual - 1})" ${paginaAtual <= 1 ? 'disabled' : ''} aria-label="Página anterior">‹</button>
+                ${renderizarPaginacaoNumeros(totalPaginas)}
+                <button class="btn-paginacao" onclick="irParaPagina(${paginaAtual + 1})" ${paginaAtual >= totalPaginas ? 'disabled' : ''} aria-label="Próxima página">›</button>
+                <span class="paginacao-info">de ${totalPaginas}</span>
+            </div>
+            <div class="paginacao-por-pagina">
+                <label for="tickets-por-pagina">Por página:</label>
+                <select id="tickets-por-pagina" onchange="alterarPorPagina(this.value)" aria-label="Itens por página">
+                    <option value="25" ${porPagina === 25 ? 'selected' : ''}>25</option>
+                    <option value="50" ${porPagina === 50 ? 'selected' : ''}>50</option>
+                    <option value="100" ${porPagina === 100 ? 'selected' : ''}>100</option>
+                </select>
+            </div>
+        </div>
     `;
 
     listaTickets.innerHTML = tabelaHTML;
 
+    // Aplicar indicador de ordenação ativa ao th correto
+    if (ordemAtual.campo) {
+        const ths = listaTickets.querySelectorAll('th[data-campo]');
+        ths.forEach(th => {
+            const arrow = th.querySelector('.sort-arrows');
+            if (th.dataset.campo === ordemAtual.campo) {
+                th.classList.add('sort-ativo');
+                if (arrow) arrow.textContent = ordemAtual.direcao === 'asc' ? '↑' : '↓';
+            } else {
+                th.classList.remove('sort-ativo');
+                if (arrow) arrow.textContent = '↕';
+            }
+        });
+    }
+
     // Adicionar event listeners para modo merge
     if (modoMergeAtivo) {
         document.querySelectorAll('tr[data-ticket-id]').forEach(row => {
-            row.addEventListener('click', function (e) {
+            row.addEventListener('click', function () {
                 const ticketId = parseInt(this.getAttribute('data-ticket-id'));
                 selecionarTicketParaMerge(ticketId, this);
             });
         });
     }
 
-    // Atualizar indicadores de SLA após renderizar
+    // Atualizar indicadores de SLA
     setTimeout(() => {
-        if (typeof atualizarIndicadoresSLA === 'function') {
-            atualizarIndicadoresSLA();
-        }
+        if (typeof atualizarIndicadoresSLA === 'function') atualizarIndicadoresSLA();
     }, 100);
+}
+
+function alterarPorPagina(valor) {
+    porPagina = parseInt(valor);
+    localStorage.setItem('ticketsPorPagina', porPagina);
+    paginaAtual = 1;
+    mostrarTicketsNaTela(ticketsFiltradosPorStatus.length > 0 ? ticketsFiltradosPorStatus : ticketsAtuais);
 }
 
 // Atribuir ticket a agente
@@ -452,6 +989,9 @@ function executarAtribuicao(ticketId, agenteId, agenteNome) {
     const xhr = new XMLHttpRequest();
     xhr.open('PUT', `/crpdesk/api/controllers/tickets.php?id=${ticketId}`, true);
     xhr.setRequestHeader('Content-Type', 'application/json');
+
+    // Adicionar token de autenticação
+    setSecurityHeaders(xhr);
 
     xhr.onload = function () {
         ocultarLoader();
@@ -541,6 +1081,9 @@ function executarAlteracaoCategoria(ticketId, categoriaId) {
     xhr.open('PUT', `/crpdesk/api/controllers/tickets.php?id=${ticketId}`, true);
     xhr.setRequestHeader('Content-Type', 'application/json');
 
+    // Adicionar token de autenticação
+    setSecurityHeaders(xhr);
+
     xhr.onload = function () {
         ocultarLoader();
         if (xhr.status === 200) {
@@ -603,6 +1146,9 @@ function executarAlteracaoPrioridade(ticketId, novaPrioridade) {
     const xhr = new XMLHttpRequest();
     xhr.open('PUT', `/crpdesk/api/controllers/tickets.php?id=${ticketId}`, true);
     xhr.setRequestHeader('Content-Type', 'application/json');
+
+    // Adicionar token de autenticação
+    setSecurityHeaders(xhr);
 
     xhr.onload = function () {
         console.log('📡 Resposta do servidor:', xhr.status, xhr.responseText);
@@ -934,7 +1480,13 @@ function mostrarDetalhesTicket(ticket) {
             <div class="descricao-ticket">
                 ${ticket.descricao}
             </div>
-            <p><strong>Criado por:</strong> ${ticket.email_solicitante || ticket.usuario_nome}</p>
+            <p><strong>Criado por:</strong> ${(() => {
+            const email = ticket.email_solicitante || ticket.usuario_email || '';
+            const nome = ticket.usuario_nome || '';
+            if (email && nome) return `${sanitizeHTML(email)} <span style="color:#888; font-size:0.9em;">(${sanitizeHTML(nome)})</span>`;
+            if (email) return sanitizeHTML(email);
+            return sanitizeHTML(nome) || '—';
+        })()}</p>
             <p><strong>Prioridade:</strong> ${ticket.prioridade}</p>
             <p><strong>Data:</strong> ${new Date(ticket.criado_em).toLocaleString('pt-BR')}</p>
             ${ticket.status === 'encerrado' && ticket.fechado_por_nome ?
@@ -1626,8 +2178,8 @@ function selecionarModal(opcao) {
 // Mostrar gerenciamento de usuários
 function mostrarUsuarios() {
     // Ativar botão
-    document.querySelectorAll('.btn-config').forEach(btn => btn.classList.remove('active'));
-    document.getElementById('btn-usuarios').classList.add('active');
+    document.querySelectorAll('.btn-config').forEach(btn => btn.classList.remove('active')); // nav
+    const _bbtn_usuarios = document.getElementById('btn-usuarios'); if (_bbtn_usuarios) _bbtn_usuarios.classList.add('active');
 
     // Salvar subseção
     localStorage.setItem('subSecaoAtiva', 'usuarios');
@@ -1978,20 +2530,27 @@ function executarExclusaoTicket(ticketId, callback) {
     const ticketAtual = JSON.parse(localStorage.getItem('ticketAtual') || '{}');
     const isTicketFechado = ticketAtual.status === 'encerrado' || ticketAtual.status === 'cancelado';
 
-    // Validar se ticket tem responsável
+    // Validar se ticket tem responsável (REMOVIDO: permitir exclusão sem responsável)
+    /*
     if (!ticketAtual.agente_id) {
         mostrarAlert('Atenção', 'Este ticket não possui responsável. Atribua o ticket antes de excluí-lo.');
         return;
     }
+    */
 
-    // Validar se ticket tem categoria
+    // Validar se ticket tem categoria (REMOVIDO: permitir exclusão sem categoria)
+    /*
     if (!ticketAtual.categoria_id) {
         mostrarAlert('Atenção', 'Este ticket não possui categoria. Defina uma categoria antes de excluí-lo.');
         return;
     }
+    */
 
     const xhr = new XMLHttpRequest();
     xhr.open('DELETE', `/crpdesk/api/controllers/tickets.php?id=${ticketId}`, true);
+
+    // Adicionar token de autenticação
+    setSecurityHeaders(xhr);
 
     xhr.onload = function () {
         if (xhr.status === 200) {
@@ -2253,8 +2812,8 @@ function mostrarCategoriasDropdown(categorias) {
 // Mostrar gerenciamento de categorias
 function mostrarCategorias() {
     // Ativar botão
-    document.querySelectorAll('.btn-config').forEach(btn => btn.classList.remove('active'));
-    document.getElementById('btn-categorias').classList.add('active');
+    document.querySelectorAll('.btn-config').forEach(btn => btn.classList.remove('active')); // nav
+    const _bbtn_categorias = document.getElementById('btn-categorias'); if (_bbtn_categorias) _bbtn_categorias.classList.add('active');
 
     // Salvar subseção
     localStorage.setItem('subSecaoAtiva', 'categorias');
@@ -2731,6 +3290,7 @@ function limparFormularioTicket() {
 
 // Carregar tickets fechados (encerrados e cancelados)
 function carregarTicketsFechados() {
+    mostrarSkeletonTickets('lista-fechados');
     const xhr = new XMLHttpRequest();
     xhr.open('GET', '/crpdesk/api/controllers/tickets.php', true);
 
@@ -2738,7 +3298,30 @@ function carregarTicketsFechados() {
         if (xhr.status === 200) {
             const todosTickets = JSON.parse(xhr.responseText);
             const ticketsFechados = todosTickets.filter(ticket => ticket.status === 'encerrado' || ticket.status === 'cancelado');
-            ticketsFechadosAtuais = ticketsFechados;
+
+            // Re-aplicar ordenação persistida antes de renderizar
+            if (ordemFechados.campo) {
+                const campo = ordemFechados.campo;
+                ticketsFechadosAtuais = [...ticketsFechados].sort((a, b) => {
+                    let valorA = a[campo] || '';
+                    let valorB = b[campo] || '';
+
+                    if (campo === 'criado_em' || campo === 'fechado_em') {
+                        valorA = new Date(valorA);
+                        valorB = new Date(valorB);
+                    } else if (campo === 'id') {
+                        valorA = parseInt(valorA);
+                        valorB = parseInt(valorB);
+                    }
+
+                    if (valorA < valorB) return ordemFechados.direcao === 'asc' ? -1 : 1;
+                    if (valorA > valorB) return ordemFechados.direcao === 'asc' ? 1 : -1;
+                    return 0;
+                });
+            } else {
+                ticketsFechadosAtuais = ticketsFechados;
+            }
+
             aplicarFiltroMeusTicketsFechados();
         } else {
             document.getElementById('lista-fechados').innerHTML = '<p>Erro ao carregar tickets fechados.</p>';
@@ -2748,68 +3331,198 @@ function carregarTicketsFechados() {
     xhr.send();
 }
 
+let timeoutBuscaFechados;
+function aplicarBuscaFechadosComDebounce() {
+    clearTimeout(timeoutBuscaFechados);
+    timeoutBuscaFechados = setTimeout(() => {
+        aplicarFiltroMeusTicketsFechados();
+    }, 300);
+}
+
+function limparBuscaFechados() {
+    const input = document.getElementById('busca-fechados');
+    if (input) {
+        input.value = '';
+        aplicarFiltroMeusTicketsFechados();
+    }
+}
+
+// Filtro combinado de fechados
+function filtrarEMostrarTicketsFechados(ticketsBase) {
+    let filtrados = ticketsBase;
+
+    // Aplicar busca textual se ativa
+    const termoBusca = document.getElementById('busca-fechados')?.value.toLowerCase().trim();
+    if (termoBusca) {
+        filtrados = filtrados.filter(t =>
+            (t.titulo || '').toLowerCase().includes(termoBusca) ||
+            (t.descricao || '').toLowerCase().includes(termoBusca) ||
+            (t.usuario_nome || '').toLowerCase().includes(termoBusca)
+        );
+    }
+
+    ticketsFechadosFiltradosPorBusca = filtrados;
+    mostrarTicketsFechadosNaTela(filtrados);
+}
+
+// A função original aplicarFiltroMeusTicketsFechados agora delega para filtrarEMostrarTicketsFechados
+function aplicarFiltroMeusTicketsFechados() {
+    const filtroAtivo = document.getElementById('filtro-meus-tickets-fechados');
+    let base = ticketsFechadosAtuais;
+
+    if (filtroAtivo && filtroAtivo.checked) {
+        const usuarioLogado = JSON.parse(localStorage.getItem('usuario'));
+        base = ticketsFechadosAtuais.filter(ticket => ticket.agente_id == usuarioLogado.id);
+    }
+
+    filtrarEMostrarTicketsFechados(base);
+}
+
+// Renderizar sub-botões de paginação
+function renderizarPaginacaoNumerosFechados(totalPaginas) {
+    const delta = 2;
+    const paginas = [];
+    for (let i = Math.max(1, paginaAtualFechados - delta); i <= Math.min(totalPaginas, paginaAtualFechados + delta); i++) {
+        paginas.push(i);
+    }
+    return paginas.map(p => `
+        <button class="btn-paginacao ${p === paginaAtualFechados ? 'ativo' : ''}" onclick="irParaPaginaFechados(${p})" aria-label="Página ${p}" ${p === paginaAtualFechados ? 'aria-current="page"' : ''}>${p}</button>
+    `).join('');
+}
+
+function irParaPaginaFechados(p) {
+    paginaAtualFechados = p;
+    mostrarTicketsFechadosNaTela(ticketsFechadosFiltradosPorBusca.length > 0 ? ticketsFechadosFiltradosPorBusca : ticketsFechadosAtuais);
+    document.getElementById('lista-fechados')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+function alterarPorPaginaFechados(valor) {
+    porPaginaFechados = parseInt(valor);
+    localStorage.setItem('ticketsFechadosPorPagina', porPaginaFechados);
+    paginaAtualFechados = 1;
+    mostrarTicketsFechadosNaTela(ticketsFechadosFiltradosPorBusca.length > 0 ? ticketsFechadosFiltradosPorBusca : ticketsFechadosAtuais);
+}
+
 // Mostrar tickets fechados na tela
 function mostrarTicketsFechadosNaTela(tickets) {
     const listaFechados = document.getElementById('lista-fechados');
 
+    ticketsFechadosFiltradosPorBusca = tickets;
+
     if (tickets.length === 0) {
-        listaFechados.innerHTML = '<p>Nenhum ticket fechado encontrado.</p>';
+        listaFechados.innerHTML = `
+            <div style="text-align:center; padding: 3rem 1rem; color: #64748b;">
+                <span class="material-symbols-outlined" style="font-size:3rem; opacity:0.4;">inbox</span>
+                <p style="margin-top:0.5rem; font-size:0.95rem;">Nenhum ticket fechado encontrado para este filtro.</p>
+            </div>`;
         return;
     }
+
+    // Paginação
+    const totalPaginas = Math.ceil(tickets.length / porPaginaFechados);
+    if (paginaAtualFechados > totalPaginas && totalPaginas > 0) paginaAtualFechados = totalPaginas;
+    const inicio = (paginaAtualFechados - 1) * porPaginaFechados;
+    const fim = Math.min(inicio + porPaginaFechados, tickets.length);
+    const ticketsPagina = tickets.slice(inicio, fim);
 
     let tabelaHTML = `
         <table class="tickets-tabela">
             <thead>
                 <tr>
-                    <th onclick="ordenarTabelaFechados('id')" class="sortable">Nº Ticket <span class="sort-arrows">↕</span></th>
-                    <th onclick="ordenarTabelaFechados('criado_em')" class="sortable">Abertura <span class="sort-arrows">↕</span></th>
-                    <th onclick="ordenarTabelaFechados('titulo')" class="sortable">Assunto <span class="sort-arrows">↕</span></th>
-                    <th onclick="ordenarTabelaFechados('usuario_nome')" class="sortable">Solicitante <span class="sort-arrows">↕</span></th>
-                    <th onclick="ordenarTabelaFechados('agente_nome')" class="sortable">Responsável <span class="sort-arrows">↕</span></th>
-                    <th onclick="ordenarTabelaFechados('categoria_nome')" class="sortable">Categoria <span class="sort-arrows">↕</span></th>
-                    <th onclick="ordenarTabelaFechados('status')" class="sortable">Status <span class="sort-arrows">↕</span></th>
-                    <th onclick="ordenarTabelaFechados('fechado_em')" class="sortable" style="white-space: nowrap;">Encerramento <span class="sort-arrows">↕</span></th>
+                    <th onclick="ordenarTabelaFechados('id')" class="sortable" data-campo-fechado="id">Nº Ticket <span class="sort-arrows">↕</span></th>
+                    <th onclick="ordenarTabelaFechados('criado_em')" class="sortable" data-campo-fechado="criado_em">Abertura <span class="sort-arrows">↕</span></th>
+                    <th onclick="ordenarTabelaFechados('titulo')" class="sortable" data-campo-fechado="titulo">Assunto <span class="sort-arrows">↕</span></th>
+                    <th onclick="ordenarTabelaFechados('usuario_nome')" class="sortable" data-campo-fechado="usuario_nome">Solicitante <span class="sort-arrows">↕</span></th>
+                    <th onclick="ordenarTabelaFechados('agente_nome')" class="sortable" data-campo-fechado="agente_nome">Responsável <span class="sort-arrows">↕</span></th>
+                    <th onclick="ordenarTabelaFechados('categoria_nome')" class="sortable" data-campo-fechado="categoria_nome">Categoria <span class="sort-arrows">↕</span></th>
+                    <th onclick="ordenarTabelaFechados('status')" class="sortable" data-campo-fechado="status">Status <span class="sort-arrows">↕</span></th>
+                    <th onclick="ordenarTabelaFechados('fechado_em')" class="sortable" data-campo-fechado="fechado_em" style="white-space: nowrap;">Encerramento <span class="sort-arrows">↕</span></th>
                     <th>Ações</th>
                 </tr>
             </thead>
             <tbody>
     `;
 
-    const usuarioLogado = JSON.parse(localStorage.getItem('usuario'));
+    ticketsPagina.forEach(ticket => {
+        // Ícones Material Symbols
+        const iconeAnexo = ticket.tem_anexos > 0
+            ? `<span class="material-symbols-outlined icone-tabela icone-anexo-ms" title="Ticket com anexos" aria-label="Tem anexos">attach_file</span>` : '';
+        const iconeMesclado = ticket.eh_mesclado > 0
+            ? `<span class="material-symbols-outlined icone-tabela" title="Ticket mesclado" aria-label="Mesclado" style="color:#6366f1">call_merge</span>` : '';
 
-    tickets.forEach(ticket => {
-        const isMeuTicket = ticket.agente_id && ticket.agente_id == usuarioLogado.id;
+        // Título truncado
+        const tituloSeguro = (ticket.titulo || '').replace(/"/g, '&quot;').replace(/</g, '&lt;');
 
         tabelaHTML += `
-            <tr data-ticket-id="${ticket.id}" class="${isMeuTicket ? 'meu-ticket-row' : ''}" ${modoMergeFechadosAtivo ? 'style="cursor: pointer;"' : ''}>
+            <tr data-ticket-id="${ticket.id}" ${modoMergeFechadosAtivo ? 'style="cursor: pointer;"' : ''}>
                 <td>
                     <a href="#" onclick="${modoMergeFechadosAtivo ? 'event.stopPropagation();' : ''} verDetalhes(${ticket.id})" class="ticket-link">#${String(ticket.id).padStart(5, '0')}</a>
-                    ${ticket.eh_mesclado > 0 ? '<span title="Ticket mesclado">🔗</span>' : ''}
-                    ${ticket.tem_anexos > 0 ? '<img src="images/clipe-de-anexo.png" class="icone-anexo" title="Ticket com anexos" alt="Anexo">' : ''}
+                    ${iconeMesclado}${iconeAnexo}
                 </td>
-                <td>${new Date(ticket.criado_em).toLocaleDateString('pt-BR')}<br><small style="color: #666;">${new Date(ticket.criado_em).toLocaleTimeString('pt-BR')}</small></td>
-                <td>${ticket.titulo}</td>
+                <td>${new Date(ticket.criado_em).toLocaleDateString('pt-BR')}<span class="ticket-data-hora">${new Date(ticket.criado_em).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}</span></td>
+                <td class="ticket-titulo-cell" title="${tituloSeguro}">
+                    <span class="ticket-titulo-texto">${ticket.titulo}</span>
+                </td>
                 <td>
                     <strong>${ticket.usuario_nome}</strong>
-                    ${ticket.usuario_email ? `<br><small style="color: #666; font-size: 0.85em;">${ticket.usuario_email}</small>` : ''}
+                    ${ticket.usuario_email ? `<span class="ticket-data-hora" style="font-size: 0.85em;">${ticket.usuario_email}</span>` : ''}
                 </td>
-                <td><span class="${isMeuTicket ? 'meu-ticket' : ''}" style="${isMeuTicket ? 'color: #28A745; font-weight: bold;' : ''}">${ticket.agente_nome || 'Não atribuído'}</span></td>
+                <td>${ticket.agente_nome || 'Não atribuído'}</td>
                 <td>${ticket.categoria_nome || 'Sem categoria'}</td>
                 <td><span class="status ${ticket.status}">${ticket.status === 'encerrado' ? '🏁 Encerrado' : '❌ Cancelado'}</span></td>
-                <td style="font-size: 0.8rem; font-weight: bold;">${ticket.fechado_em ? new Date(ticket.fechado_em).toLocaleDateString('pt-BR') + '<br><small style="color: #666;">' + new Date(ticket.fechado_em).toLocaleTimeString('pt-BR') + '</small>' : '-'}</td>
+                <td style="font-size: 0.8rem; font-weight: bold;">${ticket.fechado_em ? new Date(ticket.fechado_em).toLocaleDateString('pt-BR') + '<span class="ticket-data-hora">' + new Date(ticket.fechado_em).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }) + '</span>' : '-'}</td>
                 <td>
-                    <button class="btn-compact" onclick="${modoMergeFechadosAtivo ? 'event.stopPropagation();' : ''} reabrirTicket(${ticket.id})" style="background-color: #28a745; margin-right: 0.5rem;">Reabrir</button>
+                    <button class="btn-compact" onclick="${modoMergeFechadosAtivo ? 'event.stopPropagation();' : ''} reabrirTicket(${ticket.id})" style="background-color: #28a745; margin-right: 0.5rem; transition: background 0.2s;" onmouseover="this.style.backgroundColor='#218838'" onmouseout="this.style.backgroundColor='#28a745'">Reabrir</button>
                 </td>
             </tr>
         `;
     });
 
+    // Footer: resumo + paginação
+    const inicioExib = inicio + 1;
+    const fimExib = fim;
+    const totalExib = tickets.length;
+
     tabelaHTML += `
             </tbody>
         </table>
+        <div class="tabela-footer" role="navigation" aria-label="Paginação de tickets fechados">
+            <div class="tabela-resumo">
+                Exibindo <strong>${inicioExib}–${fimExib}</strong> de <strong>${totalExib}</strong> ticket${totalExib !== 1 ? 's' : ''}
+            </div>
+            <div class="paginacao">
+                <button class="btn-paginacao" onclick="irParaPaginaFechados(${paginaAtualFechados - 1})" ${paginaAtualFechados <= 1 ? 'disabled' : ''} aria-label="Página anterior">‹</button>
+                ${renderizarPaginacaoNumerosFechados(totalPaginas)}
+                <button class="btn-paginacao" onclick="irParaPaginaFechados(${paginaAtualFechados + 1})" ${paginaAtualFechados >= totalPaginas ? 'disabled' : ''} aria-label="Próxima página">›</button>
+                <span class="paginacao-info">de ${totalPaginas}</span>
+            </div>
+            <div class="paginacao-por-pagina">
+                <label for="tickets-fechados-por-pagina">Por página:</label>
+                <select id="tickets-fechados-por-pagina" onchange="alterarPorPaginaFechados(this.value)" aria-label="Itens por página">
+                    <option value="25" ${porPaginaFechados === 25 ? 'selected' : ''}>25</option>
+                    <option value="50" ${porPaginaFechados === 50 ? 'selected' : ''}>50</option>
+                    <option value="100" ${porPaginaFechados === 100 ? 'selected' : ''}>100</option>
+                </select>
+            </div>
+        </div>
     `;
 
     listaFechados.innerHTML = tabelaHTML;
+
+    // Aplicar indicador de ordenação ativa
+    if (ordemFechados.campo) {
+        const ths = listaFechados.querySelectorAll('th[data-campo-fechado]');
+        ths.forEach(th => {
+            const arrow = th.querySelector('.sort-arrows');
+            if (th.dataset.campoFechado === ordemFechados.campo) {
+                th.classList.add('sort-ativo');
+                if (arrow) arrow.textContent = ordemFechados.direcao === 'asc' ? '↑' : '↓';
+            } else {
+                th.classList.remove('sort-ativo');
+                if (arrow) arrow.textContent = '↕';
+            }
+        });
+    }
 
     // Adicionar event listeners para modo merge
     if (modoMergeFechadosAtivo) {
@@ -2821,6 +3534,7 @@ function mostrarTicketsFechadosNaTela(tickets) {
         });
     }
 }
+
 
 // Mostrar página de tickets fechados
 function mostrarTicketsFechados() {
@@ -3096,11 +3810,19 @@ function mostrarDashboardNaTela(dados) {
 // socket.on('novoTicket', function(data) { ... });
 // socket.on('novoComentario', function(data) { ... });
 
-// Variáveis para ordenação
+// Variáveis para ordenação e estado
 let ticketsAtuais = [];
 let ticketsFechadosAtuais = [];
-let ordemAtual = { campo: 'id', direcao: 'desc' };
-let ordemFechados = { campo: 'id', direcao: 'desc' };
+let paginaAtualFechados = 1;
+let porPaginaFechados = parseInt(localStorage.getItem('ticketsFechadosPorPagina') || '50');
+let ticketsFechadosFiltradosPorBusca = [];
+
+// Restaurar ordenação salva ou usar default
+const _ordemSalva = JSON.parse(localStorage.getItem('ticketsOrdem') || 'null');
+const _ordemFechadosSalva = JSON.parse(localStorage.getItem('ticketsFechadosOrdem') || 'null');
+
+let ordemAtual = _ordemSalva || { campo: 'id', direcao: 'desc' };
+let ordemFechados = _ordemFechadosSalva || { campo: 'id', direcao: 'desc' };
 
 // Função para ordenar tabela
 function ordenarTabela(campo) {
@@ -3111,6 +3833,9 @@ function ordenarTabela(campo) {
         ordemAtual.campo = campo;
         ordemAtual.direcao = 'asc';
     }
+
+    // Persistir no localStorage
+    localStorage.setItem('ticketsOrdem', JSON.stringify(ordemAtual));
 
     // Ordenar tickets
     const ticketsOrdenados = [...ticketsAtuais].sort((a, b) => {
@@ -3175,6 +3900,9 @@ function ordenarTabelaFechados(campo) {
         ordemFechados.direcao = 'asc';
     }
 
+    // Persistir no localStorage
+    localStorage.setItem('ticketsFechadosOrdem', JSON.stringify(ordemFechados));
+
     // Ordenar tickets fechados
     const ticketsOrdenados = [...ticketsFechadosAtuais].sort((a, b) => {
         let valorA = a[campo] || '';
@@ -3198,8 +3926,9 @@ function ordenarTabelaFechados(campo) {
         return 0;
     });
 
-    // Mostrar tickets ordenados
-    mostrarTicketsFechadosNaTela(ticketsOrdenados);
+    // Atualizar base e re-aplicar os filtros e busca
+    ticketsFechadosAtuais = ticketsOrdenados;
+    aplicarFiltroMeusTicketsFechados();
 }
 
 // Função para obter ícone da prioridade
@@ -4003,34 +4732,29 @@ function executarMergeFechados() {
 }
 
 // Busca Avançada
+// Busca com debounce
+let _buscaDebounceTimer = null;
 function configurarBuscaAvancada() {
     const inputBusca = document.getElementById('busca-tickets');
     if (!inputBusca) return;
-
     inputBusca.addEventListener('input', function () {
-        const termo = this.value.toLowerCase().trim();
-        filtrarTickets(termo);
+        clearTimeout(_buscaDebounceTimer);
+        _buscaDebounceTimer = setTimeout(() => {
+            paginaAtual = 1;
+            filtrarEMostrarTickets(ticketsAtuais);
+        }, 300);
     });
 }
 
 function filtrarTickets(termo) {
-    if (!termo) {
-        mostrarTicketsNaTela(ticketsAtuais);
-        return;
-    }
-
-    const ticketsFiltrados = ticketsAtuais.filter(ticket =>
-        ticket.titulo.toLowerCase().includes(termo) ||
-        ticket.descricao.toLowerCase().includes(termo) ||
-        ticket.usuario_nome.toLowerCase().includes(termo)
-    );
-
-    mostrarTicketsNaTela(ticketsFiltrados);
+    paginaAtual = 1;
+    filtrarEMostrarTickets(ticketsAtuais);
 }
 
 function limparBusca() {
     document.getElementById('busca-tickets').value = '';
-    mostrarTicketsNaTela(ticketsAtuais);
+    paginaAtual = 1;
+    filtrarEMostrarTickets(ticketsAtuais);
 }
 
 
@@ -4504,7 +5228,7 @@ function mostrarAjuda() {
 
 function mostrarSLA() {
     document.querySelectorAll('.btn-ajuda').forEach(btn => btn.classList.remove('active'));
-    document.getElementById('btn-sla').classList.add('active');
+    const _bbtn_sla = document.getElementById('btn-sla'); if (_bbtn_sla) _bbtn_sla.classList.add('active');
     localStorage.setItem('subSecaoAtiva', 'sla');
 
     const content = document.getElementById('ajuda-content');
@@ -4672,7 +5396,7 @@ function mostrarHorariosDinamicos(horarios, feriados) {
 
 function mostrarStatusGuia() {
     document.querySelectorAll('.btn-ajuda').forEach(btn => btn.classList.remove('active'));
-    document.getElementById('btn-status').classList.add('active');
+    const _bbtn_status = document.getElementById('btn-status'); if (_bbtn_status) _bbtn_status.classList.add('active');
     localStorage.setItem('subSecaoAtiva', 'status');
 
     const content = document.getElementById('ajuda-content');
@@ -4771,7 +5495,7 @@ function mostrarStatusGuia() {
 
 function mostrarPrioridadeGuia() {
     document.querySelectorAll('.btn-ajuda').forEach(btn => btn.classList.remove('active'));
-    document.getElementById('btn-prioridade').classList.add('active');
+    const _bbtn_prioridade = document.getElementById('btn-prioridade'); if (_bbtn_prioridade) _bbtn_prioridade.classList.add('active');
     localStorage.setItem('subSecaoAtiva', 'prioridade');
 
     const content = document.getElementById('ajuda-content');
@@ -4832,7 +5556,7 @@ function mostrarPrioridadeGuia() {
 
 function mostrarAtalhosGuia() {
     document.querySelectorAll('.btn-ajuda').forEach(btn => btn.classList.remove('active'));
-    document.getElementById('btn-atalhos').classList.add('active');
+    const _bbtn_atalhos = document.getElementById('btn-atalhos'); if (_bbtn_atalhos) _bbtn_atalhos.classList.add('active');
     localStorage.setItem('subSecaoAtiva', 'atalhos');
 
     const content = document.getElementById('ajuda-content');
@@ -5036,8 +5760,8 @@ function validarAntesFechamento(ticketId) {
 }
 // Função para mostrar auditoria
 function mostrarAuditoria() {
-    document.querySelectorAll('.btn-config').forEach(btn => btn.classList.remove('active'));
-    document.getElementById('btn-auditoria').classList.add('active');
+    document.querySelectorAll('.btn-config').forEach(btn => btn.classList.remove('active')); // nav
+    const _bbtn_auditoria = document.getElementById('btn-auditoria'); if (_bbtn_auditoria) _bbtn_auditoria.classList.add('active');
     localStorage.setItem('subSecaoAtiva', 'auditoria');
 
     const content = document.getElementById('config-content');
@@ -5047,6 +5771,7 @@ function mostrarAuditoria() {
             <button class="tab-btn" onclick="carregarAuditoriaTickets()">🎫 Tickets</button>
             <button class="tab-btn" onclick="carregarAuditoriaLogin()">🔐 Login</button>
             <button class="tab-btn" onclick="carregarEstatisticasAudit()">📊 Estatísticas</button>
+            <button class="tab-btn" onclick="carregarLogEmails()">📧 Envio de E-mails</button>
         </div>
         
         <div class="auditoria-filtros">
@@ -5088,6 +5813,210 @@ function carregarAuditoria() {
     };
 
     xhr.send();
+}
+
+// ============================================================
+// 📧 LOG DE ENVIO DE E-MAILS
+// ============================================================
+function carregarLogEmails(pagina = 1) {
+    // Ativar tab
+    document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+    const tabs = document.querySelectorAll('.tab-btn');
+    tabs.forEach(t => { if (t.textContent.includes('E-mails')) t.classList.add('active'); });
+
+    // Coletar filtros do painel de auditoria
+    const params = new URLSearchParams({ pagina: pagina, limite: 50 });
+
+    const dataInicio = document.getElementById('data-inicio-audit')?.value;
+    if (dataInicio) params.append('periodo', ''); // data livre não suportada diretamente, usar busca
+
+    const busca = document.getElementById('filtro-usuario-audit')?.value;
+    if (busca) params.append('busca', busca);
+
+    // Filtros próprios do log de e-mails (dentro do painel)
+    const statusFiltro = document.getElementById('email-log-status')?.value;
+    if (statusFiltro) params.append('status', statusFiltro);
+
+    const tipoFiltro = document.getElementById('email-log-tipo')?.value;
+    if (tipoFiltro) params.append('tipo', tipoFiltro);
+
+    const periodoFiltro = document.getElementById('email-log-periodo')?.value || 30;
+    params.set('periodo', periodoFiltro);
+
+    const content = document.getElementById('auditoria-content');
+    content.innerHTML = '<p>⏳ Carregando log de e-mails...</p>';
+
+    const xhr = new XMLHttpRequest();
+    xhr.open('GET', `/crpdesk/api/controllers/email-logs.php?${params}`, true);
+    setSecurityHeaders(xhr);
+
+    xhr.onload = function () {
+        if (xhr.status === 200) {
+            try {
+                const dados = JSON.parse(xhr.responseText);
+                mostrarLogEmails(dados, pagina);
+            } catch (e) {
+                content.innerHTML = '<p>❌ Erro ao processar resposta.</p>';
+            }
+        } else {
+            content.innerHTML = `<p>❌ Erro ${xhr.status} ao carregar log de e-mails.</p>`;
+        }
+    };
+
+    xhr.onerror = function () {
+        content.innerHTML = '<p>❌ Erro de conexão ao carregar log de e-mails.</p>';
+    };
+
+    xhr.send();
+}
+
+function mostrarLogEmails(dados, paginaAtual = 1) {
+    const content = document.getElementById('auditoria-content');
+    const paginacao = document.getElementById('auditoria-paginacao');
+
+    const { stats, por_tipo, logs, total, paginas } = dados;
+
+    // --- Painel de filtros específicos ---
+    const filtrosHtml = `
+        <div class="email-log-filtros" style="display:flex; gap:10px; flex-wrap:wrap; align-items:center; margin-bottom:16px; padding:12px; background:var(--bg-secondary, #f5f5f5); border-radius:8px;">
+            <label for="email-log-periodo" style="font-size:13px; font-weight:600;">Período:</label>
+            <select id="email-log-periodo" style="padding:6px 10px; border-radius:6px; border:1px solid #ddd;">
+                <option value="7">Últimos 7 dias</option>
+                <option value="30" selected>Últimos 30 dias</option>
+                <option value="90">Últimos 90 dias</option>
+                <option value="365">Último ano</option>
+            </select>
+
+            <label for="email-log-status" style="font-size:13px; font-weight:600;">Status:</label>
+            <select id="email-log-status" style="padding:6px 10px; border-radius:6px; border:1px solid #ddd;">
+                <option value="">Todos</option>
+                <option value="sucesso">✅ Sucesso</option>
+                <option value="falha">❌ Falha</option>
+            </select>
+
+            <label for="email-log-tipo" style="font-size:13px; font-weight:600;">Tipo:</label>
+            <select id="email-log-tipo" style="padding:6px 10px; border-radius:6px; border:1px solid #ddd;">
+                <option value="">Todos</option>
+                <option value="novo_ticket">📩 Novo Ticket</option>
+                <option value="comentario">💬 Comentário</option>
+                <option value="notif_agente">👥 Notif. Agente</option>
+                <option value="fechamento">🔒 Fechamento</option>
+                <option value="reabertura">🔓 Reabertura</option>
+                <option value="atribuicao">👤 Atribuição</option>
+                <option value="encaminhamento">↪️ Encaminhamento</option>
+                <option value="outros">📌 Outros</option>
+            </select>
+
+            <button class="btn-primary" onclick="carregarLogEmails()" style="padding:6px 14px;">🔍 Filtrar</button>
+        </div>
+    `;
+
+    // --- Cards de estatísticas ---
+    const taxaSucesso = parseFloat(stats?.taxa_sucesso || 0);
+    const corTaxa = taxaSucesso >= 95 ? '#27ae60' : taxaSucesso >= 80 ? '#e67e22' : '#e74c3c';
+
+    const statsHtml = `
+        <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap:12px; margin-bottom:20px;">
+            <div style="background:#fff; border:1px solid #e0e0e0; border-radius:8px; padding:14px; text-align:center;">
+                <div style="font-size:24px; font-weight:700; color:#1e3a5f;">${stats?.total || 0}</div>
+                <div style="font-size:12px; color:#666; margin-top:4px;">Total Enviados</div>
+            </div>
+            <div style="background:#fff; border:1px solid #e0e0e0; border-radius:8px; padding:14px; text-align:center;">
+                <div style="font-size:24px; font-weight:700; color:#27ae60;">${stats?.sucessos || 0}</div>
+                <div style="font-size:12px; color:#666; margin-top:4px;">✅ Sucessos</div>
+            </div>
+            <div style="background:#fff; border:1px solid #e0e0e0; border-radius:8px; padding:14px; text-align:center;">
+                <div style="font-size:24px; font-weight:700; color:#e74c3c;">${stats?.falhas || 0}</div>
+                <div style="font-size:12px; color:#666; margin-top:4px;">❌ Falhas</div>
+            </div>
+            <div style="background:#fff; border:1px solid #e0e0e0; border-radius:8px; padding:14px; text-align:center;">
+                <div style="font-size:24px; font-weight:700; color:${corTaxa};">${taxaSucesso}%</div>
+                <div style="font-size:12px; color:#666; margin-top:4px;">Taxa de Sucesso</div>
+            </div>
+        </div>
+    `;
+
+    // --- Tabela de logs ---
+    let tabelaHtml = '';
+    if (!logs || logs.length === 0) {
+        tabelaHtml = '<p style="color:#888; text-align:center; padding:30px;">Nenhum e-mail registrado no período.</p>';
+    } else {
+        const tipoLabels = {
+            novo_ticket: '📩 Novo Ticket',
+            comentario: '💬 Comentário',
+            notif_agente: '👥 Notif. Agente',
+            fechamento: '🔒 Fechamento',
+            reabertura: '🔓 Reabertura',
+            atribuicao: '👤 Atribuição',
+            encaminhamento: '↪️ Encaminhamento',
+            outros: '📌 Outros',
+        };
+
+        tabelaHtml = `
+            <div style="overflow-x:auto;">
+            <table style="width:100%; border-collapse:collapse; font-size:13px;">
+                <thead>
+                    <tr style="background:#1e3a5f; color:#fff;">
+                        <th style="padding:10px 12px; text-align:left;">Data/Hora</th>
+                        <th style="padding:10px 12px; text-align:left;">Destinatário</th>
+                        <th style="padding:10px 12px; text-align:left;">Assunto</th>
+                        <th style="padding:10px 12px; text-align:center;">Tipo</th>
+                        <th style="padding:10px 12px; text-align:center;">Ticket</th>
+                        <th style="padding:10px 12px; text-align:center;">Status</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    ${logs.map((log, i) => {
+            const statusBadge = log.status === 'sucesso'
+                ? '<span style="background:#e8f5e9; color:#27ae60; padding:3px 8px; border-radius:12px; font-weight:600;">✅ Sucesso</span>'
+                : `<span style="background:#fdecea; color:#e74c3c; padding:3px 8px; border-radius:12px; font-weight:600;" title="${sanitizeHTML(log.erro || '')}">❌ Falha</span>`;
+
+            const ticketLink = log.ticket_id
+                ? `<span style="font-family:monospace; font-weight:600; color:#1e3a5f;">#${String(log.ticket_id).padStart(5, '0')}</span>`
+                : '<span style="color:#ccc;">—</span>';
+
+            const tipoTexto = tipoLabels[log.tipo] || log.tipo;
+            const bg = i % 2 === 0 ? '#fff' : '#fafafa';
+            const dataFormatada = log.enviado_em
+                ? new Date(log.enviado_em).toLocaleString('pt-BR')
+                : '—';
+
+            return `
+                            <tr style="background:${bg}; border-bottom:1px solid #eee;">
+                                <td style="padding:9px 12px; white-space:nowrap;">${dataFormatada}</td>
+                                <td style="padding:9px 12px;">${sanitizeHTML(log.destinatario)}</td>
+                                <td style="padding:9px 12px; max-width:260px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;" title="${sanitizeHTML(log.assunto)}">${sanitizeHTML(log.assunto)}</td>
+                                <td style="padding:9px 12px; text-align:center; white-space:nowrap;">${tipoTexto}</td>
+                                <td style="padding:9px 12px; text-align:center;">${ticketLink}</td>
+                                <td style="padding:9px 12px; text-align:center;">${statusBadge}</td>
+                            </tr>
+                        `;
+        }).join('')}
+                </tbody>
+            </table>
+            </div>`;
+    }
+
+    content.innerHTML = filtrosHtml + statsHtml + tabelaHtml;
+
+    // Re-aplicar valores dos selects após renderizar
+    const periodoEl = document.getElementById('email-log-periodo');
+    const statusEl = document.getElementById('email-log-status');
+    const tipoEl = document.getElementById('email-log-tipo');
+    // (valores já são os default; numa segunda chamada serão re-lidos antes de recarregar)
+
+    // --- Paginação ---
+    if (paginas > 1) {
+        let pagHtml = '<div style="text-align:center; margin-top:16px; display:flex; gap:8px; justify-content:center; flex-wrap:wrap;">';
+        for (let p = 1; p <= paginas; p++) {
+            const ativo = p === paginaAtual ? 'background:#1e3a5f; color:#fff;' : 'background:#fff; color:#333;';
+            pagHtml += `<button onclick="carregarLogEmails(${p})" style="${ativo} border:1px solid #ddd; padding:6px 12px; border-radius:6px; cursor:pointer;">${p}</button>`;
+        }
+        pagHtml += '</div>';
+        paginacao.innerHTML = pagHtml;
+    } else {
+        paginacao.innerHTML = '';
+    }
 }
 
 // Mostrar lista de auditoria
@@ -5339,6 +6268,7 @@ function aplicarFiltrosAuditoria() {
     if (tabAtiva.textContent.includes('Geral')) carregarAuditoriaGeral();
     else if (tabAtiva.textContent.includes('Tickets')) carregarAuditoriaTickets();
     else if (tabAtiva.textContent.includes('Login')) carregarAuditoriaLogin();
+    else if (tabAtiva.textContent.includes('E-mails')) carregarLogEmails();
 }
 
 // Carregar auditoria geral
@@ -5846,8 +6776,8 @@ function mostrarInfoGrafico(tipo) {
 // === PERSONALIZAÇÃO DO SISTEMA ===
 
 function mostrarPersonalizacao() {
-    document.querySelectorAll('.btn-config').forEach(btn => btn.classList.remove('active'));
-    document.getElementById('btn-personalizacao').classList.add('active');
+    document.querySelectorAll('.btn-config').forEach(btn => btn.classList.remove('active')); // nav
+    const _bbtn_personalizacao = document.getElementById('btn-personalizacao'); if (_bbtn_personalizacao) _bbtn_personalizacao.classList.add('active');
     localStorage.setItem('subSecaoAtiva', 'personalizacao');
 
     const content = document.getElementById('config-content');
@@ -5998,7 +6928,7 @@ function mostrarDicasAjuda() { mostrarDicas(); }
 
 // === MODO ESCURO (CONFIGURAÇÕES) ===
 function mostrarModoEscuro() {
-    document.querySelectorAll('.btn-config').forEach(btn => btn.classList.remove('active'));
+    document.querySelectorAll('.btn-config').forEach(btn => btn.classList.remove('active')); // nav
     document.getElementById('btn-modo-escuro-config').classList.add('active');
     localStorage.setItem('subSecaoAtiva', 'modo-escuro');
 
@@ -6028,8 +6958,8 @@ function mostrarModoEscuro() {
 
 // === CONFIGURAÇÃO DE EMAIL ===
 function mostrarConfigEmail() {
-    document.querySelectorAll('.btn-config').forEach(btn => btn.classList.remove('active'));
-    document.getElementById('btn-config-email').classList.add('active');
+    document.querySelectorAll('.btn-config').forEach(btn => btn.classList.remove('active')); // nav
+    const _bbtn_config_email = document.getElementById('btn-config-email'); if (_bbtn_config_email) _bbtn_config_email.classList.add('active');
     localStorage.setItem('subSecaoAtiva', 'config-email');
 
     const content = document.getElementById('config-content');
@@ -6296,5 +7226,23 @@ window.addEventListener('scroll', function () {
         } else {
             btn.classList.remove('show');
         }
+    }
+});
+
+// Inicialização Geral
+document.addEventListener('DOMContentLoaded', function () {
+    // Iniciar monitoramento de sessão
+    iniciarMonitoramentoSessao();
+
+    // Inicializar avatar do header
+    inicializarAvatar();
+
+    // Iniciar monitoramento de falhas de e-mail (apenas agentes/admins)
+    iniciarMonitoramentoEmailFalhas();
+
+    // Atualizar ano no footer se existir
+    const anoFooter = document.getElementById('ano-atual');
+    if (anoFooter) {
+        anoFooter.textContent = new Date().getFullYear();
     }
 });

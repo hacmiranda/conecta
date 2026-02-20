@@ -21,7 +21,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
     AuthMiddleware::verificarAdmin($user);
     
     try {
-        $query = "SELECT id, nome, email, tipo, ativo, criado_em FROM usuarios ORDER BY nome";
+        $query = "SELECT id, nome, email, tipo, ativo, avatar, criado_em FROM usuarios ORDER BY nome";
         $stmt = $db->prepare($query);
         $stmt->execute();
         $usuarios = $stmt->fetchAll();
@@ -81,7 +81,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $auditoria->registrar($user['id'], 'criar_usuario', 'usuarios', $usuario_id, null, json_encode(['nome' => $nome, 'email' => $email, 'tipo' => $tipo]));
         
         // Buscar usuário criado
-        $select_query = "SELECT id, nome, email, tipo, criado_em FROM usuarios WHERE id = :id";
+        $select_query = "SELECT id, nome, email, tipo, avatar, criado_em FROM usuarios WHERE id = :id";
         $select_stmt = $db->prepare($select_query);
         $select_stmt->bindParam(':id', $usuario_id);
         $select_stmt->execute();

@@ -207,10 +207,54 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             
             $agentes_notificar = [];
             
+            // Buscar tipo do usuário que está comentando
+            $query_tipo_autor = "SELECT tipo, nome FROM usuarios WHERE id = ?";
+            $stmt_tipo_autor = $db->prepare($query_tipo_autor);
+            $stmt_tipo_autor->execute([$usuario_id]);
+            $autor_data = $stmt_tipo_autor->fetch(PDO::FETCH_ASSOC);
+            $autor_tipo = $autor_data['tipo'] ?? 'cliente';
+            $autor_nome = $autor_data['nome'] ?? 'Usuário';
+            
             if ($ticket && $ticket['agente_id']) {
                 // Ticket tem responsável: notificar apenas ele (se não for o autor)
                 if ($ticket['agente_id'] != $usuario_id) {
                     $agentes_notificar[] = $ticket['agente_id'];
+                    
+                    // --- NOVA LÓGICA: Notificação agente → agente ---
+                    // Se o autor é agente/admin comentando em ticket de outro agente:
+                    // 1. Mudar status para nova_resposta
+                    // 2. Enviar e-mail específico ao agente responsável
+                    if (in_array($autor_tipo, ['agente', 'admin'])) {
+                        // 1. Alterar status para nova_resposta
+                        $status_query = "SELECT status FROM tickets WHERE id = ?";
+                        $status_stmt = $db->prepare($status_query);
+                        $status_stmt->execute([$ticket_id]);
+                        $status_atual = $status_stmt->fetchColumn();
+                        
+                        if (!in_array($status_atual, ['encerrado', 'fechado', 'cancelado', 'nova_resposta'])) {
+                            try {
+                                $upd_status = "UPDATE tickets SET status = 'nova_resposta' WHERE id = ?";
+                                $db->prepare($upd_status)->execute([$ticket_id]);
+                                
+                                // Registrar no histórico
+                                $hist = "INSERT INTO ticket_historico (ticket_id, usuario_id, acao, valor_anterior, valor_novo) VALUES (?, ?, 'status', ?, 'nova_resposta')";
+                                $db->prepare($hist)->execute([$ticket_id, $usuario_id, $status_atual]);
+                                
+                                error_log("[COMENTARIOS] Status do ticket #$ticket_id alterado para 'nova_resposta' por agente/admin ID $usuario_id");
+                            } catch (Exception $e) {
+                                error_log("[COMENTARIOS] Erro ao atualizar status: " . $e->getMessage());
+                            }
+                        }
+                        
+                        // 2. Enviar e-mail ao agente responsável
+                        try {
+                            $emailSender->notificarComentarioEntreAgentes($ticket_id, $comentario_id, $autor_nome, $ticket['agente_id']);
+                            error_log("[COMENTARIOS] E-mail de notificação agente→agente enviado para agente_id {$ticket['agente_id']}");
+                        } catch (Exception $e) {
+                            error_log("[COMENTARIOS] Erro ao enviar e-mail agente→agente: " . $e->getMessage());
+                        }
+                    }
+                    // --- FIM NOVA LÓGICA ---
                 }
             } else {
                 // Ticket sem responsável: notificar todos os agentes exceto o autor

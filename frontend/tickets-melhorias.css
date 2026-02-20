@@ -1,0 +1,523 @@
+/* ============================================================
+   TICKETS-MELHORIAS.CSS
+   Melhorias visuais e funcionais da tabela de Tickets Abertos
+   ============================================================ */
+
+/* ----------------------------------------------------------
+   1. INDICADOR DE ORDENAÇÃO ATIVA
+   ---------------------------------------------------------- */
+.tickets-tabela th.sortable {
+    position: relative;
+    transition: background 0.15s ease;
+}
+
+.tickets-tabela th.sort-ativo {
+    background: linear-gradient(135deg, #2a4fa8 0%, #234298 100%) !important;
+}
+
+.tickets-tabela th.sort-ativo .sort-arrows {
+    opacity: 1;
+    color: #f79226;
+    font-size: 0.9rem;
+}
+
+.sort-arrows {
+    display: inline-block;
+    transition: transform 0.2s ease, opacity 0.2s ease;
+}
+
+/* ----------------------------------------------------------
+   2. BARRA DE FILTROS RÁPIDOS POR STATUS
+   ---------------------------------------------------------- */
+.filtros-rapidos {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.75rem 0;
+    flex-wrap: wrap;
+}
+
+.filtros-rapidos-label {
+    font-size: 0.78rem;
+    font-weight: 600;
+    color: var(--cinza-escuro, #555);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    white-space: nowrap;
+}
+
+.filtro-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+    padding: 0.3rem 0.75rem;
+    border-radius: 999px;
+    border: 1.5px solid transparent;
+    font-size: 0.78rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.18s ease;
+    background: #f1f5f9;
+    color: #475569;
+    border-color: #e2e8f0;
+    white-space: nowrap;
+}
+
+.filtro-pill:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);
+}
+
+.filtro-pill.ativo {
+    background: #1e3a8a;
+    color: #fff;
+    border-color: #1e3a8a;
+    box-shadow: 0 2px 8px rgba(30, 58, 138, 0.3);
+}
+
+.filtro-pill-count {
+    background: rgba(255, 255, 255, 0.25);
+    border-radius: 999px;
+    padding: 0 0.4rem;
+    font-size: 0.7rem;
+    font-weight: 700;
+    min-width: 18px;
+    text-align: center;
+    line-height: 1.6;
+}
+
+.filtro-pill:not(.ativo) .filtro-pill-count {
+    background: rgba(0, 0, 0, 0.08);
+}
+
+/* Pills por status */
+.filtro-pill[data-status="novo"].ativo {
+    background: #1e3a8a;
+    border-color: #1e3a8a;
+}
+
+.filtro-pill[data-status="em_atendimento"].ativo {
+    background: #0891b2;
+    border-color: #0891b2;
+    box-shadow: 0 2px 8px rgba(8, 145, 178, 0.3);
+}
+
+.filtro-pill[data-status="aguardando"].ativo,
+.filtro-pill[data-status="aguardando_resposta"].ativo,
+.filtro-pill[data-status="aguardando_terceiros"].ativo,
+.filtro-pill[data-status="aguardando_aprovacao"].ativo,
+.filtro-pill[data-status="aguardando_data"].ativo {
+    background: #d97706;
+    border-color: #d97706;
+    box-shadow: 0 2px 8px rgba(217, 119, 6, 0.3);
+}
+
+.filtro-pill[data-status="nova_resposta"].ativo {
+    background: #7c3aed;
+    border-color: #7c3aed;
+    box-shadow: 0 2px 8px rgba(124, 58, 237, 0.3);
+}
+
+.filtro-pill[data-status="urgente"].ativo {
+    background: #dc2626;
+    border-color: #dc2626;
+    box-shadow: 0 2px 8px rgba(220, 38, 38, 0.3);
+}
+
+/* ----------------------------------------------------------
+   3. SLA TIMER INLINE
+   ---------------------------------------------------------- */
+.sla-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    font-size: 0.72rem;
+    font-weight: 600;
+    padding: 0.15rem 0.5rem;
+    border-radius: 999px;
+    white-space: nowrap;
+    margin-top: 0.2rem;
+}
+
+.sla-badge.sla-ok {
+    background: #dcfce7;
+    color: #166534;
+}
+
+.sla-badge.sla-alerta {
+    background: #fef3c7;
+    color: #92400e;
+    animation: sla-pulse 2s ease-in-out infinite;
+}
+
+.sla-badge.sla-critico {
+    background: #fee2e2;
+    color: #991b1b;
+    animation: sla-pulse 1.2s ease-in-out infinite;
+}
+
+.sla-badge.sla-vencido {
+    background: #fecdd3;
+    color: #be123c;
+    animation: sla-pulse 0.8s ease-in-out infinite;
+}
+
+.sla-badge.sla-pausado {
+    background: #f1f5f9;
+    color: #64748b;
+    font-style: italic;
+}
+
+@keyframes sla-pulse {
+
+    0%,
+    100% {
+        opacity: 1;
+    }
+
+    50% {
+        opacity: 0.65;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .sla-badge {
+        animation: none !important;
+    }
+}
+
+/* ----------------------------------------------------------
+   4. SKELETON LOADING
+   ---------------------------------------------------------- */
+.skeleton-tabela {
+    width: 100%;
+    border-collapse: collapse;
+    background: white;
+    border-radius: 8px;
+    overflow: hidden;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.skeleton-tabela th {
+    background: linear-gradient(135deg, #1e3a8a 0%, #1a3a7a 100%);
+    padding: 0.75rem 1rem;
+    height: 38px;
+}
+
+.skeleton-tabela td {
+    padding: 0.9rem 1rem;
+    border-bottom: 1px solid #e2e8f0;
+}
+
+.skeleton-tabela tbody tr:nth-child(even) td {
+    background-color: #fafafa;
+}
+
+.skeleton-block {
+    height: 14px;
+    border-radius: 4px;
+    background: linear-gradient(90deg, #e2e8f0 25%, #f1f5f9 50%, #e2e8f0 75%);
+    background-size: 200% 100%;
+    animation: skeleton-shimmer 1.4s ease infinite;
+}
+
+.skeleton-block.sm {
+    width: 60px;
+}
+
+.skeleton-block.md {
+    width: 120px;
+}
+
+.skeleton-block.lg {
+    width: 200px;
+}
+
+.skeleton-block.full {
+    width: 90%;
+}
+
+@keyframes skeleton-shimmer {
+    0% {
+        background-position: 200% 0;
+    }
+
+    100% {
+        background-position: -200% 0;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .skeleton-block {
+        animation: none;
+        background: #e2e8f0;
+    }
+}
+
+/* ----------------------------------------------------------
+   5. ÍCONES MATERIAL SYMBOLS NA TABELA (substituindo PNGs)
+   ---------------------------------------------------------- */
+.icone-tabela {
+    font-family: 'Material Symbols Outlined';
+    font-size: 1rem;
+    vertical-align: middle;
+    margin-left: 4px;
+    border-radius: 4px;
+    padding: 1px 2px;
+    cursor: default;
+    transition: transform 0.15s ease;
+    display: inline-block;
+}
+
+.icone-tabela:hover {
+    transform: scale(1.2);
+}
+
+.icone-tabela.icone-anexo-ms {
+    color: #64748b;
+}
+
+.icone-tabela.icone-comentario-ms {
+    color: #0891b2;
+}
+
+.icone-tabela.icone-lembrete-ms {
+    color: #d97706;
+}
+
+.icone-tabela.icone-sla-ms {
+    color: #dc2626;
+}
+
+/* ----------------------------------------------------------
+   6. TRUNCAMENTO DO ASSUNTO
+   ---------------------------------------------------------- */
+.ticket-titulo-cell {
+    max-width: 300px;
+}
+
+.ticket-titulo-texto {
+    display: block;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 100%;
+}
+
+/* ----------------------------------------------------------
+   7. DATA SEM COR HARDCODED
+   ---------------------------------------------------------- */
+.ticket-data-hora {
+    font-size: 0.78rem;
+    color: var(--cinza-texto-secundario, #64748b);
+    display: block;
+}
+
+/* ----------------------------------------------------------
+   8. PAGINAÇÃO
+   ---------------------------------------------------------- */
+.tabela-footer {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0.75rem 1rem;
+    background: white;
+    border-top: 1px solid #e2e8f0;
+    border-radius: 0 0 8px 8px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+    gap: 1rem;
+    flex-wrap: wrap;
+}
+
+.tabela-resumo {
+    font-size: 0.82rem;
+    color: var(--cinza-texto-secundario, #64748b);
+    font-weight: 500;
+}
+
+.tabela-resumo strong {
+    color: #1e3a8a;
+}
+
+.paginacao {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+}
+
+.paginacao-info {
+    font-size: 0.82rem;
+    color: #64748b;
+    padding: 0 0.5rem;
+    white-space: nowrap;
+}
+
+.btn-paginacao {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    border-radius: 6px;
+    border: 1.5px solid #e2e8f0;
+    background: white;
+    color: #475569;
+    cursor: pointer;
+    font-size: 0.85rem;
+    transition: all 0.15s ease;
+    font-family: inherit;
+}
+
+.btn-paginacao:hover:not(:disabled) {
+    background: #1e3a8a;
+    color: white;
+    border-color: #1e3a8a;
+}
+
+.btn-paginacao:disabled {
+    opacity: 0.38;
+    cursor: not-allowed;
+}
+
+.btn-paginacao.ativo {
+    background: #1e3a8a;
+    color: white;
+    border-color: #1e3a8a;
+    font-weight: 700;
+}
+
+.paginacao-por-pagina {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    font-size: 0.8rem;
+    color: #64748b;
+}
+
+.paginacao-por-pagina select {
+    padding: 0.2rem 0.4rem;
+    border: 1.5px solid #e2e8f0;
+    border-radius: 6px;
+    font-size: 0.8rem;
+    color: #1e293b;
+    cursor: pointer;
+    background: white;
+}
+
+/* ----------------------------------------------------------
+   9. MODO ESCURO
+   ---------------------------------------------------------- */
+.modo-escuro .filtro-pill {
+    background: #1e293b;
+    color: #94a3b8;
+    border-color: #334155;
+}
+
+.modo-escuro .filtro-pill:hover {
+    border-color: #475569;
+}
+
+.modo-escuro .filtros-rapidos-label {
+    color: #94a3b8;
+}
+
+.modo-escuro .tabela-footer {
+    background: #1e293b;
+    border-color: #334155;
+}
+
+.modo-escuro .tabela-resumo {
+    color: #94a3b8;
+}
+
+.modo-escuro .tabela-resumo strong {
+    color: #93c5fd;
+}
+
+.modo-escuro .paginacao-info {
+    color: #94a3b8;
+}
+
+.modo-escuro .btn-paginacao {
+    background: #1e293b;
+    border-color: #334155;
+    color: #94a3b8;
+}
+
+.modo-escuro .btn-paginacao:hover:not(:disabled) {
+    background: #1e3a8a;
+    color: white;
+}
+
+.modo-escuro .btn-paginacao.ativo {
+    background: #1e3a8a;
+    color: white;
+}
+
+.modo-escuro .paginacao-por-pagina select {
+    background: #0f172a;
+    color: #e2e8f0;
+    border-color: #334155;
+}
+
+.modo-escuro .skeleton-tabela {
+    background: #1e293b;
+}
+
+.modo-escuro .skeleton-tabela td {
+    border-color: #334155;
+}
+
+.modo-escuro .skeleton-tabela tbody tr:nth-child(even) td {
+    background: #162032;
+}
+
+.modo-escuro .skeleton-block {
+    background: linear-gradient(90deg, #1e293b 25%, #273548 50%, #1e293b 75%);
+    background-size: 200% 100%;
+}
+
+/* ----------------------------------------------------------
+   10. RESPONSIVE
+   ---------------------------------------------------------- */
+@media (max-width: 768px) {
+    .filtros-rapidos {
+        gap: 0.35rem;
+    }
+
+    .filtro-pill {
+        font-size: 0.72rem;
+        padding: 0.25rem 0.6rem;
+    }
+
+    .tabela-footer {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 0.5rem;
+    }
+
+    .paginacao-por-pagina {
+        display: none;
+    }
+}
+
+/* ----------------------------------------------------------
+   3. OVERRIDE DE BUSCA AVANÇADA PARA LARGURA 400PX
+   ---------------------------------------------------------- */
+.busca-avancada {
+    max-width: none !important;
+    flex: 1 1 auto;
+}
+
+.input-busca {
+    flex: 1 1 400px !important;
+    /* Base 400px, permitindo crescimento ou reduzimento */
+    min-width: 250px;
+    /* Para não quebrar no mobile */
+    max-width: 600px;
+}
+
+.tickets-actions {
+    gap: 1.5rem !important;
+    flex-wrap: wrap;
+}
