@@ -14,6 +14,22 @@ Todas as alterações notáveis neste projeto serão documentadas neste arquivo.
   - **Identidade Visual Sincronizada**: Skeleton loading, títulos truncados para não quebrar a largura e substituição de `.png` por *Material Symbols*.
   - **Ordenação Persistente Independente**: Sorteamento salvo na chave `ticketsFechadosOrdem`.
 
+- **Módulo Ágil Kanban**: Introdução da visão Kanban para organização de tickets abertos.
+  - **Toggle View**: Alternância fluida entre Tabela e Kanban pelo header com botões Material.
+  - **Persistência de Visão**: O estado visual selecionado é salvo no `localStorage` sob a chave `ticketsModoView`.
+  - **Drag and Drop Assíncrono**: Deslocamento de tickets via clique e arraste que emite update do status para a API nativamente usando dataset colunas.
+  - **Colunas Inteligentes**: Disposição nativa de Novo, Em Atendimento, Aguardando e Resp. Usuário com fallback "Outros" de contadores dinâmicos.
+
+- **Responsividade Híbrida em Dispositivos Móveis**: Transformação da visualização padrão de Listas (TR/TD) da tabela.
+  - **Data-Labels CSS Injetadas**: Adaptação da tabela transformando Linhas em Cards em telas `< 768px`.
+  - **Pseudo-elementos `:before`**: Os cabeçalhos de coluna foram movidos para a posição esqueda absoluta com letras uppercase e títulos truncados na direita sem necessidade de JavaScript extra.
+
+- **Editor de Texto Rico Analítico (WYSIWYG)**: Implementação do formato CDN da biblioteca Quill.js nas caixas de texto text-area substituindo as antigas strings planas.
+  - Substituição da infraestrutura do formulário de Criar Novo Ticket para a captura rica com HTML interno.
+  - Limpeza e injeção do Input no envio dentro da tela de Comentários / Detalhes de Ticket.
+  - Migração algorítmica limitante nos Datatypes MySQL de `TEXT` para `LONGTEXT` nas tabelas `tickets` e `comentarios` para suportar grandes blocos de imagens coladas em formato clipboard (Base64) ou HTML complexos formatados via WYSIWYG.
+  - Módulos dinâmicos ativados: Negrito, Listas, Imagens, Vídeos e Aumento/Diminuição do tamanho da Célula Tipográfica.
+
 - **Indicador de ordenação ativa**: A coluna ordenada exibe `↑` ou `↓` em laranja com destaque no `<th>` (gradiente azul mais intenso). As demais colunas exibem `↕` cinza. **A escolha de ordenação agora é persistente** via `localStorage` — sobrevive a recarregamentos da página.
 - **Ordenação padrão persistente**: Campo e direção salvos em `ticketsOrdem` no `localStorage`. Padrão inicial: `id desc` (mais recente primeiro).
 - **Filtros rápidos por status**: Pills clicáveis acima da tabela — `Todos`, `🆕 Novo`, `🔧 Em atendimento`, `⏳ Aguardando`, `💬 Nova resposta`, `🔥 Urgente` — com contadores atualizados em tempo real. Combinável com a busca textual e o toggle "Meus Tickets".

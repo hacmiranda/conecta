@@ -248,6 +248,29 @@ function mostrarSecao(secaoId) {
     } else if (secaoId === 'fechados') {
         // Botão fechados não está mais no header
     } else if (secaoId === 'novo') {
+        // Inicializar Quill se não existir
+        if (!window.quillDescricao) {
+            setTimeout(() => {
+                window.quillDescricao = new Quill('#editor-descricao', {
+                    theme: 'snow',
+                    placeholder: 'Descreva a situação detalhadamente. Você pode colar imagens (Ctrl+V) ou formatar o texto.',
+                    modules: {
+                        toolbar: [
+                            ['bold', 'italic', 'underline', 'strike'],
+                            ['blockquote', 'code-block'],
+                            [{ 'list': 'ordered' }, { 'list': 'bullet' }],
+                            [{ 'script': 'sub' }, { 'script': 'super' }],
+                            [{ 'indent': '-1' }, { 'indent': '+1' }],
+                            [{ 'size': ['small', false, 'large', 'huge'] }],
+                            [{ 'color': [] }, { 'background': [] }],
+                            ['link', 'image', 'video'],
+                            ['clean']
+                        ]
+                    }
+                });
+            }, 100);
+        }
+
         // Botão novo não está mais no header
         // Reconfigurar pesquisa de categoria após mostrar seção
         setTimeout(() => {
@@ -392,6 +415,14 @@ function setSecurityHeaders(xhr) {
 // Formulário de novo ticket - VERSÃO COM XMLHttpRequest
 document.getElementById('form-ticket').addEventListener('submit', function (e) {
     e.preventDefault();
+    // Atualiza o value invisível para que o HTML Validator passe e a lógica nativa capture
+    if (window.quillDescricao) {
+        document.getElementById('descricao').value = window.quillDescricao.root.innerHTML;
+        // Impedindo disparo de form se vazio
+        if (window.quillDescricao.getText().trim().length === 0) {
+            document.getElementById('descricao').value = '';
+        }
+    }
 
     const titulo = document.getElementById('titulo').value;
     const descricao = document.getElementById('descricao').value;
@@ -505,6 +536,7 @@ let paginaAtual = 1;
 let porPagina = parseInt(localStorage.getItem('ticketsPorPagina') || '50');
 let filtroStatusAtivo = 'todos';
 let ticketsFiltradosPorStatus = [];
+let modoVisualizacaoTickets = localStorage.getItem('ticketsModoView') || 'lista';
 
 function aplicarFiltroMeusTickets() {
     const filtroAtivo = document.getElementById('filtro-meus-tickets').checked;
@@ -750,9 +782,113 @@ function calcularTextoSLA(ticket) {
 }
 
 
+// === MODO KANBAN ===
+function toggleVisaoTickets() {
+    modoVisualizacaoTickets = modoVisualizacaoTickets === 'lista' ? 'kanban' : 'lista';
+    localStorage.setItem('ticketsModoView', modoVisualizacaoTickets);
+    const btn = document.getElementById('btn-toggle-view');
+    if (btn) {
+        btn.innerHTML = modoVisualizacaoTickets === 'lista' ? '<span class="material-symbols-outlined" style="font-size: 1.2rem; margin-right: 0.3rem;">view_kanban</span> Kanban' : '<span class="material-symbols-outlined" style="font-size: 1.2rem; margin-right: 0.3rem;">list_alt</span> Tabela';
+    }
+    mostrarTicketsNaTela(ticketsFiltradosPorStatus.length > 0 ? ticketsFiltradosPorStatus : ticketsAtuais);
+}
+
+function renderizarKanbanTela(tickets) {
+    const listaTickets = document.getElementById('lista-tickets');
+
+    const colunas = {
+        'novo': { nome: 'Novo', icon: '🆕', tickets: [] },
+        'em_atendimento': { nome: 'Em Atendimento', icon: '🔧', tickets: [] },
+        'aguardando': { nome: 'Aguardando', icon: '⏳', tickets: [] },
+        'nova_resposta': { nome: 'Resp. Usuário', icon: '💬', tickets: [] }
+    };
+
+    // Status não detalhados vão para "Outros" temporariamente 
+    tickets.forEach(t => {
+        if (colunas[t.status]) {
+            colunas[t.status].tickets.push(t);
+        } else if (t.status !== 'encerrado' && t.status !== 'cancelado') {
+            if (!colunas['outros']) colunas['outros'] = { nome: 'Outros', icon: '📌', tickets: [] };
+            colunas['outros'].tickets.push(t);
+        }
+    });
+
+    let kanbanHTML = `<div class="kanban-board">`;
+    Object.keys(colunas).forEach(key => {
+        const col = colunas[key];
+        kanbanHTML += `
+            <div class="kanban-coluna" data-status="${key}" ondrop="dropKanban(event)" ondragover="allowDropKanban(event)">
+                <div class="kanban-coluna-header">
+                    <span>${col.icon} ${col.nome}</span>
+                    <span class="kanban-count">${col.tickets.length}</span>
+                </div>
+                <div class="kanban-cards">
+        `;
+
+        col.tickets.forEach(ticket => {
+            const isNovaResposta = ticket.status === 'nova_resposta';
+            const tituloSeguro = (ticket.titulo || '').replace(/"/g, '&quot;').replace(/</g, '&lt;');
+            const slaInfo = calcularTextoSLA(ticket);
+            const slaBadge = slaInfo ? `<span class="sla-badge ${slaInfo.classe}" style="display:inline-block; margin: 5px 0 0 0; font-size: 0.7rem;">⏱ ${slaInfo.texto}</span>` : '';
+
+            kanbanHTML += `
+                <div class="kanban-card ${isNovaResposta ? 'kanban-nova-resposta' : ''}" draggable="true" ondragstart="dragKanban(event)" data-id="${ticket.id}" onclick="verDetalhes(${ticket.id})">
+                    <div class="kanban-card-header">
+                        <span class="kanban-ticket-id">#${String(ticket.id).padStart(5, '0')}</span>
+                        <span class="kanban-ticket-prioridade p-${ticket.prioridade || 'normal'}">${(ticket.prioridade || 'normal').toUpperCase()}</span>
+                    </div>
+                    <div class="kanban-card-title" title="${tituloSeguro}">${ticket.titulo}</div>
+                    <div class="kanban-card-info">
+                        👤 ${ticket.usuario_nome}
+                    </div>
+                    ${slaBadge}
+                    <div class="kanban-card-footer">
+                        <span class="kanban-agente">${ticket.agente_nome || 'Livre'}</span>
+                        <span class="kanban-data">${new Date(ticket.criado_em).toLocaleDateString('pt-BR')}</span>
+                    </div>
+                </div>
+            `;
+        });
+
+        kanbanHTML += `</div></div>`;
+    });
+    kanbanHTML += `</div>`;
+
+    // Adicionar HTML na tela e ocultar paginação se houver placeholder
+    listaTickets.innerHTML = kanbanHTML;
+}
+
+// DRAG AND DROP API KANBAN
+function allowDropKanban(ev) {
+    ev.preventDefault();
+}
+
+function dragKanban(ev) {
+    ev.dataTransfer.setData("ticketId", ev.currentTarget.dataset.id);
+}
+
+function dropKanban(ev) {
+    ev.preventDefault();
+    const ticketId = ev.dataTransfer.getData("ticketId");
+    let colTarget = ev.target.closest('.kanban-coluna');
+
+    if (colTarget && ticketId) {
+        const novoStatus = colTarget.dataset.status;
+        if (novoStatus && novoStatus !== 'outros') {
+            executarAlteracaoStatus(ticketId, novoStatus);
+        }
+    }
+}
+
 // Mostrar tickets na tela
 function mostrarTicketsNaTela(tickets) {
     const listaTickets = document.getElementById('lista-tickets');
+
+    // Atualizar estado visual do botão
+    const btnToggle = document.getElementById('btn-toggle-view');
+    if (btnToggle) {
+        btnToggle.innerHTML = modoVisualizacaoTickets === 'lista' ? '<span class="material-symbols-outlined" style="font-size: 1.2rem; margin-right: 0.3rem;">view_kanban</span> Kanban' : '<span class="material-symbols-outlined" style="font-size: 1.2rem; margin-right: 0.3rem;">list_alt</span> Tabela';
+    }
 
     // Atualizar contadores
     const usuarioLogado = JSON.parse(localStorage.getItem('usuario'));
@@ -773,6 +909,12 @@ function mostrarTicketsNaTela(tickets) {
                 <span class="material-symbols-outlined" style="font-size:3rem; opacity:0.4;">inbox</span>
                 <p style="margin-top:0.5rem; font-size:0.95rem;">Nenhum ticket encontrado para este filtro.</p>
             </div>`;
+        return;
+    }
+
+    // Processamento do Kanban
+    if (modoVisualizacaoTickets === 'kanban') {
+        renderizarKanbanTela(tickets);
         return;
     }
 
@@ -841,22 +983,22 @@ function mostrarTicketsNaTela(tickets) {
 
         tabelaHTML += `
             <tr data-ticket-id="${ticket.id}" class="${isNovaResposta ? 'ticket-nova-resposta' : ''}" ${modoMergeAtivo ? 'style="cursor:pointer;"' : ''}>
-                <td>
+                <td data-label="Nº Ticket">
                     <a href="#" onclick="${modoMergeAtivo ? 'event.stopPropagation();' : ''} verDetalhes(${ticket.id})" class="ticket-link">#${String(ticket.id).padStart(5, '0')}</a>
                     ${iconeMesclado}${iconeAnexo}${iconeComentario}${iconomeLembrete}
                 </td>
-                <td>
+                <td data-label="Abertura">
                     ${data}<span class="ticket-data-hora">${hora}</span>
                     ${slaBadge}
                 </td>
-                <td class="ticket-titulo-cell">
+                <td class="ticket-titulo-cell" data-label="Assunto">
                     <span class="ticket-titulo-texto" title="${tituloSeguro}">${ticket.titulo}</span>
                 </td>
-                <td>${solicitante}${emailExibir}</td>
-                <td><span class="status ${ticket.agente_nome ? 'atribuido' : 'nao-atribuido'} ${modoMergeAtivo ? '' : 'clickable'}" ${modoMergeAtivo ? '' : `onclick="event.stopPropagation(); atribuirTicket(${ticket.id})" title="Clique para atribuir"`}>${ticket.agente_nome || 'Não atribuído'}</span></td>
-                <td><span class="status categoria ${ticket.categoria_nome ? '' : 'sem-categoria'} ${modoMergeAtivo ? '' : 'clickable'}" ${modoMergeAtivo ? '' : `onclick="event.stopPropagation(); alterarCategoria(${ticket.id})" title="Clique para alterar"`}>${ticket.categoria_nome || 'Sem categoria'}</span></td>
-                <td><span class="status ${ticket.status} ${modoMergeAtivo ? '' : 'clickable'}" ${modoMergeAtivo ? '' : `onclick="event.stopPropagation(); alterarStatusNovo(${ticket.id})"`} title="Clique para alterar">${window.STATUS_CONFIG && window.STATUS_CONFIG[ticket.status] ? window.STATUS_CONFIG[ticket.status].nome : (typeof formatarNomeStatus === 'function' ? formatarNomeStatus(ticket.status) : ticket.status)}</span></td>
-                <td><span class="status prioridade ${ticket.prioridade || 'normal'} ${modoMergeAtivo ? '' : 'clickable'}" ${modoMergeAtivo ? '' : `onclick="event.stopPropagation(); alterarPrioridade(${ticket.id})" title="Clique para alterar"`}>${typeof formatarNomePrioridade === 'function' ? formatarNomePrioridade(ticket.prioridade) : (ticket.prioridade ? ticket.prioridade.charAt(0).toUpperCase() + ticket.prioridade.slice(1).toLowerCase() : 'Normal')}</span></td>
+                <td data-label="Solicitante">${solicitante}${emailExibir}</td>
+                <td data-label="Responsável"><span class="status ${ticket.agente_nome ? 'atribuido' : 'nao-atribuido'} ${modoMergeAtivo ? '' : 'clickable'}" ${modoMergeAtivo ? '' : `onclick="event.stopPropagation(); atribuirTicket(${ticket.id})" title="Clique para atribuir"`}>${ticket.agente_nome || 'Não atribuído'}</span></td>
+                <td data-label="Categoria"><span class="status categoria ${ticket.categoria_nome ? '' : 'sem-categoria'} ${modoMergeAtivo ? '' : 'clickable'}" ${modoMergeAtivo ? '' : `onclick="event.stopPropagation(); alterarCategoria(${ticket.id})" title="Clique para alterar"`}>${ticket.categoria_nome || 'Sem categoria'}</span></td>
+                <td data-label="Status"><span class="status ${ticket.status} ${modoMergeAtivo ? '' : 'clickable'}" ${modoMergeAtivo ? '' : `onclick="event.stopPropagation(); alterarStatusNovo(${ticket.id})"`} title="Clique para alterar">${window.STATUS_CONFIG && window.STATUS_CONFIG[ticket.status] ? window.STATUS_CONFIG[ticket.status].nome : (typeof formatarNomeStatus === 'function' ? formatarNomeStatus(ticket.status) : ticket.status)}</span></td>
+                <td data-label="Prioridade"><span class="status prioridade ${ticket.prioridade || 'normal'} ${modoMergeAtivo ? '' : 'clickable'}" ${modoMergeAtivo ? '' : `onclick="event.stopPropagation(); alterarPrioridade(${ticket.id})" title="Clique para alterar"`}>${typeof formatarNomePrioridade === 'function' ? formatarNomePrioridade(ticket.prioridade) : (ticket.prioridade ? ticket.prioridade.charAt(0).toUpperCase() + ticket.prioridade.slice(1).toLowerCase() : 'Normal')}</span></td>
             </tr>
         `;
     });
@@ -1279,8 +1421,27 @@ function verDetalhes(ticketId) {
             // Salvar dados do ticket para saber se é fechado
             localStorage.setItem('ticketAtual', JSON.stringify(ticket));
             mostrarSecao('detalhes');
+
             setTimeout(() => {
                 mostrarDetalhesTicket(ticket);
+
+                // Inicializando o Quill APÓS o DOM do ticket ser montado
+                window.quillComentario = new Quill('#editor-comentario', {
+                    theme: 'snow',
+                    placeholder: 'Escreva sua resposta ou nota interna aqui. Dica: você pode colar imagens (Ctrl+V).',
+                    modules: {
+                        toolbar: [
+                            ['bold', 'italic', 'underline', 'strike'],
+                            ['blockquote', 'code-block'],
+                            [{ 'list': 'ordered' }, { 'list': 'bullet' }],
+                            [{ 'size': ['small', false, 'large', 'huge'] }],
+                            [{ 'color': [] }, { 'background': [] }],
+                            ['link', 'image'],
+                            ['clean']
+                        ]
+                    }
+                });
+
                 carregarLembretes(ticketId);
             }, 100);
         } else {
@@ -1533,7 +1694,8 @@ function mostrarDetalhesTicket(ticket) {
                 <form id="form-comentario" onsubmit="adicionarComentario(event, ${ticket.id})">
                     <div class="form-group">
                         <label for="novo-comentario">Adicionar comentário:</label>
-                        <textarea id="novo-comentario" rows="3" required></textarea>
+                        <div id="editor-comentario" style="height: 150px; background: #fff;"></div>
+                        <input type="hidden" id="novo-comentario" required>
                     </div>
                     <div class="form-group">
                         <label class="switch-label">
@@ -1757,6 +1919,15 @@ function adicionarComentario(event, ticketId) {
         event.stopPropagation();
     }
 
+    // Atualiza o value invisível para capturar o Rich Text
+    if (window.quillComentario) {
+        document.getElementById('novo-comentario').value = window.quillComentario.root.innerHTML;
+        // Impedindo disparo de form se vazio (lidar com <p><br></p>)
+        if (window.quillComentario.getText().trim().length === 0) {
+            document.getElementById('novo-comentario').value = '';
+        }
+    }
+
     // Validar antes de adicionar comentário
     if (!validarAntesComentario(ticketId)) {
         return;
@@ -1805,6 +1976,7 @@ function adicionarComentario(event, ticketId) {
 
             // Limpar formulário
             document.getElementById('novo-comentario').value = '';
+            if (window.quillComentario) window.quillComentario.root.innerHTML = '';
             document.getElementById('enviar-email').checked = false;
             document.getElementById('toggle-com-copia').checked = false;
             document.getElementById('com-copia').value = '';
@@ -3236,6 +3408,9 @@ function limparFormularioTicket() {
     // Limpar campos específicos
     document.getElementById('titulo').value = '';
     document.getElementById('descricao').value = '';
+    if (window.quillDescricao) {
+        window.quillDescricao.root.innerHTML = '';
+    }
 
     // Limpar campo de categoria
     const categoriaBusca = document.getElementById('categoria-busca');
@@ -3455,23 +3630,23 @@ function mostrarTicketsFechadosNaTela(tickets) {
 
         tabelaHTML += `
             <tr data-ticket-id="${ticket.id}" ${modoMergeFechadosAtivo ? 'style="cursor: pointer;"' : ''}>
-                <td>
+                <td data-label="Nº Ticket">
                     <a href="#" onclick="${modoMergeFechadosAtivo ? 'event.stopPropagation();' : ''} verDetalhes(${ticket.id})" class="ticket-link">#${String(ticket.id).padStart(5, '0')}</a>
                     ${iconeMesclado}${iconeAnexo}
                 </td>
-                <td>${new Date(ticket.criado_em).toLocaleDateString('pt-BR')}<span class="ticket-data-hora">${new Date(ticket.criado_em).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}</span></td>
-                <td class="ticket-titulo-cell" title="${tituloSeguro}">
+                <td data-label="Abertura">${new Date(ticket.criado_em).toLocaleDateString('pt-BR')}<span class="ticket-data-hora">${new Date(ticket.criado_em).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}</span></td>
+                <td class="ticket-titulo-cell" title="${tituloSeguro}" data-label="Assunto">
                     <span class="ticket-titulo-texto">${ticket.titulo}</span>
                 </td>
-                <td>
+                <td data-label="Solicitante">
                     <strong>${ticket.usuario_nome}</strong>
                     ${ticket.usuario_email ? `<span class="ticket-data-hora" style="font-size: 0.85em;">${ticket.usuario_email}</span>` : ''}
                 </td>
-                <td>${ticket.agente_nome || 'Não atribuído'}</td>
-                <td>${ticket.categoria_nome || 'Sem categoria'}</td>
-                <td><span class="status ${ticket.status}">${ticket.status === 'encerrado' ? '🏁 Encerrado' : '❌ Cancelado'}</span></td>
-                <td style="font-size: 0.8rem; font-weight: bold;">${ticket.fechado_em ? new Date(ticket.fechado_em).toLocaleDateString('pt-BR') + '<span class="ticket-data-hora">' + new Date(ticket.fechado_em).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }) + '</span>' : '-'}</td>
-                <td>
+                <td data-label="Responsável">${ticket.agente_nome || 'Não atribuído'}</td>
+                <td data-label="Categoria">${ticket.categoria_nome || 'Sem categoria'}</td>
+                <td data-label="Status"><span class="status ${ticket.status}">${ticket.status === 'encerrado' ? '🏁 Encerrado' : '❌ Cancelado'}</span></td>
+                <td data-label="Encerramento" style="font-size: 0.8rem; font-weight: bold;">${ticket.fechado_em ? new Date(ticket.fechado_em).toLocaleDateString('pt-BR') + '<span class="ticket-data-hora">' + new Date(ticket.fechado_em).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }) + '</span>' : '-'}</td>
+                <td data-label="Ações">
                     <button class="btn-compact" onclick="${modoMergeFechadosAtivo ? 'event.stopPropagation();' : ''} reabrirTicket(${ticket.id})" style="background-color: #28a745; margin-right: 0.5rem; transition: background 0.2s;" onmouseover="this.style.backgroundColor='#218838'" onmouseout="this.style.backgroundColor='#28a745'">Reabrir</button>
                 </td>
             </tr>
