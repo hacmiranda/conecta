@@ -45,18 +45,28 @@ class EmailService {
             echo "<p>✅ Conectado com sucesso!</p>";
             file_put_contents($log_file, "[" . date('Y-m-d H:i:s') . "] Conectado com sucesso\n", FILE_APPEND);
             
-            // Buscar emails não lidos (usar UID para maior confiabilidade)
-            $emails = imap_search($inbox, 'UNSEEN', SE_UID);
-            
-            echo "<p>Verificando emails não lidos...</p>";
-            
-            if ($emails) {
-                $count = count($emails);
-                echo "<p>📧 Encontrados $count emails não lidos</p>";
-                file_put_contents($log_file, "[" . date('Y-m-d H:i:s') . "] Encontrados $count emails não lidos\n", FILE_APPEND);
+                // Buscar emails dos últimos 3 dias para garantir que nenhum foi perdido
+                // mesmo se marcado como lido por outro cliente (Outlook/Celular)
+                $data_busca = date('d-M-Y', strtotime('-3 days'));
+                $search_criteria = 'SINCE "' . $data_busca . '"';
                 
-                foreach ($emails as $uid) {
-                    $msgno = imap_msgno($inbox, $uid);
+                echo "<p>Buscando emails com critério: $search_criteria</p>";
+                file_put_contents($log_file, "[" . date('Y-m-d H:i:s') . "] Buscando emails: $search_criteria\n", FILE_APPEND);
+                
+                $emails = imap_search($inbox, $search_criteria, SE_UID);
+                
+                echo "<p>Verificando emails recentes...</p>";
+                
+                if ($emails) {
+                    $count = count($emails);
+                    echo "<p>📧 Encontrados $count emails recentes para análise</p>";
+                    file_put_contents($log_file, "[" . date('Y-m-d H:i:s') . "] Encontrados $count emails\n", FILE_APPEND);
+                    
+                    // Ordenar para processar dos mais antigos para os mais novos
+                    sort($emails);
+                    
+                    foreach ($emails as $uid) {
+                        $msgno = imap_msgno($inbox, $uid);
                     echo "<p>Processando UID: $uid (MSG: $msgno)...</p>";
                     file_put_contents($log_file, "[" . date('Y-m-d H:i:s') . "] Processando UID: $uid\n", FILE_APPEND);
                     
@@ -101,10 +111,9 @@ class EmailService {
         // Verificar se já foi processado
         if ($this->emailJaProcessado($message_id)) {
             echo "<p>⏭️ Email já processado anteriormente (Message-ID: $message_id)</p>";
+            // Se já foi processado, garantir que esteja marcado como lido
             if ($uid) {
                 imap_setflag_full($inbox, $uid, "\\Seen", ST_UID);
-            } else {
-                imap_setflag_full($inbox, $email_number, "\\Seen");
             }
             return;
         }
@@ -130,6 +139,19 @@ class EmailService {
         $assunto = $this->decodificarTexto($header->subject);
         $remetente = $header->from[0]->mailbox . '@' . $header->from[0]->host;
         $data = date('Y-m-d H:i:s', strtotime($header->date));
+
+        // Verificar se o email deve ser ignorado (evitar loops)
+        $emails_ignorados = ['suporte@crprs.org.br', 'suporte2@crprs.org.br'];
+        if (in_array(strtolower($remetente), $emails_ignorados)) {
+            echo "<p>🚫 Email ignorado (remetente na blacklist): $remetente</p>";
+            // Marcar como lido para não processar novamente
+            if ($uid) {
+                imap_setflag_full($inbox, $uid, "\\Seen", ST_UID);
+            } else {
+                imap_setflag_full($inbox, $email_number, "\\Seen");
+            }
+            return;
+        }
         
         if (empty($body)) {
             $body = "Email recebido em " . date('d/m/Y H:i:s') . " de " . $remetente;
@@ -218,6 +240,24 @@ class EmailService {
             if ($total_anexos > 0) {
                 $corpo_limpo .= "\n\n📎 " . $total_anexos . " anexo(s) do email foram salvos.";
             }
+
+            // --- INÍCIO VERIFICAÇÃO EXTRA DE DUPLICIDADE (TICKETS) ---
+            $dup_ticket_query = "SELECT id FROM tickets 
+                               WHERE usuario_id = :usuario_id 
+                               AND titulo = :titulo 
+                               AND descricao = :descricao 
+                               AND criado_em > DATE_SUB(NOW(), INTERVAL 10 MINUTE)";
+            $dup_ticket_stmt = $this->db->prepare($dup_ticket_query);
+            $dup_ticket_stmt->bindParam(':usuario_id', $usuario_id);
+            $dup_ticket_stmt->bindParam(':titulo', $assunto);
+            $dup_ticket_stmt->bindParam(':descricao', $corpo_limpo);
+            $dup_ticket_stmt->execute();
+            
+            if ($dup_ticket_stmt->fetch()) {
+                echo "<p>⚠️ Ticket ignorado: Detectado ticket duplicado recente (mesmo assunto, corpo e usuário).</p>";
+                return;
+            }
+            // --- FIM VERIFICAÇÃO EXTRA DE DUPLICIDADE ---
             
             // Criar ticket
             echo "<p>Criando ticket no banco...</p>";
@@ -580,6 +620,27 @@ class EmailService {
             $comentario .= "\n\n📎 " . $total_anexos . " anexo(s) incluído(s) neste comentário.";
         }
         
+        // --- INÍCIO VERIFICAÇÃO EXTRA DE DUPLICIDADE ---
+        // Verificar se já existe um comentário IDÊNTICO deste usuário neste ticket nos últimos 5 minutos
+        // Isso previne duplicatas caso o Message-ID tenha mudado mas o conteúdo seja o mesmo (ex: loop de email)
+        $duplicado_query = "SELECT id FROM comentarios 
+                          WHERE ticket_id = :ticket_id 
+                          AND usuario_id = :usuario_id 
+                          AND comentario = :comentario 
+                          AND criado_em > DATE_SUB(NOW(), INTERVAL 5 MINUTE)";
+        $duplicado_stmt = $this->db->prepare($duplicado_query);
+        $duplicado_stmt->bindParam(':ticket_id', $ticket_id);
+        $duplicado_stmt->bindParam(':usuario_id', $usuario_id);
+        $duplicado_stmt->bindParam(':comentario', $comentario);
+        $duplicado_stmt->execute();
+        
+        if ($duplicado_stmt->fetch()) {
+            echo "<p>⚠️ Comentário ignorado: Detectado comentário duplicado recente (mesmo conteúdo e usuário).</p>";
+            // Se já existe, não insere novamente.
+            return;
+        }
+        // --- FIM VERIFICAÇÃO EXTRA DE DUPLICIDADE ---
+
         $query = "INSERT INTO comentarios (ticket_id, usuario_id, comentario) 
                  VALUES (:ticket_id, :usuario_id, :comentario)";
         $stmt = $this->db->prepare($query);
@@ -602,6 +663,44 @@ class EmailService {
         $emailSender = new EmailSender($this->db);
         $emailSender->notificarNovoComentario($ticket_id, $comentario_id);
         $emailSender->confirmarComentarioParaRemetente($ticket_id, $email, $anexos_processados['rejeitados']);
+
+        // Atualizar status para 'nova_resposta' se não estiver fechado/reaberto agora
+        // Se foi reaberto em verificarEReabrirTicket, o status já é reaberto, então não mudamos para nova_resposta imediatamente (opcional, mas o usuário pediu "Nova Resposta")
+        // Vamos forçar 'nova_resposta' se não estiver fechado, pois é um comentário do solicitante
+        $status_atual_query = "SELECT status, agente_id FROM tickets WHERE id = ?";
+        $st_stmt = $this->db->prepare($status_atual_query);
+        $st_stmt->execute([$ticket_id]);
+        $ticket_atual = $st_stmt->fetch();
+
+        // Se o email é do solicitante (e não do agente), mudar para nova_resposta
+        // Como adicionarComentario é usado pelo IMAP, assume-se que é o solicitante ou terceiro respondendo
+        // Verificar se quem respondeu NÃO é o agente do ticket
+        if ($ticket_atual) {
+            $is_agente = false;
+            if ($ticket_atual['agente_id']) {
+                 $ag_q = "SELECT email FROM usuarios WHERE id = ?";
+                 $ag_s = $this->db->prepare($ag_q);
+                 $ag_s->execute([$ticket_atual['agente_id']]);
+                 $ag_email = $ag_s->fetchColumn();
+                 if ($ag_email === $email) {
+                     $is_agente = true;
+                 }
+            }
+            
+            // Só muda status se NÃO for o agente e status não for final
+            if (!$is_agente && !in_array($ticket_atual['status'], ['fechado', 'encerrado', 'cancelado'])) {
+                if ($ticket_atual['status'] !== 'nova_resposta') {
+                    $up_q = "UPDATE tickets SET status = 'nova_resposta' WHERE id = ?";
+                    $this->db->prepare($up_q)->execute([$ticket_id]);
+                    
+                    // Historico
+                    $hist_q = "INSERT INTO ticket_historico (ticket_id, usuario_id, acao, valor_anterior, valor_novo) VALUES (?, ?, 'status', ?, 'nova_resposta')";
+                    $this->db->prepare($hist_q)->execute([$ticket_id, $usuario_id, $ticket_atual['status']]);
+                    
+                    echo "<p>🔄 Status atualizado para 'nova_resposta'</p>";
+                }
+            }
+        }
     }
     
     private function verificarEReabrirTicket($ticket_id) {
@@ -721,7 +820,12 @@ class EmailService {
                         }
                         
                         if (!empty($body)) {
-                            break;
+                            // Outlook costuma enviar HTML vazio ou com apenas tags básicas
+                            // Verificar se tem conteúdo real
+                            $check_content = trim(strip_tags($body));
+                            if (!empty($check_content) || strpos($body, '<img') !== false) {
+                                break;
+                            }
                         }
                     }
                 }
@@ -734,6 +838,22 @@ class EmailService {
         } else {
             // Email simples
             $body = imap_body($inbox, $email_number);
+        }
+        if (isset($structure->encoding)) {
+            if ($structure->encoding == 3) {
+                $body = base64_decode($body);
+            } elseif ($structure->encoding == 4) {
+                $body = quoted_printable_decode($body);
+            }
+        }
+
+        // Verificação extra para Base64 não detectado (comum em alguns clientes de email mal formatados)
+        // Se o corpo parece ser um bloco contínuo de Base64 e decodifica para HTML válido
+        if (!empty($body) && !str_contains($body, ' ') && strlen($body) > 50) {
+            $decoded_check = base64_decode($body, true);
+            if ($decoded_check && (str_contains(strtolower($decoded_check), '<html') || str_contains(strtolower($decoded_check), '<div') || str_contains(strtolower($decoded_check), '<body'))) {
+                $body = $decoded_check;
+            }
         }
         
         return $body;
@@ -768,8 +888,6 @@ class EmailService {
     
     private function decodificarTexto($texto) {
         $decoded = mb_decode_mimeheader($texto);
-        // Remover underlines que foram adicionados incorretamente
-        $decoded = str_replace('_', ' ', $decoded);
         return $decoded;
     }
 }

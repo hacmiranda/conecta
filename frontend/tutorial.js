@@ -14,19 +14,25 @@ const tutorialSteps = [
         position: 'bottom'
     },
     {
-        target: '.btn-nav:nth-child(2)',
+        target: '#btn-nav-arquivo',
+        title: '🗂️ Arquivo',
+        description: 'Acesse o histórico de tickets encerrados ou cancelados. Você pode reabrir tickets se necessário.',
+        position: 'bottom'
+    },
+    {
+        target: '.btn-nav:nth-child(3)',
         title: '📊 Dashboard',
         description: 'Acompanhe métricas em tempo real: total de tickets, tempo médio de atendimento, gráficos de status e muito mais.',
         position: 'bottom'
     },
     {
-        target: '.btn-nav:nth-child(3)',
+        target: '.btn-nav:nth-child(4)',
         title: '📈 Relatórios',
         description: 'Gere relatórios personalizados filtrando por período, status, prioridade, categoria ou agente responsável.',
         position: 'bottom'
     },
     {
-        target: '.btn-nav:nth-child(4)',
+        target: '#btn-nav-ajuda',
         title: '❓ Ajuda',
         description: 'Consulte informações sobre SLA, status dos tickets, prioridades e atalhos de teclado disponíveis.',
         position: 'bottom'
@@ -35,12 +41,6 @@ const tutorialSteps = [
         target: '#btn-novo-ticket',
         title: '➕ Criar Novo Ticket',
         description: 'Clique aqui para abrir um novo chamado. Preencha título, descrição, prioridade, categoria e anexe arquivos se necessário.',
-        position: 'left'
-    },
-    {
-        target: '#btn-tickets-fechados',
-        title: '🏁 Tickets Fechados',
-        description: 'Acesse o histórico de tickets encerrados ou cancelados. Você pode reabrir tickets se necessário.',
         position: 'left'
     },
     {
@@ -100,14 +100,14 @@ function iniciarTutorial() {
     // Verificar se já viu o tutorial
     const jaViuTutorial = localStorage.getItem('tutorialCompleto');
     if (jaViuTutorial === 'true') return;
-    
+
     // Ir para lista de tickets abertos
     mostrarSecao('tickets');
     carregarTickets();
-    
+
     tutorialActive = true;
     currentStep = 0;
-    
+
     // Aguardar carregamento dos tickets antes de iniciar
     setTimeout(() => {
         criarElementosTutorial();
@@ -121,24 +121,24 @@ function criarElementosTutorial() {
     const oldSpotlight = document.getElementById('tutorial-spotlight');
     const oldCard = document.getElementById('tutorial-card');
     const oldArrow = document.getElementById('tutorial-arrow');
-    
+
     if (oldOverlay) oldOverlay.remove();
     if (oldSpotlight) oldSpotlight.remove();
     if (oldCard) oldCard.remove();
     if (oldArrow) oldArrow.remove();
-    
+
     // Overlay
     const overlay = document.createElement('div');
     overlay.id = 'tutorial-overlay';
     overlay.className = 'tutorial-overlay';
     document.body.appendChild(overlay);
-    
+
     // Spotlight
     const spotlight = document.createElement('div');
     spotlight.id = 'tutorial-spotlight';
     spotlight.className = 'tutorial-spotlight';
     document.body.appendChild(spotlight);
-    
+
     // Card
     const card = document.createElement('div');
     card.id = 'tutorial-card';
@@ -152,38 +152,38 @@ function mostrarTutorialAjuda() {
 
 function mostrarPasso(step) {
     console.log('Tutorial - Passo:', step, 'Total:', tutorialSteps.length);
-    
+
     if (step >= tutorialSteps.length) {
         finalizarTutorial();
         return;
     }
-    
+
     currentStep = step;
     const passo = tutorialSteps[step];
     console.log('Tutorial - Configuração do passo:', passo);
     const target = document.querySelector(passo.target);
-    
+
     if (!target) {
         // Se elemento não existe, pular para próximo
         mostrarPasso(step + 1);
         return;
     }
-    
+
     // Mostrar overlay e spotlight
     const overlay = document.getElementById('tutorial-overlay');
     const spotlight = document.getElementById('tutorial-spotlight');
     const card = document.getElementById('tutorial-card');
     const arrow = document.getElementById('tutorial-arrow');
-    
+
     // Remover seta anterior
     if (arrow) arrow.remove();
-    
+
     // Posicionar spotlight no elemento
     const rect = target.getBoundingClientRect();
-    
+
     // Sempre ativar overlay para bloquear cliques
     overlay.classList.add('show');
-    
+
     if (passo.isWelcome || passo.isFinal) {
         // Para telas de boas-vindas e final, overlay escuro e esconder spotlight
         overlay.style.backgroundColor = 'rgba(0, 0, 0, 0.85)';
@@ -200,20 +200,20 @@ function mostrarPasso(step) {
         spotlight.style.width = (rect.width + 10) + 'px';
         spotlight.style.height = (rect.height + 10) + 'px';
         console.log('Passo intermediário - Spotlight ativado');
-        
+
         // Adicionar seta se necessário
         if (passo.arrow) {
             criarSeta(rect, passo.arrow);
         }
     }
-    
+
     // Posicionar card
     posicionarCard(card, rect, passo.position);
-    
+
     // Conteúdo do card
     const isWelcome = passo.isWelcome;
     const isFinal = passo.isFinal;
-    
+
     if (isWelcome) {
         card.innerHTML = `
             <h2 style="text-align: center; margin-bottom: 1rem;">${passo.title}</h2>
@@ -250,13 +250,13 @@ function criarSeta(targetRect, direction) {
     const arrow = document.createElement('div');
     arrow.id = 'tutorial-arrow';
     arrow.className = 'tutorial-arrow';
-    
+
     if (direction === 'down') {
         arrow.style.top = (targetRect.bottom + 10) + 'px';
         arrow.style.left = (targetRect.left + targetRect.width / 2 - 15) + 'px';
         arrow.innerHTML = '↓';
     }
-    
+
     document.body.appendChild(arrow);
 }
 
@@ -264,9 +264,9 @@ function posicionarCard(card, targetRect, position) {
     const cardWidth = 400;
     const cardHeight = 200;
     const margin = 20;
-    
+
     let top, left;
-    
+
     if (position === 'center') {
         top = (window.innerHeight / 2) - (cardHeight / 2);
         left = (window.innerWidth / 2) - (cardWidth / 2);
@@ -274,7 +274,7 @@ function posicionarCard(card, targetRect, position) {
         card.style.left = left + 'px';
         return;
     }
-    
+
     switch (position) {
         case 'bottom':
             top = targetRect.bottom + margin;
@@ -296,13 +296,13 @@ function posicionarCard(card, targetRect, position) {
             top = targetRect.bottom + margin;
             left = targetRect.left;
     }
-    
+
     // Ajustar se sair da tela
     if (left < 20) left = 20;
     if (left + cardWidth > window.innerWidth - 20) left = window.innerWidth - cardWidth - 20;
     if (top < 20) top = 20;
     if (top + cardHeight > window.innerHeight - 20) top = window.innerHeight - cardHeight - 20;
-    
+
     card.style.top = top + 'px';
     card.style.left = left + 'px';
 }
@@ -319,32 +319,32 @@ function pularTutorial() {
 function finalizarTutorial() {
     tutorialActive = false;
     localStorage.setItem('tutorialCompleto', 'true');
-    
+
     // Remover elementos
     const overlay = document.getElementById('tutorial-overlay');
     const spotlight = document.getElementById('tutorial-spotlight');
     const card = document.getElementById('tutorial-card');
     const arrow = document.getElementById('tutorial-arrow');
-    
+
     if (overlay) overlay.remove();
     if (spotlight) spotlight.remove();
     if (card) card.remove();
     if (arrow) arrow.remove();
-    
+
     mostrarToast('Tutorial Concluído', 'Você pode acessar a ajuda a qualquer momento clicando no menu Ajuda!', 'success');
 }
 
 // Função para reiniciar tutorial (pode ser chamada do menu)
 function reiniciarTutorial() {
     localStorage.removeItem('tutorialCompleto');
-    
+
     // Ir para lista de tickets abertos
     mostrarSecao('tickets');
     carregarTickets();
-    
+
     tutorialActive = true;
     currentStep = 0;
-    
+
     // Aguardar carregamento dos tickets antes de iniciar
     setTimeout(() => {
         criarElementosTutorial();

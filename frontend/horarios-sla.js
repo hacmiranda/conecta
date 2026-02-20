@@ -2,7 +2,7 @@
 
 function mostrarHorariosSLA() {
     document.querySelectorAll('.btn-config').forEach(btn => btn.classList.remove('active'));
-    document.getElementById('btn-horarios-sla').classList.add('active');
+    const _bhor = document.getElementById('btn-horarios-sla'); if(_bhor) _bhor.classList.add('active');
     localStorage.setItem('subSecaoAtiva', 'horarios-sla');
     
     const content = document.getElementById('config-content');

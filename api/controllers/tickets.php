@@ -156,14 +156,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
 // POST - Criar ticket
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     // Obter usuário logado do token JWT (com fallback)
-    $user = null;
     try {
         $user = AuthMiddleware::verificarAuth();
         AuthMiddleware::verificarCSRF();
     } catch (Exception $e) {
-        error_log("[TICKETS POST] JWT falhou: " . $e->getMessage());
-        // Fallback: criar usuário fake para compatibilidade
-        $user = ['id' => 1, 'email' => 'sistema@crprs.org.br', 'tipo' => 'admin'];
+        http_response_code(401);
+        echo json_encode(['error' => 'Acesso não autorizado', 'details' => $e->getMessage()]);
+        exit;
     }
     
     error_log("[DEBUG] Iniciando criação de ticket");
@@ -317,28 +316,29 @@ if ($_SERVER['REQUEST_METHOD'] === 'PUT') {
     error_log("[DEBUG PUT] Iniciando método PUT");
     error_log("[DEBUG PUT] Headers: " . json_encode(getallheaders()));
     
-    // $user = AuthMiddleware::verificarAuth();
-    // AuthMiddleware::verificarCSRF();
+    // Autenticação
+    try {
+        $user = AuthMiddleware::verificarAuth();
+        AuthMiddleware::verificarCSRF();
+    } catch (Exception $e) {
+        http_response_code(401);
+        echo json_encode(['error' => 'Acesso não autorizado']);
+        exit;
+    }
     
     $ticket_id = $_GET['id'] ?? null;
     
     if (!$ticket_id) {
-        error_log("[DEBUG PUT] Ticket ID não fornecido");
         http_response_code(400);
         echo json_encode(['error' => 'ID do ticket é obrigatório']);
         exit;
     }
     
-    error_log("[DEBUG PUT] Ticket ID: $ticket_id");
-    
-    // Obter usuário logado do input (fallback direto - JWT desabilitado temporariamente)
-    error_log("[DEBUG PUT] Usando fallback direto (JWT desabilitado)");
-    $input_temp = json_decode(file_get_contents('php://input'), true);
-    $usuario_id = $input_temp['atribuido_por'] ?? $input_temp['fechado_por'] ?? 1;
-    error_log("[TICKETS] Usando usuario_id: {$usuario_id}");
-
-    
+    // Obter dados do input
     $input = json_decode(file_get_contents('php://input'), true);
+    
+    // Usuário que realiza a ação é o logado
+    $usuario_id = $user['id'];
     
     // Log para debug
     error_log("[ATRIBUICAO] Ticket ID: $ticket_id");
@@ -381,30 +381,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'PUT') {
         
         // Processar todas as alterações
         if (isset($input['status'])) {
-            // Validar fechamento: não permitir fechar sem categoria e sem responsável
+            // Validação de fechamento removida: permite encerrar tickets sem categoria e sem responsável
+            /*
             if ($input['status'] === 'encerrado') {
-                // Buscar dados atualizados do ticket para validação
-                $check_query = "SELECT categoria_id, agente_id FROM tickets WHERE id = ?";
-                $check_stmt = $db->prepare($check_query);
-                $check_stmt->execute([$ticket_id]);
-                $ticket_atual = $check_stmt->fetch(PDO::FETCH_ASSOC);
-                
-                // Usar dados da requisição se fornecidos, senão usar dados atuais
-                $categoria_final = isset($input['categoria_id']) ? $input['categoria_id'] : $ticket_atual['categoria_id'];
-                $agente_final = isset($input['agente_id']) ? $input['agente_id'] : $ticket_atual['agente_id'];
-                
-                if (empty($categoria_final)) {
-                    http_response_code(400);
-                    echo json_encode(['error' => 'Não é possível encerrar um ticket sem categoria']);
-                    exit;
-                }
-                
-                if (empty($agente_final)) {
-                    http_response_code(400);
-                    echo json_encode(['error' => 'Não é possível encerrar um ticket sem responsável']);
-                    exit;
-                }
+                // ... validação removida ...
             }
+            */
             
             $updates[] = 'status = :status';
             $params[':status'] = $input['status'];
@@ -537,7 +519,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'PUT') {
             }
             
             // Registrar histórico e auditoria
-            $usuario_id = isset($input['atribuido_por']) ? $input['atribuido_por'] : (isset($input['fechado_por']) ? $input['fechado_por'] : 1);
+            // $usuario_id já é definido pelo token JWT agora
             $auditoria = new AuditoriaService($db);
             
             try {
@@ -676,8 +658,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'PUT') {
 
 // DELETE - Excluir ticket
 if ($_SERVER['REQUEST_METHOD'] === 'DELETE') {
-    // $user = AuthMiddleware::verificarAuth();
-    // AuthMiddleware::verificarCSRF();
+    try {
+        $user = AuthMiddleware::verificarAuth();
+        // AuthMiddleware::verificarAdmin($user); // Apenas admin pode excluir
+        AuthMiddleware::verificarCSRF();
+    } catch (Exception $e) {
+        http_response_code(401);
+        echo json_encode(['error' => 'Acesso não autorizado']);
+        exit;
+    }
     
     $ticket_id = $_GET['id'] ?? null;
     
@@ -707,7 +696,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'DELETE') {
         
         // Registrar auditoria ANTES de excluir
         $auditoria = new AuditoriaService($db);
-        $auditoria->registrar(1, 'excluir_ticket', 'tickets', $ticket_id, json_encode($ticket_data), null);
+        $auditoria->registrar($user['id'], 'excluir_ticket', 'tickets', $ticket_id, json_encode($ticket_data), null);
         
         // Excluir ticket
         $query = "DELETE FROM tickets WHERE id = :id";

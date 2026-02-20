@@ -1,0 +1,47 @@
+/* Nav Dropdowns - Ajuda e Configurações */
+.nav-dropdown-wrapper {
+    position: relative;
+    display: inline-flex;
+}
+
+.nav-dropdown {
+    position: absolute;
+    top: calc(100% + 8px);
+    left: 0;
+    background: white;
+    border-radius: 10px;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.18);
+    min-width: 200px;
+    z-index: 9999;
+    opacity: 0;
+    visibility: hidden;
+    transform: translateY(-8px);
+    transition: all 0.18s ease;
+    overflow: hidden;
+}
+
+.nav-dropdown.open {
+    opacity: 1;
+    visibility: visible;
+    transform: translateY(0);
+}
+
+.nav-dropdown-item {
+    display: block;
+    width: 100%;
+    padding: 0.65rem 1rem;
+    text-align: left;
+    background: none;
+    border: none;
+    font-size: 0.88rem;
+    color: #1e3a8a;
+    cursor: pointer;
+    font-family: inherit;
+    transition: background 0.15s;
+    white-space: nowrap;
+}
+
+.nav-dropdown-item:hover {
+    background: #f0f4ff;
+    color: var(--laranja, #f79226);
+}

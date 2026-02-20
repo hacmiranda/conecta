@@ -56,13 +56,18 @@ const STATUS_CONFIG = {
         nome: 'Reaberto',
         icone: '🔄',
         cor: '#e83e8c'
+    },
+    'nova_resposta': {
+        nome: 'Nova Resposta',
+        icone: '💬',
+        cor: '#17a2b8'
     }
 };
 
 // Função para formatar nome do status
 function formatarNomeStatus(status) {
     if (!status) return 'Novo';
-    
+
     const config = STATUS_CONFIG[status.toLowerCase()];
     return config ? config.nome : status.charAt(0).toUpperCase() + status.slice(1).replace(/_/g, ' ');
 }
@@ -70,13 +75,13 @@ function formatarNomeStatus(status) {
 // Função para formatar nome da prioridade
 function formatarNomePrioridade(prioridade) {
     if (!prioridade) return 'Normal';
-    
+
     const prioridades = {
         'baixa': 'Baixa',
         'normal': 'Normal',
         'alta': 'Alta',
         'urgente': 'Urgente'
     };
-    
+
     return prioridades[prioridade.toLowerCase()] || prioridade.charAt(0).toUpperCase() + prioridade.slice(1);
 }

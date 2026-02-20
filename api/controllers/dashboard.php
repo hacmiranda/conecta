@@ -23,8 +23,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
     try {
         $dashboard = [];
         
-        // Total de tickets
-        $query = "SELECT COUNT(*) as total FROM tickets";
+        // Total de tickets (excluindo cancelados)
+        $query = "SELECT COUNT(*) as total FROM tickets WHERE status != 'cancelado'";
         $stmt = $db->prepare($query);
         $stmt->execute();
         $dashboard['total_tickets'] = $stmt->fetch()['total'];
@@ -55,10 +55,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
             $dashboard['por_prioridade'][$row['prioridade']] = $row['total'];
         }
         
-        // Top 5 categorias
+        // Top 5 categorias (excluindo cancelados)
         $query = "SELECT c.nome, COUNT(t.id) as total 
                   FROM categorias c 
                   LEFT JOIN tickets t ON c.id = t.categoria_id 
+                  WHERE t.status != 'cancelado'
                   GROUP BY c.id, c.nome 
                   ORDER BY total DESC 
                   LIMIT 5";
@@ -66,10 +67,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
         $stmt->execute();
         $dashboard['top_categorias'] = $stmt->fetchAll();
         
-        // Top 5 solicitantes
+        // Top 5 solicitantes (excluindo cancelados)
         $query = "SELECT u.nome, COUNT(t.id) as total 
                   FROM tickets t
-                  JOIN usuarios u ON t.usuario_id = u.id 
+                  JOIN usuarios u ON t.usuario_id = u.id
+                  WHERE t.status != 'cancelado' 
                   GROUP BY u.id, u.nome 
                   ORDER BY total DESC 
                   LIMIT 5";
@@ -88,10 +90,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
         $stmt->execute();
         $dashboard['por_agente'] = $stmt->fetchAll();
         
-        // Tickets por mês (ano atual)
+        // Tickets por mês (ano atual) - excluindo cancelados
         $query = "SELECT MONTH(criado_em) as mes, COUNT(*) as total 
                   FROM tickets 
-                  WHERE YEAR(criado_em) = YEAR(NOW()) 
+                  WHERE YEAR(criado_em) = YEAR(NOW()) AND status != 'cancelado'
                   GROUP BY MONTH(criado_em) 
                   ORDER BY mes";
         $stmt = $db->prepare($query);
@@ -102,39 +104,41 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
             $dashboard['por_mes'][$row['mes']] = $row['total'];
         }
         
-        // Tickets por macrocategoria
+        // Tickets por macrocategoria (excluindo cancelados)
         $query = "SELECT m.nome, COUNT(t.id) as quantidade 
                   FROM macrocategorias m 
                   LEFT JOIN categorias c ON m.id = c.macrocategoria_id 
                   LEFT JOIN tickets t ON c.id = t.categoria_id 
+                  WHERE t.status != 'cancelado'
                   GROUP BY m.id, m.nome 
                   ORDER BY quantidade DESC";
         $stmt = $db->prepare($query);
         $stmt->execute();
         $dashboard['ticketsPorMacrocategoria'] = $stmt->fetchAll();
         
-        // Taxa de resolução (abertos vs fechados)
+        // Taxa de resolução (abertos vs fechados) - excluindo cancelados da conta total
         $query = "SELECT 
-                    SUM(CASE WHEN status IN ('encerrado', 'cancelado') THEN 1 ELSE 0 END) as fechados,
+                    SUM(CASE WHEN status = 'encerrado' THEN 1 ELSE 0 END) as fechados,
                     SUM(CASE WHEN status NOT IN ('encerrado', 'cancelado') THEN 1 ELSE 0 END) as abertos
-                  FROM tickets";
+                  FROM tickets WHERE status != 'cancelado'";
         $stmt = $db->prepare($query);
         $stmt->execute();
         $dashboard['taxa_resolucao'] = $stmt->fetch();
         
-        // Tickets acumulados por mês (últimos 12 meses)
+        // Tickets acumulados por mês (últimos 12 meses) - excluindo cancelados
         $query = "SELECT DATE_FORMAT(criado_em, '%Y-%m') as mes, COUNT(*) as total
                   FROM tickets
-                  WHERE criado_em >= DATE_SUB(NOW(), INTERVAL 12 MONTH)
+                  WHERE criado_em >= DATE_SUB(NOW(), INTERVAL 12 MONTH) AND status != 'cancelado'
                   GROUP BY DATE_FORMAT(criado_em, '%Y-%m')
                   ORDER BY mes";
         $stmt = $db->prepare($query);
         $stmt->execute();
         $dashboard['acumulados_mes'] = $stmt->fetchAll();
         
-        // Tickets por dia da semana
+        // Tickets por dia da semana (excluindo cancelados)
         $query = "SELECT DAYOFWEEK(criado_em) as dia, COUNT(*) as total
                   FROM tickets
+                  WHERE status != 'cancelado'
                   GROUP BY DAYOFWEEK(criado_em)
                   ORDER BY dia";
         $stmt = $db->prepare($query);
@@ -153,11 +157,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
         $stmt->execute();
         $dashboard['status_por_agente'] = $stmt->fetchAll();
         
-        // Indicadores de SLA
+        // Indicadores de SLA (excluindo cancelados)
         $query = "SELECT 
                     COUNT(*) as total,
-                    SUM(CASE WHEN status IN ('encerrado', 'cancelado') THEN 1 ELSE 0 END) as concluidos
-                  FROM tickets";
+                    SUM(CASE WHEN status = 'encerrado' THEN 1 ELSE 0 END) as concluidos
+                  FROM tickets WHERE status != 'cancelado'";
         $stmt = $db->prepare($query);
         $stmt->execute();
         $sla_data = $stmt->fetch();
@@ -167,8 +171,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
             'taxa_conclusao' => $sla_data['total'] > 0 ? round(($sla_data['concluidos'] / $sla_data['total']) * 100, 1) : 0
         ];
         
-        // Funil de conversão (exclui encerrado)
-        $query = "SELECT status, COUNT(*) as total FROM tickets WHERE status != 'encerrado' GROUP BY status";
+        // Funil de conversão (exclui encerrado e cancelado)
+        $query = "SELECT status, COUNT(*) as total FROM tickets WHERE status NOT IN ('encerrado', 'cancelado') GROUP BY status";
         $stmt = $db->prepare($query);
         $stmt->execute();
         $funil_data = $stmt->fetchAll();
@@ -202,6 +206,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
                                     AND u.tipo IN ('agente', 'admin')), '9999-12-31')
                       ) as primeiro_atendimento
                       FROM tickets t
+                      WHERE t.status != 'cancelado'
                       HAVING primeiro_atendimento < '9999-12-31'";
             $stmt = $db->prepare($query);
             $stmt->execute();
