@@ -264,13 +264,23 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $agentes_notificar = $stmt_agentes->fetchAll(PDO::FETCH_COLUMN);
             }
             
-            // Inserir registro para cada agente
+            // Inserir registro e notificação para cada agente
+            $msg_notificacao = "Novo comentário no ticket (#$ticket_id) adicionado por " . ($autor_nome ?? 'Usuário') . ".";
+            $notif_query = "INSERT INTO notificacoes (usuario_id, titulo, mensagem, ticket_id) VALUES (?, 'Novo Comentário', ?, ?)";
+            $stmt_notif = $db->prepare($notif_query);
+
             foreach ($agentes_notificar as $agente_id) {
+                // Notificação de Não Lido original
                 $query_nao_lido = "INSERT INTO comentarios_nao_lidos (ticket_id, usuario_id, comentario_id) 
                                   VALUES (?, ?, ?) 
                                   ON DUPLICATE KEY UPDATE comentario_id = ?, criado_em = CURRENT_TIMESTAMP";
                 $stmt_nao_lido = $db->prepare($query_nao_lido);
                 $stmt_nao_lido->execute([$ticket_id, $agente_id, $comentario_id, $comentario_id]);
+                
+                // Push Interno
+                if ($agente_id != $usuario_id) {
+                    $stmt_notif->execute([$agente_id, $msg_notificacao, $ticket_id]);
+                }
             }
             
             // Enviar email se solicitado

@@ -1,0 +1,211 @@
+// === SISTEMA DE MACROS (RESPOSTAS RÁPIDAS) ===
+
+let todasMacros = [];
+
+function abrirModalMacros() {
+    fecharAvatarDropdown();
+    document.getElementById('modal-overlay').classList.add('show');
+    document.getElementById('modal-macros').classList.add('show');
+    carregarMacros();
+}
+
+function fecharModalMacros() {
+    document.getElementById('modal-overlay').classList.remove('show');
+    document.getElementById('modal-macros').classList.remove('show');
+    fecharFormularioMacro();
+}
+
+
+function carregarMacros() {
+    const lista = document.getElementById('lista-macros-container');
+    lista.innerHTML = '<p>Carregando...</p>';
+
+    const xhr = new XMLHttpRequest();
+    xhr.open('GET', '/crpdesk/api/controllers/macros.php', true);
+    setSecurityHeaders(xhr);
+
+    xhr.onload = function () {
+        if (xhr.status === 200) {
+            todasMacros = JSON.parse(xhr.responseText);
+            renderizarListaMacros();
+        } else {
+            lista.innerHTML = '<p>Erro ao carregar macros.</p>';
+        }
+    };
+    xhr.send();
+}
+
+function renderizarListaMacros() {
+    const lista = document.getElementById('lista-macros-container');
+    const usuarioLogado = JSON.parse(localStorage.getItem('usuario'));
+
+    if (todasMacros.length === 0) {
+        lista.innerHTML = '<p>Nenhuma macro encontrada. Crie sua primeira resposta rápida!</p>';
+        return;
+    }
+
+    let html = '';
+    todasMacros.forEach(macro => {
+        // Apenas dono ou admin pode editar/excluir
+        const podeEditar = usuarioLogado.tipo === 'admin' || macro.usuario_id == usuarioLogado.id;
+
+        html += `
+            <div style="background: #fff; padding: 1rem; border-radius: 8px; margin-bottom: 0.5rem; border: 1px solid #ddd; display: flex; justify-content: space-between; align-items: flex-start;">
+                <div style="flex: 1; padding-right: 1rem;">
+                    <h4 style="margin: 0 0 0.5rem 0; color: var(--azul-primario);">${macro.titulo}</h4>
+                    <div style="font-size: 0.9rem; color: #555; max-height: 40px; overflow: hidden; text-overflow: ellipsis;">
+                        ${macro.texto.replace(/<[^>]*>?/gm, '').substring(0, 100)}...
+                    </div>
+                </div>
+                ${podeEditar ? `
+                <div style="display: flex; gap: 0.5rem;">
+                    <button class="btn-small" style="background:#f39c12; color:#fff;" onclick="editarMacro(${macro.id})">✏️ Editar</button>
+                    <button class="btn-small" style="background:#e74c3c; color:#fff;" onclick="excluirMacro(${macro.id})">🗑️ Excluir</button>
+                </div>
+                ` : ''}
+            </div>
+        `;
+    });
+    lista.innerHTML = html;
+}
+
+function abrirFormularioMacro() {
+    document.getElementById('form-macro-container').style.display = 'block';
+    document.getElementById('macro-id').value = '';
+    document.getElementById('macro-titulo').value = '';
+
+    if (!window.quillMacro) {
+        window.quillMacro = new Quill('#editor-macro', {
+            theme: 'snow',
+            placeholder: 'Escreva a resposta padrão aqui...',
+            modules: {
+                toolbar: [
+                    ['bold', 'italic', 'underline', 'strike'],
+                    ['blockquote', 'code-block'],
+                    [{ 'list': 'ordered' }, { 'list': 'bullet' }],
+                    [{ 'size': ['small', false, 'large', 'huge'] }],
+                    [{ 'color': [] }, { 'background': [] }],
+                    ['link', 'image'],
+                    ['clean']
+                ]
+            }
+        });
+    } else {
+        window.quillMacro.root.innerHTML = '';
+    }
+}
+
+function fecharFormularioMacro() {
+    document.getElementById('form-macro-container').style.display = 'none';
+    if (window.quillMacro) window.quillMacro.root.innerHTML = '';
+    document.getElementById('macro-titulo').value = '';
+    document.getElementById('macro-id').value = '';
+}
+
+function editarMacro(id) {
+    const macro = todasMacros.find(m => m.id == id);
+    if (!macro) return;
+
+    abrirFormularioMacro();
+    document.getElementById('macro-id').value = macro.id;
+    document.getElementById('macro-titulo').value = macro.titulo;
+    setTimeout(() => {
+        if (window.quillMacro) window.quillMacro.root.innerHTML = macro.texto;
+    }, 100);
+}
+
+function salvarMacro() {
+    const id = document.getElementById('macro-id').value;
+    const titulo = document.getElementById('macro-titulo').value.trim();
+    const texto = window.quillMacro ? window.quillMacro.root.innerHTML : '';
+
+    if (!titulo || !texto || texto === '<p><br></p>') {
+        mostrarToast('Erro', 'Título e texto são obrigatórios!', 'error');
+        return;
+    }
+
+    const payload = { titulo, texto };
+    const method = id ? 'PUT' : 'POST';
+    const url = id ? `/crpdesk/api/controllers/macros.php?id=${id}` : '/crpdesk/api/controllers/macros.php';
+
+    const xhr = new XMLHttpRequest();
+    xhr.open(method, url, true);
+    setSecurityHeaders(xhr);
+    xhr.setRequestHeader('Content-Type', 'application/json');
+
+    xhr.onload = function () {
+        if (xhr.status === 200) {
+            mostrarToast('Sucesso', 'Macro salva com sucesso!', 'success');
+            fecharFormularioMacro();
+            carregarMacros();
+            // Também recarregar o seletor no ticket
+            carregarSeletorMacros();
+        } else {
+            let errorMsg = 'Erro ao salvar macro';
+            try { errorMsg = JSON.parse(xhr.responseText).error; } catch (e) { }
+            mostrarToast('Erro', errorMsg, 'error');
+        }
+    };
+    xhr.send(JSON.stringify(payload));
+}
+
+function excluirMacro(id) {
+    if (!confirm('Tem certeza que deseja excluir esta macro?')) return;
+
+    const xhr = new XMLHttpRequest();
+    xhr.open('DELETE', `/crpdesk/api/controllers/macros.php?id=${id}`, true);
+    setSecurityHeaders(xhr);
+
+    xhr.onload = function () {
+        if (xhr.status === 200) {
+            mostrarToast('Sucesso', 'Macro excluída!', 'success');
+            carregarMacros();
+            carregarSeletorMacros();
+        } else {
+            let errorMsg = 'Erro ao excluir macro';
+            try { errorMsg = JSON.parse(xhr.responseText).error; } catch (e) { }
+            mostrarToast('Erro', errorMsg, 'error');
+        }
+    };
+    xhr.send();
+}
+
+// === INTEGRAÇÃO COM TICKET DETAILS ===
+
+function carregarSeletorMacros() {
+    const seletor = document.getElementById('seletor-macros');
+    if (!seletor) return;
+
+    seletor.innerHTML = '<option value="">⚡ Usar Resposta Rápida (Macro)...</option>';
+
+    const xhr = new XMLHttpRequest();
+    xhr.open('GET', '/crpdesk/api/controllers/macros.php', true);
+    setSecurityHeaders(xhr);
+
+    xhr.onload = function () {
+        if (xhr.status === 200) {
+            const macros = JSON.parse(xhr.responseText);
+            todasMacros = macros; // Atualiza a global também
+            macros.forEach(m => {
+                seletor.innerHTML += `<option value="${m.id}">${m.titulo}</option>`;
+            });
+        }
+    };
+    xhr.send();
+}
+
+function aplicarMacroTicket(macroId) {
+    if (!macroId) return;
+
+    const macro = todasMacros.find(m => m.id == macroId);
+    if (macro && window.quillComentario) {
+        // Verifica se já tem texto para não engolir. Vamos concatenar ou substituir?
+        // Vamos apenas injetar
+        const conteudoAtual = window.quillComentario.root.innerHTML;
+        const conteudoLimpo = conteudoAtual === '<p><br></p>' ? '' : conteudoAtual;
+        window.quillComentario.root.innerHTML = conteudoLimpo + macro.texto;
+
+        // Resetar o seletor
+        document.getElementById('seletor-macros').value = '';
+    }
+}

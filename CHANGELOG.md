@@ -52,6 +52,29 @@ Todas as alterações notáveis neste projeto serão documentadas neste arquivo.
 - **Remoção da rotina `meu-ticket-row`**: A coloração verde-claro (`#F0F8F4`) aplicada às linhas onde o responsável era o usuário logado foi completamente removida — `style.css` (4 blocos, modo claro e escuro) e `script.js` (2 tabelas: abertos e fechados). A funcionalidade é substituída pelo filtro "Meus Tickets".
 - Removidos também: classe `meu-ticket` no `<span>` de responsável e estilo inline `color: #28A745; font-weight: bold` na tabela de fechados.
 
+### ⚡ Respostas Rápidas (Macros) *(novo)*
+
+### 🔔 Notificações e Alertas Flutuantes Internos (Push) *(novo)*
+
+- **Novo Painel de Notificações**: Adicionado um ícone de "Sino" (🔔) no Header do sistema, entre o Menu de Configurações e o Avatar do Usuário, focado em entregar alertas em tempo real ao longo do uso do Helpdesk, sem depender do envio externo de e-mails.
+  - **Badge de Alertas**: Um contador circular e animado (`pulse`) é exibido sobre o ícone sempre que houver novas interações. O valor é atualizado a cada 30 segundos (via *polling* invisível em plano de fundo).
+  - **Dropdown de Feed**: Clique no sino abre uma gaveta flutuante exibindo o histórico de alertas (ex: *"Novo ticket atribuído a você"* ou *"Novo comentário adicionado"*) ordenados por cronologia.
+  - **Leitura Contextual Ativa**: Clicar numa notificação de Ticket na lista altera automaticamente a interface principal do SPA (`script.js`), abrindo os Detalhes daquele chamado de maneira imediata ao mesmo tempo que marca a flag como lida no banco de dados.
+  - **Botão "Marcar todas como Lidas"**: Ação rápida em JS via instrução `PUT` na API para zerar a lista.
+
+- **Atualizações Baseadas em Eventos**: O Trigger da API nativa em `tickets.php` e `comentarios.php` foram aprimorados.
+  - Em casos de **Nova Atribuição de Responsável**, o agente notificado recebe um sinal de PUSH no portal em seu ID para iniciar os atendimentos.
+  - Em casos de **Novo Ticket Aberto**, um loop assíncrono envia PUSH de aviso na mesa de todos os Administradores e Agentes setados como Ativos = 1.
+  - Em casos de **Novos Comentários Injetados**, todos os membros previamente da fila associados ao Ticket (que receberiam o alerta apenas por e-mail) agora acompanham via sinal sonoro/visual pelo Painel.
+  - **Banco de Dados Dedicado**: Inserido SQL de fundação (`7_create_notificacoes.sql`) e controller autônomo.
+
+- **Novo Módulo "Macros"**: Implementado um sistema de criação e gerenciamento de templates de texto pré-formatados para acelerar a resposta de tickets.
+  - Acessível pelo dropdown do Perfil de Usuário com a opção "⚡ Respostas Rápidas".
+  - **Interface de Gerenciamento**: Modal dedicado com listagem dinâmica, suporte a edição e exclusão de macros existentes. Apenas os donos ou Administradores podem excluir seus registros.
+  - **Editor Rico (WYSIWYG)**: Formulário de criação conta com integração ao provedor rico *QuillJS*, possuindo recursos de formatação em Negrito, Listagem, HTML customizado e Cores para os Templates.
+  - **Integração Fluida na Resposta de Tickets**: Adicionado um `<select>` flutuante no topo do campo de comentários que processa e espalha (injetando via innerHTML) a Macro escolhida para dentro do ticket local do usuário, preservando as inserções anteriores sem sobrescrevê-las.
+  - **Banco de Dados**: Migração gerada (`6_add_macros_and_longtext.sql`) com o provisionamento da tabela `macros` amarrando por `FOREIGN KEY` ao usuário solicitante.
+
 ### 🗂️ Navegação — Botão "Arquivo" no Header *(melhoria)*
 
 - O botão **"Encerrados"** foi movido da área de ações da tabela para o **header do sistema**, ao lado do botão "Tickets".
