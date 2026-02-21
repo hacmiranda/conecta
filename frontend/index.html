@@ -99,6 +99,34 @@
                             Auditoria</button>
                     </div>
                 </div>
+
+                <!-- Notificações -->
+                <div class="nav-dropdown-wrapper" id="nav-notificacoes-wrapper"
+                    style="margin-right: 2px; display: inline-flex; align-items: center;">
+                    <button class="btn-nav" id="btn-nav-notificacoes" onclick="toggleNavDropdown('notificacoes')"
+                        aria-haspopup="true" aria-expanded="false"
+                        style="padding: 0; border-radius: 50%; width: 40px; height: 40px; display: inline-flex; justify-content: center; align-items: center; position: relative;">
+                        <span class="material-symbols-outlined" style="font-size: 1.3rem;">notifications</span>
+                        <span id="badge-notificacoes" class="badge-notificacoes"
+                            style="display: none; position: absolute; top: -2px; right: -2px; background: var(--vermelho); color: white; border-radius: 50%; font-size: 0.65rem; width: 18px; height: 18px; justify-content: center; align-items: center; font-weight: bold;"></span>
+                    </button>
+                    <!-- Dropdown Notificacoes -->
+                    <div class="nav-dropdown" id="nav-notificacoes-dropdown"
+                        style="width: 350px; right: 0; left: auto; padding: 0; overflow: hidden; max-height: 400px; display: flex; flex-direction: column;">
+                        <div
+                            style="padding: 1rem; background: var(--azul-primario); color: white; display: flex; justify-content: space-between; align-items: center;">
+                            <h4 style="margin: 0; font-size: 1rem;">Notificações</h4>
+                            <button onclick="marcarTodasComoLidas()"
+                                style="background: none; border: none; color: white; cursor: pointer; font-size: 0.8rem; text-decoration: underline;">Marcar
+                                todas como lidas</button>
+                        </div>
+                        <div id="lista-notificacoes"
+                            style="overflow-y: auto; flex: 1; padding: 0.5rem; background: #f8f9fa;">
+                            <div style="padding: 1rem; text-align: center; color: #666;">Carregando...</div>
+                        </div>
+                    </div>
+                </div>
+
                 <!-- Avatar do usuário -->
                 <div class="header-avatar-wrapper" id="header-avatar-wrapper">
                     <button class="header-avatar-btn" id="header-avatar-btn" onclick="toggleAvatarDropdown()"
@@ -125,6 +153,9 @@
                             </div>
                         </div>
                         <div class="header-avatar-dropdown-divider"></div>
+                        <button class="had-item" role="menuitem" onclick="abrirModalMacros(); fecharAvatarDropdown();">
+                            ⚡ Respostas Rápidas
+                        </button>
                         <button class="had-item" role="menuitem" id="btn-alterar-avatar">
                             📷 Alterar Avatar
                         </button>
@@ -630,48 +661,87 @@
             </div>
         </div>
 
-        <!-- Modal Avatar -->
-        <div id="modal-avatar" class="modal" role="dialog" aria-modal="true" aria-labelledby="avatarModalTitle"
-            style="max-width: 500px;">
+        <!-- Modal de Macros -->
+        <div id="modal-macros" class="modal" role="dialog" aria-modal="true" aria-labelledby="modal-macros-title"
+            style="max-width: 650px; width: 90%;">
             <div class="modal-header">
-                <h3 id="avatarModalTitle">Alterar Avatar</h3>
-                <button onclick="closeAvatarModal()" class="btn-close-modal">×</button>
+                <h3 id="modal-macros-title">⚡ Respostas Rápidas (Macros)</h3>
+                <button onclick="fecharModalMacros()" class="btn-close-modal">×</button>
             </div>
-            <form id="avatarForm" enctype="multipart/form-data" class="modal-body">
-                <input type="hidden" id="avatarUserId" name="user_id">
-                <div id="uploadSection" style="text-align: center;">
-                    <div
-                        style="width: 160px; height: 160px; margin: 0 auto 1rem; border-radius: 50%; background: #f0f0f0; display: flex; align-items: center; justify-content: center; overflow: hidden;">
-                        <span style="font-size: 3.5rem; color: #ccc;">👤</span>
-                    </div>
-                    <label
-                        style="display: inline-flex; align-items: center; gap: 0.5rem; padding: 0.75rem 1.5rem; background: var(--laranja); color: white; border-radius: 8px; cursor: pointer; font-weight: 500;">
-                        📤 Selecionar Imagem
-                        <input type="file" id="avatarInput" accept="image/*" onchange="loadImageToCrop(this)"
-                            style="display: none;">
-                    </label>
-                    <p style="font-size: 0.85rem; color: #666; margin-top: 0.5rem;">JPG, PNG ou GIF (máx. 5MB)</p>
+            <div class="modal-body" style="padding: 1.5rem;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+                    <p style="color: #666; margin: 0;">Crie textos padronizados para enviar rapidamente nos tickets.
+                    </p>
+                    <button class="btn-primary" onclick="abrirFormularioMacro()">➕ Nova Macro</button>
                 </div>
-                <div id="cropSection" style="display: none;">
-                    <div
-                        style="width: 100%; height: 280px; background: #f5f5f5; border-radius: 8px; overflow: hidden; margin-bottom: 1rem;">
-                        <img id="imageToCrop" style="max-width: 100%;">
+
+                <div id="form-macro-container"
+                    style="display: none; background: #f8f9fa; padding: 1rem; border-radius: 8px; margin-bottom: 1rem; border: 1px solid #ddd;">
+                    <input type="hidden" id="macro-id">
+                    <div class="form-group">
+                        <label for="macro-titulo">Título da Macro:</label>
+                        <input type="text" id="macro-titulo" placeholder="Ex: Solicitação de Documento"
+                            class="modal-input">
                     </div>
-                    <div style="display: flex; align-items: center; gap: 1rem;">
-                        <label style="font-size: 0.9rem; font-weight: 600;">Zoom:</label>
-                        <input type="range" id="zoomSlider" min="0.1" max="3" step="0.1" value="1" style="flex: 1;">
-                        <button type="button" onclick="resetCrop()"
-                            style="font-size: 0.85rem; color: var(--laranja); background: none; border: none; cursor: pointer;">Resetar</button>
+                    <div class="form-group">
+                        <label for="macro-texto">Texto (HTML suportado):</label>
+                        <div id="editor-macro" style="height: 150px; background: #fff;"></div>
+                        <input type="hidden" id="macro-texto">
+                    </div>
+                    <div style="display: flex; justify-content: flex-end; gap: 0.5rem; margin-top: 1rem;">
+                        <button class="btn-voltar" onclick="fecharFormularioMacro()">Cancelar</button>
+                        <button class="btn-primary" onclick="salvarMacro()">💾 Salvar Macro</button>
                     </div>
                 </div>
-            </form>
-            <div class="modal-footer">
-                <button type="button" onclick="closeAvatarModal()"
-                    class="btn-modal btn-secondary-modal">Cancelar</button>
-                <button type="button" id="cropButton" onclick="cropAndSave()" class="btn-modal btn-primary-modal"
-                    style="display: none;">Cortar e Salvar</button>
+
+                <div id="lista-macros-container" style="max-height: 400px; overflow-y: auto;">
+                    <p>Carregando macros...</p>
+                </div>
             </div>
         </div>
+    </div>
+
+    <!-- Modal Avatar -->
+    <div id="modal-avatar" class="modal" role="dialog" aria-modal="true" aria-labelledby="avatarModalTitle"
+        style="max-width: 500px;">
+        <div class="modal-header">
+            <h3 id="avatarModalTitle">Alterar Avatar</h3>
+            <button onclick="closeAvatarModal()" class="btn-close-modal">×</button>
+        </div>
+        <form id="avatarForm" enctype="multipart/form-data" class="modal-body">
+            <input type="hidden" id="avatarUserId" name="user_id">
+            <div id="uploadSection" style="text-align: center;">
+                <div
+                    style="width: 160px; height: 160px; margin: 0 auto 1rem; border-radius: 50%; background: #f0f0f0; display: flex; align-items: center; justify-content: center; overflow: hidden;">
+                    <span style="font-size: 3.5rem; color: #ccc;">👤</span>
+                </div>
+                <label
+                    style="display: inline-flex; align-items: center; gap: 0.5rem; padding: 0.75rem 1.5rem; background: var(--laranja); color: white; border-radius: 8px; cursor: pointer; font-weight: 500;">
+                    📤 Selecionar Imagem
+                    <input type="file" id="avatarInput" accept="image/*" onchange="loadImageToCrop(this)"
+                        style="display: none;">
+                </label>
+                <p style="font-size: 0.85rem; color: #666; margin-top: 0.5rem;">JPG, PNG ou GIF (máx. 5MB)</p>
+            </div>
+            <div id="cropSection" style="display: none;">
+                <div
+                    style="width: 100%; height: 280px; background: #f5f5f5; border-radius: 8px; overflow: hidden; margin-bottom: 1rem;">
+                    <img id="imageToCrop" style="max-width: 100%;">
+                </div>
+                <div style="display: flex; align-items: center; gap: 1rem;">
+                    <label style="font-size: 0.9rem; font-weight: 600;">Zoom:</label>
+                    <input type="range" id="zoomSlider" min="0.1" max="3" step="0.1" value="1" style="flex: 1;">
+                    <button type="button" onclick="resetCrop()"
+                        style="font-size: 0.85rem; color: var(--laranja); background: none; border: none; cursor: pointer;">Resetar</button>
+                </div>
+            </div>
+        </form>
+        <div class="modal-footer">
+            <button type="button" onclick="closeAvatarModal()" class="btn-modal btn-secondary-modal">Cancelar</button>
+            <button type="button" id="cropButton" onclick="cropAndSave()" class="btn-modal btn-primary-modal"
+                style="display: none;">Cortar e Salvar</button>
+        </div>
+    </div>
 
     </div>
 
@@ -757,13 +827,15 @@
 
     <!-- Socket.io removido para PHP -->
 
-    <script src="script.js"></script>
+    <script src="script.js?v=3.6"></script>
     <script src="graficos-dashboard.js"></script>
     <script src="status-sla.js"></script>
     <script src="tutorial.js?v=3.4"></script>
     <script src="lembretes.js"></script>
     <script src="fluxos-email-func.js"></script>
     <script src="horarios-sla.js"></script>
+    <script src="macros.js?v=1.1"></script>
+    <script src="notificacoes.js?v=1.0"></script>
     <script src="avatar.js?v=1.6"></script>
 
     <!-- Botão Voltar ao Topo -->
@@ -862,8 +934,6 @@
 
     <!-- Script Cookies -->
     <script src="cookie-manager.js"></script>
-
-
 </body>
 
 </html>

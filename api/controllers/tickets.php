@@ -280,14 +280,29 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
         }
         
-        // Enviar email de confirmação
+        // Enviar email de confirmação e Push
         try {
             require_once __DIR__ . '/../services/email-sender.php';
             $emailSender = new EmailSender($db);
             $emailSender->enviarEmailNovoTicket($ticket_id);
             $emailSender->notificarAgentesNovoTicket($ticket_id);
+            
+            // Push Notification para agentes
+            $agentes_query = "SELECT id FROM usuarios WHERE tipo IN ('agente', 'admin') AND ativo = 1";
+            $agentes_stmt = $db->query($agentes_query);
+            $agentes = $agentes_stmt->fetchAll(PDO::FETCH_COLUMN);
+
+            $msg_novo_ticket = "Um novo ticket (#$ticket_id) foi aberto pelo usuário " . ($user['nome'] ?? 'Desconhecido') . ".";
+            $notif_insert = "INSERT INTO notificacoes (usuario_id, titulo, mensagem, ticket_id) VALUES (?, 'Novo Ticket', ?, ?)";
+            $stmt_insert = $db->prepare($notif_insert);
+            
+            foreach ($agentes as $ag_id) {
+                if ($ag_id != $user['id']) {
+                    $stmt_insert->execute([$ag_id, $msg_novo_ticket, $ticket_id]);
+                }
+            }
         } catch (Exception $emailError) {
-            error_log("[WARNING] Erro no envio de email: " . $emailError->getMessage());
+            error_log("[WARNING] Erro no envio de email/notificação: " . $emailError->getMessage());
         }
         
         // Buscar ticket criado
@@ -611,8 +626,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'PUT') {
                         $user_stmt->execute([$usuario_id]);
                         $user_data = $user_stmt->fetch();
                         $emailSender->notificarAtribuicaoTicket($ticket_id, $input['agente_id'], $user_data['nome'] ?? 'Sistema', $era_sem_atribuicao);
+                        
+                        // Push Notificação Interna
+                        $msg_notificacao = "O ticket (#" . $ticket_id . ") foi atribuído a você por " . ($user_data['nome'] ?? 'Sistema') . ".";
+                        $notif_query = "INSERT INTO notificacoes (usuario_id, titulo, mensagem, ticket_id) VALUES (?, ?, ?, ?)";
+                        $notif_stmt = $db->prepare($notif_query);
+                        $notif_stmt->execute([$input['agente_id'], 'Ticket Atribuído', $msg_notificacao, $ticket_id]);
+                        
                     } catch (Exception $emailError) {
-                        error_log("[WARNING] Erro no envio de email de atribuição: " . $emailError->getMessage());
+                        error_log("[WARNING] Erro no envio de email/notificacao de atribuição: " . $emailError->getMessage());
                     }
                 }
             } catch (Exception $e) {

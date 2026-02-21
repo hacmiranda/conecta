@@ -1,0 +1,123 @@
+// === SISTEMA DE NOTIFICAÇÕES (PUSH INTERNO) ===
+
+let intervalNotificacoes = null;
+const TEMPO_POLLING = 30000; // 30 segundos
+
+function inciarNotificacoes() {
+    carregarNotificacoes();
+    // Inicia polling
+    intervalNotificacoes = setInterval(carregarNotificacoes, TEMPO_POLLING);
+}
+
+function carregarNotificacoes() {
+    const xhr = new XMLHttpRequest();
+    xhr.open('GET', '/crpdesk/api/controllers/notificacoes.php', true);
+    setSecurityHeaders(xhr);
+
+    xhr.onload = function () {
+        if (xhr.status === 200) {
+            try {
+                const data = JSON.parse(xhr.responseText);
+                atualizarBadgeNotificacoes(data.nao_lidas);
+                renderizarNotificacoes(data.notificacoes);
+            } catch (e) {
+                console.error("Erro parseando notificações", e);
+            }
+        }
+    };
+    xhr.send();
+}
+
+function atualizarBadgeNotificacoes(quantidade) {
+    const badge = document.getElementById('badge-notificacoes');
+    if (!badge) return;
+
+    if (quantidade > 0) {
+        badge.textContent = quantidade > 99 ? '99+' : quantidade;
+        badge.style.display = 'flex';
+        badge.classList.add('pulse'); // css de pulso opcional
+    } else {
+        badge.style.display = 'none';
+        badge.textContent = '';
+    }
+}
+
+function renderizarNotificacoes(notificacoes) {
+    const lista = document.getElementById('lista-notificacoes');
+    if (!lista) return;
+
+    if (!notificacoes || notificacoes.length === 0) {
+        lista.innerHTML = '<div style="padding: 1rem; text-align: center; color: #666;">Nenhuma notificação encontrada.</div>';
+        return;
+    }
+
+    let html = '';
+    notificacoes.forEach(notif => {
+        const bgCor = notif.lida == 0 ? '#ffffff' : '#f4f4f4';
+        const barraCor = notif.lida == 0 ? 'var(--laranja)' : 'transparent';
+        const txtCor = notif.lida == 0 ? '#333' : '#777';
+
+        // Se a notificação tem ticket, clica nela e abre
+        const onclickAction = notif.ticket_id ? `abrirDetalhesNotificacao(${notif.id}, ${notif.ticket_id})` : `marcarNotificacaoLida(${notif.id})`;
+
+        html += `
+            <div onclick="${onclickAction}" style="background: ${bgCor}; border-left: 4px solid ${barraCor}; padding: 0.8rem; margin-bottom: 0.5rem; border-radius: 4px; box-shadow: 0 1px 2px rgba(0,0,0,0.05); cursor: pointer; transition: background 0.2s;">
+                <div style="font-weight: 600; font-size: 0.9rem; color: ${txtCor}; margin-bottom: 0.3rem;">${notif.titulo}</div>
+                <div style="font-size: 0.8rem; color: ${txtCor}; line-height: 1.3;">${notif.mensagem}</div>
+                <div style="font-size: 0.7rem; color: #aaa; margin-top: 0.4rem; text-align: right;">${new Date(notif.criado_em).toLocaleString('pt-BR')}</div>
+            </div>
+        `;
+    });
+
+    lista.innerHTML = html;
+}
+
+function marcarNotificacaoLida(id) {
+    const xhr = new XMLHttpRequest();
+    xhr.open('PUT', '/crpdesk/api/controllers/notificacoes.php?id=' + id, true);
+    setSecurityHeaders(xhr);
+
+    xhr.onload = function () {
+        if (xhr.status === 200) {
+            carregarNotificacoes();
+        }
+    };
+    xhr.send();
+}
+
+function marcarTodasComoLidas() {
+    const xhr = new XMLHttpRequest();
+    xhr.open('PUT', '/crpdesk/api/controllers/notificacoes.php', true);
+    setSecurityHeaders(xhr);
+
+    xhr.onload = function () {
+        if (xhr.status === 200) {
+            carregarNotificacoes();
+        }
+    };
+    xhr.send();
+}
+
+function abrirDetalhesNotificacao(notifId, ticketId) {
+    marcarNotificacaoLida(notifId);
+
+    // Fechar dropdown de notificacoes
+    fecharNavDropdown('notificacoes');
+
+    // Chamar função principal do script.js
+    if (typeof abrirDetalhesDoTicket === 'function') {
+        abrirDetalhesDoTicket(ticketId);
+    } else {
+        console.warn("Função abrirDetalhesDoTicket não encontrada.");
+    }
+}
+
+// Interceptar o carregamento do usuário para inicar as notificações
+document.addEventListener('DOMContentLoaded', () => {
+    // Espera 2 segundos para dar tempo do login carregar o token
+    setTimeout(() => {
+        if (localStorage.getItem('token')) {
+            inciarNotificacoes();
+        }
+    }, 2000);
+});

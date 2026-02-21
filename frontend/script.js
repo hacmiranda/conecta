@@ -5,6 +5,14 @@ function sanitizeHTML(str) {
     return div.innerHTML;
 }
 
+// Global Injector de Header (JWT Auth) para Fetchs assíncronos extras
+window.setSecurityHeaders = function (xhr) {
+    const token = localStorage.getItem('token');
+    if (token) {
+        xhr.setRequestHeader('Authorization', `Bearer ${token}`);
+    }
+};
+
 // Função de logout
 function fazerLogout() {
     localStorage.removeItem('usuario');
@@ -1443,6 +1451,7 @@ function verDetalhes(ticketId) {
                 });
 
                 carregarLembretes(ticketId);
+                if (typeof carregarSeletorMacros === 'function') carregarSeletorMacros();
             }, 100);
         } else {
             console.error('Erro ao carregar detalhes:', xhr.status, xhr.responseText);
@@ -1692,8 +1701,13 @@ function mostrarDetalhesTicket(ticket) {
                 </div>
                 
                 <form id="form-comentario" onsubmit="adicionarComentario(event, ${ticket.id})">
+                    <div class="form-group" style="display: flex; justify-content: space-between; align-items: flex-end;">
+                        <label for="novo-comentario" style="margin-bottom: 0;">Adicionar comentário:</label>
+                        <select id="seletor-macros" onchange="aplicarMacroTicket(this.value)" style="padding: 0.4rem; border-radius: 4px; border: 1px solid #ccc; font-size: 0.9rem; max-width: 300px; cursor: pointer;">
+                            <option value="">⚡ Usar Resposta Rápida (Macro)...</option>
+                        </select>
+                    </div>
                     <div class="form-group">
-                        <label for="novo-comentario">Adicionar comentário:</label>
                         <div id="editor-comentario" style="height: 150px; background: #fff;"></div>
                         <input type="hidden" id="novo-comentario" required>
                     </div>
