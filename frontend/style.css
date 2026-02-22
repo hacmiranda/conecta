@@ -213,7 +213,8 @@ nav {
     box-shadow: 0 10px 40px rgba(0, 0, 0, 0.18);
     z-index: 2000;
     overflow: hidden;
-    animation: avatar-dropdown-in 0.18s ease;
+    transform-origin: top right;
+    animation: avatar-dropdown-in 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
 }
 
 .header-avatar-dropdown.open {
@@ -223,12 +224,12 @@ nav {
 @keyframes avatar-dropdown-in {
     from {
         opacity: 0;
-        transform: translateY(-6px);
+        transform: scale(0.95) translateY(-10px);
     }
 
     to {
         opacity: 1;
-        transform: translateY(0);
+        transform: scale(1) translateY(0);
     }
 }
 
@@ -991,6 +992,8 @@ select {
 
 .categoria-dropdown.show {
     display: block;
+    transform-origin: top center;
+    animation: avatar-dropdown-in 0.35s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
 }
 
 .categoria-item {
@@ -1031,6 +1034,8 @@ select {
 
 .categoria-lista-form.show {
     display: block;
+    transform-origin: top center;
+    animation: avatar-dropdown-in 0.35s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
 }
 
 .categoria-item-form {

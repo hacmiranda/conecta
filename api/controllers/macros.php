@@ -48,6 +48,7 @@ if ($method === 'GET') {
 
 // POST: Add new macro
 if ($method === 'POST') {
+    AuthMiddleware::verificarCSRF();
     $data = json_decode(file_get_contents("php://input"));
     if(!empty($data->titulo) && !empty($data->texto)) {
         try {
@@ -75,6 +76,7 @@ if ($method === 'POST') {
 
 // PUT / DELETE need ID from URL like ?id=1
 if ($method === 'PUT') {
+    AuthMiddleware::verificarCSRF();
     $id = isset($_GET['id']) ? $_GET['id'] : die();
     $data = json_decode(file_get_contents("php://input"));
     
@@ -120,6 +122,7 @@ if ($method === 'PUT') {
 }
 
 if ($method === 'DELETE') {
+    AuthMiddleware::verificarCSRF();
     $id = isset($_GET['id']) ? $_GET['id'] : die();
     // Check permission - admin or owner
     $check_query = "SELECT usuario_id FROM macros WHERE id = :id";

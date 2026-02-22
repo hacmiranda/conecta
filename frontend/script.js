@@ -256,28 +256,7 @@ function mostrarSecao(secaoId) {
     } else if (secaoId === 'fechados') {
         // Botão fechados não está mais no header
     } else if (secaoId === 'novo') {
-        // Inicializar Quill se não existir
-        if (!window.quillDescricao) {
-            setTimeout(() => {
-                window.quillDescricao = new Quill('#editor-descricao', {
-                    theme: 'snow',
-                    placeholder: 'Descreva a situação detalhadamente. Você pode colar imagens (Ctrl+V) ou formatar o texto.',
-                    modules: {
-                        toolbar: [
-                            ['bold', 'italic', 'underline', 'strike'],
-                            ['blockquote', 'code-block'],
-                            [{ 'list': 'ordered' }, { 'list': 'bullet' }],
-                            [{ 'script': 'sub' }, { 'script': 'super' }],
-                            [{ 'indent': '-1' }, { 'indent': '+1' }],
-                            [{ 'size': ['small', false, 'large', 'huge'] }],
-                            [{ 'color': [] }, { 'background': [] }],
-                            ['link', 'image', 'video'],
-                            ['clean']
-                        ]
-                    }
-                });
-            }, 100);
-        }
+        // Inicialização do Quill removida: O Alpine.js agora cuida disso via isolamento de componente no index.html.
 
         // Botão novo não está mais no header
         // Reconfigurar pesquisa de categoria após mostrar seção
@@ -423,14 +402,7 @@ function setSecurityHeaders(xhr) {
 // Formulário de novo ticket - VERSÃO COM XMLHttpRequest
 document.getElementById('form-ticket').addEventListener('submit', function (e) {
     e.preventDefault();
-    // Atualiza o value invisível para que o HTML Validator passe e a lógica nativa capture
-    if (window.quillDescricao) {
-        document.getElementById('descricao').value = window.quillDescricao.root.innerHTML;
-        // Impedindo disparo de form se vazio
-        if (window.quillDescricao.getText().trim().length === 0) {
-            document.getElementById('descricao').value = '';
-        }
-    }
+    // O Alpine.js agora espelha a propriedade content do quillInstance automaticamente para o input.value invisível "descricao"
 
     const titulo = document.getElementById('titulo').value;
     const descricao = document.getElementById('descricao').value;
@@ -3422,8 +3394,12 @@ function limparFormularioTicket() {
     // Limpar campos específicos
     document.getElementById('titulo').value = '';
     document.getElementById('descricao').value = '';
-    if (window.quillDescricao) {
-        window.quillDescricao.root.innerHTML = '';
+    // Limpar editor isolado via Dispatch no Alpine (se for o formulário da main SPA)
+    const alpineNode = document.getElementById('editor-descricao');
+    if (alpineNode && alpineNode.__x) {
+        // Apenas limpamos o state no frontend form
+        // Alpine.js ou dispatch faria isso mas neste caso recarregar limpamos o innerHTML forçado
+        alpineNode.innerHTML = '<p><br></p>';
     }
 
     // Limpar campo de categoria
@@ -3592,6 +3568,16 @@ function alterarPorPaginaFechados(valor) {
     mostrarTicketsFechadosNaTela(ticketsFechadosFiltradosPorBusca.length > 0 ? ticketsFechadosFiltradosPorBusca : ticketsFechadosAtuais);
 }
 
+// Ofuscar e-mail conforme premissa da LGPD
+function ofuscarEmail(email) {
+    if (!email || typeof email !== 'string') return '';
+    const partes = email.split('@');
+    if (partes.length !== 2) return email;
+    const [nome, dominio] = partes;
+    if (nome.length <= 2) return `${nome.charAt(0)}***@${dominio}`;
+    return `${nome.substring(0, 2)}***${nome.slice(-1)}@${dominio}`;
+}
+
 // Mostrar tickets fechados na tela
 function mostrarTicketsFechadosNaTela(tickets) {
     const listaFechados = document.getElementById('lista-fechados');
@@ -3654,7 +3640,7 @@ function mostrarTicketsFechadosNaTela(tickets) {
                 </td>
                 <td data-label="Solicitante">
                     <strong>${ticket.usuario_nome}</strong>
-                    ${ticket.usuario_email ? `<span class="ticket-data-hora" style="font-size: 0.85em;">${ticket.usuario_email}</span>` : ''}
+                    ${ticket.usuario_email ? `<span class="ticket-data-hora" style="font-size: 0.85em;">${ofuscarEmail(ticket.usuario_email)}</span>` : ''}
                 </td>
                 <td data-label="Responsável">${ticket.agente_nome || 'Não atribuído'}</td>
                 <td data-label="Categoria">${ticket.categoria_nome || 'Sem categoria'}</td>
@@ -3876,6 +3862,13 @@ function mostrarDashboardNaTela(dados) {
             <div class="dashboard-card">
                 <h3>✅ Taxa de Conclusão <span class="info-icon" onclick="mostrarInfoGrafico('taxa-conclusao')" title="Clique para mais informações">ℹ️</span></h3>
                 <div class="dashboard-number flip-in">${taxaConclusao}%</div>
+            </div>
+            <div class="dashboard-card" style="background: linear-gradient(135deg, #1e3a8a 0%, #3b82f6 100%); color: white;">
+                <h3 style="color: #bfdbfe;">🚀 FCR (1º Contato) <span class="info-icon" onclick="mostrarInfoGrafico('fcr')" title="Clique para mais informações" style="color: white; opacity: 0.8;">ℹ️</span></h3>
+                <div class="dashboard-number flip-in" style="font-size: 2.2rem;">${dados.fcr?.taxa || 0}%</div>
+                <div style="font-size: 0.8rem; margin-top: 0.5rem; color: #bfdbfe;">
+                    ${dados.fcr?.resolvidos_primeiro_contato || 0} de ${dados.fcr?.total_resolvidos || 0} resolvidos
+                </div>
             </div>
         </div>
         
@@ -6892,6 +6885,11 @@ function mostrarInfoGrafico(tipo) {
             titulo: '✅ Taxa de Conclusão',
             descricao: 'Percentual de tickets concluídos em relação ao total.',
             analise: 'Indica a efetividade da equipe em resolver demandas. Valores baixos podem indicar tickets abandonados ou mal gerenciados.'
+        },
+        'fcr': {
+            titulo: '🚀 FCR (First Contact Resolution)',
+            descricao: 'Taxa de chamados resolvidos logo no primeiro contato/resposta, sem precisarem de interações adicionais ou vaivém com o solicitante.',
+            analise: 'A principal métrica de eficiência do Suporte. Valores altos significam que a equipe é altamente assertiva e tem forte domínio sobre os problemas dos usuários logo de primeira.'
         },
         'status': {
             titulo: '📊 Tickets por Status',

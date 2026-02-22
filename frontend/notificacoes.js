@@ -1,31 +1,35 @@
-// === SISTEMA DE NOTIFICAÇÕES (PUSH INTERNO) ===
+// === SISTEMA DE NOTIFICAÇÕES (SSE / PUSH HTTP) ===
 
-let intervalNotificacoes = null;
-const TEMPO_POLLING = 30000; // 30 segundos
+let sseSource = null;
 
 function inciarNotificacoes() {
-    carregarNotificacoes();
-    // Inicia polling
-    intervalNotificacoes = setInterval(carregarNotificacoes, TEMPO_POLLING);
-}
+    const token = localStorage.getItem('token');
+    if (!token) return;
 
-function carregarNotificacoes() {
-    const xhr = new XMLHttpRequest();
-    xhr.open('GET', '/crpdesk/api/controllers/notificacoes.php', true);
-    setSecurityHeaders(xhr);
+    // Fecha conexão anterior se existir
+    if (sseSource) {
+        sseSource.close();
+    }
 
-    xhr.onload = function () {
-        if (xhr.status === 200) {
-            try {
-                const data = JSON.parse(xhr.responseText);
-                atualizarBadgeNotificacoes(data.nao_lidas);
-                renderizarNotificacoes(data.notificacoes);
-            } catch (e) {
-                console.error("Erro parseando notificações", e);
-            }
+    // Inicia a escuta contínua via Server-Sent Events (SSE)
+    sseSource = new EventSource(`/crpdesk/api/controllers/notificacoes-stream.php?token=${token}`);
+
+    // Quando o PHP mandar as atualizações (event: update)
+    sseSource.addEventListener('update', function (event) {
+        try {
+            const data = JSON.parse(event.data);
+            atualizarBadgeNotificacoes(data.nao_lidas);
+            renderizarNotificacoes(data.notificacoes);
+        } catch (e) {
+            console.error("Erro parseando payload do SSE", e);
         }
+    });
+
+    // Tratamento de erros de conexão (O navegador tentará religar automaticamente)
+    sseSource.onerror = function (err) {
+        console.warn("Conexão SSE caiu ou token inválido. Re-tentando em background...", err);
+        // Opcional: Se err.eventPhase == EventSource.CLOSED poderia disparar recarregamento do token
     };
-    xhr.send();
 }
 
 function atualizarBadgeNotificacoes(quantidade) {
@@ -79,7 +83,8 @@ function marcarNotificacaoLida(id) {
 
     xhr.onload = function () {
         if (xhr.status === 200) {
-            carregarNotificacoes();
+            // carregarNotificacoes() foi removido.
+            // O EventSource assumirá e re-renderizará a lista na próxima verificação background.
         }
     };
     xhr.send();
@@ -92,7 +97,8 @@ function marcarTodasComoLidas() {
 
     xhr.onload = function () {
         if (xhr.status === 200) {
-            carregarNotificacoes();
+            // carregarNotificacoes() foi removido.
+            // O EventSource varrerá em fundo e limpará a lista.
         }
     };
     xhr.send();
