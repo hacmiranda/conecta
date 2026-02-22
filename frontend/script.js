@@ -249,28 +249,29 @@ function mostrarSecao(secaoId) {
     // Salvar seção ativa no localStorage
     localStorage.setItem('secaoAtiva', secaoId);
 
-    // Ativar botão correspondente
-    const botoes = document.querySelectorAll('.btn-nav');
-    if (secaoId === 'tickets') {
-        botoes[0].classList.add('active');
-    } else if (secaoId === 'fechados') {
-        // Botão fechados não está mais no header
-    } else if (secaoId === 'novo') {
-        // Inicialização do Quill removida: O Alpine.js agora cuida disso via isolamento de componente no index.html.
+    // Ativar botão correspondente por ID (robusto, sem depender de índice de posição)
+    const mapaBotoes = {
+        'tickets': 'btn-nav-tickets',
+        'fechados': 'btn-nav-arquivo',
+        'dashboard': 'btn-nav-dashboard',
+        'relatorios': 'btn-nav-relatorios',
+        'ajuda': 'btn-nav-ajuda',
+        'config': 'btn-nav-config'
+    };
 
-        // Botão novo não está mais no header
+    const btnId = mapaBotoes[secaoId];
+    if (btnId) {
+        const btn = document.getElementById(btnId);
+        if (btn) btn.classList.add('active');
+    }
+
+    if (secaoId === 'novo') {
         // Reconfigurar pesquisa de categoria após mostrar seção
         setTimeout(() => {
             if (todasCategorias.length > 0) {
                 configurarPesquisaCategoria();
             }
         }, 200);
-    } else if (secaoId === 'dashboard') {
-        botoes[1].classList.add('active');
-    } else if (secaoId === 'relatorios') {
-        botoes[2].classList.add('active');
-    } else if (secaoId === 'ajuda') {
-        botoes[3].classList.add('active');
     } else if (secaoId === 'config') {
         // Verificar se é admin
         const usuario = JSON.parse(localStorage.getItem('usuario'));
@@ -280,7 +281,6 @@ function mostrarSecao(secaoId) {
             });
             return;
         }
-        botoes[4].classList.add('active');
 
         // Carregar subseção padrão se não houver uma salva
         const subSecaoSalva = localStorage.getItem('subSecaoAtiva');
@@ -3840,91 +3840,173 @@ function mostrarDashboardNaTela(dados) {
     let html = `
         <div class="dashboard-grid">
             <div class="dashboard-card">
-                <h3>🎫 Total de Tickets <span class="info-icon" onclick="mostrarInfoGrafico('total')" title="Clique para mais informações">ℹ️</span></h3>
+                <h3 class="card-title-flex">
+                    <div class="title-left">
+                        <span class="material-symbols-outlined" aria-hidden="true">tag</span> Total de Tickets
+                    </div>
+                    <span class="material-symbols-outlined info-icon" onclick="mostrarInfoGrafico('total')" title="Clique para mais informações" aria-hidden="true">info</span>
+                </h3>
                 <div class="dashboard-number count-up" data-target="${dados.total_tickets}">0</div>
+                <div class="dashboard-subtitle">Histórico geral do painel</div>
             </div>
             <div class="dashboard-card">
-                <h3>✅ Tickets Encerrados <span class="info-icon" onclick="mostrarInfoGrafico('encerrados')" title="Clique para mais informações">ℹ️</span></h3>
+                <h3 class="card-title-flex">
+                    <div class="title-left">
+                        <span class="material-symbols-outlined" aria-hidden="true">check_circle</span> Encerrados
+                    </div>
+                    <span class="material-symbols-outlined info-icon" onclick="mostrarInfoGrafico('encerrados')" title="Clique para mais informações" aria-hidden="true">info</span>
+                </h3>
                 <div class="dashboard-number count-up" data-target="${dados.total_encerrados || 0}">0</div>
+                <div class="dashboard-subtitle">Concluídos com sucesso</div>
             </div>
             <div class="dashboard-card">
-                <h3>🔄 Tickets Ativos <span class="info-icon" onclick="mostrarInfoGrafico('ativos')" title="Clique para mais informações">ℹ️</span></h3>
+                <h3 class="card-title-flex">
+                    <div class="title-left">
+                        <span class="material-symbols-outlined" aria-hidden="true">pending_actions</span> Ativos
+                    </div>
+                    <span class="material-symbols-outlined info-icon" onclick="mostrarInfoGrafico('ativos')" title="Clique para mais informações" aria-hidden="true">info</span>
+                </h3>
                 <div class="dashboard-number count-up" data-target="${dados.total_tickets - (dados.total_encerrados || 0)}">0</div>
+                <div class="dashboard-subtitle">Aguardando time ou usuário</div>
             </div>
             <div class="dashboard-card">
-                <h3>⏱️ Tempo Médio Total <span class="info-icon" onclick="mostrarInfoGrafico('tempo-total')" title="Clique para mais informações">ℹ️</span></h3>
-                <div class="dashboard-number scale-bounce">${formatarTempo(dados.tempoMedioSegundos)}</div>
-            </div>
-            <div class="dashboard-card">
-                <h3>⚡ Tempo Médio 1º Atendimento <span class="info-icon" onclick="mostrarInfoGrafico('primeiro-atendimento')" title="Clique para mais informações">ℹ️</span></h3>
-                <div class="dashboard-number slide-down">${formatarTempo(dados.tempoPrimeiroAtendimentoSegundos)}</div>
-            </div>
-            <div class="dashboard-card">
-                <h3>✅ Taxa de Conclusão <span class="info-icon" onclick="mostrarInfoGrafico('taxa-conclusao')" title="Clique para mais informações">ℹ️</span></h3>
+                <h3 class="card-title-flex">
+                    <div class="title-left">
+                        <span class="material-symbols-outlined" aria-hidden="true">task_alt</span> Taxa de Conclusão
+                    </div>
+                    <span class="material-symbols-outlined info-icon" onclick="mostrarInfoGrafico('taxa-conclusao')" title="Clique para mais informações" aria-hidden="true">info</span>
+                </h3>
                 <div class="dashboard-number flip-in">${taxaConclusao}%</div>
+                 <div class="dashboard-subtitle">Percentual de finalização</div>
             </div>
-            <div class="dashboard-card" style="background: linear-gradient(135deg, #1e3a8a 0%, #3b82f6 100%); color: white;">
-                <h3 style="color: #bfdbfe;">🚀 FCR (1º Contato) <span class="info-icon" onclick="mostrarInfoGrafico('fcr')" title="Clique para mais informações" style="color: white; opacity: 0.8;">ℹ️</span></h3>
-                <div class="dashboard-number flip-in" style="font-size: 2.2rem;">${dados.fcr?.taxa || 0}%</div>
-                <div style="font-size: 0.8rem; margin-top: 0.5rem; color: #bfdbfe;">
-                    ${dados.fcr?.resolvidos_primeiro_contato || 0} de ${dados.fcr?.total_resolvidos || 0} resolvidos
+        </div>
+        
+        <div class="dashboard-grid kpi-row-secondary" style="margin-top: 1.5rem;">
+            <div class="dashboard-card">
+                <h3 class="card-title-flex">
+                    <div class="title-left">
+                        <span class="material-symbols-outlined" aria-hidden="true">timer</span> Tempo Médio Total
+                    </div>
+                    <span class="material-symbols-outlined info-icon" onclick="mostrarInfoGrafico('tempo-total')" title="Clique para mais informações" aria-hidden="true">info</span>
+                </h3>
+                <div class="dashboard-number scale-bounce">${formatarTempo(dados.tempoMedioSegundos)}</div>
+                <div class="dashboard-subtitle">Até o encerramento do ticket</div>
+            </div>
+            <div class="dashboard-card">
+                <h3 class="card-title-flex">
+                    <div class="title-left">
+                        <span class="material-symbols-outlined" aria-hidden="true">bolt</span> Tempo Médio 1º Atend.
+                    </div>
+                    <span class="material-symbols-outlined info-icon" onclick="mostrarInfoGrafico('primeiro-atendimento')" title="Clique para mais informações" aria-hidden="true">info</span>
+                </h3>
+                <div class="dashboard-number slide-down">${formatarTempo(dados.tempoPrimeiroAtendimentoSegundos)}</div>
+                <div class="dashboard-subtitle">Velocidade da primeira resposta</div>
+            </div>
+            <div class="dashboard-card fcr-card">
+                <h3 class="card-title-flex">
+                    <div class="title-left">
+                        <span class="material-symbols-outlined" aria-hidden="true">rocket_launch</span> FCR (1º Contato)
+                    </div>
+                    <span class="material-symbols-outlined info-icon" onclick="mostrarInfoGrafico('fcr')" title="Clique para mais informações" aria-hidden="true" style="color: rgba(255,255,255,0.8);">info</span>
+                </h3>
+                <div class="dashboard-number flip-in fcr-number">${dados.fcr?.taxa || 0}%</div>
+                <div class="fcr-subtitle">
+                    ${dados.fcr?.resolvidos_primeiro_contato || 0} de ${dados.fcr?.total_resolvidos || 0} resolvidos na primeira interação
                 </div>
             </div>
         </div>
         
-        <div class="dashboard-grid">
+        <div class="dashboard-grid" style="margin-top: 1.5rem;">
             <div class="dashboard-card">
-                <h3>📊 Tickets por Status <small style="color: #666; font-size: 0.8em;">(apenas ativos)</small> <span class="info-icon" onclick="mostrarInfoGrafico('status')" title="Clique para mais informações">ℹ️</span></h3>
+                <h3 class="card-title-flex">
+                    <div class="title-left">
+                        <span class="material-symbols-outlined" aria-hidden="true">donut_large</span> Tickets por Status <span class="text-caption">(apenas ativos)</span>
+                    </div>
+                    <span class="material-symbols-outlined info-icon" onclick="mostrarInfoGrafico('status')" title="Clique para mais informações" aria-hidden="true">info</span>
+                </h3>
                 <canvas id="grafico-status" width="400" height="300"></canvas>
             </div>
             <div class="dashboard-card">
-                <h3>🔥 Tickets por Prioridade <small style="color: #666; font-size: 0.8em;">(apenas ativos)</small> <span class="info-icon" onclick="mostrarInfoGrafico('prioridade')" title="Clique para mais informações">ℹ️</span></h3>
+                <h3 class="card-title-flex">
+                    <div class="title-left">
+                        <span class="material-symbols-outlined" aria-hidden="true">local_fire_department</span> Tickets por Prioridade <span class="text-caption">(apenas ativos)</span>
+                    </div>
+                    <span class="material-symbols-outlined info-icon" onclick="mostrarInfoGrafico('prioridade')" title="Clique para mais informações" aria-hidden="true">info</span>
+                </h3>
                 <canvas id="grafico-prioridade" width="400" height="250"></canvas>
             </div>
         </div>
         
         <div class="dashboard-grid">
             <div class="dashboard-card">
-                <h3>📈 Evolução Mensal <span class="info-icon" onclick="mostrarInfoGrafico('evolucao')" title="Clique para mais informações">ℹ️</span></h3>
+                <h3 class="card-title-flex">
+                    <div class="title-left">
+                        <span class="material-symbols-outlined" aria-hidden="true">show_chart</span> Evolução Mensal
+                    </div>
+                    <span class="material-symbols-outlined info-icon" onclick="mostrarInfoGrafico('evolucao')" title="Clique para mais informações" aria-hidden="true">info</span>
+                </h3>
                 <canvas id="grafico-mensal" width="600" height="250"></canvas>
             </div>
             <div class="dashboard-card">
-                <h3>🥧 Distribuição por Agente <small style="color: #666; font-size: 0.8em;">(apenas ativos)</small> <span class="info-icon" onclick="mostrarInfoGrafico('agente')" title="Clique para mais informações">ℹ️</span></h3>
+                <h3 class="card-title-flex">
+                    <div class="title-left">
+                        <span class="material-symbols-outlined" aria-hidden="true">pie_chart</span> Distribuição por Agente <span class="text-caption">(apenas ativos)</span>
+                    </div>
+                    <span class="material-symbols-outlined info-icon" onclick="mostrarInfoGrafico('agente')" title="Clique para mais informações" aria-hidden="true">info</span>
+                </h3>
                 <canvas id="grafico-agente" width="400" height="250"></canvas>
             </div>
         </div>
         
         <div class="dashboard-grid">
-
-        </div>
-        
-        <div class="dashboard-grid">
             <div class="dashboard-card">
-                <h3>📊 Status por Agente <small style="color: #666; font-size: 0.8em;">(apenas ativos)</small> <span class="info-icon" onclick="mostrarInfoGrafico('status-agente')" title="Clique para mais informações">ℹ️</span></h3>
+                <h3 class="card-title-flex">
+                    <div class="title-left">
+                        <span class="material-symbols-outlined" aria-hidden="true">stacked_bar_chart</span> Status por Agente <span class="text-caption">(apenas ativos)</span>
+                    </div>
+                    <span class="material-symbols-outlined info-icon" onclick="mostrarInfoGrafico('status-agente')" title="Clique para mais informações" aria-hidden="true">info</span>
+                </h3>
                 <canvas id="grafico-status-agente" width="600" height="300"></canvas>
             </div>
             <div class="dashboard-card">
-                <h3>📅 Tickets por Dia da Semana <span class="info-icon" onclick="mostrarInfoGrafico('dia-semana')" title="Clique para mais informações">ℹ️</span></h3>
+                <h3 class="card-title-flex">
+                    <div class="title-left">
+                        <span class="material-symbols-outlined" aria-hidden="true">calendar_month</span> Tickets Dia da Semana
+                    </div>
+                    <span class="material-symbols-outlined info-icon" onclick="mostrarInfoGrafico('dia-semana')" title="Clique para mais informações" aria-hidden="true">info</span>
+                </h3>
                 <canvas id="grafico-dia-semana" width="400" height="200"></canvas>
             </div>
         </div>
         
         <div class="dashboard-grid">
             <div class="dashboard-card">
-                <h3>👥 Top 5 Solicitantes</h3>
+                <h3 class="card-title-flex">
+                    <div class="title-left">
+                        <span class="material-symbols-outlined" aria-hidden="true">group</span> Top 5 Solicitantes
+                    </div>
+                </h3>
                 <div class="dashboard-list">`;
 
     (dados.top_solicitantes || []).forEach((item, index) => {
         html += `<div class="dashboard-item dashboard-item-animate" data-delay="${index * 0.1}"><span>${item.nome}</span><span>${item.total}</span></div>`;
     });
 
-    html += `</div></div><div class="dashboard-card"><h3>🏆 Top 5 Categorias</h3><div class="dashboard-list">`;
+    html += `</div></div><div class="dashboard-card"><h3 class="card-title-flex">
+                    <div class="title-left">
+                        <span class="material-symbols-outlined" aria-hidden="true">category</span> Top 5 Categorias
+                    </div>
+                </h3><div class="dashboard-list">`;
 
     (dados.top_categorias || []).forEach((item, index) => {
         html += `<div class="dashboard-item dashboard-item-animate" data-delay="${index * 0.1}"><span>${item.nome || 'Sem categoria'}</span><span>${item.total}</span></div>`;
     });
 
-    html += `</div></div><div class="dashboard-card"><h3>📁 Tickets por Macrocategoria</h3><div class="dashboard-list">`;
+    html += `</div></div><div class="dashboard-card"><h3 class="card-title-flex">
+                    <div class="title-left">
+                        <span class="material-symbols-outlined" aria-hidden="true">folder_open</span> Tickets por Macrocategoria
+                    </div>
+                </h3><div class="dashboard-list">`;
 
     (dados.ticketsPorMacrocategoria || []).forEach((item, index) => {
         html += `<div class="dashboard-item dashboard-item-animate" data-delay="${index * 0.1}"><span>${item.nome || 'Sem macrocategoria'}</span><span>${item.quantidade}</span></div>`;
@@ -5011,7 +5093,7 @@ if (localStorage.getItem('modoEscuro') === 'true') {
 
 // Gráficos simples com Canvas
 function getCorLabel() {
-    return document.body.classList.contains('modo-escuro') ? '#fff' : '#333';
+    return document.body.classList.contains('modo-escuro') ? '#cbd5e1' : '#475569';
 }
 
 function criarGraficoStatus(dados) {
