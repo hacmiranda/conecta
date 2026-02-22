@@ -1,0 +1,32 @@
+
+[UX AUDIT] 27 files checked
+--------------------------------------------------
+[!] ISSUES (10):
+  - [Cognitive Load] auditoria.css: Form inputs without labels. Use <label> for accessibility and clarity.
+  - [Cognitive Load] funcionalidades.css: Form inputs without labels. Use <label> for accessibility and clarity.
+  - [Cognitive Load] lembretes.css: Form inputs without labels. Use <label> for accessibility and clarity.
+  - [Cognitive Load] modern-enhancements.css: Form inputs without labels. Use <label> for accessibility and clarity.
+  - [Cognitive Load] responsive.css: Form inputs without labels. Use <label> for accessibility and clarity.
+  - [Cognitive Load] status-sla.css: Form inputs without labels. Use <label> for accessibility and clarity.
+  - [Cognitive Load] style.css: Form inputs without labels. Use <label> for accessibility and clarity.
+  - [Cognitive Load] tickets-melhorias.css: Form inputs without labels. Use <label> for accessibility and clarity.
+  - [Color] tickets-melhorias.css: PURPLE DETECTED ('#7C3AED'). Banned by Maestro rules. Use Teal/Cyan/Emerald instead.
+  - [Cognitive Load] tutorial.css: Form inputs without labels. Use <label> for accessibility and clarity.
+[*] WARNINGS (264):
+  - [Reflective] email-template-atribuicao.html: Long-form content without brand story/values. Add 'About' or 'Why We Exist' section.
+  - [Trust] email-template-atribuicao.html: No social proof detected. Consider adding testimonials, ratings, or 'Trusted by' logos.
+  - [Trust] email-template-atribuicao.html: Footer lacks authority signals. Add certifications, awards, or media mentions.
+  - [Typography] email-template-atribuicao.html: No line length constraint (45-75ch). Use max-w-prose or max-w-[65ch].
+  - [Typography] email-template-atribuicao.html: Heading has line-height 1.6 (>1.3). Headings should be tighter (1.1-1.3).
+  - [Typography] email-template-atribuicao.html: Fixed font sizes without clamp(). Consider fluid typography: clamp(MIN, PREFERRED, MAX)
+  - [Typography] email-template-atribuicao.html: No h1 found. Each page should have one primary heading.
+  - [Visual] email-template-atribuicao.html: Flat design with no depth. Consider shadows or subtle gradients for hierarchy.
+  - [Visceral] email-template-comentario.html: Hero section lacks visual appeal. Consider gradients or subtle animations.
+  - [Reflective] email-template-comentario.html: Long-form content without brand story/values. Add 'About' or 'Why We Exist' section.
+  - [Trust] email-template-comentario.html: Footer lacks authority signals. Add certifications, awards, or media mentions.
+  - [Typography] email-template-comentario.html: No line length constraint (45-75ch). Use max-w-prose or max-w-[65ch].
+  - [Typography] email-template-comentario.html: Heading has line-height 1.6 (>1.3). Headings should be tighter (1.1-1.3).
+  - [Typography] email-template-comentario.html: Skipped heading level (h1 -> h3). Maintain sequential hierarchy.
+  - [Visual] email-template-comentario.html: Hero section without visual interest. Consider gradient for depth.
+[+] PASSED CHECKS: 14
+STATUS: FAIL

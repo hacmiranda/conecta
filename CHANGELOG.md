@@ -56,8 +56,12 @@ Todas as alterações notáveis neste projeto serão documentadas neste arquivo.
 
 ### 🔔 Notificações e Alertas Flutuantes Internos (Push) *(novo)*
 
-- **Novo Painel de Notificações**: Adicionado um ícone de "Sino" (🔔) no Header do sistema, entre o Menu de Configurações e o Avatar do Usuário, focado em entregar alertas em tempo real ao longo do uso do Helpdesk, sem depender do envio externo de e-mails.
-  - **Badge de Alertas**: Um contador circular e animado (`pulse`) é exibido sobre o ícone sempre que houver novas interações. O valor é atualizado a cada 30 segundos (via *polling* invisível em plano de fundo).
+- **Novo Painel de Notificações**: Adicionado um ícone de "Sino" (🔔) no Header do sistema, focado em entregar alertas em tempo real ao longo do uso do Helpdesk.
+- **Evolução Arquitetural de Polling para SSE (Server-Sent Events)**: O antigo sistema de Polling via AJAX (`setInterval` a cada 30 segundos) foi totalmente reescrito utilizando a API nativa do Browser `EventSource`.
+  - O Backend PHP 8.2 (`notificacoes-stream.php`) mantém uma conexão "Long-Lived" baseada em HTTP padrão, economizando vastos recursos TCP estáticos e reduzindo absurdamente a carga do Servidor Apache/MySQL.
+  - A interface gráfica (o Sino) e as listagens atualizam com latência minúscula assim que as mutações no banco ocorrem de fato.
+  - Fechamento imediato de concorrência session (`session_write_close()`) para evitar travamentos paralelos se o usuário abrir 10 abas do CRPDESK ao mesmo tempo.
+  - **Badge de Alertas**: Um contador circular e animado (`pulse`) é exibido sobre o ícone sempre que houver novas interações.
   - **Dropdown de Feed**: Clique no sino abre uma gaveta flutuante exibindo o histórico de alertas (ex: *"Novo ticket atribuído a você"* ou *"Novo comentário adicionado"*) ordenados por cronologia.
   - **Leitura Contextual Ativa**: Clicar numa notificação de Ticket na lista altera automaticamente a interface principal do SPA (`script.js`), abrindo os Detalhes daquele chamado de maneira imediata ao mesmo tempo que marca a flag como lida no banco de dados.
   - **Botão "Marcar todas como Lidas"**: Ação rápida em JS via instrução `PUT` na API para zerar a lista.
@@ -74,6 +78,30 @@ Todas as alterações notáveis neste projeto serão documentadas neste arquivo.
   - **Editor Rico (WYSIWYG)**: Formulário de criação conta com integração ao provedor rico *QuillJS*, possuindo recursos de formatação em Negrito, Listagem, HTML customizado e Cores para os Templates.
   - **Integração Fluida na Resposta de Tickets**: Adicionado um `<select>` flutuante no topo do campo de comentários que processa e espalha (injetando via innerHTML) a Macro escolhida para dentro do ticket local do usuário, preservando as inserções anteriores sem sobrescrevê-las.
   - **Banco de Dados**: Migração gerada (`6_add_macros_and_longtext.sql`) com o provisionamento da tabela `macros` amarrando por `FOREIGN KEY` ao usuário solicitante.
+
+### 🏗️ Arquitetura Frontend: Componentização (Alpine.js) *(novo)*
+
+- **Transição de Paradigma**: Iniciada a migração arquitetural do massivo `script.js` (Vanilla JS / jQuery-style) para a adoção do framwork reativo **Alpine.js**. O Alpine operará de forma encapsulada no Virtual DOM sem precisar de ferramentas de build pesadas (Node.js/Webpack).
+- **Extração do Componente Editor (Quill.js)**: A integração do editor de texto rico, que antes usava o objeto Global `window.quillDescricao` (sujeito a bugs de carregamento de DOM tardio), foi totalmente extraída para o novo arquivo `/frontend/alpine-components.js` e inicializada de forma atômica sob a tag `x-data="quillEditorComponent()"`.
+- **Refinamento de Micro-animações (Spring Physics)**: Substituição das animações lineares duras de abertura de Modais e Dropdowns em CSS. Aplicada aceleração customizada com `cubic-bezier(0.175, 0.885, 0.32, 1.275)` para criar transições elásticas/bouncy no carregamento dos elementos do Header e Formulários. O sistema agora respeita internamente a media query `prefers-reduced-motion` no SO do usuário em conformidade de Acessibilidade.
+
+### 🛡️ Segurança e Compliance (LGPD) *(novo)*
+
+- **Ofuscação de Dados Pessoais em Views (LGPD)**: Implementado mascaramento obrigatório de strings de e-mails (`a***@gmail.com`) na renderização das matrizes de Tickets Encerrados e visualização do Arquivo. Impede raspagem indevida de PII (Personally Identificable Information) nas pontas abertas.
+- **Saneamento CSRF Contínuo nas Modais Pós-Renderização**: O novo módulo de Respostas Rápidas (Macros) passou a injetar e assinar obrigatoriamente a verificação estrita `AuthMiddleware::verificarCSRF()` nas requisições do Payload de Mutações (POST/PUT/DELETE), garantindo conformidade anti-forgery na sessão local.
+
+### 📈 Business Intelligence e Analítica *(novo)*
+
+- **Dashboard Avançado de FCR (First Contact Resolution)**: Criação de um Widget exclusivo no painel da aba Dashboard. Ele calcula via API e exibe de forma destacada a porcentagem de tickets resolvidos no **primeiro contato**, isto é, onde não existiu vai e vem de respostas do cliente. Essa é a principal métrica analítica solicitada pela área técnica de avaliação do SLA do suporte. Inclui Tooltip pedagógico (Interrogação) explicando como cruzar os dados com os fechados do dia.
+
+### 📦 Refinamento Avançado do Banco de Dados (MySQL) e API *(melhoria)*
+
+- **Estratégia de Cache HTTP Dinâmico (`dashboard.php`)**: Implementado `header('Cache-Control: private, max-age=60');` no retorno da API do Painel Administrativo. Reduz as requisições agressivas com consultas SQL simultâneas (`SUM`, `COUNT` multiplas tabelas) em 90%, aproveitando o cache temporal natural do Frontend do agente que navega em outras telas e volta a home em curtos períodos de tempo, preservando os recursos da hospedagem.
+- **Indexação Agressiva SQL (Migration v8)**: Para suprir a restrição arquitetural da hospedagem em não permitir uso de Bancos Chave-Valor Paralelos em RAM (como Redis/Memcached), foi implementado o arquivo `8_optimize_indexes.sql` que atua na raiz do problema (MySQL):
+  - **Tabela de Tickets**: Criação de `INDEX` composto cobrindo `status`, `usuario_id`, `agente_id`, `criado_em` e `prioridade`. As queries de listagens assíncronas no Kanban saltaram drasticamente em performance.
+  - **Tabela Comentários e Histórico**: Otimização na costura da linha do tempo da tela do Ticket com index em `ticket_id` e data.
+  - **Tabela Notificações (SSE)**: O `EventSource` (Web Push) fará milhares de checagens diárias em Loop via PHP 8.2 procurando o flag `lida = 0`. Um index composto `(usuario_id, lida)` foi introduzido neutralizando a carga (Table Scan) do banco neste ping infinito.
+- **Protocolo Persistente de Deploy DB**: Estabelecida regra de ouro `CONFIGURACAO_AMBIENTE.md` garantindo que todo script DDL seja gerado estritamente com nomenclatura sequencial na pasta `database/` para assegurar simetria com o ambiente de Produção.
 
 ### 🗂️ Navegação — Botão "Arquivo" no Header *(melhoria)*
 

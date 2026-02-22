@@ -113,9 +113,9 @@
 }
 
 .filtro-pill[data-status="nova_resposta"].ativo {
-    background: #7c3aed;
-    border-color: #7c3aed;
-    box-shadow: 0 2px 8px rgba(124, 58, 237, 0.3);
+    background: #0d9488;
+    border-color: #0d9488;
+    box-shadow: 0 2px 8px rgba(13, 148, 136, 0.3);
 }
 
 .filtro-pill[data-status="urgente"].ativo {

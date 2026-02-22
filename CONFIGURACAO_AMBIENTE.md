@@ -281,6 +281,21 @@ backend/anexos/*
 
 ---
 
+## 💾 Versionamento OBRIGATÓRIO de Banco de Dados
+
+**Regra de Ouro:**
+1. **Migrations via Arquivos SQL:** Qualquer mínima alteração de schema, trigger, criação de tabela ou alteração de tipo de dado (`ALTER TABLE`, `CREATE TABLE`, `UPDATE` estrutural) realizada no banco local **DEVE** ser transformada em um arquivo `.sql` limpo.
+2. **Padrão de Nomenclatura:** Os scripts devem ser salvos unicamente na pasta `database/` seguindo a sequência cronológica numérica atualizada. (Exemplo: Se o último arquivo for `7_create_notificacoes.sql`, o seu arquivo será `8_sua_nova_alteracao.sql`).
+3. O intuito é garantir que toda refatoração executada no Localhost pelo agente seja aplicada de forma segura, exata e auditável no servidor final de **Produção** via importação sequencial manual pela equipe do CRPRS.
+
+---
+2. **Sem Binários/Pacotes Externos:** Componentes que exigem compilação, instalação via terminal direto no servidor de produção (como Redis, extensões pecl nativas compiladas na hora, ou demônios de background) não podem ser utilizados.
+3. **Serviços Contínuos:** Serviços como servidores Ratchet/WebSocket em portas customizadas rodando via linha de comando PHP não são viáveis.
+
+**Ação:** Qualquer solução arquitetural (como notificações assíncronas) **deve** fluir via protocolo HTTP padrão, utilizando exclusivamente recursos nativos da linguagem PHP na web (ex: *Server-Sent Events* - SSE, CRON jobs locais simples ou Long-Polling).
+
+---
+
 **Sistema de configuração de ambiente implementado! ✅**
 
 **Desenvolvido por:** Amazon Q Developer  

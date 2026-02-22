@@ -3,7 +3,7 @@ header('Content-Type: application/json');
 header('Access-Control-Allow-Origin: *');
 header('Access-Control-Allow-Methods: GET, OPTIONS');
 header('Access-Control-Allow-Headers: Content-Type, Authorization, X-CSRF-Token');
-
+header('Cache-Control: private, max-age=60'); // Cache no navegador por 60s para aliviar carga pesada de dezenas de SUM() e COUNT() do MySQL
 if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
     exit(0);
 }
@@ -186,6 +186,26 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
             }
         }
         $dashboard['funil_conversao']['aguardando'] = $aguardando_total;
+        
+        // First Contact Resolution (FCR)
+        $query = "SELECT 
+                    COUNT(t.id) as total_resolvidos,
+                    SUM(CASE WHEN (
+                        SELECT COUNT(c.id) 
+                        FROM comentarios c 
+                        WHERE c.ticket_id = t.id AND c.usuario_id = t.usuario_id
+                    ) = 0 THEN 1 ELSE 0 END) as resolvidos_primeiro_contato
+                  FROM tickets t
+                  WHERE t.status IN ('encerrado', 'resolvido')";
+        $stmt = $db->prepare($query);
+        $stmt->execute();
+        $fcr_data = $stmt->fetch();
+        
+        $dashboard['fcr'] = [
+            'total_resolvidos' => $fcr_data['total_resolvidos'] ?? 0,
+            'resolvidos_primeiro_contato' => $fcr_data['resolvidos_primeiro_contato'] ?? 0,
+            'taxa' => ($fcr_data['total_resolvidos'] > 0) ? round(($fcr_data['resolvidos_primeiro_contato'] / $fcr_data['total_resolvidos']) * 100, 1) : 0
+        ];
         
         // Calcular tempos médios em HORAS ÚTEIS (valores padrão)
         $dashboard['tempoPrimeiroAtendimentoSegundos'] = 0;

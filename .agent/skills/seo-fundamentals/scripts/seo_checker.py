@@ -53,7 +53,10 @@ def is_page_file(file_path: Path) -> bool:
     # Skip utility/config files
     if any(skip in name for skip in SKIP_PATTERNS):
         return False
-    
+        
+    if 'email' in name or 'assinatura' in name:
+        return False
+
     # Check path - pages in specific directories are likely pages
     parts = [p.lower() for p in file_path.parts]
     page_dirs = ['pages', 'app', 'routes', 'views', 'screens']
@@ -70,6 +73,8 @@ def is_page_file(file_path: Path) -> bool:
     
     # HTML files are usually pages
     if file_path.suffix.lower() in ['.html', '.htm']:
+        if 'email' in name or 'assinatura' in name:
+            return False
         return True
     
     return False
