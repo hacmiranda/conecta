@@ -241,6 +241,95 @@ select:focus {
     letter-spacing: -0.03em;
 }
 
+/* === DASHBOARD CUSTOM GRIDS E ALINHAMENTOS === */
+
+/* Canvas dos gráficos: fundo transparente no modo escuro para herdar o card */
+.modo-escuro .dashboard-card canvas {
+    border-radius: var(--radius-md);
+    background: transparent;
+}
+
+.dashboard-grid.kpi-row-secondary {
+    grid-template-columns: repeat(3, 1fr);
+}
+
+.card-title-flex {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 1rem;
+    margin-bottom: 1rem;
+    color: #475569;
+}
+
+.card-title-flex::after {
+    display: none;
+}
+
+.modo-escuro .card-title-flex {
+    color: #cbd5e1;
+}
+
+.title-left {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.title-left .material-symbols-outlined {
+    font-size: 1.25rem;
+    color: var(--laranja);
+}
+
+.fcr-card {
+    background: linear-gradient(135deg, #1e3a8a 0%, #3b82f6 100%) !important;
+    border: none;
+}
+
+.fcr-card .card-title-flex {
+    color: #bfdbfe !important;
+}
+
+.fcr-card .title-left .material-symbols-outlined {
+    color: #bfdbfe;
+}
+
+.fcr-number {
+    color: white !important;
+    font-size: 2.2rem !important;
+}
+
+.fcr-subtitle {
+    font-size: 0.8rem;
+    margin-top: 0.5rem;
+    color: #bfdbfe;
+    font-weight: 500;
+}
+
+.dashboard-subtitle {
+    font-size: 0.8rem;
+    color: #64748b;
+    margin-top: 0.4rem;
+    font-weight: 500;
+}
+
+.modo-escuro .dashboard-subtitle {
+    color: #94a3b8;
+}
+
+.text-caption {
+    font-size: 0.75rem;
+    color: #94a3b8;
+    font-weight: normal;
+    margin-left: 4px;
+}
+
+@media (max-width: 900px) {
+    .dashboard-grid.kpi-row-secondary {
+        grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+    }
+}
+
 /* === ANIMAÇÕES SUAVES === */
 @keyframes fadeInUp {
     from {
