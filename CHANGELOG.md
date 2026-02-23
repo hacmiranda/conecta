@@ -4,7 +4,7 @@ Todas as alterações notáveis neste projeto serão documentadas neste arquivo.
 
 ---
 
-## [3.1.0] - 2026-02-20 (Em desenvolvimento)
+## [3.1.0] - 2026-02-22 (Em desenvolvimento)
 
 ### 🎫 Tabelas de Tickets — Melhorias de UX e Unificação *(novo)*
 
@@ -278,6 +278,22 @@ Todas as alterações notáveis neste projeto serão documentadas neste arquivo.
 | **Comentários duplicados** | Comentários podiam ser inseridos múltiplas vezes por loop de e-mail ou duplo clique — corrigido com verificação de janela de 5 min |
 | **E-mail com Base64 visível** | Corpo do e-mail exibido como código `PCFET0NU...` no ticket — corrigido com decodificação forçada |
 | **E-mail de fechamento** | Nome do solicitante na saudação estava incorreto — corrigido |
+
+---
+
+### ⚙️ Configurações — Títulos e Espaçamentos *(melhoria)*
+
+- **Títulos dinâmicos por submenu**: O `h2` da seção de Configurações agora atualiza seu texto ao navegar entre submenus — cada página exibe seu próprio título com ícone (`👥 Gerenciar Usuários`, `📁 Categorias`, `⏰ Horários e Feriados`, `📧 Configurar Email`, `🎨 Personalização`, `📋 Auditoria`).
+- **Estilo do título**: `#config-title` recebeu `font-size: 1.5rem`, `font-weight: 700`, borda inferior laranja e `color: var(--laranja)` — diferencia visualmente o título do conteúdo.
+- **Espaçamentos da seção**: Ajustados `padding-top` em `#config`, `padding-top` em `#config-content` e `margin` nos `h3` internos para ritmo vertical consistente.
+- **Página Horários e Feriados — espaçamento vertical**: Corrigidos espaçamentos entre todos os elementos da página:
+  - `h3` com `margin-bottom: 0.4rem` e parágrafos descritivos com `margin-top: 0` para aproximar título e descrição.
+  - Tabela de horários com `margin-bottom: 2.5rem` para separar os dois blocos.
+  - Formulário de feriado com `padding: 1.25rem`, `margin-bottom: 1.5rem` e `h4` com `margin-top: 0`.
+  - Botões Salvar/Cancelar agrupados em `flex` com `gap: 0.5rem` e `margin-top: 1rem`.
+  - Células da tabela com `padding: 0.65rem 1rem` e `vertical-align: middle`.
+  - Inputs `type="time"` com estilo consistente (borda, border-radius, font-size).
+  - Campos do formulário de feriado com `margin-bottom: 0.85rem`.
 
 ---
 

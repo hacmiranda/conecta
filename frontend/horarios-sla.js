@@ -1,9 +1,10 @@
-// Funções para gerenciar horários úteis e feriados
+﻿// Funções para gerenciar horários úteis e feriados
 
 function mostrarHorariosSLA() {
     document.querySelectorAll('.btn-config').forEach(btn => btn.classList.remove('active'));
     const _bhor = document.getElementById('btn-horarios-sla'); if(_bhor) _bhor.classList.add('active');
     localStorage.setItem('subSecaoAtiva', 'horarios-sla');
+    const configTitle = document.getElementById('config-title'); if (configTitle) configTitle.textContent = String.fromCodePoint(0x23F0) + ' Hor\u00e1rios e Feriados';
     
     const content = document.getElementById('config-content');
     content.style.animation = 'none';
@@ -97,10 +98,10 @@ function mostrarHorariosEFeriados(horarios, feriados) {
     });
     
     content.innerHTML = `
-        <h3>⏰ Horários Úteis de Atendimento</h3>
-        <p>Configure os horários em que o sistema deve considerar como horas úteis para cálculo de SLA.</p>
+        <h3 style="margin-bottom: 0.4rem;">⏰ Horários Úteis de Atendimento</h3>
+        <p style="margin-top: 0; margin-bottom: 1rem; color: #666;">Configure os horários em que o sistema deve considerar como horas úteis para cálculo de SLA.</p>
         
-        <table class="tickets-tabela" style="margin-bottom: 2rem;">
+        <table class="tickets-tabela" style="margin-bottom: 2.5rem;">
             <thead>
                 <tr>
                     <th>Dia da Semana</th>
@@ -115,15 +116,15 @@ function mostrarHorariosEFeriados(horarios, feriados) {
             </tbody>
         </table>
         
-        <h3>📅 Calendário de Feriados</h3>
-        <p>Cadastre os feriados em que não haverá expediente. Estes dias não serão contabilizados no cálculo de SLA.</p>
+        <h3 style="margin-bottom: 0.4rem;">📅 Calendário de Feriados</h3>
+        <p style="margin-top: 0; margin-bottom: 1rem; color: #666;">Cadastre os feriados em que não haverá expediente. Estes dias não serão contabilizados no cálculo de SLA.</p>
         
-        <div style="margin-bottom: 1rem;">
+        <div style="margin-bottom: 1.25rem;">
             <button class="btn-primary" onclick="mostrarFormFeriado()">➕ Adicionar Feriado</button>
         </div>
         
-        <div id="form-feriado" style="display: none; background: #f8f9fa; padding: 1rem; border-radius: 8px; margin-bottom: 1rem;">
-            <h4>Novo Feriado</h4>
+        <div id="form-feriado" style="display: none; background: #f8f9fa; padding: 1.25rem; border-radius: 8px; margin-bottom: 1.5rem;">
+            <h4 style="margin-top: 0; margin-bottom: 1rem;">Novo Feriado</h4>
             <div class="form-group">
                 <label>Data:</label>
                 <input type="date" id="data-feriado" required>
@@ -141,8 +142,10 @@ function mostrarHorariosEFeriados(horarios, feriados) {
                     <span>Repetir todo ano (feriado recorrente)</span>
                 </label>
             </div>
-            <button class="btn-primary" onclick="salvarFeriado()">Salvar</button>
-            <button class="btn-secondary" onclick="cancelarFormFeriado()">Cancelar</button>
+            <div style="display: flex; gap: 0.5rem; margin-top: 1rem;">
+                <button class="btn-primary" onclick="salvarFeriado()">Salvar</button>
+                <button class="btn-secondary" onclick="cancelarFormFeriado()">Cancelar</button>
+            </div>
         </div>
         
         <table class="tickets-tabela">
@@ -155,7 +158,7 @@ function mostrarHorariosEFeriados(horarios, feriados) {
                 </tr>
             </thead>
             <tbody>
-                ${feriadosHtml || '<tr><td colspan="4" style="text-align: center;">Nenhum feriado cadastrado</td></tr>'}
+                ${feriadosHtml || '<tr><td colspan="4" style="text-align: center; color: #999;">Nenhum feriado cadastrado</td></tr>'}
             </tbody>
         </table>
     `;
