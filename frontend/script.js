@@ -2347,6 +2347,7 @@ function mostrarUsuarios() {
 
     // Salvar subseção
     localStorage.setItem('subSecaoAtiva', 'usuarios');
+    const configTitle = document.getElementById('config-title'); if (configTitle) configTitle.textContent = String.fromCodePoint(0x1F465) + ' Gerenciar Usu\u00e1rios';
 
     const content = document.getElementById('config-content');
     if (content) {
@@ -2986,6 +2987,7 @@ function mostrarCategorias() {
 
     // Salvar subseção
     localStorage.setItem('subSecaoAtiva', 'categorias');
+    const configTitle = document.getElementById('config-title'); if (configTitle) configTitle.textContent = String.fromCodePoint(0x1F4C1) + ' Categorias';
 
     const content = document.getElementById('config-content');
     content.style.animation = 'none';
@@ -6038,6 +6040,7 @@ function mostrarAuditoria() {
     document.querySelectorAll('.btn-config').forEach(btn => btn.classList.remove('active')); // nav
     const _bbtn_auditoria = document.getElementById('btn-auditoria'); if (_bbtn_auditoria) _bbtn_auditoria.classList.add('active');
     localStorage.setItem('subSecaoAtiva', 'auditoria');
+    const configTitle = document.getElementById('config-title'); if (configTitle) configTitle.textContent = String.fromCodePoint(0x1F4CB) + ' Auditoria';
 
     const content = document.getElementById('config-content');
     content.innerHTML = `
@@ -7059,6 +7062,7 @@ function mostrarPersonalizacao() {
     document.querySelectorAll('.btn-config').forEach(btn => btn.classList.remove('active')); // nav
     const _bbtn_personalizacao = document.getElementById('btn-personalizacao'); if (_bbtn_personalizacao) _bbtn_personalizacao.classList.add('active');
     localStorage.setItem('subSecaoAtiva', 'personalizacao');
+    const configTitle = document.getElementById('config-title'); if (configTitle) configTitle.textContent = String.fromCodePoint(0x1F3A8) + ' Personaliza\u00e7\u00e3o';
 
     const content = document.getElementById('config-content');
     content.style.animation = 'none';
@@ -7066,28 +7070,28 @@ function mostrarPersonalizacao() {
         content.style.animation = '';
         content.innerHTML = `
             <div class="form-usuario">
-                <h3>🎨 Personalização do Sistema</h3>
-                
-                <p style="background: #fff3cd; padding: 0.75rem; border-radius: 4px; border-left: 4px solid #ffc107; margin-bottom: 1.5rem;">
-                    ⚠️ <strong>Importante:</strong> Se as alterações não aparecerem imediatamente, atualize a página (F5 ou Ctrl+R).
+                <p style="background: #fff3cd; padding: 0.75rem 1rem; border-radius: 4px; border-left: 4px solid #ffc107; margin: 0 0 2rem 0;">
+                    <strong>Importante:</strong> Se as altera&ccedil;&otilde;es n&atilde;o aparecerem imediatamente, atualize a p&aacute;gina (F5 ou Ctrl+R).
                 </p>
-                
-                <div style="margin-bottom: 2rem;">
-                    <h4>📝 Título do Sistema</h4>
+
+                <div class="personalizacao-bloco">
+                    <h4>T&iacute;tulo do Sistema</h4>
                     <div class="form-group">
-                        <label for="titulo-header">Título (máx. 20 caracteres):</label>
+                        <label for="titulo-header-input" style="font-size:0.8rem;color:#888;">T&iacute;tulo (m&aacute;x. 20 caracteres):</label>
                         <input type="text" id="titulo-header-input" maxlength="20" placeholder="Helpdesk CRPRS">
                     </div>
-                    <button class="btn-primary" onclick="salvarTituloHeader()">💾 Salvar Título</button>
+                    <button class="btn-primary" onclick="salvarTituloHeader()">Salvar T&iacute;tulo</button>
                 </div>
-                
-                <div style="margin-bottom: 2rem;">
-                    <h4>🖼️ Logo do Sistema (40x40px)</h4>
-                    <p style="color: #666; font-size: 0.9rem; margin-bottom: 0.5rem;">
-                        📌 O logo será aplicado em: <strong>Cabeçalho</strong>, <strong>Favicon</strong>, <strong>Loader</strong> e <strong>Modais de Recuperação de Senha</strong>
+
+                <div class="personalizacao-bloco">
+                    <h4>Logo do Sistema <small style="font-weight:normal;color:#666;">(PNG, 40x40px)</small></h4>
+                    <p style="color:#666;font-size:0.9rem;margin:0 0 0.75rem 0;">
+                        Aplicado em: <strong>Cabe&ccedil;alho</strong>, <strong>Favicon</strong>, <strong>Loader</strong> e <strong>Modais de Recupera&ccedil;&atilde;o de Senha</strong>.
                     </p>
-                    <input type="file" id="logo-header" accept="image/png" style="margin-bottom: 0.5rem;">
-                    <button class="btn-primary" onclick="uploadLogoHeader()">📤 Upload Logo</button>
+                    <div style="display:flex;align-items:center;gap:0.75rem;flex-wrap:wrap;">
+                        <input type="file" id="logo-header" accept="image/png">
+                        <button class="btn-primary" onclick="uploadLogoHeader()">Upload Logo</button>
+                    </div>
                 </div>
             </div>
         `;
@@ -7241,6 +7245,7 @@ function mostrarConfigEmail() {
     document.querySelectorAll('.btn-config').forEach(btn => btn.classList.remove('active')); // nav
     const _bbtn_config_email = document.getElementById('btn-config-email'); if (_bbtn_config_email) _bbtn_config_email.classList.add('active');
     localStorage.setItem('subSecaoAtiva', 'config-email');
+    const configTitle = document.getElementById('config-title'); if (configTitle) configTitle.textContent = String.fromCodePoint(0x1F4E7) + ' Configurar Email';
 
     const content = document.getElementById('config-content');
     content.innerHTML = `
