@@ -167,12 +167,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     
     error_log("[DEBUG] Iniciando criação de ticket");
     
-    $titulo = $_POST['titulo'] ?? '';
-    $descricao = $_POST['descricao'] ?? '';
+    $titulo_raw = $_POST['titulo'] ?? '';
+    $descricao_raw = $_POST['descricao'] ?? '';
     $prioridade = $_POST['prioridade'] ?? 'normal';
     $categoria_id = $_POST['categoria_id'] ?? null;
     $email_solicitante = $_POST['email_solicitante'] ?? null;
     
+    // Sanitização de Entradas (Mitigação XSS)
+    $titulo = strip_tags($titulo_raw); // Títulos não devem ter HTML
+    $descricao = strip_tags($descricao_raw, '<p><br><strong><em><u><s><h1><h2><h3><h4><h5><h6><ul><ol><li><a><blockquote><span><img>');
+    $descricao = preg_replace('/on[a-z]+\s*=\s*(["\']).*?\1/i', '', $descricao);
+    $descricao = preg_replace('/javascript:/i', '#', $descricao);
+
     // Se email não informado, usar email do usuário logado
     if (empty($email_solicitante)) {
         $email_solicitante = $user['email'];

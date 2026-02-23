@@ -11,69 +11,58 @@ AuthMiddleware::verificarAdmin($user);
 
 $method = $_SERVER['REQUEST_METHOD'];
 
-$config_file = dirname(__DIR__) . '/config/email-config.php';
-
 if ($method === 'GET') {
-    // Ler configurações atuais
-    if (file_exists($config_file)) {
-        $content = file_get_contents($config_file);
-        
-        preg_match("/const IMAP_HOST = '(.+?)';/", $content, $imap_host);
-        preg_match("/const IMAP_PORT = (\d+);/", $content, $imap_port);
-        preg_match("/const IMAP_USERNAME = '(.+?)';/", $content, $imap_user);
-        preg_match("/const SMTP_HOST = '(.+?)';/", $content, $smtp_host);
-        preg_match("/const SMTP_PORT = (\d+);/", $content, $smtp_port);
-        preg_match("/const SMTP_USERNAME = '(.+?)';/", $content, $smtp_user);
-        preg_match("/const FROM_EMAIL = '(.+?)';/", $content, $from_email);
-        preg_match("/const FROM_NAME = '(.+?)';/", $content, $from_name);
-        
-        echo json_encode([
-            'imap_host' => $imap_host[1] ?? '',
-            'imap_port' => $imap_port[1] ?? 993,
-            'imap_username' => $imap_user[1] ?? '',
-            'smtp_host' => $smtp_host[1] ?? '',
-            'smtp_port' => $smtp_port[1] ?? 465,
-            'smtp_username' => $smtp_user[1] ?? '',
-            'from_email' => $from_email[1] ?? '',
-            'from_name' => $from_name[1] ?? ''
-        ]);
-    } else {
-        http_response_code(404);
-        echo json_encode(['error' => 'Arquivo de configuração não encontrado']);
-    }
+    // Ler configurações atuais através do Environment que varre o .env internamente
+    echo json_encode([
+        'imap_host' => Environment::get('imap_host', ''),
+        'imap_port' => Environment::get('imap_port', 993),
+        'imap_username' => Environment::get('imap_user', ''),
+        'smtp_host' => Environment::get('smtp_host', ''),
+        'smtp_port' => Environment::get('smtp_port', 465),
+        'smtp_username' => Environment::get('smtp_user', ''),
+        'from_email' => Environment::get('from_email', ''),
+        'from_name' => Environment::get('from_name', '')
+    ]);
 } elseif ($method === 'PUT') {
-    // Atualizar configurações
+    // Atualizar configurações isoladas em .env
     $data = json_decode(file_get_contents('php://input'), true);
     
-    // Ler senhas atuais se não forem fornecidas
-    $content = file_get_contents($config_file);
-    preg_match("/const IMAP_PASSWORD = '(.+?)';/", $content, $current_imap_pass);
-    preg_match("/const SMTP_PASSWORD = '(.+?)';/", $content, $current_smtp_pass);
+    $env_file = dirname(__DIR__) . '/config/.env';
+    $current_env = [];
     
-    $imap_password = !empty($data['imap_password']) ? $data['imap_password'] : ($current_imap_pass[1] ?? '');
-    $smtp_password = !empty($data['smtp_password']) ? $data['smtp_password'] : ($current_smtp_pass[1] ?? '');
+    if (file_exists($env_file)) {
+        $lines = file($env_file, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
+        foreach ($lines as $line) {
+            if (strpos(trim($line), '#') === 0) continue;
+            @list($k, $v) = explode('=', $line, 2);
+            if ($k) $current_env[trim($k)] = trim($v ?? '');
+        }
+    }
     
-    $new_content = "<?php\nclass EmailConfig {\n";
-    $new_content .= "    const IMAP_HOST = '{$data['imap_host']}';\n";
-    $new_content .= "    const IMAP_PORT = {$data['imap_port']};\n";
-    $new_content .= "    const IMAP_USERNAME = '{$data['imap_username']}';\n";
-    $new_content .= "    const IMAP_PASSWORD = '{$imap_password}';\n";
-    $new_content .= "    const SMTP_HOST = '{$data['smtp_host']}';\n";
-    $new_content .= "    const SMTP_PORT = {$data['smtp_port']};\n";
-    $new_content .= "    const SMTP_USERNAME = '{$data['smtp_username']}';\n";
-    $new_content .= "    const SMTP_PASSWORD = '{$smtp_password}';\n";
-    $new_content .= "    const FROM_EMAIL = '{$data['from_email']}';\n";
-    $new_content .= "    const FROM_NAME = '{$data['from_name']}';\n";
-    $new_content .= "    const MAX_ANEXOS_EMAIL = 5;\n";
-    $new_content .= "    const MAX_TAMANHO_EMAIL = 20 * 1024 * 1024;\n";
-    $new_content .= "    const TIPOS_PERMITIDOS = ['pdf', 'doc', 'docx', 'txt', 'csv', 'xls', 'xlsx', 'png', 'jpg', 'jpeg'];\n";
-    $new_content .= "    const INTERVALO_VERIFICACAO = 1;\n";
-    $new_content .= "}\n";
+    // Atualizar chaves específicas no Cache de Memória / Array do Env
+    $current_env['imap_host'] = $data['imap_host'] ?? $current_env['imap_host'] ?? '';
+    $current_env['imap_port'] = $data['imap_port'] ?? $current_env['imap_port'] ?? '993';
+    $current_env['imap_user'] = $data['imap_username'] ?? $current_env['imap_user'] ?? '';
+    if (!empty($data['imap_password'])) $current_env['imap_pass'] = $data['imap_password'];
     
-    if (file_put_contents($config_file, $new_content)) {
-        echo json_encode(['success' => true, 'message' => 'Configurações salvas com sucesso']);
+    $current_env['smtp_host'] = $data['smtp_host'] ?? $current_env['smtp_host'] ?? '';
+    $current_env['smtp_port'] = $data['smtp_port'] ?? $current_env['smtp_port'] ?? '465';
+    $current_env['smtp_user'] = $data['smtp_username'] ?? $current_env['smtp_user'] ?? '';
+    if (!empty($data['smtp_password'])) $current_env['smtp_pass'] = $data['smtp_password'];
+    
+    $current_env['from_email'] = $data['from_email'] ?? $current_env['from_email'] ?? '';
+    $current_env['from_name'] = $data['from_name'] ?? $current_env['from_name'] ?? '';
+
+    // Relançar de volta pro Arquivo .env
+    $new_content_env = "# Configurações de Email - Gerado Pelo Sistema\n";
+    foreach ($current_env as $k => $v) {
+        $new_content_env .= "{$k}={$v}\n";
+    }
+    
+    if (file_put_contents($env_file, $new_content_env)) {
+        echo json_encode(['success' => true, 'message' => 'Configurações de rede salvas com sucesso em ambiente seguro (.env)']);
     } else {
         http_response_code(500);
-        echo json_encode(['error' => 'Erro ao salvar configurações']);
+        echo json_encode(['error' => 'Erro ao salvar segredos e configurações localmente']);
     }
 }

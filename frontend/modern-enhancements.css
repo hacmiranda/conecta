@@ -535,18 +535,16 @@ h2::after {
 /* ========================================================================= */
 /* === FOOTER INSTITUCIONAL === */
 footer {
-    background-color: #1E293B;
-    /* Cor solicitada */
+    background: #1E293B;
     border-top: 1px solid #334155;
-    padding: 3rem 0;
+    padding: 1.2rem 0;
     margin-top: auto;
     color: #e2e8f0;
-    /* Texto claro para fundo escuro */
 }
 
 .modo-escuro footer {
-    background-color: #0f172a;
-    /* Mantém escuro no modo escuro, ou ajusta se necessário */
+    background: #0f172a;
+    /* Mantém escuro no modo escuro e isola gradiente antigo */
     border-top-color: #1e293b;
     color: #94a3b8;
 }
@@ -627,19 +625,15 @@ footer {
 }
 
 .footer-bottom {
-    border-top: 1px solid #e2e8f0;
-    margin-top: 3rem;
-    padding-top: 1.5rem;
+    border-top: none;
+    margin-top: 0.5rem;
+    padding-top: 0.5rem;
     text-align: center;
-    font-size: 0.875rem;
+    font-size: 0.85rem;
     color: #94a3b8;
     max-width: 1200px;
     margin-left: auto;
     margin-right: auto;
-}
-
-.modo-escuro .footer-bottom {
-    border-top-color: #1e293b;
 }
 
 /* === COOKIE BANNER === */
