@@ -1,0 +1,12 @@
+# Pastas Ignoradas
+/vendor/
+/node_modules/
+
+# Ambientes Locais e Segredos
+.env
+api/config/.env
+*.log
+
+# Arquivos do OS
+.DS_Store
+Thumbs.db

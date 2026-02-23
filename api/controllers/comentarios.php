@@ -69,7 +69,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     
     if ($isFormData) {
         $ticket_id = $_POST['ticket_id'] ?? null;
-        $comentario = $_POST['comentario'] ?? '';
+        $comentario_raw = $_POST['comentario'] ?? '';
         if ($usuario_id === null) {
             $usuario_id = $_POST['usuario_id'] ?? 1;
         }
@@ -78,13 +78,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     } else {
         $input = json_decode(file_get_contents('php://input'), true);
         $ticket_id = $input['ticket_id'] ?? null;
-        $comentario = $input['comentario'] ?? '';
+        $comentario_raw = $input['comentario'] ?? '';
         if ($usuario_id === null) {
             $usuario_id = $input['usuario_id'] ?? 1;
         }
         $enviar_email = $input['enviar_email'] ?? false;
         $com_copia = $input['com_copia'] ?? null;
     }
+    
+    // Sanitização de Entradas (Mitigação XSS)
+    $comentario = strip_tags($comentario_raw, '<p><br><strong><em><u><s><h1><h2><h3><h4><h5><h6><ul><ol><li><a><blockquote><span><img>');
+    $comentario = preg_replace('/on[a-z]+\s*=\s*(["\']).*?\1/i', '', $comentario);
+    $comentario = preg_replace('/javascript:/i', '#', $comentario);
     
     if ($usuario_id !== null) {
         error_log("[COMENTARIOS] Usando usuario_id final: {$usuario_id}");

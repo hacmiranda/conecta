@@ -26,14 +26,14 @@ class AuthMiddleware {
     
     public static function verificarAuth() {
         $headers = self::getAllHeaders();
+        $auth_header = $headers['Authorization'] ?? $_SERVER['HTTP_AUTHORIZATION'] ?? null;
         
-        if (!isset($headers['Authorization'])) {
+        if (!$auth_header) {
             http_response_code(401);
             echo json_encode(['error' => 'Token de autenticação requerido']);
             exit;
         }
         
-        $auth_header = $headers['Authorization'];
         if (!preg_match('/Bearer\s(\S+)/', $auth_header, $matches)) {
             http_response_code(401);
             echo json_encode(['error' => 'Formato de token inválido']);
@@ -62,14 +62,25 @@ class AuthMiddleware {
     }
     
     public static function verificarCSRF() {
-        // CSRF via Header X-CSRF-Token
         $headers = self::getAllHeaders();
-        $csrf_token = $headers['X-CSRF-Token'] ?? $headers['X-Csrf-Token'] ?? $_POST['_csrf'] ?? null;
         
-        if (!$csrf_token) {
-            $input = json_decode(file_get_contents('php://input'), true);
-            $csrf_token = $input['_csrf'] ?? null;
+        // Busca case-insensitive do header
+        $csrf_token = null;
+        foreach ($headers as $key => $value) {
+            if (strtolower($key) === 'x-csrf-token') {
+                $csrf_token = $value;
+                break;
+            }
         }
+        
+        // Fallback apenas se não achou no header
+        if (!$csrf_token) {
+            $csrf_token = $_POST['_csrf'] ?? null;
+        }
+        
+        // Evitando chamar file_get_contents('php://input') no middleware 
+        // para não esvaziar a stream (bug em algumas versões do PHP/Apache)
+
 
         // Se usa autenticação exclusivamente via Header Authorization (JWT), CSRF é mitigado se o token não estiver em cookie
         // Mas para garantir, podemos exigir um header customizado

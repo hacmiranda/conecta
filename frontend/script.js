@@ -62,6 +62,9 @@ function verificarExpiracaoToken() {
             mostrarAlert('Sessão Expirada', 'Seu token de acesso expirou. Por favor, faça login novamente.', () => {
                 fazerLogout();
             });
+        } else {
+            // "Pseudo-Cron": Ping automático para o script de lembretes a cada 1 minuto
+            fetch('/crpdesk/api/cron/verificar-lembretes.php').catch(() => { });
         }
     } catch (e) {
         // Token inválido
@@ -2279,11 +2282,14 @@ function mostrarSelect(titulo, mensagem, opcoes, callback) {
 
 // Fechar modal
 function fecharModal() {
+    // Guarda o estado antes de limpar as classes
+    const wasAlert = document.getElementById('modal-alert').classList.contains('show');
+    
     document.getElementById('modal-overlay').classList.remove('show');
     document.querySelectorAll('.modal').forEach(modal => modal.classList.remove('show'));
 
     // Executar callback apenas se for alert
-    if (modalCallback && document.getElementById('modal-alert').classList.contains('show')) {
+    if (modalCallback && wasAlert) {
         const callback = modalCallback;
         modalCallback = null;
         modalSelectCallback = null;
@@ -2530,7 +2536,12 @@ function criarUsuario(event) {
             document.getElementById('form-usuario').reset();
             carregarUsuarios();
         } else {
-            mostrarAlert('Erro', 'Erro ao criar usuário');
+            let errorMsg = 'Erro ao criar usuário';
+            try {
+                const res = JSON.parse(xhr.responseText);
+                if (res.error) errorMsg = res.error;
+            } catch (e) { }
+            mostrarAlert('Erro', errorMsg);
         }
     };
 

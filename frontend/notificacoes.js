@@ -34,15 +34,24 @@ function inciarNotificacoes() {
 
 function atualizarBadgeNotificacoes(quantidade) {
     const badge = document.getElementById('badge-notificacoes');
+    const btnNav = document.getElementById('btn-nav-notificacoes');
     if (!badge) return;
 
     if (quantidade > 0) {
         badge.textContent = quantidade > 99 ? '99+' : quantidade;
         badge.style.display = 'flex';
         badge.classList.add('pulse'); // css de pulso opcional
+        if (btnNav) {
+            btnNav.style.backgroundColor = 'var(--vermelho, #e53e3e)';
+            btnNav.style.color = '#fff';
+        }
     } else {
         badge.style.display = 'none';
         badge.textContent = '';
+        if (btnNav) {
+            btnNav.style.backgroundColor = '';
+            btnNav.style.color = '';
+        }
     }
 }
 
@@ -57,16 +66,17 @@ function renderizarNotificacoes(notificacoes) {
 
     let html = '';
     notificacoes.forEach(notif => {
-        const bgCor = notif.lida == 0 ? '#ffffff' : '#f4f4f4';
-        const barraCor = notif.lida == 0 ? 'var(--laranja)' : 'transparent';
-        const txtCor = notif.lida == 0 ? '#333' : '#777';
+        const bgCor = notif.lida == 0 ? '#fff5f5' : '#ffffff';
+        const barraCor = notif.lida == 0 ? 'var(--vermelho, #e53e3e)' : 'transparent';
+        const txtCor = notif.lida == 0 ? '#c53030' : '#777';
+        const tituloCor = notif.lida == 0 ? '#9b2c2c' : '#555';
 
         // Se a notificação tem ticket, clica nela e abre
         const onclickAction = notif.ticket_id ? `abrirDetalhesNotificacao(${notif.id}, ${notif.ticket_id})` : `marcarNotificacaoLida(${notif.id})`;
 
         html += `
             <div onclick="${onclickAction}" style="background: ${bgCor}; border-left: 4px solid ${barraCor}; padding: 0.8rem; margin-bottom: 0.5rem; border-radius: 4px; box-shadow: 0 1px 2px rgba(0,0,0,0.05); cursor: pointer; transition: background 0.2s;">
-                <div style="font-weight: 600; font-size: 0.9rem; color: ${txtCor}; margin-bottom: 0.3rem;">${notif.titulo}</div>
+                <div style="font-weight: 600; font-size: 0.9rem; color: ${tituloCor}; margin-bottom: 0.3rem;">${notif.titulo}</div>
                 <div style="font-size: 0.8rem; color: ${txtCor}; line-height: 1.3;">${notif.mensagem}</div>
                 <div style="font-size: 0.7rem; color: #aaa; margin-top: 0.4rem; text-align: right;">${new Date(notif.criado_em).toLocaleString('pt-BR')}</div>
             </div>

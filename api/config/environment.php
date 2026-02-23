@@ -17,13 +17,38 @@ class Environment {
         }
         return self::$isProduction;
     }
+    private static $envCache = null;
+
+    /**
+     * Carrega variáveis do arquivo .env (se existir)
+     */
+    private static function loadEnv() {
+        if (self::$envCache === null) {
+            self::$envCache = [];
+            $envPath = __DIR__ . '/.env';
+            if (file_exists($envPath)) {
+                $lines = file($envPath, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
+                foreach ($lines as $line) {
+                    if (strpos(trim($line), '#') === 0) continue;
+                    @list($k, $v) = explode('=', $line, 2);
+                    if ($k) self::$envCache[trim($k)] = trim($v ?? '');
+                }
+            }
+        }
+        return self::$envCache;
+    }
     
     /**
-     * Retorna configuração baseada no ambiente
+     * Retorna configuração baseada no ambiente (.env com fallback)
      */
-    public static function get($key) {
+    public static function get($key, $default = null) {
+        $env = self::loadEnv();
+        if (isset($env[$key]) && $env[$key] !== '') {
+            return $env[$key];
+        }
+        
         $config = self::isProduction() ? self::production() : self::localhost();
-        return $config[$key] ?? null;
+        return $config[$key] ?? $default;
     }
     
     /**
