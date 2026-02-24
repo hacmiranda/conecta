@@ -44,6 +44,11 @@ if ($method === 'GET') {
         $stmt->execute([$usuario_id]);
         echo json_encode(['success' => true]);
     }
+} elseif ($method === 'DELETE') {
+    // Excluir todas as notificações do usuário
+    $stmt = $conn->prepare("DELETE FROM notificacoes WHERE usuario_id = ?");
+    $stmt->execute([$usuario_id]);
+    echo json_encode(['success' => true]);
 } elseif ($method === 'POST') {
     // Criar notificação (uso interno: a api também é chamada por XMLHttpRequest mas 
     // geralmente é o backend do comentário que deveria inserir no BD direto. 

@@ -120,12 +120,30 @@ function abrirDetalhesNotificacao(notifId, ticketId) {
     // Fechar dropdown de notificacoes
     fecharNavDropdown('notificacoes');
 
-    // Chamar função principal do script.js
-    if (typeof abrirDetalhesDoTicket === 'function') {
-        abrirDetalhesDoTicket(ticketId);
+    // Abrir detalhe do ticket via função principal do script.js
+    if (typeof verDetalhes === 'function') {
+        verDetalhes(ticketId);
     } else {
-        console.warn("Função abrirDetalhesDoTicket não encontrada.");
+        console.warn("Função verDetalhes não encontrada.");
     }
+}
+
+function excluirTodasNotificacoes() {
+    const xhr = new XMLHttpRequest();
+    xhr.open('DELETE', '/crpdesk/api/controllers/notificacoes.php', true);
+    setSecurityHeaders(xhr);
+
+    xhr.onload = function () {
+        if (xhr.status === 200) {
+            // Limpar lista imediatamente; SSE atualizará o badge
+            const lista = document.getElementById('lista-notificacoes');
+            if (lista) {
+                lista.innerHTML = '<div style="padding: 1rem; text-align: center; color: #666;">Nenhuma notificação encontrada.</div>';
+            }
+            atualizarBadgeNotificacoes(0);
+        }
+    };
+    xhr.send();
 }
 
 // Interceptar o carregamento do usuário para inicar as notificações

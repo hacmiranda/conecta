@@ -79,3 +79,19 @@
 .badge-notificacoes.pulse {
     animation: pulse-notif 2s infinite;
 }
+
+/* Modo escuro */
+.modo-escuro .nav-dropdown {
+    background: #2d2d2d;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.45);
+    border: 1px solid #444;
+}
+
+.modo-escuro .nav-dropdown-item {
+    color: #e0e0e0;
+}
+
+.modo-escuro .nav-dropdown-item:hover {
+    background: #3a3f52;
+    color: #93c5fd;
+}

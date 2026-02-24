@@ -298,7 +298,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $agentes_stmt = $db->query($agentes_query);
             $agentes = $agentes_stmt->fetchAll(PDO::FETCH_COLUMN);
 
-            $msg_novo_ticket = "Um novo ticket (#$ticket_id) foi aberto pelo usuário " . ($user['nome'] ?? 'Desconhecido') . ".";
+            $msg_novo_ticket = "Um novo ticket (#" . str_pad($ticket_id, 5, '0', STR_PAD_LEFT) . ") foi aberto pelo usuário " . ($user['nome'] ?? 'Desconhecido') . ".";
             $notif_insert = "INSERT INTO notificacoes (usuario_id, titulo, mensagem, ticket_id) VALUES (?, 'Novo Ticket', ?, ?)";
             $stmt_insert = $db->prepare($notif_insert);
             
@@ -634,7 +634,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'PUT') {
                         $emailSender->notificarAtribuicaoTicket($ticket_id, $input['agente_id'], $user_data['nome'] ?? 'Sistema', $era_sem_atribuicao);
                         
                         // Push Notificação Interna
-                        $msg_notificacao = "O ticket (#" . $ticket_id . ") foi atribuído a você por " . ($user_data['nome'] ?? 'Sistema') . ".";
+                        $msg_notificacao = "O ticket (#" . str_pad($ticket_id, 5, '0', STR_PAD_LEFT) . ") foi atribuído a você por " . ($user_data['nome'] ?? 'Sistema') . ".";
                         $notif_query = "INSERT INTO notificacoes (usuario_id, titulo, mensagem, ticket_id) VALUES (?, ?, ?, ?)";
                         $notif_stmt = $db->prepare($notif_query);
                         $notif_stmt->execute([$input['agente_id'], 'Ticket Atribuído', $msg_notificacao, $ticket_id]);
