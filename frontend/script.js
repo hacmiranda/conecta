@@ -284,12 +284,8 @@ function mostrarSecao(secaoId) {
             });
             return;
         }
-
-        // Carregar subseção padrão se não houver uma salva
-        const subSecaoSalva = localStorage.getItem('subSecaoAtiva');
-        if (!subSecaoSalva) {
-            setTimeout(() => mostrarUsuarios(), 100);
-        }
+        // Subseção padrão não é carregada aqui — cada chamador é responsável
+        // por invocar a subseção desejada logo após mostrarSecao('config')
     }
 }
 
@@ -1395,10 +1391,13 @@ function verDetalhes(ticketId) {
     localStorage.setItem('ticketAtivo', ticketId);
     localStorage.setItem('secaoAtiva', 'detalhes');
 
+    mostrarLoader();
+
     const xhr = new XMLHttpRequest();
     xhr.open('GET', `/crpdesk/api/controllers/tickets.php?id=${ticketId}`, true);
 
     xhr.onload = function () {
+        ocultarLoader();
         if (xhr.status === 200) {
             const ticket = JSON.parse(xhr.responseText);
             // Salvar dados do ticket para saber se é fechado
@@ -1435,6 +1434,7 @@ function verDetalhes(ticketId) {
     };
 
     xhr.onerror = function () {
+        ocultarLoader();
         console.error('Erro de conexão ao carregar detalhes');
         mostrarAlert('Erro', 'Erro de conexão');
     };
@@ -2079,7 +2079,7 @@ function mostrarLoader() {
 function ocultarLoader() {
     console.log('🔴 ocultarLoader: iniciando...');
     const tempoDecorrido = Date.now() - loaderStartTime;
-    const tempoRestante = Math.max(0, 2000 - tempoDecorrido);
+    const tempoRestante = Math.max(0, 500 - tempoDecorrido);
     console.log('🔴 Tempo decorrido:', tempoDecorrido, 'ms, tempo restante:', tempoRestante, 'ms');
 
     setTimeout(() => {
@@ -4249,6 +4249,8 @@ function restaurarSecaoAtiva() {
         mostrarTicketsFechados();
     } else if (secaoSalva === 'relatorios') {
         mostrarRelatorios();
+    } else if (secaoSalva === 'sobre') {
+        mostrarSobre();
     } else if (secaoSalva === 'ajuda') {
         mostrarSecao('ajuda');
         if (subSecaoSalva === 'sla') {
@@ -5497,10 +5499,197 @@ function executarMerge() {
     );
 }
 
+// Seção Sobre
+function mostrarSobre() {
+    mostrarSecao('sobre');
+    localStorage.removeItem('subSecaoAtiva');
+
+    const content = document.getElementById('sobre-content');
+    content.innerHTML = `
+        <div class="ajuda-container" style="animation: fadeInUp 0.4s ease-out; max-width: 900px; margin: 0 auto; padding-top: 2.5rem;">
+
+            <!-- Cabeçalho da página -->
+            <div style="background: linear-gradient(135deg, #1e3a8a 0%, #1a3a7a 100%); color: white; padding: 2.5rem 2rem; border-radius: 14px; margin-bottom: 2rem; box-shadow: 0 4px 20px rgba(30,58,138,0.25); display: flex; align-items: center; gap: 2rem; flex-wrap: wrap;">
+                <div style="flex-shrink: 0; width: 80px; height: 80px; background: rgba(255,255,255,0.12); border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 2.5rem; box-shadow: 0 2px 12px rgba(0,0,0,0.2);">
+                    🖥️
+                </div>
+                <div style="flex: 1; min-width: 200px;">
+                    <div style="font-size: 0.8rem; text-transform: uppercase; letter-spacing: 1.5px; opacity: 0.75; margin-bottom: 0.3rem;">Sistema de Helpdesk</div>
+                    <h2 style="margin: 0 0 0.3rem; font-size: 2rem; font-weight: 700; letter-spacing: -0.5px; color: white; border: none; padding: 0;">CRPDESK</h2>
+                    <div style="font-size: 1rem; opacity: 0.9;">Conselho Regional de Psicologia do Rio Grande do Sul</div>
+                </div>
+                <div style="text-align: center; flex-shrink: 0;">
+                    <div style="background: rgba(247,146,38,0.85); border-radius: 8px; padding: 0.4rem 1.1rem; display: inline-block; font-size: 0.85rem; font-weight: 700; letter-spacing: 0.5px; text-transform: uppercase; margin-bottom: 0.4rem;">VERSÃO</div>
+                    <div style="font-size: 2.2rem; font-weight: 800; line-height: 1;">3.0</div>
+                </div>
+            </div>
+
+            <!-- Cards de informação -->
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 1rem; margin-bottom: 2rem;">
+                <div style="background: var(--bg-card, #fff); border-radius: 10px; padding: 1.2rem 1.4rem; box-shadow: var(--shadow-sm, 0 1px 4px rgba(0,0,0,0.08)); border-left: 4px solid #1e3a8a;">
+                    <div style="font-size: 1.4rem; margin-bottom: 0.4rem;">🏛️</div>
+                    <div style="font-size: 0.75rem; text-transform: uppercase; color: var(--text-secondary, #666); letter-spacing: 0.8px; margin-bottom: 0.2rem;">Organização</div>
+                    <div style="font-size: 0.95rem; font-weight: 600; color: var(--text-primary, #1e3a8a);">CRPRS — Conselho Regional de Psicologia do Rio Grande do Sul</div>
+                </div>
+                <div style="background: var(--bg-card, #fff); border-radius: 10px; padding: 1.2rem 1.4rem; box-shadow: var(--shadow-sm, 0 1px 4px rgba(0,0,0,0.08)); border-left: 4px solid #f79226;">
+                    <div style="font-size: 1.4rem; margin-bottom: 0.4rem;">🛠️</div>
+                    <div style="font-size: 0.75rem; text-transform: uppercase; color: var(--text-secondary, #666); letter-spacing: 0.8px; margin-bottom: 0.2rem;">Stack Tecnológica</div>
+                    <div style="font-size: 0.95rem; font-weight: 600; color: var(--text-primary, #333);">PHP 8.2 · MySQL · Vanilla JS · Alpine.js · Quill.js</div>
+                </div>
+                <div style="background: var(--bg-card, #fff); border-radius: 10px; padding: 1.2rem 1.4rem; box-shadow: var(--shadow-sm, 0 1px 4px rgba(0,0,0,0.08)); border-left: 4px solid #28a745;">
+                    <div style="font-size: 1.4rem; margin-bottom: 0.4rem;">📅</div>
+                    <div style="font-size: 0.75rem; text-transform: uppercase; color: var(--text-secondary, #666); letter-spacing: 0.8px; margin-bottom: 0.2rem;">Última Atualização</div>
+                    <div style="font-size: 0.95rem; font-weight: 600; color: var(--text-primary, #333);">Fevereiro de 2026</div>
+                </div>
+            </div>
+
+            <!-- Changelog 3.0 -->
+            <div style="background: var(--bg-card, #fff); border-radius: 12px; box-shadow: var(--shadow-sm, 0 1px 4px rgba(0,0,0,0.08)); overflow: hidden; margin-bottom: 1.5rem;">
+                <div style="background: linear-gradient(135deg, #1e3a8a 0%, #1a3a7a 100%); padding: 1rem 1.5rem; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 0.5rem;">
+                    <div style="display: flex; align-items: center; gap: 0.75rem;">
+                        <span style="font-size: 1.3rem;">📦</span>
+                        <span style="color: white; font-size: 1.1rem; font-weight: 700;">Versão 3.0</span>
+                    </div>
+                    <div style="display: flex; gap: 0.5rem; align-items: center;">
+                        <span style="background: rgba(247,146,38,0.9); color: white; font-size: 0.75rem; font-weight: 700; padding: 0.2rem 0.6rem; border-radius: 20px; text-transform: uppercase; letter-spacing: 0.5px;">Em desenvolvimento</span>
+                        <span style="color: rgba(255,255,255,0.7); font-size: 0.85rem;">2026-02-22</span>
+                    </div>
+                </div>
+                <div style="padding: 1.5rem;">
+
+                    <!-- Tabela de tickets -->
+                    <div style="margin-bottom: 1.5rem;">
+                        <div style="font-size: 0.9rem; font-weight: 700; color: var(--text-primary, #1e3a8a); margin-bottom: 0.8rem; display: flex; align-items: center; gap: 0.5rem; padding-bottom: 0.5rem; border-bottom: 1px solid var(--border-color, #e5e7eb);">
+                            <span>🎫</span> Tabelas de Tickets — Melhorias de UX e Unificação
+                        </div>
+                        <ul style="margin: 0; padding-left: 1.4rem; font-size: 0.88rem; color: var(--text-secondary, #555); line-height: 1.8;">
+                            <li><strong>Unificação da Tabela de Tickets Encerrados</strong>: Paridade de design e performance com "Tickets Abertos" — paginação dedicada, busca com debounce (300ms), skeleton loading, ordenação persistente independente.</li>
+                            <li><strong>Módulo Kanban</strong>: Visão Kanban com toggle Tabela/Kanban, drag &amp; drop assíncrono e colunas inteligentes (Novo, Em Atendimento, Aguardando, Resp. Usuário).</li>
+                            <li><strong>Responsividade Híbrida</strong>: Tabela se transforma em cards em telas &lt; 768px usando data-labels CSS e pseudo-elementos <code>:before</code>.</li>
+                            <li><strong>Editor WYSIWYG (Quill.js)</strong>: Formatação rica nos tickets e comentários — negrito, listas, imagens. Migração para <code>LONGTEXT</code> no banco.</li>
+                            <li><strong>Indicador de ordenação ativa</strong>: Coluna ordenada exibe ↑ ou ↓ em laranja; demais exibem ↕ cinza. Persistente via <code>localStorage</code>.</li>
+                            <li><strong>Filtros rápidos por status</strong>: Pills com contadores em tempo real — Todos, Novo, Em atendimento, Aguardando, Nova resposta, Urgente.</li>
+                            <li><strong>Badge de SLA inline</strong>: Tempo restante (ou vencimento) — 🟢 OK, 🟡 Alerta, 🔴 Crítico, 🩸 Vencido, ⬜ Pausado. Respeita <code>prefers-reduced-motion</code>.</li>
+                            <li><strong>Paginação</strong>: 25/50/100 itens por página com numeração ±2. Padrão alterado para 50 itens. Quantidade persistente.</li>
+                            <li><strong>Ícones Material Symbols</strong>: Substituem PNGs antigos — escaláveis, compatíveis com dark mode e acessíveis com <code>aria-label</code>.</li>
+                        </ul>
+                    </div>
+
+                    <!-- Macros -->
+                    <div style="margin-bottom: 1.5rem;">
+                        <div style="font-size: 0.9rem; font-weight: 700; color: var(--text-primary, #1e3a8a); margin-bottom: 0.8rem; display: flex; align-items: center; gap: 0.5rem; padding-bottom: 0.5rem; border-bottom: 1px solid var(--border-color, #e5e7eb);">
+                            <span>⚡</span> Respostas Rápidas (Macros)
+                        </div>
+                        <ul style="margin: 0; padding-left: 1.4rem; font-size: 0.88rem; color: var(--text-secondary, #555); line-height: 1.8;">
+                            <li>Templates de texto pré-formatados com WYSIWYG (Quill.js) para acelerar o atendimento.</li>
+                            <li>Modal dedicado com listagem dinâmica, edição e exclusão. Acessível pelo dropdown do perfil.</li>
+                            <li>Integração fluida no campo de comentários — macro injetada sem sobrescrever o texto existente.</li>
+                        </ul>
+                    </div>
+
+                    <!-- Notificações SSE -->
+                    <div style="margin-bottom: 1.5rem;">
+                        <div style="font-size: 0.9rem; font-weight: 700; color: var(--text-primary, #1e3a8a); margin-bottom: 0.8rem; display: flex; align-items: center; gap: 0.5rem; padding-bottom: 0.5rem; border-bottom: 1px solid var(--border-color, #e5e7eb);">
+                            <span>🔔</span> Notificações em Tempo Real (SSE)
+                        </div>
+                        <ul style="margin: 0; padding-left: 1.4rem; font-size: 0.88rem; color: var(--text-secondary, #555); line-height: 1.8;">
+                            <li>Migração de polling AJAX para <strong>Server-Sent Events</strong> (EventSource) — menor latência e carga no servidor.</li>
+                            <li>Badge pulsante com contador de alertas não lidos sobre o ícone do sino.</li>
+                            <li>Dropdown de feed com histórico; clicar na notificação abre o ticket correspondente e marca como lida.</li>
+                            <li>Triggers em <code>tickets.php</code> e <code>comentarios.php</code>: nova atribuição, novo ticket e novos comentários.</li>
+                        </ul>
+                    </div>
+
+                    <!-- Alpine.js -->
+                    <div style="margin-bottom: 1.5rem;">
+                        <div style="font-size: 0.9rem; font-weight: 700; color: var(--text-primary, #1e3a8a); margin-bottom: 0.8rem; display: flex; align-items: center; gap: 0.5rem; padding-bottom: 0.5rem; border-bottom: 1px solid var(--border-color, #e5e7eb);">
+                            <span>🏗️</span> Arquitetura Frontend — Componentização (Alpine.js)
+                        </div>
+                        <ul style="margin: 0; padding-left: 1.4rem; font-size: 0.88rem; color: var(--text-secondary, #555); line-height: 1.8;">
+                            <li>Migração incremental de <code>script.js</code> monolítico para componentes Alpine.js encapsulados sem build step.</li>
+                            <li>Editor Quill.js extraído para <code>alpine-components.js</code> com inicialização atômica.</li>
+                            <li>Micro-animações com física de mola (<code>cubic-bezier(0.175, 0.885, 0.32, 1.275)</code>); respeita <code>prefers-reduced-motion</code>.</li>
+                        </ul>
+                    </div>
+
+                    <!-- Segurança -->
+                    <div style="margin-bottom: 1.5rem;">
+                        <div style="font-size: 0.9rem; font-weight: 700; color: var(--text-primary, #1e3a8a); margin-bottom: 0.8rem; display: flex; align-items: center; gap: 0.5rem; padding-bottom: 0.5rem; border-bottom: 1px solid var(--border-color, #e5e7eb);">
+                            <span>🛡️</span> Segurança e Compliance (LGPD)
+                        </div>
+                        <ul style="margin: 0; padding-left: 1.4rem; font-size: 0.88rem; color: var(--text-secondary, #555); line-height: 1.8;">
+                            <li>Mascaramento obrigatório de e-mails (<code>a***@gmail.com</code>) na visualização de tickets encerrados.</li>
+                            <li>CSRF obrigatório em todos os Payloads de mutação via macros (<code>AuthMiddleware::verificarCSRF()</code>).</li>
+                        </ul>
+                    </div>
+
+                    <!-- BI -->
+                    <div style="margin-bottom: 1.5rem;">
+                        <div style="font-size: 0.9rem; font-weight: 700; color: var(--text-primary, #1e3a8a); margin-bottom: 0.8rem; display: flex; align-items: center; gap: 0.5rem; padding-bottom: 0.5rem; border-bottom: 1px solid var(--border-color, #e5e7eb);">
+                            <span>📈</span> Business Intelligence — Dashboard FCR e Otimizações
+                        </div>
+                        <ul style="margin: 0; padding-left: 1.4rem; font-size: 0.88rem; color: var(--text-secondary, #555); line-height: 1.8;">
+                            <li>Widget de <strong>First Contact Resolution (FCR)</strong>: % de tickets resolvidos no primeiro contato.</li>
+                            <li>Cache HTTP dinâmico no <code>dashboard.php</code> (60s) — reduz em ~90% as queries simultâneas de resumo.</li>
+                            <li>Migration v8 com indexação agressiva em <code>tickets</code>, <code>comentarios</code>, <code>historico</code> e <code>notificacoes</code>.</li>
+                        </ul>
+                    </div>
+
+                    <!-- Login e header -->
+                    <div style="margin-bottom: 1.5rem;">
+                        <div style="font-size: 0.9rem; font-weight: 700; color: var(--text-primary, #1e3a8a); margin-bottom: 0.8rem; display: flex; align-items: center; gap: 0.5rem; padding-bottom: 0.5rem; border-bottom: 1px solid var(--border-color, #e5e7eb);">
+                            <span>🔐</span> Login — Redesign Completo e Melhorias de Segurança
+                        </div>
+                        <ul style="margin: 0; padding-left: 1.4rem; font-size: 0.88rem; color: var(--text-secondary, #555); line-height: 1.8;">
+                            <li>Layout split-screen: painel de identidade CRPRS (esquerdo) + formulário moderno com Inter e Material Symbols.</li>
+                            <li>Cloudflare Turnstile CAPTCHA validado no frontend antes do envio; 5 tentativas antes do bloqueio.</li>
+                            <li>Tratamento diferenciado por código HTTP (400 captcha, 401/403 credenciais, erro de rede).</li>
+                            <li>Suporte completo a <code>prefers-reduced-motion</code> e acessibilidade WCAG 2.2.</li>
+                        </ul>
+                    </div>
+
+                    <!-- E-mail -->
+                    <div style="margin-bottom: 0;">
+                        <div style="font-size: 0.9rem; font-weight: 700; color: var(--text-primary, #1e3a8a); margin-bottom: 0.8rem; display: flex; align-items: center; gap: 0.5rem; padding-bottom: 0.5rem; border-bottom: 1px solid var(--border-color, #e5e7eb);">
+                            <span>📧</span> Sistema de E-mail e Tickets por E-mail
+                        </div>
+                        <ul style="margin: 0; padding-left: 1.4rem; font-size: 0.88rem; color: var(--text-secondary, #555); line-height: 1.8;">
+                            <li>Estratégia IMAP alterada para <code>SINCE 3 days ago</code> — captura e-mails lidos em outros clientes.</li>
+                            <li>Anti-duplicidade de tickets (10 min) e comentários (5 min) via e-mail e interface.</li>
+                            <li>Blacklist de remetentes internos (<code>suporte@crprs.org.br</code>) para evitar loops.</li>
+                            <li>Log completo de envios na tabela <code>email_logs</code> com filtros, paginação e estatísticas de taxa de sucesso.</li>
+                            <li>Alerta visual pulsante 🔴 no botão Configurações quando há falhas de e-mail nas últimas 24h.</li>
+                            <li>Notificação entre agentes: comentário em ticket de outro agente dispara e-mail + muda status para "Nova Resposta".</li>
+                        </ul>
+                    </div>
+
+                </div>
+            </div>
+
+            <!-- Rodapé -->
+            <div style="text-align: center; padding: 1.5rem; font-size: 0.82rem; color: var(--text-secondary, #888); border-top: 1px solid var(--border-color, #e5e7eb); margin-top: 0.5rem;">
+                CRPDESK v3.0 &mdash; Desenvolvido para o Conselho Regional de Psicologia do Rio Grande do Sul (CRPRS)<br>
+                <span style="opacity: 0.7;">PHP 8.2 · MySQL · Vanilla JS · Alpine.js · Quill.js · Chart.js</span>
+            </div>
+
+        </div>
+
+        <style>
+            .modo-escuro #sobre-content code {
+                background: #3a3a3a;
+                color: #93c5fd;
+                padding: 0.1rem 0.3rem;
+                border-radius: 3px;
+                font-size: 0.82em;
+            }
+        </style>
+    `;
+}
+
 // Seção de Ajuda
 function mostrarAjuda() {
     mostrarSecao('ajuda');
-    mostrarSLA(); // Mostrar SLA por padrão
+    // Cada item do submenu é responsável por chamar sua própria subsecção
 }
 
 function mostrarSLA() {
@@ -5580,6 +5769,7 @@ function mostrarSLA() {
             <h4>⏸️ Pausa Automática do SLA</h4>
             <p>O SLA é <strong>pausado automaticamente</strong> quando o ticket está nos seguintes status:</p>
             <ul>
+                <li>⏳ <strong>Aguardando:</strong> Em espera por motivo não especificado</li>
                 <li>⏳ <strong>Aguardando resposta:</strong> Aguardando informações do solicitante</li>
                 <li>🔄 <strong>Aguardando terceiros:</strong> Depende de fornecedor ou outro setor</li>
                 <li>📋 <strong>Aguardando aprovação:</strong> Precisa de autorização do cliente ou gestor</li>
@@ -5684,87 +5874,115 @@ function mostrarStatusGuia() {
         <div class="ajuda-card">
             <h3>📊 Status dos Tickets</h3>
             <p>Cada ticket passa por diferentes status durante seu ciclo de vida:</p>
-            
+
             <div class="status-item">
-                <span class="status-badge aberto">🆕 Aberto</span>
+                <span class="status-badge" style="background:#fff3e0;color:#e65100;">🆕 Novo</span>
                 <div>
                     <strong>Ticket recém-criado</strong><br>
-                    O ticket foi criado, mas ainda não começou a ser tratado.
+                    O ticket foi criado (via sistema ou e-mail), mas ainda não foi atribuído nem visualizado por um agente.
                 </div>
             </div>
-            
+
             <div class="status-item">
-                <span class="status-badge em_atendimento">🔧 Em atendimento</span>
+                <span class="status-badge" style="background:#e3f2fd;color:#0277bd;">🔧 Em atendimento</span>
                 <div>
                     <strong>Agente trabalhando ativamente</strong><br>
-                    O ticket está sendo analisado ou trabalhado por um atendente do helpdesk.
+                    O ticket está sendo analisado ou trabalhado por um agente do helpdesk.
                 </div>
             </div>
-            
+
             <div class="status-item">
-                <span class="status-badge aguardando_resposta">⏳ Aguardando resposta</span>
+                <span class="status-badge" style="background:#fff8e1;color:#f57f17;">⏳ Aguardando</span>
+                <div>
+                    <strong>Em espera</strong><br>
+                    O ticket está em espera por algum motivo não especificado.
+                    <br><em style="color:#e6a817;">⏸️ SLA pausado neste status</em>
+                </div>
+            </div>
+
+            <div class="status-item">
+                <span class="status-badge" style="background:#fff8e1;color:#f57f17;">⏳ Aguardando resposta</span>
                 <div>
                     <strong>Aguardando informações do solicitante</strong><br>
-                    O atendente precisa de mais informações do usuário/cliente para continuar.
-                    <br><em style="color: #ffc107;">⏸️ SLA pausado neste status</em>
+                    O agente precisa de mais informações do usuário/cliente para continuar.
+                    <br><em style="color:#e6a817;">⏸️ SLA pausado neste status</em>
                 </div>
             </div>
-            
+
             <div class="status-item">
-                <span class="status-badge aguardando_terceiros">🔄 Aguardando terceiros</span>
+                <span class="status-badge" style="background:#f3e5f5;color:#6a1b9a;">🔄 Aguardando terceiros</span>
                 <div>
                     <strong>Depende de terceiros</strong><br>
                     Quando depende de outro setor ou fornecedor externo para resolução.
-                    <br><em style="color: #ffc107;">⏸️ SLA pausado neste status</em>
+                    <br><em style="color:#e6a817;">⏸️ SLA pausado neste status</em>
                 </div>
             </div>
-            
+
             <div class="status-item">
-                <span class="status-badge aguardando_aprovacao">📋 Aguardando aprovação</span>
+                <span class="status-badge" style="background:#fff3e0;color:#bf360c;">📋 Aguardando aprovação</span>
                 <div>
                     <strong>Precisa de autorização</strong><br>
                     Necessário para situações em que uma solução ou ação precisa de aprovação do cliente ou gestor.
-                    <br><em style="color: #ffc107;">⏸️ SLA pausado neste status</em>
+                    <br><em style="color:#e6a817;">⏸️ SLA pausado neste status</em>
                 </div>
             </div>
-            
+
             <div class="status-item">
-                <span class="status-badge resolvido">✅ Resolvido</span>
+                <span class="status-badge" style="background:#e0f7fa;color:#00695c;">📅 Aguardando data</span>
+                <div>
+                    <strong>Agendado para data futura</strong><br>
+                    O atendimento está pausado até uma data/hora específica agendada para retomar.
+                    <br><em style="color:#e6a817;">⏸️ SLA pausado neste status</em>
+                </div>
+            </div>
+
+            <div class="status-item">
+                <span class="status-badge" style="background:#e3f2fd;color:#1565c0;">💬 Nova Resposta</span>
+                <div>
+                    <strong>Solicitante respondeu</strong><br>
+                    O solicitante enviou uma nova resposta ou comentário. O ticket aguarda retomada do atendimento pelo agente.
+                </div>
+            </div>
+
+            <div class="status-item">
+                <span class="status-badge" style="background:#e8f5e9;color:#2e7d32;">✅ Resolvido</span>
                 <div>
                     <strong>Solução aplicada</strong><br>
                     A solução foi aplicada, mas aguarda a confirmação do usuário/cliente para encerrar.
                 </div>
             </div>
-            
+
             <div class="status-item">
-                <span class="status-badge encerrado">🏁 Encerrado</span>
+                <span class="status-badge" style="background:#f5f5f5;color:#424242;">🏁 Encerrado</span>
                 <div>
                     <strong>Ticket finalizado</strong><br>
-                    O problema foi solucionado, e o atendimento foi oficialmente concluído.
+                    O problema foi solucionado e o atendimento foi oficialmente concluído.
                 </div>
             </div>
-            
+
             <div class="status-item">
-                <span class="status-badge cancelado">❌ Cancelado</span>
+                <span class="status-badge" style="background:#ffebee;color:#c62828;">❌ Cancelado</span>
                 <div>
                     <strong>Ticket cancelado</strong><br>
-                    O ticket foi aberto por engano, ou a solicitação foi retirada pelo solicitante.
+                    O ticket foi aberto por engano ou a solicitação foi retirada pelo solicitante. <strong>Não é contabilizado</strong> nas métricas de desempenho.
                 </div>
             </div>
-            
+
             <div class="status-item">
-                <span class="status-badge reaberto">🔄 Reaberto</span>
+                <span class="status-badge" style="background:#fce4ec;color:#880e4f;">🔄 Reaberto</span>
                 <div>
                     <strong>Ticket reaberto</strong><br>
                     Quando um ticket já encerrado ou resolvido volta a apresentar problemas e precisa ser tratado novamente.
                 </div>
             </div>
-            
+
             <h4>🔄 Transições de Status</h4>
-            <p><strong>Fluxo normal:</strong> Aberto → Em atendimento → Resolvido → Encerrado</p>
-            <p><strong>Com interação:</strong> Aberto → Em atendimento → Aguardando resposta → Em atendimento → Encerrado</p>
+            <p><strong>Fluxo normal:</strong> Novo → Em atendimento → Resolvido → Encerrado</p>
+            <p><strong>Com interação:</strong> Novo → Em atendimento → Aguardando resposta → Nova Resposta → Em atendimento → Encerrado</p>
+            <p><strong>Com terceiros:</strong> Novo → Em atendimento → Aguardando terceiros → Em atendimento → Resolvido → Encerrado</p>
+            <p><strong>Com aprovação:</strong> Novo → Em atendimento → Aguardando aprovação → Resolvido → Encerrado</p>
+            <p><strong>Com data agendada:</strong> Novo → Em atendimento → Aguardando data → Em atendimento → Resolvido → Encerrado</p>
             <p><strong>Reabertura:</strong> Encerrado → Reaberto → Em atendimento</p>
-            <p><strong>Com aprovação:</strong> Aberto → Em atendimento → Aguardando aprovação → Resolvido → Encerrado</p>
         </div>
     `;
     }, 10);
@@ -6053,18 +6271,29 @@ function mostrarAuditoria() {
         </div>
         
         <div class="auditoria-filtros">
-            <label>Data Início:</label>
-            <input type="date" id="data-inicio-audit">
-            <label>Data Fim:</label>
-            <input type="date" id="data-fim-audit">
-            <div class="categoria-container" style="position: relative; display: inline-block;">
-                <input type="text" id="filtro-usuario-audit" placeholder="👤 Digite o nome do agente/admin..." autocomplete="off">
-                <input type="hidden" id="filtro-usuario-id">
-                <div id="lista-usuarios-audit" class="categoria-lista-form" style="display: none;"></div>
+            <div class="filtro-grupo">
+                <label for="data-inicio-audit">Data Início:</label>
+                <input type="date" id="data-inicio-audit">
             </div>
-            <button class="btn-primary" onclick="aplicarFiltrosAuditoria()">Filtrar</button>
-            <button class="btn-secondary" onclick="limparFiltrosAuditoria()">Limpar</button>
-            <button class="btn-primary" onclick="exportarAuditoria()">📥 Exportar CSV</button>
+            <div class="filtro-grupo">
+                <label for="data-fim-audit">Data Fim:</label>
+                <input type="date" id="data-fim-audit">
+            </div>
+            <div class="filtro-grupo filtro-grupo--expand">
+                <label for="filtro-usuario-audit">Agente/Admin:</label>
+                <div class="categoria-container" style="position: relative;">
+                    <input type="text" id="filtro-usuario-audit" placeholder="👤 Digite o nome do agente/admin..." autocomplete="off">
+                    <input type="hidden" id="filtro-usuario-id">
+                    <div id="lista-usuarios-audit" class="categoria-lista-form" style="display: none;"></div>
+                </div>
+            </div>
+            <div class="filtro-acoes">
+                <button class="btn-primary" onclick="aplicarFiltrosAuditoria()">🔍 Filtrar</button>
+                <button class="btn-secondary" onclick="limparFiltrosAuditoria()">Limpar</button>
+                <span class="filtro-separador"></span>
+                <button class="btn-exportar-csv" onclick="exportarAuditoria()">📥 CSV</button>
+                <button class="btn-exportar-pdf" onclick="exportarAuditoriaPDF()">🖨️ PDF</button>
+            </div>
         </div>
         
         <div id="auditoria-content"></div>
@@ -6101,6 +6330,10 @@ function carregarLogEmails(pagina = 1) {
     document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
     const tabs = document.querySelectorAll('.tab-btn');
     tabs.forEach(t => { if (t.textContent.includes('E-mails')) t.classList.add('active'); });
+
+    // Oculta o filtro superior — esta aba tem seus próprios filtros
+    const filtroSuperior = document.querySelector('.auditoria-filtros');
+    if (filtroSuperior) filtroSuperior.style.display = 'none';
 
     // Coletar filtros do painel de auditoria
     const params = new URLSearchParams({ pagina: pagina, limite: 50 });
@@ -6154,38 +6387,68 @@ function mostrarLogEmails(dados, paginaAtual = 1) {
 
     const { stats, por_tipo, logs, total, paginas } = dados;
 
+    // Detecta modo escuro para adaptar cores inline
+    const escuro = document.body.classList.contains('modo-escuro');
+    const corCard      = escuro ? '#2d2d2d' : '#fff';
+    const corBorda     = escuro ? '#444'    : '#e0e0e0';
+    const corTextoSub  = escuro ? '#aaa'    : '#666';
+    const corTextoNum  = escuro ? '#93c5fd' : '#1e3a5f';
+    const corBordaSep  = escuro ? '#444'    : '#eee';
+    const corLinhaImpar = escuro ? '#2d2d2d' : '#fff';
+    const corLinhaPar   = escuro ? '#353535' : '#fafafa';
+    const corSelectBg  = escuro ? '#3d3d3d' : '#fff';
+    const corSelectBorda = escuro ? '#555'  : '#ddd';
+    const corSelectTxt = escuro ? '#e0e0e0' : 'inherit';
+    const corFiltrosBg = escuro ? '#1e1e1e' : '#f5f5f5';
+    const corTicket    = escuro ? '#93c5fd' : '#1e3a5f';
+    const corPagInativa = escuro ? '#2d2d2d' : '#fff';
+    const corPagTxtInativa = escuro ? '#e0e0e0' : '#333';
+
+    // Estilos comuns dos selects
+    const selectStyle = `padding:6px 10px; border-radius:6px; border:1px solid ${corSelectBorda}; background:${corSelectBg}; color:${corSelectTxt};`;
+
     // --- Painel de filtros específicos ---
     const filtrosHtml = `
-        <div class="email-log-filtros" style="display:flex; gap:10px; flex-wrap:wrap; align-items:center; margin-bottom:16px; padding:12px; background:var(--bg-secondary, #f5f5f5); border-radius:8px;">
-            <label for="email-log-periodo" style="font-size:13px; font-weight:600;">Período:</label>
-            <select id="email-log-periodo" style="padding:6px 10px; border-radius:6px; border:1px solid #ddd;">
-                <option value="7">Últimos 7 dias</option>
-                <option value="30" selected>Últimos 30 dias</option>
-                <option value="90">Últimos 90 dias</option>
-                <option value="365">Último ano</option>
-            </select>
+        <div class="email-log-filtros" style="display:flex; flex-direction:column; gap:10px; margin-bottom:16px; padding:12px; background:${corFiltrosBg}; border-radius:8px; border:1px solid ${corBorda};">
 
-            <label for="email-log-status" style="font-size:13px; font-weight:600;">Status:</label>
-            <select id="email-log-status" style="padding:6px 10px; border-radius:6px; border:1px solid #ddd;">
-                <option value="">Todos</option>
-                <option value="sucesso">✅ Sucesso</option>
-                <option value="falha">❌ Falha</option>
-            </select>
+            <!-- Linha 1: filtros -->
+            <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
+                <label for="email-log-periodo" style="font-size:13px; font-weight:600; white-space:nowrap;">Período:</label>
+                <select id="email-log-periodo" style="${selectStyle}">
+                    <option value="7">Últimos 7 dias</option>
+                    <option value="30" selected>Últimos 30 dias</option>
+                    <option value="90">Últimos 90 dias</option>
+                    <option value="365">Último ano</option>
+                </select>
 
-            <label for="email-log-tipo" style="font-size:13px; font-weight:600;">Tipo:</label>
-            <select id="email-log-tipo" style="padding:6px 10px; border-radius:6px; border:1px solid #ddd;">
-                <option value="">Todos</option>
-                <option value="novo_ticket">📩 Novo Ticket</option>
-                <option value="comentario">💬 Comentário</option>
-                <option value="notif_agente">👥 Notif. Agente</option>
-                <option value="fechamento">🔒 Fechamento</option>
-                <option value="reabertura">🔓 Reabertura</option>
-                <option value="atribuicao">👤 Atribuição</option>
-                <option value="encaminhamento">↪️ Encaminhamento</option>
-                <option value="outros">📌 Outros</option>
-            </select>
+                <label for="email-log-status" style="font-size:13px; font-weight:600; white-space:nowrap;">Status:</label>
+                <select id="email-log-status" style="${selectStyle}">
+                    <option value="">Todos</option>
+                    <option value="sucesso">✅ Sucesso</option>
+                    <option value="falha">❌ Falha</option>
+                </select>
 
-            <button class="btn-primary" onclick="carregarLogEmails()" style="padding:6px 14px;">🔍 Filtrar</button>
+                <label for="email-log-tipo" style="font-size:13px; font-weight:600; white-space:nowrap;">Tipo:</label>
+                <select id="email-log-tipo" style="${selectStyle}">
+                    <option value="">Todos</option>
+                    <option value="novo_ticket">📩 Novo Ticket</option>
+                    <option value="comentario">💬 Comentário</option>
+                    <option value="notif_agente">👥 Notif. Agente</option>
+                    <option value="fechamento">🔒 Fechamento</option>
+                    <option value="reabertura">🔓 Reabertura</option>
+                    <option value="atribuicao">👤 Atribuição</option>
+                    <option value="encaminhamento">↪️ Encaminhamento</option>
+                    <option value="outros">📌 Outros</option>
+                </select>
+            </div>
+
+            <!-- Linha 2: botões alinhados à direita -->
+            <div style="display:flex; gap:6px; justify-content:flex-end; align-items:center;">
+                <button class="btn-primary" onclick="carregarLogEmails()" style="padding:6px 14px;">🔍 Filtrar</button>
+                <span style="width:1px; height:22px; background:${corBorda}; display:inline-block; margin:0 10px;"></span>
+                <button class="btn-exportar-csv" onclick="exportarLogEmailsCSV()">📥 CSV</button>
+                <button class="btn-exportar-pdf" onclick="exportarAuditoriaPDF()">🖨️ PDF</button>
+            </div>
         </div>
     `;
 
@@ -6194,22 +6457,22 @@ function mostrarLogEmails(dados, paginaAtual = 1) {
     const corTaxa = taxaSucesso >= 95 ? '#27ae60' : taxaSucesso >= 80 ? '#e67e22' : '#e74c3c';
 
     const statsHtml = `
-        <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap:12px; margin-bottom:20px;">
-            <div style="background:#fff; border:1px solid #e0e0e0; border-radius:8px; padding:14px; text-align:center;">
-                <div style="font-size:24px; font-weight:700; color:#1e3a5f;">${stats?.total || 0}</div>
-                <div style="font-size:12px; color:#666; margin-top:4px;">Total Enviados</div>
+        <div class="stats-row" style="display:grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap:12px; margin-bottom:20px;">
+            <div class="stat-card" style="background:${corCard}; border:1px solid ${corBorda}; border-radius:8px; padding:14px; text-align:center;">
+                <div class="stat-num" style="font-size:24px; font-weight:700; color:${corTextoNum};">${stats?.total || 0}</div>
+                <div class="stat-label" style="font-size:12px; color:${corTextoSub}; margin-top:4px;">Total Enviados</div>
             </div>
-            <div style="background:#fff; border:1px solid #e0e0e0; border-radius:8px; padding:14px; text-align:center;">
-                <div style="font-size:24px; font-weight:700; color:#27ae60;">${stats?.sucessos || 0}</div>
-                <div style="font-size:12px; color:#666; margin-top:4px;">✅ Sucessos</div>
+            <div class="stat-card" style="background:${corCard}; border:1px solid ${corBorda}; border-radius:8px; padding:14px; text-align:center;">
+                <div class="stat-num" style="font-size:24px; font-weight:700; color:#27ae60;">${stats?.sucessos || 0}</div>
+                <div class="stat-label" style="font-size:12px; color:${corTextoSub}; margin-top:4px;">✅ Sucessos</div>
             </div>
-            <div style="background:#fff; border:1px solid #e0e0e0; border-radius:8px; padding:14px; text-align:center;">
-                <div style="font-size:24px; font-weight:700; color:#e74c3c;">${stats?.falhas || 0}</div>
-                <div style="font-size:12px; color:#666; margin-top:4px;">❌ Falhas</div>
+            <div class="stat-card" style="background:${corCard}; border:1px solid ${corBorda}; border-radius:8px; padding:14px; text-align:center;">
+                <div class="stat-num" style="font-size:24px; font-weight:700; color:#e74c3c;">${stats?.falhas || 0}</div>
+                <div class="stat-label" style="font-size:12px; color:${corTextoSub}; margin-top:4px;">❌ Falhas</div>
             </div>
-            <div style="background:#fff; border:1px solid #e0e0e0; border-radius:8px; padding:14px; text-align:center;">
-                <div style="font-size:24px; font-weight:700; color:${corTaxa};">${taxaSucesso}%</div>
-                <div style="font-size:12px; color:#666; margin-top:4px;">Taxa de Sucesso</div>
+            <div class="stat-card" style="background:${corCard}; border:1px solid ${corBorda}; border-radius:8px; padding:14px; text-align:center;">
+                <div class="stat-num" style="font-size:24px; font-weight:700; color:${corTaxa};">${taxaSucesso}%</div>
+                <div class="stat-label" style="font-size:12px; color:${corTextoSub}; margin-top:4px;">Taxa de Sucesso</div>
             </div>
         </div>
     `;
@@ -6217,7 +6480,7 @@ function mostrarLogEmails(dados, paginaAtual = 1) {
     // --- Tabela de logs ---
     let tabelaHtml = '';
     if (!logs || logs.length === 0) {
-        tabelaHtml = '<p style="color:#888; text-align:center; padding:30px;">Nenhum e-mail registrado no período.</p>';
+        tabelaHtml = `<p style="color:${corTextoSub}; text-align:center; padding:30px;">Nenhum e-mail registrado no período.</p>`;
     } else {
         const tipoLabels = {
             novo_ticket: '📩 Novo Ticket',
@@ -6229,6 +6492,10 @@ function mostrarLogEmails(dados, paginaAtual = 1) {
             encaminhamento: '↪️ Encaminhamento',
             outros: '📌 Outros',
         };
+
+        // Badges de status adaptados ao modo escuro
+        const badgeSucessoBg = escuro ? '#1a3a2a' : '#e8f5e9';
+        const badgeFalhaBg   = escuro ? '#3a1a1a' : '#fdecea';
 
         tabelaHtml = `
             <div style="overflow-x:auto;">
@@ -6246,21 +6513,21 @@ function mostrarLogEmails(dados, paginaAtual = 1) {
                 <tbody>
                     ${logs.map((log, i) => {
             const statusBadge = log.status === 'sucesso'
-                ? '<span style="background:#e8f5e9; color:#27ae60; padding:3px 8px; border-radius:12px; font-weight:600;">✅ Sucesso</span>'
-                : `<span style="background:#fdecea; color:#e74c3c; padding:3px 8px; border-radius:12px; font-weight:600;" title="${sanitizeHTML(log.erro || '')}">❌ Falha</span>`;
+                ? `<span style="background:${badgeSucessoBg}; color:#27ae60; padding:3px 8px; border-radius:12px; font-weight:600;">✅ Sucesso</span>`
+                : `<span style="background:${badgeFalhaBg}; color:#e74c3c; padding:3px 8px; border-radius:12px; font-weight:600;" title="${sanitizeHTML(log.erro || '')}">❌ Falha</span>`;
 
             const ticketLink = log.ticket_id
-                ? `<span style="font-family:monospace; font-weight:600; color:#1e3a5f;">#${String(log.ticket_id).padStart(5, '0')}</span>`
-                : '<span style="color:#ccc;">—</span>';
+                ? `<span style="font-family:monospace; font-weight:600; color:${corTicket};">#${String(log.ticket_id).padStart(5, '0')}</span>`
+                : `<span style="color:${corTextoSub};">—</span>`;
 
             const tipoTexto = tipoLabels[log.tipo] || log.tipo;
-            const bg = i % 2 === 0 ? '#fff' : '#fafafa';
+            const bg = i % 2 === 0 ? corLinhaImpar : corLinhaPar;
             const dataFormatada = log.enviado_em
                 ? new Date(log.enviado_em).toLocaleString('pt-BR')
                 : '—';
 
             return `
-                            <tr style="background:${bg}; border-bottom:1px solid #eee;">
+                            <tr style="background:${bg}; border-bottom:1px solid ${corBordaSep};">
                                 <td style="padding:9px 12px; white-space:nowrap;">${dataFormatada}</td>
                                 <td style="padding:9px 12px;">${sanitizeHTML(log.destinatario)}</td>
                                 <td style="padding:9px 12px; max-width:260px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;" title="${sanitizeHTML(log.assunto)}">${sanitizeHTML(log.assunto)}</td>
@@ -6285,10 +6552,12 @@ function mostrarLogEmails(dados, paginaAtual = 1) {
 
     // --- Paginação ---
     if (paginas > 1) {
-        let pagHtml = '<div style="text-align:center; margin-top:16px; display:flex; gap:8px; justify-content:center; flex-wrap:wrap;">';
+        let pagHtml = `<div style="text-align:center; margin-top:16px; display:flex; gap:8px; justify-content:center; flex-wrap:wrap;">`;
         for (let p = 1; p <= paginas; p++) {
-            const ativo = p === paginaAtual ? 'background:#1e3a5f; color:#fff;' : 'background:#fff; color:#333;';
-            pagHtml += `<button onclick="carregarLogEmails(${p})" style="${ativo} border:1px solid #ddd; padding:6px 12px; border-radius:6px; cursor:pointer;">${p}</button>`;
+            const ativo = p === paginaAtual
+                ? 'background:#1e3a5f; color:#fff;'
+                : `background:${corPagInativa}; color:${corPagTxtInativa};`;
+            pagHtml += `<button onclick="carregarLogEmails(${p})" style="${ativo} border:1px solid ${corSelectBorda}; padding:6px 12px; border-radius:6px; cursor:pointer;">${p}</button>`;
         }
         pagHtml += '</div>';
         paginacao.innerHTML = pagHtml;
@@ -6554,6 +6823,10 @@ function carregarAuditoriaGeral(pagina = 1) {
     document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
     document.querySelectorAll('.tab-btn')[0].classList.add('active');
 
+    // Restaura o filtro superior ao voltar para esta aba
+    const filtroSuperior = document.querySelector('.auditoria-filtros');
+    if (filtroSuperior) filtroSuperior.style.display = '';
+
     const params = new URLSearchParams({ tipo: 'geral', pagina: pagina, limite: 50 });
 
     const dataInicio = document.getElementById('data-inicio-audit')?.value;
@@ -6615,6 +6888,10 @@ function mostrarRegistrosAuditoria(registros) {
 function carregarAuditoriaTickets(pagina = 1) {
     document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
     document.querySelectorAll('.tab-btn')[1].classList.add('active');
+
+    // Restaura o filtro superior ao voltar para esta aba
+    const filtroSuperior = document.querySelector('.auditoria-filtros');
+    if (filtroSuperior) filtroSuperior.style.display = '';
 
     const params = new URLSearchParams({ tipo: 'tickets', pagina: pagina, limite: 50 });
 
@@ -6681,6 +6958,10 @@ function carregarAuditoriaLogin(pagina = 1) {
     document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
     document.querySelectorAll('.tab-btn')[2].classList.add('active');
 
+    // Restaura o filtro superior ao voltar para esta aba
+    const filtroSuperior = document.querySelector('.auditoria-filtros');
+    if (filtroSuperior) filtroSuperior.style.display = '';
+
     const params = new URLSearchParams({ tipo: 'login', pagina: pagina, limite: 50 });
 
     const dataInicio = document.getElementById('data-inicio-audit')?.value;
@@ -6745,6 +7026,10 @@ function mostrarRegistrosLoginAudit(registros) {
 function carregarEstatisticasAudit() {
     document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
     document.querySelectorAll('.tab-btn')[3].classList.add('active');
+
+    // Restaura o filtro superior ao voltar para esta aba
+    const filtroSuperior = document.querySelector('.auditoria-filtros');
+    if (filtroSuperior) filtroSuperior.style.display = '';
 
     const xhr = new XMLHttpRequest();
     xhr.open('GET', '/crpdesk/api/controllers/auditoria-avancada.php?tipo=estatisticas', true);
@@ -6891,6 +7176,295 @@ function exportarAuditoria() {
             baixarCSV(dados.registros, `auditoria_${tipo}_${new Date().toISOString().split('T')[0]}.csv`);
         }
     };
+    xhr.send();
+}
+
+function exportarAuditoriaPDF() {
+    const tabAtiva = document.querySelector('.tab-btn.active');
+    const tituloTab = tabAtiva ? tabAtiva.textContent.trim() : 'Auditoria';
+    const conteudo = document.getElementById('auditoria-content');
+
+    if (!conteudo || !conteudo.innerHTML.trim()) {
+        mostrarAlert('Aviso', 'Nenhum conteúdo para exportar como PDF.');
+        return;
+    }
+
+    // Clona e remove elementos não desejados no PDF
+    const clone = conteudo.cloneNode(true);
+    clone.querySelectorAll('.email-log-filtros, button, .no-print').forEach(el => el.remove());
+
+    // Normaliza inline styles incompatíveis com a largura A4
+    clone.querySelectorAll('[style]').forEach(el => {
+        let s = el.getAttribute('style') || '';
+        // Remove overflow-x que impede expansão da tabela
+        s = s.replace(/overflow-x\s*:\s*[^;]+;?\s*/gi, '');
+        // Substitui grid com px fixo por grid fluido
+        s = s.replace(/grid-template-columns\s*:[^;]+;/gi, 'grid-template-columns: repeat(auto-fit, minmax(80px, 1fr));');
+        // Remove white-space: nowrap (quebra texto em vez de cortar)
+        s = s.replace(/white-space\s*:\s*nowrap\s*;?\s*/gi, '');
+        // Remove max-width em px (ex: max-width:260px em células de assunto)
+        s = s.replace(/max-width\s*:\s*\d+px\s*;?\s*/gi, '');
+        // Remove min-width em px
+        s = s.replace(/min-width\s*:\s*\d+px\s*;?\s*/gi, '');
+        el.setAttribute('style', s.trim());
+    });
+
+    // Remove background inline de tr e td para que o CSS do PDF controle as cores das linhas
+    clone.querySelectorAll('tr, td').forEach(el => {
+        let s = el.getAttribute('style') || '';
+        s = s.replace(/background\s*:\s*[^;]+;?\s*/gi, '');
+        s = s.replace(/background-color\s*:\s*[^;]+;?\s*/gi, '');
+        el.setAttribute('style', s.trim());
+    });
+
+    const dataAtual = new Date().toLocaleDateString('pt-BR', {
+        day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit'
+    });
+
+    const janela = window.open('', '_blank', 'width=900,height=700');
+    janela.document.write(`<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <title>Auditoria CRPDESK — ${tituloTab}</title>
+    <style>
+        @page { size: A4 portrait; margin: 14mm 12mm 16mm 12mm; }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+
+        body {
+            font-family: Arial, Helvetica, sans-serif;
+            font-size: 10.5px;
+            color: #1a1a1a;
+            background: #fff;
+            width: 100%;
+        }
+
+        /* ── Cabeçalho ── */
+        .cabecalho-pdf {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-end;
+            padding-bottom: 8px;
+            border-bottom: 3px solid #1e3a8a;
+            margin-bottom: 14px;
+        }
+        .cabecalho-pdf .logo-bloco { display: flex; flex-direction: column; gap: 2px; }
+        .cabecalho-pdf .titulo-principal {
+            font-size: 17px; font-weight: 800;
+            color: #1e3a8a; letter-spacing: -0.3px;
+        }
+        .cabecalho-pdf .titulo-secao {
+            font-size: 11px; font-weight: 600; color: #444; margin-top: 1px;
+        }
+        .cabecalho-pdf .subtitulo {
+            font-size: 9px; color: #888; margin-top: 3px;
+        }
+        .cabecalho-pdf .data-bloco {
+            text-align: right; font-size: 9px; color: #666; line-height: 1.6;
+        }
+
+        /* ── Layout geral ── */
+        #auditoria-content, .auditoria-lista { width: 100% !important; }
+
+        /* ── Tabelas ── */
+        table {
+            width: 100% !important;
+            border-collapse: collapse;
+            font-size: 9.5px;
+            margin-bottom: 14px;
+            table-layout: fixed;
+        }
+        thead tr { background: #1e3a8a !important; color: #fff !important; }
+        th {
+            padding: 6px 7px;
+            text-align: left;
+            font-weight: 700;
+            font-size: 9.5px;
+            color: #fff !important;
+            word-break: break-word;
+        }
+        td {
+            padding: 5px 7px;
+            border-bottom: 1px solid #e8e8e8;
+            vertical-align: top;
+            word-break: break-word;
+            overflow-wrap: break-word;
+        }
+        tbody tr:nth-child(even) td { background: #f4f6fb !important; }
+
+        /* ── Cards de estatísticas ── */
+        .stats-row {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 8px;
+            margin-bottom: 14px;
+            width: 100%;
+        }
+        .stat-card {
+            border: 1px solid #d0d7e8;
+            border-radius: 6px;
+            padding: 10px 8px;
+            text-align: center;
+            background: #f8faff !important;
+        }
+        .stat-num { font-size: 20px; font-weight: 800; }
+        .stat-label { font-size: 8.5px; color: #666; margin-top: 3px; }
+
+        /* ── Cards de auditoria (abas Geral / Tickets / Login) ── */
+        .auditoria-card {
+            width: 100% !important;
+            background: #fff !important;
+            border-radius: 5px;
+            padding: 8px 10px;
+            margin-bottom: 8px;
+            border-left: 3px solid #1e3a8a;
+            border: 1px solid #e0e0e0;
+            page-break-inside: avoid;
+        }
+        .auditoria-header {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 5px;
+            padding-bottom: 4px;
+            border-bottom: 1px solid #eee;
+        }
+        .auditoria-acao { font-weight: 700; font-size: 10px; }
+        .auditoria-data { font-size: 9px; color: #777; }
+        .auditoria-body {
+            display: grid !important;
+            grid-template-columns: repeat(3, 1fr) !important;
+            gap: 4px 12px !important;
+            font-size: 9px;
+            flex-wrap: wrap !important;
+        }
+        .auditoria-info-item { display: flex; gap: 4px; flex-wrap: wrap; }
+        .auditoria-label { font-weight: 600; color: #555; white-space: nowrap; }
+        .auditoria-valor { color: #222; word-break: break-all; }
+
+        /* ── Cards de usuário (aba Geral detalhes) ── */
+        .usuario-card {
+            width: 100% !important;
+            background: #fff !important;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            padding: 8px 10px;
+            margin-bottom: 8px;
+            page-break-inside: avoid;
+        }
+        .usuario-card > div {
+            display: grid !important;
+            grid-template-columns: repeat(3, 1fr) !important;
+            gap: 6px !important;
+            font-size: 9.5px !important;
+        }
+
+        /* ── Badges de status ── */
+        span[style*="border-radius"] {
+            font-size: 8.5px !important;
+            padding: 2px 5px !important;
+        }
+
+        /* ── Rodapé fixo ── */
+        .rodape-pdf {
+            position: fixed;
+            bottom: 6mm; left: 12mm; right: 12mm;
+            display: flex;
+            justify-content: space-between;
+            font-size: 8px;
+            color: #bbb;
+            border-top: 1px solid #e8e8e8;
+            padding-top: 3px;
+        }
+
+        @media print {
+            body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+            .rodape-pdf { position: fixed; }
+        }
+    </style>
+</head>
+<body>
+    <div class="cabecalho-pdf">
+        <div class="logo-bloco">
+            <div class="titulo-principal">Auditoria CRPDESK</div>
+            <div class="titulo-secao">Relatório: ${tituloTab}</div>
+            <div class="subtitulo">Conselho Regional de Psicologia do Rio Grande do Sul</div>
+        </div>
+        <div class="data-bloco">
+            <div><strong>Gerado em:</strong> ${dataAtual}</div>
+        </div>
+    </div>
+
+    ${clone.innerHTML}
+
+    <div class="rodape-pdf">
+        <span>Auditoria CRPDESK — CRPRS</span>
+        <span>${dataAtual}</span>
+    </div>
+
+    <script>window.onload = function () { window.print(); };<\/script>
+</body>
+</html>`);
+    janela.document.close();
+}
+
+function exportarLogEmailsCSV() {
+    // Lê os filtros atuais do painel de e-mails
+    const periodo = document.getElementById('email-log-periodo')?.value || 30;
+    const status  = document.getElementById('email-log-status')?.value  || '';
+    const tipo    = document.getElementById('email-log-tipo')?.value    || '';
+
+    const params = new URLSearchParams({ pagina: 1, limite: 99999, periodo });
+    if (status) params.append('status', status);
+    if (tipo)   params.append('tipo', tipo);
+
+    const xhr = new XMLHttpRequest();
+    xhr.open('GET', `/crpdesk/api/controllers/email-logs.php?${params}`, true);
+    setSecurityHeaders(xhr);
+
+    xhr.onload = function () {
+        if (xhr.status === 200) {
+            try {
+                const dados = JSON.parse(xhr.responseText);
+                const logs = dados.logs || [];
+
+                if (logs.length === 0) {
+                    mostrarToast('Aviso', 'Nenhum registro encontrado para exportar.', 'warning');
+                    return;
+                }
+
+                // Colunas do CSV
+                const colunas = ['id', 'destinatario', 'assunto', 'tipo', 'ticket_id', 'status', 'erro', 'enviado_em'];
+                const cabecalho = ['ID', 'Destinatário', 'Assunto', 'Tipo', 'Ticket', 'Status', 'Erro', 'Data/Hora'];
+
+                let csv = cabecalho.join(',') + '\n';
+                logs.forEach(log => {
+                    const linha = colunas.map(col => {
+                        const val = log[col] != null ? String(log[col]) : '';
+                        return `"${val.replace(/"/g, '""')}"`;
+                    });
+                    csv += linha.join(',') + '\n';
+                });
+
+                const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+                const link = document.createElement('a');
+                link.href = URL.createObjectURL(blob);
+                link.download = `email_logs_${new Date().toISOString().split('T')[0]}.csv`;
+                link.click();
+
+                mostrarToast('Sucesso', 'Arquivo CSV exportado com sucesso!', 'success');
+            } catch (e) {
+                mostrarToast('Erro', 'Falha ao processar dados para exportação.', 'error');
+            }
+        } else {
+            mostrarToast('Erro', 'Falha ao buscar dados para exportação.', 'error');
+        }
+    };
+
+    xhr.onerror = function () {
+        mostrarToast('Erro', 'Erro de conexão ao exportar.', 'error');
+    };
+
     xhr.send();
 }
 

@@ -122,11 +122,14 @@
                     <div class="nav-dropdown" id="nav-notificacoes-dropdown"
                         style="width: 350px; right: 0; left: auto; padding: 0; overflow: hidden; max-height: 400px; display: flex; flex-direction: column;">
                         <div
-                            style="padding: 1rem; background: var(--azul-primario); color: white; display: flex; justify-content: space-between; align-items: center;">
-                            <h4 style="margin: 0; font-size: 1rem;">Notificações</h4>
-                            <button onclick="marcarTodasComoLidas()"
-                                style="background: none; border: none; color: white; cursor: pointer; font-size: 0.8rem; text-decoration: underline;">Marcar
-                                todas como lidas</button>
+                            style="padding: 0.75rem 1rem; background: var(--azul-primario); color: white; display: flex; justify-content: space-between; align-items: center; gap: 0.5rem;">
+                            <h4 style="margin: 0; font-size: 1rem; flex-shrink: 0;">Alertas</h4>
+                            <div style="display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap; justify-content: flex-end;">
+                                <button onclick="marcarTodasComoLidas()"
+                                    style="background: none; border: none; color: rgba(255,255,255,0.85); cursor: pointer; font-size: 0.75rem; text-decoration: underline; white-space: nowrap; padding: 0;">Marcar lidas</button>
+                                <button onclick="excluirTodasNotificacoes()"
+                                    style="background: rgba(255,255,255,0.15); border: 1px solid rgba(255,255,255,0.35); color: white; cursor: pointer; font-size: 0.75rem; border-radius: 4px; padding: 0.2rem 0.55rem; white-space: nowrap; transition: background 0.15s;" onmouseover="this.style.background='rgba(255,255,255,0.28)'" onmouseout="this.style.background='rgba(255,255,255,0.15)'">Excluir todos</button>
+                            </div>
                         </div>
                         <div id="lista-notificacoes"
                             style="overflow-y: auto; flex: 1; padding: 0.5rem; background: #f8f9fa;">
@@ -174,6 +177,10 @@
                         <button class="had-item" role="menuitem"
                             onclick="mostrarAlterarSenha(); fecharAvatarDropdown();">
                             🔑 Alterar Senha
+                        </button>
+                        <button class="had-item" role="menuitem"
+                            onclick="mostrarSobre(); fecharAvatarDropdown();">
+                            ℹ️ Sobre
                         </button>
                         <div class="header-avatar-dropdown-divider"></div>
                         <button class="had-item had-item--danger" role="menuitem" onclick="fazerLogout()">
@@ -378,8 +385,23 @@
         <section id="ajuda" class="secao">
             <h2>📋 Ajuda e Documentação</h2>
 
+            <div class="ajuda-menu">
+                <button class="btn-ajuda" id="btn-sla" onclick="mostrarSLA()">⏰ SLA</button>
+                <button class="btn-ajuda" id="btn-status" onclick="mostrarStatusGuia()">📊 Status dos Tickets</button>
+                <button class="btn-ajuda" id="btn-prioridade" onclick="mostrarPrioridadeGuia()">🔥 Prioridades</button>
+                <button class="btn-ajuda" id="btn-fluxos-email" onclick="mostrarFluxosEmail()">📧 Fluxos de E-mail</button>
+                <button class="btn-ajuda" id="btn-atalhos" onclick="mostrarAtalhosGuia()">⌨️ Atalhos de Teclado</button>
+            </div>
+
             <div id="ajuda-content">
                 <!-- Conteúdo da ajuda -->
+            </div>
+        </section>
+
+        <!-- Sobre -->
+        <section id="sobre" class="secao">
+            <div id="sobre-content">
+                <!-- Conteúdo gerado por mostrarSobre() -->
             </div>
         </section>
 
@@ -870,7 +892,7 @@
         </div>
 
         <div class="footer-bottom">
-            <p>&copy; 2025-2026 Sistema de Helpdesk - Conselho Regional de Psicologia do Rio Grande do Sul | CRP-RS -
+            <p>&copy; 2025-2026 Sistema de Helpdesk - Conselho Regional de Psicologia do Rio Grande do Sul | CRPRS -
                 Todos os direitos reservados.<br>
                 Setor de Tecnologia da Informação</p>
         </div>

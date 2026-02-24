@@ -270,7 +270,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
             
             // Inserir registro e notificação para cada agente
-            $msg_notificacao = "Novo comentário no ticket (#$ticket_id) adicionado por " . ($autor_nome ?? 'Usuário') . ".";
+            $msg_notificacao = "Novo comentário no ticket (#" . str_pad($ticket_id, 5, '0', STR_PAD_LEFT) . ") adicionado por " . ($autor_nome ?? 'Usuário') . ".";
             $notif_query = "INSERT INTO notificacoes (usuario_id, titulo, mensagem, ticket_id) VALUES (?, 'Novo Comentário', ?, ?)";
             $stmt_notif = $db->prepare($notif_query);
 

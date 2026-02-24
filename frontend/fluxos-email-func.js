@@ -1,6 +1,6 @@
 function mostrarFluxosEmail() {
     document.querySelectorAll('.btn-ajuda').forEach(btn => btn.classList.remove('active'));
-    document.getElementById('btn-fluxos-email').classList.add('active');
+    const _bbtn_fe = document.getElementById('btn-fluxos-email'); if (_bbtn_fe) _bbtn_fe.classList.add('active');
     localStorage.setItem('subSecaoAtiva', 'fluxos-email');
     
     const content = document.getElementById('ajuda-content');

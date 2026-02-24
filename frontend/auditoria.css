@@ -27,13 +27,107 @@
 }
 
 .auditoria-filtros {
-    display: grid;
-    grid-template-columns: 2fr 1fr 1fr 1.5fr auto auto auto;
-    gap: 0.5rem;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-end;
+    gap: 0.75rem;
     margin-bottom: 1.5rem;
     padding: 1rem;
     background: #f8f9fa;
     border-radius: 8px;
+}
+
+.filtro-grupo {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+}
+
+.filtro-grupo label {
+    font-size: 0.78rem;
+    font-weight: 600;
+    color: #555;
+    white-space: nowrap;
+}
+
+.filtro-grupo input[type="date"],
+.filtro-grupo input[type="text"] {
+    padding: 0.45rem 0.65rem;
+    border: 1px solid #ccc;
+    border-radius: 6px;
+    font-size: 0.88rem;
+    background: #fff;
+    color: #333;
+}
+
+.filtro-grupo--expand {
+    flex: 1;
+    min-width: 220px;
+}
+
+.filtro-grupo--expand .categoria-container {
+    width: 100%;
+}
+
+.filtro-grupo--expand input[type="text"] {
+    width: 100%;
+}
+
+.filtro-acoes {
+    display: flex;
+    gap: 0.4rem;
+    align-items: flex-end;
+    flex-shrink: 0;
+}
+
+.filtro-acoes .btn-primary,
+.filtro-acoes .btn-secondary {
+    padding: 0.45rem 0.85rem;
+    font-size: 0.82rem;
+    border-radius: 6px;
+}
+
+.btn-exportar-csv,
+.btn-exportar-pdf {
+    padding: 0.45rem 0.85rem;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 0.82rem;
+    font-weight: 600;
+    white-space: nowrap;
+    transition: background 0.2s, transform 0.1s;
+}
+
+.filtro-separador {
+    display: inline-block;
+    width: 1px;
+    height: 22px;
+    background: #ccc;
+    margin: 0 10px;
+    align-self: center;
+}
+
+.modo-escuro .filtro-separador {
+    background: #444;
+}
+
+.btn-exportar-csv {
+    background: #27ae60;
+    color: #fff;
+}
+
+.btn-exportar-csv:hover {
+    background: #219a52;
+}
+
+.btn-exportar-pdf {
+    background: #c0392b;
+    color: #fff;
+}
+
+.btn-exportar-pdf:hover {
+    background: #a93226;
 }
 
 .auditoria-lista {
@@ -204,6 +298,17 @@
 
 .modo-escuro .auditoria-filtros {
     background: #2d2d2d;
+}
+
+.modo-escuro .filtro-grupo label {
+    color: #aaa;
+}
+
+.modo-escuro .filtro-grupo input[type="date"],
+.modo-escuro .filtro-grupo input[type="text"] {
+    background: #3d3d3d;
+    border-color: #555;
+    color: #e0e0e0;
 }
 
 .modo-escuro .tab-btn:hover {
