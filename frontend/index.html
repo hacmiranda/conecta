@@ -121,8 +121,8 @@
                     <!-- Dropdown Notificacoes -->
                     <div class="nav-dropdown" id="nav-notificacoes-dropdown"
                         style="width: 350px; right: 0; left: auto; padding: 0; overflow: hidden; max-height: 400px; display: flex; flex-direction: column;">
-                        <div
-                            style="padding: 0.75rem 1rem; background: var(--azul-primario); color: white; display: flex; justify-content: space-between; align-items: center; gap: 0.5rem;">
+                        <div class="notif-dropdown-header"
+                            style="padding: 0.75rem 1rem; display: flex; justify-content: space-between; align-items: center; gap: 0.5rem;">
                             <h4 style="margin: 0; font-size: 1rem; flex-shrink: 0;">Alertas</h4>
                             <div style="display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap; justify-content: flex-end;">
                                 <button onclick="marcarTodasComoLidas()"
@@ -131,8 +131,8 @@
                                     style="background: rgba(255,255,255,0.15); border: 1px solid rgba(255,255,255,0.35); color: white; cursor: pointer; font-size: 0.75rem; border-radius: 4px; padding: 0.2rem 0.55rem; white-space: nowrap; transition: background 0.15s;" onmouseover="this.style.background='rgba(255,255,255,0.28)'" onmouseout="this.style.background='rgba(255,255,255,0.15)'">Excluir todos</button>
                             </div>
                         </div>
-                        <div id="lista-notificacoes"
-                            style="overflow-y: auto; flex: 1; padding: 0.5rem; background: #f8f9fa;">
+                        <div id="lista-notificacoes" class="notif-dropdown-body"
+                            style="overflow-y: auto; flex: 1; padding: 0.5rem;">
                             <div style="padding: 1rem; text-align: center; color: #666;">Carregando...</div>
                         </div>
                     </div>
@@ -380,6 +380,7 @@
                 <p>Carregando estatísticas...</p>
             </div>
         </section>
+
 
         <!-- Ajuda -->
         <section id="ajuda" class="secao">

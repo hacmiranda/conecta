@@ -934,13 +934,13 @@ function mostrarTicketsNaTela(tickets) {
 
         // Ícones Material Symbols (substituindo PNGs)
         const iconeAnexo = ticket.tem_anexos > 0
-            ? `<span class="material-symbols-outlined icone-tabela icone-anexo-ms" title="Ticket com anexos" aria-label="Tem anexos">attach_file</span>` : '';
+            ? `<span class="material-symbols-outlined icone-tabela icone-anexo-ms" data-vg-tooltip="Este ticket possui arquivos anexados." data-vg-title="ANEXOS" aria-label="Tem anexos">attach_file</span>` : '';
         const iconeComentario = ticket.tem_comentario_nao_lido
-            ? `<span class="material-symbols-outlined icone-tabela icone-comentario-ms" title="Novo comentário no ticket" aria-label="Novo comentário">chat_bubble</span>` : '';
+            ? `<span class="material-symbols-outlined icone-tabela icone-comentario-ms" data-vg-tooltip="Há um ou mais comentários novos ainda não lidos neste ticket." data-vg-title="NOVA MENSAGEM" aria-label="Novo comentário">chat_bubble</span>` : '';
         const iconomeLembrete = ticket.proximo_lembrete
-            ? `<span class="material-symbols-outlined icone-tabela icone-lembrete-ms" title="Lembrete: ${new Date(ticket.proximo_lembrete).toLocaleString('pt-BR')}" aria-label="Tem lembrete">event</span>` : '';
+            ? `<span class="material-symbols-outlined icone-tabela icone-lembrete-ms" data-vg-tooltip="Lembrete agendado para ${new Date(ticket.proximo_lembrete).toLocaleString('pt-BR')}." data-vg-title="LEMBRETE ATIVO" aria-label="Tem lembrete">event</span>` : '';
         const iconeMesclado = ticket.eh_mesclado > 0
-            ? `<span class="material-symbols-outlined icone-tabela" title="Ticket mesclado" aria-label="Mesclado" style="color:#6366f1">call_merge</span>` : '';
+            ? `<span class="material-symbols-outlined icone-tabela" data-vg-tooltip="Este ticket foi mesclado com outro chamado." data-vg-title="TICKET MESCLADO" aria-label="Mesclado" style="color:#6366f1">call_merge</span>` : '';
 
         // SLA badge inline
         const slaInfo = calcularTextoSLA(ticket);
@@ -971,7 +971,7 @@ function mostrarTicketsNaTela(tickets) {
                     ${slaBadge}
                 </td>
                 <td class="ticket-titulo-cell" data-label="Assunto">
-                    <span class="ticket-titulo-texto" title="${tituloSeguro}">${ticket.titulo}</span>
+                    <span class="ticket-titulo-texto" data-vg-tooltip="${tituloSeguro}" data-vg-title="ASSUNTO">${ticket.titulo}</span>
                 </td>
                 <td data-label="Solicitante">${solicitante}${emailExibir}</td>
                 <td data-label="Responsável"><span class="status ${ticket.agente_nome ? 'atribuido' : 'nao-atribuido'} ${modoMergeAtivo ? '' : 'clickable'}" ${modoMergeAtivo ? '' : `onclick="event.stopPropagation(); atribuirTicket(${ticket.id})" title="Clique para atribuir"`}>${ticket.agente_nome || 'Não atribuído'}</span></td>
@@ -3634,9 +3634,9 @@ function mostrarTicketsFechadosNaTela(tickets) {
     ticketsPagina.forEach(ticket => {
         // Ícones Material Symbols
         const iconeAnexo = ticket.tem_anexos > 0
-            ? `<span class="material-symbols-outlined icone-tabela icone-anexo-ms" title="Ticket com anexos" aria-label="Tem anexos">attach_file</span>` : '';
+            ? `<span class="material-symbols-outlined icone-tabela icone-anexo-ms" data-vg-tooltip="Este ticket possui arquivos anexados." data-vg-title="ANEXOS" aria-label="Tem anexos">attach_file</span>` : '';
         const iconeMesclado = ticket.eh_mesclado > 0
-            ? `<span class="material-symbols-outlined icone-tabela" title="Ticket mesclado" aria-label="Mesclado" style="color:#6366f1">call_merge</span>` : '';
+            ? `<span class="material-symbols-outlined icone-tabela" data-vg-tooltip="Este ticket foi mesclado com outro chamado." data-vg-title="TICKET MESCLADO" aria-label="Mesclado" style="color:#6366f1">call_merge</span>` : '';
 
         // Título truncado
         const tituloSeguro = (ticket.titulo || '').replace(/"/g, '&quot;').replace(/</g, '&lt;');
@@ -3648,8 +3648,8 @@ function mostrarTicketsFechadosNaTela(tickets) {
                     ${iconeMesclado}${iconeAnexo}
                 </td>
                 <td data-label="Abertura">${new Date(ticket.criado_em).toLocaleDateString('pt-BR')}<span class="ticket-data-hora">${new Date(ticket.criado_em).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}</span></td>
-                <td class="ticket-titulo-cell" title="${tituloSeguro}" data-label="Assunto">
-                    <span class="ticket-titulo-texto">${ticket.titulo}</span>
+                <td class="ticket-titulo-cell" data-label="Assunto">
+                    <span class="ticket-titulo-texto" data-vg-tooltip="${tituloSeguro}" data-vg-title="ASSUNTO">${ticket.titulo}</span>
                 </td>
                 <td data-label="Solicitante">
                     <strong>${ticket.usuario_nome}</strong>
