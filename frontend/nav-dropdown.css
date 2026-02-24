@@ -80,6 +80,19 @@
     animation: pulse-notif 2s infinite;
 }
 
+/* Cabeçalho do dropdown de notificações */
+.notif-dropdown-header {
+    background: #1e3a8a;
+    color: white;
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    border-bottom: none;
+}
+
+/* Corpo da lista de notificações */
+.notif-dropdown-body {
+    background: #f8f9fa;
+}
+
 /* Modo escuro */
 .modo-escuro .nav-dropdown {
     background: #2d2d2d;
@@ -94,4 +107,13 @@
 .modo-escuro .nav-dropdown-item:hover {
     background: #3a3f52;
     color: #93c5fd;
+}
+
+.modo-escuro .notif-dropdown-header {
+    background: #1a2a4a;
+    color: #e0e0e0;
+}
+
+.modo-escuro .notif-dropdown-body {
+    background: #252525;
 }

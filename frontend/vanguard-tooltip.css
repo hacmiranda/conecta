@@ -99,8 +99,7 @@
     font-size: 0.8rem;
     line-height: 1.6;
     color: #e2e8f0;
-    text-wrap: balance;
-    /* Previne órfãs de texto rasgando as margens */
+    overflow-wrap: break-word;
 }
 
 /* Ponta Assimétrica (Asethtic Pointer) */

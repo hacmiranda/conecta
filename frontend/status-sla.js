@@ -723,15 +723,17 @@ function atualizarIndicadoresSLA() {
                     }
 
                     const tipoTexto = slaInfo.tipo === 'resposta' ? 'Primeira Resposta' : 'Resolução';
-                    const statusTexto = slaInfo.pausado ? '\n⏸️ SLA pausado (status aguardando)' : '';
                     const vencidoTexto = slaInfo.vencido ? 'Vencido' : formatarTempo(slaInfo.tempoRestante);
                     const percentualTexto = Math.round(slaInfo.percentual);
+                    const pausadoTexto = slaInfo.pausado ? ' SLA pausado (aguardando resposta).' : '';
 
-                    indicador.title = `🕒 SLA de ${tipoTexto}\n` +
-                        `📈 Progresso: ${percentualTexto}%\n` +
-                        `⏱️ Tempo: ${vencidoTexto}${statusTexto}\n\n` +
-                        `💡 O SLA mede o tempo útil (horário comercial)\n` +
-                        `desde a abertura do ticket até a ${slaInfo.tipo === 'resposta' ? 'atribuição' : 'resolução'}.`;
+                    const vgTitle = slaInfo.percentual >= 80 ? 'URGENTE — SLA' : 'ATENÇÃO — SLA';
+                    const vgBody = slaInfo.vencido
+                        ? `SLA de ${tipoTexto} vencido! ${percentualTexto}% do prazo utilizado.${pausadoTexto}`
+                        : `SLA de ${tipoTexto}: ${percentualTexto}% do prazo utilizado. Tempo restante: ${vencidoTexto}.${pausadoTexto}`;
+
+                    indicador.setAttribute('data-vg-title', vgTitle);
+                    indicador.setAttribute('data-vg-tooltip', vgBody);
                     indicador.style.marginLeft = '0.25rem';
                     indicador.style.width = '16px';
                     indicador.style.height = '16px';
