@@ -263,8 +263,58 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
             // Manter valores padrão em caso de erro
         }
         
+        // Tickets com SLA vencido (resposta ou resolução, apenas ativos)
+        $query = "SELECT COUNT(DISTINCT t.id) as total
+                  FROM tickets t
+                  JOIN ticket_sla ts ON t.id = ts.ticket_id
+                  WHERE t.status NOT IN ('encerrado', 'cancelado')
+                    AND (ts.sla_resposta_vencido = 1 OR ts.sla_resolucao_vencido = 1)";
+        $stmt = $db->prepare($query);
+        $stmt->execute();
+        $dashboard['sla_vencido'] = (int) $stmt->fetch()['total'];
+
+        // Tickets via origem externa (não 'interna'), excluindo cancelados
+        $query = "SELECT COUNT(*) as total
+                  FROM tickets
+                  WHERE origem_api IS NOT NULL AND origem_api != 'interna'
+                    AND status != 'cancelado'";
+        $stmt = $db->prepare($query);
+        $stmt->execute();
+        $dashboard['total_origem_externa'] = (int) $stmt->fetch()['total'];
+
+        // Evolução diária — últimos 30 dias, excluindo cancelados
+        $query = "SELECT DATE(criado_em) as dia, COUNT(*) as total
+                  FROM tickets
+                  WHERE criado_em >= DATE_SUB(CURDATE(), INTERVAL 29 DAY)
+                    AND status != 'cancelado'
+                  GROUP BY DATE(criado_em)
+                  ORDER BY dia";
+        $stmt = $db->prepare($query);
+        $stmt->execute();
+        $dashboard['diarios_30d'] = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+        // Status empilhado por mês (ano atual), excluindo cancelados
+        $query = "SELECT MONTH(criado_em) as mes, status, COUNT(*) as total
+                  FROM tickets
+                  WHERE YEAR(criado_em) = YEAR(NOW()) AND status != 'cancelado'
+                  GROUP BY MONTH(criado_em), status
+                  ORDER BY mes, status";
+        $stmt = $db->prepare($query);
+        $stmt->execute();
+        $dashboard['status_por_mes'] = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+        // Heatmap: dia da semana × hora do dia (excluindo cancelados)
+        $query = "SELECT DAYOFWEEK(criado_em) as dia, HOUR(criado_em) as hora, COUNT(*) as total
+                  FROM tickets
+                  WHERE status != 'cancelado'
+                  GROUP BY DAYOFWEEK(criado_em), HOUR(criado_em)
+                  ORDER BY dia, hora";
+        $stmt = $db->prepare($query);
+        $stmt->execute();
+        $dashboard['heatmap_dia_hora'] = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
         echo json_encode($dashboard);
-        
+
     } catch (Exception $e) {
         http_response_code(500);
         echo json_encode(['error' => 'Erro ao buscar dados do dashboard']);

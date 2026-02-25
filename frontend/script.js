@@ -3851,7 +3851,7 @@ function mostrarDashboardNaTela(dados) {
     const taxaConclusao = dados.sla_indicadores?.taxa_conclusao || 0;
 
     let html = `
-        <div class="dashboard-grid">
+        <div class="dashboard-grid kpi-row-5">
             <div class="dashboard-card">
                 <h3 class="card-title-flex">
                     <div class="title-left">
@@ -3890,11 +3890,8 @@ function mostrarDashboardNaTela(dados) {
                     <span class="material-symbols-outlined info-icon" onclick="mostrarInfoGrafico('taxa-conclusao')" title="Clique para mais informações" aria-hidden="true">info</span>
                 </h3>
                 <div class="dashboard-number flip-in">${taxaConclusao}%</div>
-                 <div class="dashboard-subtitle">Percentual de finalização</div>
+                <div class="dashboard-subtitle">Percentual de finalização</div>
             </div>
-        </div>
-        
-        <div class="dashboard-grid kpi-row-secondary" style="margin-top: 1.5rem;">
             <div class="dashboard-card">
                 <h3 class="card-title-flex">
                     <div class="title-left">
@@ -3905,6 +3902,9 @@ function mostrarDashboardNaTela(dados) {
                 <div class="dashboard-number scale-bounce">${formatarTempo(dados.tempoMedioSegundos)}</div>
                 <div class="dashboard-subtitle">Até o encerramento do ticket</div>
             </div>
+        </div>
+
+        <div class="dashboard-grid kpi-row-5" style="margin-top: 1.5rem;">
             <div class="dashboard-card">
                 <h3 class="card-title-flex">
                     <div class="title-left">
@@ -3927,9 +3927,29 @@ function mostrarDashboardNaTela(dados) {
                     ${dados.fcr?.resolvidos_primeiro_contato || 0} de ${dados.fcr?.total_resolvidos || 0} resolvidos na primeira interação
                 </div>
             </div>
+            <div class="dashboard-card kpi-sla-vencido">
+                <h3 class="card-title-flex">
+                    <div class="title-left">
+                        <span class="material-symbols-outlined" aria-hidden="true">warning</span> SLA Vencido
+                    </div>
+                    <span class="material-symbols-outlined info-icon" onclick="mostrarInfoGrafico('sla-vencido')" title="Clique para mais informações" aria-hidden="true">info</span>
+                </h3>
+                <div class="dashboard-number count-up sla-vencido-number" data-target="${dados.sla_vencido || 0}">0</div>
+                <div class="dashboard-subtitle">Tickets ativos com SLA expirado</div>
+            </div>
+            <div class="dashboard-card kpi-origem-externa">
+                <h3 class="card-title-flex">
+                    <div class="title-left">
+                        <span class="material-symbols-outlined" aria-hidden="true">api</span> Via Canal Externo
+                    </div>
+                    <span class="material-symbols-outlined info-icon" onclick="mostrarInfoGrafico('origem-externa')" title="Clique para mais informações" aria-hidden="true">info</span>
+                </h3>
+                <div class="dashboard-number count-up origem-externa-number" data-target="${dados.total_origem_externa || 0}">0</div>
+                <div class="dashboard-subtitle">Tickets recebidos por integração</div>
+            </div>
         </div>
-        
-        <div class="dashboard-grid" style="margin-top: 1.5rem;">
+
+        <div class="dashboard-grid graficos-row-4" style="margin-top: 1.5rem;">
             <div class="dashboard-card">
                 <h3 class="card-title-flex">
                     <div class="title-left">
@@ -3937,7 +3957,7 @@ function mostrarDashboardNaTela(dados) {
                     </div>
                     <span class="material-symbols-outlined info-icon" onclick="mostrarInfoGrafico('status')" title="Clique para mais informações" aria-hidden="true">info</span>
                 </h3>
-                <canvas id="grafico-status" width="400" height="300"></canvas>
+                <canvas id="grafico-status" width="320" height="220"></canvas>
             </div>
             <div class="dashboard-card">
                 <h3 class="card-title-flex">
@@ -3946,11 +3966,29 @@ function mostrarDashboardNaTela(dados) {
                     </div>
                     <span class="material-symbols-outlined info-icon" onclick="mostrarInfoGrafico('prioridade')" title="Clique para mais informações" aria-hidden="true">info</span>
                 </h3>
-                <canvas id="grafico-prioridade" width="400" height="250"></canvas>
+                <canvas id="grafico-prioridade" width="400" height="260"></canvas>
+            </div>
+            <div class="dashboard-card">
+                <h3 class="card-title-flex">
+                    <div class="title-left">
+                        <span class="material-symbols-outlined" aria-hidden="true">pie_chart</span> Distribuição por Agente <span class="text-caption">(apenas ativos)</span>
+                    </div>
+                    <span class="material-symbols-outlined info-icon" onclick="mostrarInfoGrafico('agente')" title="Clique para mais informações" aria-hidden="true">info</span>
+                </h3>
+                <canvas id="grafico-agente" width="400" height="260"></canvas>
+            </div>
+            <div class="dashboard-card">
+                <h3 class="card-title-flex">
+                    <div class="title-left">
+                        <span class="material-symbols-outlined" aria-hidden="true">stacked_bar_chart</span> Status por Agente <span class="text-caption">(apenas ativos)</span>
+                    </div>
+                    <span class="material-symbols-outlined info-icon" onclick="mostrarInfoGrafico('status-agente')" title="Clique para mais informações" aria-hidden="true">info</span>
+                </h3>
+                <canvas id="grafico-status-agente" width="400" height="260"></canvas>
             </div>
         </div>
-        
-        <div class="dashboard-grid">
+
+        <div class="dashboard-grid" style="margin-top: 1.2rem;">
             <div class="dashboard-card">
                 <h3 class="card-title-flex">
                     <div class="title-left">
@@ -3963,35 +4001,26 @@ function mostrarDashboardNaTela(dados) {
             <div class="dashboard-card">
                 <h3 class="card-title-flex">
                     <div class="title-left">
-                        <span class="material-symbols-outlined" aria-hidden="true">pie_chart</span> Distribuição por Agente <span class="text-caption">(apenas ativos)</span>
-                    </div>
-                    <span class="material-symbols-outlined info-icon" onclick="mostrarInfoGrafico('agente')" title="Clique para mais informações" aria-hidden="true">info</span>
-                </h3>
-                <canvas id="grafico-agente" width="400" height="250"></canvas>
-            </div>
-        </div>
-        
-        <div class="dashboard-grid">
-            <div class="dashboard-card">
-                <h3 class="card-title-flex">
-                    <div class="title-left">
-                        <span class="material-symbols-outlined" aria-hidden="true">stacked_bar_chart</span> Status por Agente <span class="text-caption">(apenas ativos)</span>
-                    </div>
-                    <span class="material-symbols-outlined info-icon" onclick="mostrarInfoGrafico('status-agente')" title="Clique para mais informações" aria-hidden="true">info</span>
-                </h3>
-                <canvas id="grafico-status-agente" width="600" height="300"></canvas>
-            </div>
-            <div class="dashboard-card">
-                <h3 class="card-title-flex">
-                    <div class="title-left">
                         <span class="material-symbols-outlined" aria-hidden="true">calendar_month</span> Tickets Dia da Semana
                     </div>
                     <span class="material-symbols-outlined info-icon" onclick="mostrarInfoGrafico('dia-semana')" title="Clique para mais informações" aria-hidden="true">info</span>
                 </h3>
-                <canvas id="grafico-dia-semana" width="400" height="200"></canvas>
+                <canvas id="grafico-dia-semana" width="400" height="250" style="display:block;margin:0 auto;"></canvas>
             </div>
         </div>
-        
+
+        <div class="dashboard-grid" style="margin-top: 1.2rem;">
+            <div class="dashboard-card dashboard-card-fullrow">
+                <h3 class="card-title-flex">
+                    <div class="title-left">
+                        <span class="material-symbols-outlined" aria-hidden="true">trending_up</span> Evolução Diária — Últimos 30 Dias
+                    </div>
+                    <span class="material-symbols-outlined info-icon" onclick="mostrarInfoGrafico('diarios-30d')" title="Clique para mais informações" aria-hidden="true">info</span>
+                </h3>
+                <canvas id="grafico-diarios-30d" width="900" height="200"></canvas>
+            </div>
+        </div>
+
         <div class="dashboard-grid">
             <div class="dashboard-card">
                 <h3 class="card-title-flex">
@@ -4002,7 +4031,8 @@ function mostrarDashboardNaTela(dados) {
                 <div class="dashboard-list">`;
 
     (dados.top_solicitantes || []).forEach((item, index) => {
-        html += `<div class="dashboard-item dashboard-item-animate" data-delay="${index * 0.1}"><span>${item.nome}</span><span>${item.total}</span></div>`;
+        const trofeu = index === 0 ? ' <span class="material-symbols-outlined item-trofeu" aria-hidden="true">emoji_events</span>' : '';
+        html += `<div class="dashboard-item dashboard-item-animate" data-delay="${index * 0.1}"><span>${item.nome}${trofeu}</span><span>${item.total}</span></div>`;
     });
 
     html += `</div></div><div class="dashboard-card"><h3 class="card-title-flex">
@@ -4012,7 +4042,8 @@ function mostrarDashboardNaTela(dados) {
                 </h3><div class="dashboard-list">`;
 
     (dados.top_categorias || []).forEach((item, index) => {
-        html += `<div class="dashboard-item dashboard-item-animate" data-delay="${index * 0.1}"><span>${item.nome || 'Sem categoria'}</span><span>${item.total}</span></div>`;
+        const trofeu = index === 0 ? ' <span class="material-symbols-outlined item-trofeu" aria-hidden="true">emoji_events</span>' : '';
+        html += `<div class="dashboard-item dashboard-item-animate" data-delay="${index * 0.1}"><span>${item.nome || 'Sem categoria'}${trofeu}</span><span>${item.total}</span></div>`;
     });
 
     html += `</div></div><div class="dashboard-card"><h3 class="card-title-flex">
@@ -4022,7 +4053,8 @@ function mostrarDashboardNaTela(dados) {
                 </h3><div class="dashboard-list">`;
 
     (dados.ticketsPorMacrocategoria || []).forEach((item, index) => {
-        html += `<div class="dashboard-item dashboard-item-animate" data-delay="${index * 0.1}"><span>${item.nome || 'Sem macrocategoria'}</span><span>${item.quantidade}</span></div>`;
+        const trofeu = index === 0 ? ' <span class="material-symbols-outlined item-trofeu" aria-hidden="true">emoji_events</span>' : '';
+        html += `<div class="dashboard-item dashboard-item-animate" data-delay="${index * 0.1}"><span>${item.nome || 'Sem macrocategoria'}${trofeu}</span><span>${item.quantidade}</span></div>`;
     });
 
     html += `</div></div></div>`;
@@ -4038,6 +4070,9 @@ function mostrarDashboardNaTela(dados) {
         criarGraficoDiaSemana(dados);
         criarGraficoStatusAgente(dados);
         criarGraficoFunil(dados);
+        criarGraficoDiarios30d(dados);
+        criarGraficoStatusMensal(dados);
+        criarGraficoHeatmap(dados);
 
         // Animar itens do dashboard quando visíveis
         setTimeout(() => {
@@ -5108,7 +5143,12 @@ if (localStorage.getItem('modoEscuro') === 'true') {
 
 // Gráficos simples com Canvas
 function getCorLabel() {
-    return document.body.classList.contains('modo-escuro') ? '#cbd5e1' : '#475569';
+    /* Dashboard é sempre dark; retorna cor clara para legibilidade */
+    const dashboardAtivo = document.getElementById('dashboard')?.classList.contains('active');
+    if (dashboardAtivo || document.body.classList.contains('modo-escuro')) {
+        return '#94a3b8';
+    }
+    return '#475569';
 }
 
 function criarGraficoStatus(dados) {
@@ -5116,79 +5156,224 @@ function criarGraficoStatus(dados) {
     if (!canvas) return;
 
     const ctx = canvas.getContext('2d');
+
+    // Cor única e dedicada para cada status — sem repetições
     const coresStatus = {
-        'novo': '#f79226',
-        'aberto': '#f79226',
-        'atendimento': '#17a2b8',
-        'em_atendimento': '#17a2b8',
-        'aguardando_resposta': '#ffc107',
-        'aguardando_terceiros': '#6f42c1',
-        'aguardando_aprovacao': '#fd7e14',
-        'aguardando_data': '#20c997',
-        'resolvido': '#28a745',
-        'encerrado': '#6c757d',
-        'cancelado': '#dc3545',
-        'reaberto': '#e83e8c'
+        'novo':                  '#e56b46',
+        'aberto':                '#f59e0b',
+        'atendimento':           '#2797e1',
+        'em_atendimento':        '#2797e1',
+        'nova_resposta':         '#06b6d4',
+        'aguardando_resposta':   '#d7e744',
+        'aguardando_terceiros':  '#c52ee7',
+        'aguardando_aprovacao':  '#f97316',
+        'aguardando_data':       '#8b5cf6',
+        'resolvido':             '#39dd52',
+        'encerrado':             '#475569',
+        'cancelado':             '#e62c45',
+        'reaberto':              '#ec4899'
     };
 
     const labelsStatus = {
-        'novo': 'Novo',
-        'aberto': 'Aberto',
-        'atendimento': 'Em atendimento',
-        'em_atendimento': 'Em atendimento',
-        'aguardando_resposta': 'Aguardando resposta',
-        'aguardando_terceiros': 'Aguardando terceiros',
-        'aguardando_aprovacao': 'Aguardando aprovação',
-        'aguardando_data': 'Aguardando data',
-        'resolvido': 'Resolvido',
-        'encerrado': 'Encerrado',
-        'cancelado': 'Cancelado',
-        'reaberto': 'Reaberto'
+        'novo':                  'Novo',
+        'aberto':                'Aberto',
+        'atendimento':           'Em atendimento',
+        'em_atendimento':        'Em atendimento',
+        'nova_resposta':         'Nova resposta',
+        'aguardando':            'Aguardando',
+        'aguardando_resposta':   'Aguardando resp.',
+        'aguardando_terceiros':  'Aguardando terc.',
+        'aguardando_aprovacao':  'Aguardando aprov.',
+        'aguardando_data':       'Aguardando data',
+        'resolvido':             'Resolvido',
+        'encerrado':             'Encerrado',
+        'cancelado':             'Cancelado',
+        'reaberto':              'Reaberto'
     };
 
-    const statusOrdenados = Object.keys(dados.por_status || {});
-    const valores = statusOrdenados.map(s => dados.por_status[s]);
-    const labels = statusOrdenados.map(s => labelsStatus[s] || s);
-    const cores = statusOrdenados.map(s => coresStatus[s] || '#6c757d');
+    // Paleta de fallback para status desconhecidos (cores distintas, sem repetição dos fixos acima)
+    const paletaFallback = ['#10b981', '#0ea5e9', '#a78bfa', '#fb7185', '#34d399', '#facc15'];
 
-    const maxValor = Math.max(...valores) || 1;
-    const alturaBarra = 30;
-    const espacamento = 10;
-    const margemEsquerda = 180;
-    const alturaTotal = valores.length * (alturaBarra + espacamento) - espacamento;
-    const offsetY = (canvas.height - alturaTotal) / 2;
+    const statusOrdenados = Object.keys(dados.por_status || {}).filter(s => dados.por_status[s] > 0);
+    const valores = statusOrdenados.map(s => parseInt(dados.por_status[s]));
+    const labels = statusOrdenados.map(s => labelsStatus[s] || s);
+
+    // Atribuir cor única: fixa se mapeada, fallback sem repetição
+    const coresUsadas = new Set(Object.values(coresStatus));
+    let fallbackIdx = 0;
+    const cores = statusOrdenados.map(s => {
+        if (coresStatus[s]) return coresStatus[s];
+        // Avança no fallback enquanto a cor já estiver em uso
+        while (fallbackIdx < paletaFallback.length && coresUsadas.has(paletaFallback[fallbackIdx])) {
+            fallbackIdx++;
+        }
+        const cor = paletaFallback[fallbackIdx] || '#6c757d';
+        coresUsadas.add(cor);
+        fallbackIdx++;
+        return cor;
+    });
+
+    const total = valores.reduce((s, v) => s + v, 0) || 1;
+
+    // Layout: rosca à esquerda, legenda à direita
+    const raio = 70;
+    const raioInterno = raio * 0.54;
+    const centerX = raio + 10;
+    const centerY = canvas.height / 2;
+    const legendaX = centerX + raio + 14;
 
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-    valores.forEach((valor, i) => {
-        const larguraFinal = (valor / maxValor) * (canvas.width - margemEsquerda - 60);
-        const y = offsetY + i * (alturaBarra + espacamento);
-
-        // Label à esquerda
-        ctx.fillStyle = getCorLabel();
-        ctx.font = '13px Arial';
-        ctx.textAlign = 'right';
-        ctx.fillText(labels[i], margemEsquerda - 10, y + alturaBarra / 2 + 5);
-
-        // Animar barra
-        let larguraAtual = 0;
-        const animacao = setInterval(() => {
-            ctx.clearRect(margemEsquerda, y, canvas.width - margemEsquerda, alturaBarra);
-            larguraAtual += larguraFinal / 50;
-            if (larguraAtual >= larguraFinal) {
-                larguraAtual = larguraFinal;
-                clearInterval(animacao);
-            }
-            ctx.fillStyle = cores[i];
-            ctx.fillRect(margemEsquerda, y, larguraAtual, alturaBarra);
-
-            // Valor à direita da barra
-            ctx.fillStyle = getCorLabel();
-            ctx.font = 'bold 13px Arial';
-            ctx.textAlign = 'left';
-            ctx.fillText(valor, margemEsquerda + larguraAtual + 5, y + alturaBarra / 2 + 5);
-        }, 20);
+    // Calcular fatias
+    const fatias = [];
+    let anguloAcumulado = -Math.PI / 2; // Começa no topo
+    statusOrdenados.forEach((s, i) => {
+        const angulo = (valores[i] / total) * 2 * Math.PI;
+        fatias.push({
+            label: labels[i],
+            valor: valores[i],
+            cor: cores[i],
+            anguloInicio: anguloAcumulado,
+            anguloFim: anguloAcumulado + angulo
+        });
+        anguloAcumulado += angulo;
     });
+
+    // Buraco central da rosca
+    function desenharBuraco() {
+        ctx.fillStyle = '#0d1117';
+        ctx.beginPath();
+        ctx.arc(centerX, centerY, raioInterno, 0, Math.PI * 2);
+        ctx.fill();
+    }
+
+    // Total no centro
+    function desenharCentro() {
+        ctx.fillStyle = '#94a3b8';
+        ctx.font = 'bold 15px Inter, Arial';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(total, centerX, centerY - 6);
+        ctx.font = '9px Inter, Arial';
+        ctx.fillStyle = '#475569';
+        ctx.fillText('tickets', centerX, centerY + 9);
+        ctx.textBaseline = 'alphabetic';
+    }
+
+    // Legenda: quadrado colorido + nome + valor (pct) na mesma linha
+    function desenharLegenda() {
+        const alturaItem = 19;
+        const totalItens = fatias.length;
+        const blocoAltura = totalItens * alturaItem;
+        let ly = centerY - blocoAltura / 2 + alturaItem / 2;
+
+        fatias.forEach(f => {
+            const pct = Math.round((f.valor / total) * 100);
+
+            // Quadrado colorido
+            ctx.fillStyle = f.cor;
+            ctx.fillRect(legendaX, ly - 6, 10, 10);
+
+            // Nome do status
+            ctx.fillStyle = '#94a3b8';
+            ctx.font = '12px Inter, Arial';
+            ctx.textAlign = 'left';
+            ctx.textBaseline = 'middle';
+            ctx.fillText(f.label, legendaX + 14, ly);
+
+            // Valor + percentual logo após o nome
+            const larguraNome = ctx.measureText(f.label).width;
+            ctx.fillStyle = '#cbd5e1';
+            ctx.font = 'bold 12px Inter, Arial';
+            ctx.fillText(`${f.valor} (${pct}%)`, legendaX + 14 + larguraNome + 5, ly);
+
+            ctx.textBaseline = 'alphabetic';
+            ly += alturaItem;
+        });
+    }
+
+    // Animar fatias sequencialmente
+    let fatiaIndex = 0;
+
+    function desenharProximaFatia() {
+        if (fatiaIndex >= fatias.length) {
+            desenharBuraco();
+            desenharCentro();
+            desenharLegenda();
+            return;
+        }
+
+        const fatia = fatias[fatiaIndex];
+        let anguloAtual = fatia.anguloInicio;
+        const incremento = (fatia.anguloFim - fatia.anguloInicio) / 25;
+
+        const animacao = setInterval(() => {
+            anguloAtual += incremento;
+            if (anguloAtual >= fatia.anguloFim) {
+                anguloAtual = fatia.anguloFim;
+                clearInterval(animacao);
+                fatiaIndex++;
+                setTimeout(desenharProximaFatia, 80);
+            }
+
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            // Fatias já concluídas
+            for (let i = 0; i < fatiaIndex; i++) {
+                ctx.fillStyle = fatias[i].cor;
+                ctx.beginPath();
+                ctx.moveTo(centerX, centerY);
+                ctx.arc(centerX, centerY, raio, fatias[i].anguloInicio, fatias[i].anguloFim);
+                ctx.closePath();
+                ctx.fill();
+            }
+
+            // Fatia atual em animação
+            ctx.fillStyle = fatia.cor;
+            ctx.beginPath();
+            ctx.moveTo(centerX, centerY);
+            ctx.arc(centerX, centerY, raio, fatia.anguloInicio, anguloAtual);
+            ctx.closePath();
+            ctx.fill();
+
+            desenharBuraco();
+            desenharCentro();
+            desenharLegenda();
+        }, 20);
+    }
+
+    desenharProximaFatia();
+
+    // Tooltip: hit-detection por ângulo e raio na rosca
+    canvas.addEventListener('mousemove', function(e) {
+        const rect = canvas.getBoundingClientRect();
+        const scaleX = canvas.width  / rect.width;
+        const scaleY = canvas.height / rect.height;
+        const mx = (e.clientX - rect.left) * scaleX;
+        const my = (e.clientY - rect.top)  * scaleY;
+        const dx = mx - centerX;
+        const dy = my - centerY;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+
+        if (dist < raioInterno || dist > raio) {
+            CanvasTooltip.hide();
+            return;
+        }
+
+        let angulo = Math.atan2(dy, dx);
+        if (angulo < -Math.PI / 2) angulo += 2 * Math.PI;
+
+        const fatia = fatias.find(f => angulo >= f.anguloInicio && angulo <= f.anguloFim);
+        if (!fatia) { CanvasTooltip.hide(); return; }
+
+        const pct = Math.round((fatia.valor / total) * 100);
+        CanvasTooltip.show(e,
+            `<strong style="color:${fatia.cor}">${fatia.label}</strong><br>` +
+            `Tickets: <strong>${fatia.valor}</strong><br>` +
+            `Percentual: <strong>${pct}%</strong>`
+        );
+    });
+    canvas.addEventListener('mouseleave', () => CanvasTooltip.hide());
 }
 
 function criarGraficoPrioridade(dados) {
@@ -5197,16 +5382,17 @@ function criarGraficoPrioridade(dados) {
 
     const ctx = canvas.getContext('2d');
     const cores = {
-        'baixa': '#6c757d',
-        'normal': '#71aa29',
-        'alta': '#f79226',
-        'urgente': '#a8231e'
+        'baixa': '#475569',
+        'normal': '#39dd52',
+        'alta': '#e56b46',
+        'urgente': '#e62c45'
     };
 
     const prioridades = ['urgente', 'alta', 'normal', 'baixa'];
     const valores = prioridades.map(p => dados.por_prioridade?.[p] || 0);
     const labels = ['Urgente', 'Alta', 'Normal', 'Baixa'];
 
+    const totalPrioridade = valores.reduce((s, v) => s + v, 0) || 1;
     const maxValor = Math.max(...valores) || 1;
     const alturaBarra = 30;
     const espacamento = 15;
@@ -5214,19 +5400,28 @@ function criarGraficoPrioridade(dados) {
     const alturaTotal = valores.length * (alturaBarra + espacamento) - espacamento;
     const offsetY = (canvas.height - alturaTotal) / 2;
 
+    // Mapa de barras para hit-detection
+    const barrasPrioridade = valores.map((valor, i) => ({
+        label: labels[i],
+        cor: cores[prioridades[i]],
+        valor,
+        x: margemEsquerda,
+        y: offsetY + i * (alturaBarra + espacamento),
+        largura: (valor / maxValor) * (canvas.width - margemEsquerda - 60),
+        altura: alturaBarra
+    }));
+
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
     valores.forEach((valor, i) => {
-        const larguraFinal = (valor / maxValor) * (canvas.width - margemEsquerda - 60);
-        const y = offsetY + i * (alturaBarra + espacamento);
+        const larguraFinal = barrasPrioridade[i].largura;
+        const y = barrasPrioridade[i].y;
 
-        // Label à esquerda
         ctx.fillStyle = getCorLabel();
         ctx.font = '14px Arial';
         ctx.textAlign = 'right';
         ctx.fillText(labels[i], margemEsquerda - 10, y + alturaBarra / 2 + 5);
 
-        // Animar barra
         let larguraAtual = 0;
         const animacao = setInterval(() => {
             ctx.clearRect(margemEsquerda, y, canvas.width - margemEsquerda, alturaBarra);
@@ -5238,13 +5433,36 @@ function criarGraficoPrioridade(dados) {
             ctx.fillStyle = cores[prioridades[i]];
             ctx.fillRect(margemEsquerda, y, larguraAtual, alturaBarra);
 
-            // Valor à direita da barra
             ctx.fillStyle = getCorLabel();
             ctx.font = 'bold 14px Arial';
             ctx.textAlign = 'left';
-            ctx.fillText(valor, margemEsquerda + larguraAtual + 5, y + alturaBarra / 2 + 5);
+            const pct = totalPrioridade > 0 ? Math.round((valor / totalPrioridade) * 100) : 0;
+            ctx.fillText(`${valor} (${pct}%)`, margemEsquerda + larguraAtual + 5, y + alturaBarra / 2 + 5);
         }, 20);
     });
+
+    // Tooltip: hit-detection por retângulo
+    canvas.addEventListener('mousemove', function(e) {
+        const rect = canvas.getBoundingClientRect();
+        const scaleX = canvas.width  / rect.width;
+        const scaleY = canvas.height / rect.height;
+        const mx = (e.clientX - rect.left) * scaleX;
+        const my = (e.clientY - rect.top)  * scaleY;
+
+        const barra = barrasPrioridade.find(b =>
+            mx >= b.x && mx <= b.x + b.largura &&
+            my >= b.y && my <= b.y + b.altura
+        );
+        if (!barra || barra.valor === 0) { CanvasTooltip.hide(); return; }
+
+        const pct = Math.round((barra.valor / totalPrioridade) * 100);
+        CanvasTooltip.show(e,
+            `<strong style="color:${barra.cor}">${barra.label}</strong><br>` +
+            `Tickets: <strong>${barra.valor}</strong><br>` +
+            `Percentual: <strong>${pct}%</strong>`
+        );
+    });
+    canvas.addEventListener('mouseleave', () => CanvasTooltip.hide());
 }
 
 function criarGraficoMensal(dados) {
@@ -5257,6 +5475,7 @@ function criarGraficoMensal(dados) {
                 const ctx = canvas.getContext('2d');
                 const meses = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
                 const valores = meses.map((_, i) => dados.por_mes?.[i + 1] || 0);
+                const totalMensal = valores.reduce((s, v) => s + v, 0) || 1;
 
                 const maxValor = Math.max(...valores) || 1;
                 const margemEsquerda = 30;
@@ -5264,18 +5483,24 @@ function criarGraficoMensal(dados) {
                 const larguraUtil = canvas.width - margemEsquerda - margemDireita;
                 const stepX = larguraUtil / (valores.length - 1);
 
+                // Pontos para hit-detection
+                const pontosMensal = valores.map((valor, i) => ({
+                    mes: meses[i],
+                    valor,
+                    x: margemEsquerda + i * stepX,
+                    y: canvas.height - 40 - (valor / maxValor) * (canvas.height - 60)
+                }));
+
                 ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-                // Labels dos meses
                 valores.forEach((valor, i) => {
                     const x = margemEsquerda + i * stepX;
                     ctx.fillStyle = getCorLabel();
-                    ctx.font = '13px Arial';
+                    ctx.font = '14px Arial';
                     ctx.textAlign = 'center';
                     ctx.fillText(meses[i], x, canvas.height - 5);
                 });
 
-                // Animar linha
                 let progress = 0;
                 const animacao = setInterval(() => {
                     progress += 0.02;
@@ -5288,44 +5513,85 @@ function criarGraficoMensal(dados) {
 
                     const pontosVisiveis = Math.floor(valores.length * progress);
 
-                    // Desenhar linha
-                    ctx.strokeStyle = '#4B79A1';
-                    ctx.lineWidth = 3;
                     ctx.beginPath();
-
+                    const baseY = canvas.height - 40;
                     valores.forEach((valor, i) => {
                         if (i <= pontosVisiveis) {
                             const x = margemEsquerda + i * stepX;
                             const y = canvas.height - 40 - (valor / maxValor) * (canvas.height - 60);
+                            if (i === 0) { ctx.moveTo(x, baseY); ctx.lineTo(x, y); }
+                            else ctx.lineTo(x, y);
+                        }
+                    });
+                    const ultimoI = Math.min(pontosVisiveis, valores.length - 1);
+                    ctx.lineTo(margemEsquerda + ultimoI * stepX, baseY);
+                    ctx.closePath();
+                    ctx.fillStyle = 'rgba(57, 221, 82, 0.07)';
+                    ctx.fill();
 
+                    ctx.strokeStyle = '#39dd52';
+                    ctx.lineWidth = 2.5;
+                    ctx.beginPath();
+                    valores.forEach((valor, i) => {
+                        if (i <= pontosVisiveis) {
+                            const x = margemEsquerda + i * stepX;
+                            const y = canvas.height - 40 - (valor / maxValor) * (canvas.height - 60);
                             if (i === 0) ctx.moveTo(x, y);
                             else ctx.lineTo(x, y);
                         }
                     });
                     ctx.stroke();
 
-                    // Desenhar pontos
                     valores.forEach((valor, i) => {
                         if (i <= pontosVisiveis) {
                             const x = margemEsquerda + i * stepX;
                             const y = canvas.height - 40 - (valor / maxValor) * (canvas.height - 60);
-
-                            ctx.fillStyle = '#4B79A1';
+                            ctx.fillStyle = '#39dd52';
                             ctx.beginPath();
                             ctx.arc(x, y, 4, 0, Math.PI * 2);
                             ctx.fill();
+                            // Valor em laranja acima do ponto quando > 0
+                            if (valor > 0) {
+                                ctx.fillStyle = '#e56b46';
+                                ctx.font = 'bold 11px Inter, Arial';
+                                ctx.textAlign = 'center';
+                                ctx.fillText(valor, x, y - 8);
+                            }
                         }
                     });
 
-                    // Redesenhar labels
                     valores.forEach((valor, i) => {
                         const x = margemEsquerda + i * stepX;
                         ctx.fillStyle = getCorLabel();
-                        ctx.font = '13px Arial';
+                        ctx.font = '14px Arial';
                         ctx.textAlign = 'center';
                         ctx.fillText(meses[i], x, canvas.height - 5);
                     });
                 }, 20);
+
+                // Tooltip: ponto mais próximo no eixo X (raio de captura 30px)
+                canvas.addEventListener('mousemove', function(e) {
+                    const rect = canvas.getBoundingClientRect();
+                    const scaleX = canvas.width  / rect.width;
+                    const mx = (e.clientX - rect.left) * scaleX;
+
+                    let closest = null;
+                    let menorDist = Infinity;
+                    pontosMensal.forEach(p => {
+                        const d = Math.abs(mx - p.x);
+                        if (d < menorDist) { menorDist = d; closest = p; }
+                    });
+
+                    if (!closest || menorDist > stepX / 2 + 4) { CanvasTooltip.hide(); return; }
+
+                    const pct = Math.round((closest.valor / totalMensal) * 100);
+                    CanvasTooltip.show(e,
+                        `<strong style="color:#39dd52">${closest.mes}</strong><br>` +
+                        `Tickets: <strong>${closest.valor}</strong><br>` +
+                        `Percentual: <strong>${pct}%</strong>`
+                    );
+                });
+                canvas.addEventListener('mouseleave', () => CanvasTooltip.hide());
 
                 observer.unobserve(canvas);
             }
@@ -5551,8 +5817,7 @@ function mostrarSobre() {
                         <span style="color: white; font-size: 1.1rem; font-weight: 700;">Versão 3.0</span>
                     </div>
                     <div style="display: flex; gap: 0.5rem; align-items: center;">
-                        <span style="background: rgba(247,146,38,0.9); color: white; font-size: 0.75rem; font-weight: 700; padding: 0.2rem 0.6rem; border-radius: 20px; text-transform: uppercase; letter-spacing: 0.5px;">Em desenvolvimento</span>
-                        <span style="color: rgba(255,255,255,0.7); font-size: 0.85rem;">2026-02-22</span>
+                        
                     </div>
                 </div>
                 <div style="padding: 1.5rem;">
@@ -7595,6 +7860,31 @@ function mostrarInfoGrafico(tipo) {
             titulo: '📊 Status por Agente',
             descricao: 'Gráfico de barras empilhadas mostrando a distribuição de status dos tickets por agente.',
             analise: 'Compare o desempenho dos agentes: quem tem mais tickets resolvidos, quem tem mais pendentes, etc.'
+        },
+        'sla-vencido': {
+            titulo: 'SLA Vencido',
+            descricao: 'Quantidade de tickets ativos cujo prazo de SLA j\u00e1 foi ultrapassado.',
+            analise: 'Valores altos indicam que a equipe n\u00e3o est\u00e1 conseguindo atender dentro dos prazos acordados. Priorize esses tickets imediatamente e avalie se os prazos de SLA est\u00e3o adequados ao volume de demanda.'
+        },
+        'origem-externa': {
+            titulo: 'Via Canal Externo',
+            descricao: 'Tickets criados automaticamente por integra\u00e7\u00e3o com canais externos, como e-mail recebido na caixa de suporte.',
+            analise: 'Indica o volume de demandas que chegam por canais autom\u00e1ticos. Um volume alto pode justificar regras de triagem autom\u00e1tica ou templates de resposta r\u00e1pida.'
+        },
+        'diarios-30d': {
+            titulo: 'Evolu\u00e7\u00e3o Di\u00e1ria \u2014 \u00daltimos 30 Dias',
+            descricao: 'Gr\u00e1fico de linha mostrando a quantidade de tickets criados por dia nos \u00faltimos 30 dias. O ponto verde marca o dia de maior volume.',
+            analise: 'Identifique picos de demanda recentes. Picos isolados podem indicar incidentes pontuais; picos recorrentes em dias espec\u00edficos sugerem padr\u00f5es que podem ser antecipados.'
+        },
+        'status-mensal': {
+            titulo: 'Status por M\u00eas',
+            descricao: 'Barras empilhadas mostrando a distribui\u00e7\u00e3o de tickets por status em cada m\u00eas do ano atual.',
+            analise: 'Acompanhe a evolu\u00e7\u00e3o da equipe ao longo do ano. Um aumento na fatia de tickets encerrados ao longo dos meses indica melhora na efici\u00eancia. Meses com muitos tickets em aberto merecem aten\u00e7\u00e3o.'
+        },
+        'heatmap': {
+            titulo: 'Heatmap: Dia x Hora',
+            descricao: 'Mapa de calor cruzando dia da semana com hora do dia, mostrando em quais momentos h\u00e1 maior concentra\u00e7\u00e3o de abertura de tickets.',
+            analise: 'Use para dimensionar a equipe: hor\u00e1rios com c\u00e9lulas mais intensas (ciano) s\u00e3o os de maior demanda. Garanta que haja agentes dispon\u00edveis nesses per\u00edodos.'
         },
         'funil': {
             titulo: '🔄 Funil de Conversão',
