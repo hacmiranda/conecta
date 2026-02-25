@@ -1,0 +1,504 @@
+/* ============================================================
+   DASHBOARD REDESIGN — FUTURISTA / HIGH-TECH / SEMPRE DARK
+   Escopo: #dashboard — não afeta nenhuma outra seção do app
+   ============================================================ */
+
+/* === PALETA CROMÁTICA LOCAL (CORES.md) === */
+#dashboard {
+    --dr-bg:       #07090f;
+    --dr-surface:  #0d1117;
+    --dr-surf-2:   #0f1521;
+    --dr-border:   rgba(255, 255, 255, 0.065);
+    --dr-text-1:   #f1f5f9;
+    --dr-text-2:   #94a3b8;
+    --dr-text-3:   #475569;
+    --dr-cyan:     #2797e1;  /* azul petróleo — destaque principal */
+    --dr-purple:   #c52ee7;  /* magenta vibrante */
+    --dr-lime:     #39dd52;  /* verde */
+    --dr-magenta:  #d7e744;  /* limão */
+    --dr-orange:   #e56b46;  /* laranja */
+    --dr-blue:     #2797e1;  /* azul petróleo */
+    --dr-red:      #e62c45;  /* vermelho */
+}
+
+/* === SEÇÃO SEMPRE ESCURA === */
+#dashboard {
+    background:
+        radial-gradient(ellipse 800px 550px at 5% 15%,  rgba(39, 151, 225, 0.022) 0%, transparent 70%),
+        radial-gradient(ellipse 700px 500px at 95% 85%, rgba(197, 46, 231, 0.028) 0%, transparent 70%),
+        #07090f;
+    padding: 2rem 2.5rem 3rem;
+    margin: 0 -20px 0;
+    position: relative;
+}
+
+/* Garante fundo escuro mesmo durante o carregamento inicial */
+#dashboard-content {
+    background: #07090f;
+    min-height: 100px;
+}
+
+/* === CABEÇALHO DA SEÇÃO === */
+#dashboard > h2 {
+    font-size: 1.8rem !important;
+    font-weight: 700;
+    color: var(--dr-text-1) !important;
+    letter-spacing: 0;
+    text-transform: none;
+    margin-top: 0 !important;
+    margin-bottom: 2rem !important;
+    padding-bottom: 1rem;
+    border-bottom: 1px solid var(--dr-border);
+    display: flex;
+    align-items: center;
+    gap: 0.65rem;
+}
+
+/* === GRID GERAL === */
+#dashboard .dashboard-grid {
+    gap: 1.2rem;
+    margin-bottom: 1.2rem !important;
+}
+
+/* Linhas KPI com 5 cards fixos */
+#dashboard .dashboard-grid.kpi-row-5 {
+    grid-template-columns: repeat(5, 1fr);
+}
+
+@media (max-width: 1200px) {
+    #dashboard .dashboard-grid.kpi-row-5 {
+        grid-template-columns: repeat(3, 1fr);
+    }
+}
+
+@media (max-width: 768px) {
+    #dashboard .dashboard-grid.kpi-row-5 {
+        grid-template-columns: repeat(2, 1fr);
+    }
+}
+
+/* Linha de gráficos com 4 cards */
+#dashboard .dashboard-grid.graficos-row-4 {
+    grid-template-columns: repeat(4, 1fr);
+}
+
+#dashboard .dashboard-grid.graficos-row-4 .dashboard-card {
+    min-width: 0; /* evita overflow nos canvases */
+}
+
+#dashboard .dashboard-grid.graficos-row-4 canvas {
+    width: 100% !important;
+    height: auto !important;
+    max-height: 260px;
+}
+
+@media (max-width: 1200px) {
+    #dashboard .dashboard-grid.graficos-row-4 {
+        grid-template-columns: repeat(2, 1fr);
+    }
+}
+
+@media (max-width: 768px) {
+    #dashboard .dashboard-grid.graficos-row-4 {
+        grid-template-columns: 1fr;
+    }
+}
+
+#dashboard [style*="margin-top: 1.5rem"] {
+    margin-top: 1.2rem !important;
+}
+
+/* === CARD BASE === */
+#dashboard .dashboard-card {
+    background: linear-gradient(148deg, var(--dr-surface) 0%, var(--dr-surf-2) 100%) !important;
+    border: 1px solid var(--dr-border) !important;
+    border-left: none !important;
+    border-radius: 14px !important;
+    padding: 1.4rem 1.5rem !important;
+    box-shadow:
+        0 4px 20px rgba(0, 0, 0, 0.45),
+        0 1px 0 rgba(255, 255, 255, 0.03) inset !important;
+    transition:
+        transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1),
+        box-shadow 0.3s ease,
+        border-color 0.3s ease !important;
+    overflow: hidden !important;
+    position: relative !important;
+}
+
+/* Linha accent no topo — substitui barra laranja */
+#dashboard .dashboard-card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 2px !important;
+    background: linear-gradient(90deg, var(--dr-cyan) 0%, rgba(197, 46, 231, 0.45) 55%, transparent 100%) !important;
+    border-radius: 14px 14px 0 0;
+}
+
+/* Hover com elevação e glow sutil */
+#dashboard .dashboard-card:hover {
+    transform: translateY(-3px);
+    box-shadow:
+        0 10px 42px rgba(0, 0, 0, 0.55),
+        0 0 26px rgba(39, 151, 225, 0.055),
+        0 1px 0 rgba(255, 255, 255, 0.04) inset !important;
+    border-color: rgba(39, 151, 225, 0.13) !important;
+}
+
+/* === TÍTULOS DOS CARDS === */
+#dashboard .card-title-flex {
+    font-size: 0.67rem !important;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--dr-text-3) !important;
+    margin-bottom: 1rem !important;
+}
+
+#dashboard .title-left {
+    gap: 0.5rem;
+}
+
+#dashboard .title-left .material-symbols-outlined {
+    font-size: 1.1rem !important;
+    color: var(--dr-cyan) !important;
+    opacity: 0.75;
+}
+
+/* Info icon */
+#dashboard .info-icon {
+    color: var(--dr-text-3) !important;
+    opacity: 0.5;
+    transition:
+        color 0.2s ease,
+        opacity 0.2s ease,
+        transform 0.2s ease,
+        text-shadow 0.2s ease !important;
+}
+
+#dashboard .info-icon:hover {
+    color: var(--dr-cyan) !important;
+    opacity: 1;
+    text-shadow: 0 0 10px rgba(0, 229, 255, 0.55);
+    transform: scale(1.22) !important;
+}
+
+/* === NÚMEROS KPI (padrão: azul petróleo) === */
+#dashboard .dashboard-number {
+    font-size: 2.65rem !important;
+    font-weight: 700;
+    color: var(--dr-cyan) !important;
+    letter-spacing: -0.04em;
+    line-height: 1.1;
+    text-shadow: 0 0 22px rgba(39, 151, 225, 0.22);
+}
+
+/* === SUBTÍTULO === */
+#dashboard .dashboard-subtitle {
+    font-size: 0.72rem !important;
+    color: var(--dr-text-3) !important;
+    margin-top: 0.5rem !important;
+    font-weight: 500;
+    letter-spacing: 0.02em;
+}
+
+/* === CAPTION === */
+#dashboard .text-caption {
+    color: #2d3748;
+    font-size: 0.68rem;
+}
+
+/* ============================================================
+   ACCENTS INDIVIDUAIS — ROW 1 (5 KPIs)
+   ============================================================ */
+
+/* Card 1 — Total de Tickets — Azul Petróleo */
+#dashboard .dashboard-grid.kpi-row-5:first-child .dashboard-card:nth-child(1) .dashboard-number {
+    color: var(--dr-cyan) !important;
+    text-shadow: 0 0 22px rgba(39, 151, 225, 0.25);
+}
+#dashboard .dashboard-grid.kpi-row-5:first-child .dashboard-card:nth-child(1)::before {
+    background: linear-gradient(90deg, var(--dr-cyan) 0%, transparent 100%) !important;
+}
+#dashboard .dashboard-grid.kpi-row-5:first-child .dashboard-card:nth-child(1):hover {
+    box-shadow:
+        0 10px 42px rgba(0, 0, 0, 0.55),
+        0 0 28px rgba(39, 151, 225, 0.08),
+        0 1px 0 rgba(255, 255, 255, 0.04) inset !important;
+}
+
+/* Card 2 — Encerrados — Verde */
+#dashboard .dashboard-grid.kpi-row-5:first-child .dashboard-card:nth-child(2) .dashboard-number {
+    color: var(--dr-lime) !important;
+    text-shadow: 0 0 22px rgba(57, 221, 82, 0.25);
+}
+#dashboard .dashboard-grid.kpi-row-5:first-child .dashboard-card:nth-child(2)::before {
+    background: linear-gradient(90deg, var(--dr-lime) 0%, transparent 100%) !important;
+}
+#dashboard .dashboard-grid.kpi-row-5:first-child .dashboard-card:nth-child(2):hover {
+    box-shadow:
+        0 10px 42px rgba(0, 0, 0, 0.55),
+        0 0 28px rgba(57, 221, 82, 0.07),
+        0 1px 0 rgba(255, 255, 255, 0.04) inset !important;
+}
+
+/* Card 3 — Ativos — Laranja */
+#dashboard .dashboard-grid.kpi-row-5:first-child .dashboard-card:nth-child(3) .dashboard-number {
+    color: var(--dr-orange) !important;
+    text-shadow: 0 0 22px rgba(229, 107, 70, 0.25);
+}
+#dashboard .dashboard-grid.kpi-row-5:first-child .dashboard-card:nth-child(3)::before {
+    background: linear-gradient(90deg, var(--dr-orange) 0%, transparent 100%) !important;
+}
+#dashboard .dashboard-grid.kpi-row-5:first-child .dashboard-card:nth-child(3):hover {
+    box-shadow:
+        0 10px 42px rgba(0, 0, 0, 0.55),
+        0 0 28px rgba(229, 107, 70, 0.08),
+        0 1px 0 rgba(255, 255, 255, 0.04) inset !important;
+}
+
+/* Card 4 — Taxa de Conclusão — Magenta */
+#dashboard .dashboard-grid.kpi-row-5:first-child .dashboard-card:nth-child(4) .dashboard-number {
+    color: var(--dr-purple) !important;
+    text-shadow: 0 0 22px rgba(197, 46, 231, 0.28);
+}
+#dashboard .dashboard-grid.kpi-row-5:first-child .dashboard-card:nth-child(4)::before {
+    background: linear-gradient(90deg, var(--dr-purple) 0%, transparent 100%) !important;
+}
+#dashboard .dashboard-grid.kpi-row-5:first-child .dashboard-card:nth-child(4):hover {
+    box-shadow:
+        0 10px 42px rgba(0, 0, 0, 0.55),
+        0 0 28px rgba(197, 46, 231, 0.09),
+        0 1px 0 rgba(255, 255, 255, 0.04) inset !important;
+}
+
+/* Card 5 — Tempo Médio Total — Azul */
+#dashboard .dashboard-grid.kpi-row-5:first-child .dashboard-card:nth-child(5) .dashboard-number {
+    color: var(--dr-blue) !important;
+    text-shadow: 0 0 22px rgba(39, 151, 225, 0.28);
+}
+#dashboard .dashboard-grid.kpi-row-5:first-child .dashboard-card:nth-child(5)::before {
+    background: linear-gradient(90deg, var(--dr-blue) 0%, transparent 100%) !important;
+}
+#dashboard .dashboard-grid.kpi-row-5:first-child .dashboard-card:nth-child(5):hover {
+    box-shadow:
+        0 10px 42px rgba(0, 0, 0, 0.55),
+        0 0 28px rgba(39, 151, 225, 0.08),
+        0 1px 0 rgba(255, 255, 255, 0.04) inset !important;
+}
+
+/* ============================================================
+   ACCENTS INDIVIDUAIS — ROW 2 (5 KPIs)
+   ============================================================ */
+
+/* Card 1 — Tempo Médio 1º Atend. — Amarelo */
+#dashboard .dashboard-grid.kpi-row-5:not(:first-child) .dashboard-card:nth-child(1) .dashboard-number {
+    color: var(--dr-magenta) !important;
+    text-shadow: 0 0 22px rgba(215, 231, 68, 0.28);
+}
+#dashboard .dashboard-grid.kpi-row-5:not(:first-child) .dashboard-card:nth-child(1)::before {
+    background: linear-gradient(90deg, var(--dr-magenta) 0%, transparent 100%) !important;
+}
+
+/* ============================================================
+   CARD FCR — Gradiente azul petróleo premium
+   ============================================================ */
+#dashboard .fcr-card {
+    background: linear-gradient(148deg, #080f20 0%, #0c1832 65%, #091426 100%) !important;
+    border-color: rgba(39, 151, 225, 0.2) !important;
+}
+
+#dashboard .fcr-card::before {
+    background: linear-gradient(90deg, #2797e1 0%, #c52ee7 55%, transparent 100%) !important;
+}
+
+#dashboard .fcr-card:hover {
+    border-color: rgba(39, 151, 225, 0.38) !important;
+    box-shadow:
+        0 10px 42px rgba(0, 0, 0, 0.55),
+        0 0 28px rgba(39, 151, 225, 0.1),
+        0 1px 0 rgba(255, 255, 255, 0.04) inset !important;
+}
+
+#dashboard .fcr-card .card-title-flex {
+    color: #1d6faa !important;
+}
+
+#dashboard .fcr-card .title-left .material-symbols-outlined {
+    color: #2797e1 !important;
+    opacity: 0.85;
+}
+
+#dashboard .fcr-number {
+    color: #ffffff !important;
+    font-size: 2.65rem !important;
+    text-shadow: 0 0 28px rgba(39, 151, 225, 0.4) !important;
+    letter-spacing: -0.04em;
+}
+
+#dashboard .fcr-subtitle {
+    color: #1d6faa !important;
+    font-size: 0.73rem;
+}
+
+/* ============================================================
+   CANVAS — fundo sempre transparente
+   ============================================================ */
+#dashboard canvas {
+    background: transparent !important;
+    border-radius: 8px;
+    max-width: 100%;
+}
+
+/* ============================================================
+   DASHBOARD LISTS (Top 5 Solicitantes, Categorias, etc.)
+   ============================================================ */
+#dashboard .dashboard-list {
+    gap: 0.44rem;
+}
+
+#dashboard .dashboard-item {
+    background: rgba(57, 221, 82, 0.045) !important;
+    border: 1px solid rgba(57, 221, 82, 0.1) !important;
+    border-radius: 8px !important;
+    color: var(--dr-text-2) !important;
+    padding: 0.58rem 0.9rem !important;
+    transition: background 0.18s ease, border-color 0.18s ease !important;
+}
+
+#dashboard .dashboard-item:hover {
+    background: rgba(57, 221, 82, 0.08) !important;
+    border-color: rgba(57, 221, 82, 0.2) !important;
+}
+
+#dashboard .dashboard-item span:first-child {
+    color: var(--dr-text-2);
+    font-size: 0.84rem;
+}
+
+#dashboard .dashboard-item span:last-child {
+    color: var(--dr-orange) !important;
+    font-weight: 700;
+    font-size: 0.88rem;
+    text-shadow: 0 0 8px rgba(229, 107, 70, 0.25);
+}
+
+#dashboard .item-trofeu {
+    font-size: 1rem !important;
+    color: #f59e0b !important;
+    vertical-align: middle;
+    margin-left: 4px;
+    filter: drop-shadow(0 0 5px rgba(245, 158, 11, 0.5));
+}
+
+/* ============================================================
+   SOBRESCREVER ESTILOS DO MODO ESCURO DO APP
+   (dashboard sempre dark, independente do toggle)
+   ============================================================ */
+.modo-escuro #dashboard {
+    background:
+        radial-gradient(ellipse 800px 550px at 5% 15%,  rgba(39, 151, 225, 0.022) 0%, transparent 70%),
+        radial-gradient(ellipse 700px 500px at 95% 85%, rgba(197, 46, 231, 0.028) 0%, transparent 70%),
+        #07090f;
+}
+
+.modo-escuro #dashboard .dashboard-card,
+#dashboard .dashboard-card {
+    background: linear-gradient(148deg, var(--dr-surface) 0%, var(--dr-surf-2) 100%) !important;
+}
+
+.modo-escuro #dashboard .dashboard-item {
+    color: var(--dr-text-2) !important;
+}
+
+.modo-escuro #dashboard .dashboard-number {
+    color: var(--dr-cyan) !important;
+}
+
+/* ============================================================
+   CARD FULLROW — ocupa linha inteira no grid
+   ============================================================ */
+#dashboard .dashboard-card-fullrow {
+    grid-column: 1 / -1;
+}
+
+/* ============================================================
+   ACCENTS — ROW 3 (SLA Vencido + Origem Externa)
+   ============================================================ */
+
+/* Card SLA Vencido — Vermelho */
+#dashboard .kpi-sla-vencido .dashboard-number,
+#dashboard .kpi-sla-vencido .sla-vencido-number {
+    color: var(--dr-red) !important;
+    text-shadow: 0 0 22px rgba(230, 44, 69, 0.28);
+}
+#dashboard .kpi-sla-vencido::before {
+    background: linear-gradient(90deg, var(--dr-red) 0%, transparent 100%) !important;
+}
+#dashboard .kpi-sla-vencido:hover {
+    box-shadow:
+        0 10px 42px rgba(0, 0, 0, 0.55),
+        0 0 28px rgba(230, 44, 69, 0.1),
+        0 1px 0 rgba(255, 255, 255, 0.04) inset !important;
+    border-color: rgba(230, 44, 69, 0.2) !important;
+}
+#dashboard .kpi-sla-vencido .title-left .material-symbols-outlined {
+    color: var(--dr-red) !important;
+}
+
+/* Card Origem Externa — Azul Petróleo */
+#dashboard .kpi-origem-externa .dashboard-number,
+#dashboard .kpi-origem-externa .origem-externa-number {
+    color: var(--dr-cyan) !important;
+    text-shadow: 0 0 22px rgba(39, 151, 225, 0.28);
+}
+#dashboard .kpi-origem-externa::before {
+    background: linear-gradient(90deg, var(--dr-cyan) 0%, var(--dr-purple) 60%, transparent 100%) !important;
+}
+#dashboard .kpi-origem-externa:hover {
+    box-shadow:
+        0 10px 42px rgba(0, 0, 0, 0.55),
+        0 0 28px rgba(39, 151, 225, 0.08),
+        0 1px 0 rgba(255, 255, 255, 0.04) inset !important;
+    border-color: rgba(39, 151, 225, 0.13) !important;
+}
+#dashboard .kpi-origem-externa .title-left .material-symbols-outlined {
+    color: var(--dr-cyan) !important;
+}
+
+/* ============================================================
+   ACESSIBILIDADE — prefers-reduced-motion
+   ============================================================ */
+@media (prefers-reduced-motion: reduce) {
+    #dashboard .dashboard-card {
+        transition: none !important;
+    }
+
+    #dashboard .dashboard-card:hover {
+        transform: none !important;
+    }
+}
+
+/* ============================================================
+   RESPONSIVIDADE
+   ============================================================ */
+@media (max-width: 900px) {
+    #dashboard {
+        padding: 1.5rem 1.25rem 2rem;
+        margin: 0 -20px 0;
+    }
+}
+
+@media (max-width: 600px) {
+    #dashboard {
+        padding: 1.25rem 1rem 2rem;
+        margin: 0 -10px 0;
+    }
+
+    #dashboard .dashboard-number {
+        font-size: 2.2rem !important;
+    }
+}
