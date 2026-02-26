@@ -1,83 +1,101 @@
 <?php
-header('Access-Control-Allow-Origin: *');
-header('Access-Control-Allow-Methods: GET, OPTIONS');
-header('Access-Control-Allow-Headers: Content-Type, Authorization');
+require_once __DIR__ . '/../config/database.php';
+require_once __DIR__ . '/../middleware/auth.php';
+
+// CORS restrito ao domínio permitido
+AuthMiddleware::configurarCORS(['GET']);
 
 if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
     exit(0);
 }
 
-require_once __DIR__ . '/../config/database.php';
+// Autenticação JWT obrigatória — anexos não são públicos
+$user = AuthMiddleware::verificarAuth();
 
 $database = new Database();
 $db = $database->getConnection();
 
-// GET - Download ou visualizar anexo
+// GET — Download ou visualização inline de anexo
 if ($_SERVER['REQUEST_METHOD'] === 'GET') {
-    $anexo_id = $_GET['id'] ?? null;
-    $action = $_GET['action'] ?? 'download'; // download ou view
-    
+    $anexo_id = filter_input(INPUT_GET, 'id', FILTER_VALIDATE_INT);
+    $action   = $_GET['action'] ?? 'download';
+
     if (!$anexo_id) {
+        header('Content-Type: application/json');
         http_response_code(400);
-        echo json_encode(['error' => 'ID do anexo é obrigatório']);
+        echo json_encode(['error' => 'ID do anexo inválido']);
         exit;
     }
-    
+
     try {
-        // Buscar anexo no banco
         $query = "SELECT * FROM anexos WHERE id = :id";
-        $stmt = $db->prepare($query);
-        $stmt->bindParam(':id', $anexo_id);
+        $stmt  = $db->prepare($query);
+        $stmt->bindParam(':id', $anexo_id, PDO::PARAM_INT);
         $stmt->execute();
         $anexo = $stmt->fetch();
-        
+
         if (!$anexo) {
+            header('Content-Type: application/json');
             http_response_code(404);
             echo json_encode(['error' => 'Anexo não encontrado']);
             exit;
         }
-        
-        // Caminho do arquivo (absoluto)
-        $caminho_arquivo = dirname(__DIR__, 2) . '/backend/anexos/' . $anexo['nome_arquivo'];
-        
-        // Log de debug
-        error_log("[ANEXO DEBUG] ID: {$anexo_id}");
-        error_log("[ANEXO DEBUG] Nome arquivo DB: {$anexo['nome_arquivo']}");
-        error_log("[ANEXO DEBUG] Caminho completo: $caminho_arquivo");
-        error_log("[ANEXO DEBUG] Arquivo existe? " . (file_exists($caminho_arquivo) ? 'SIM' : 'NAO'));
-        
-        if (!file_exists($caminho_arquivo)) {
-            error_log("[ANEXO DEBUG] ERRO 404 - Arquivo não encontrado!");
-            http_response_code(404);
-            echo json_encode(['error' => 'Arquivo não encontrado no servidor', 'caminho' => $caminho_arquivo, 'nome_db' => $anexo['nome_arquivo']]);
+
+        // Diretório base de anexos (caminho absoluto e normalizado)
+        $base_dir = realpath(dirname(__DIR__, 2) . '/backend/anexos');
+        if ($base_dir === false) {
+            header('Content-Type: application/json');
+            http_response_code(500);
+            echo json_encode(['error' => 'Diretório de anexos indisponível']);
             exit;
         }
-        
-        // Definir headers apropriados
-        $mime_type = $anexo['tipo'] ?: 'application/octet-stream';
-        
-        if ($action === 'view') {
-            // Para visualização inline
-            header('Content-Type: ' . $mime_type);
-            header('Content-Disposition: inline; filename="' . $anexo['nome_original'] . '"');
-        } else {
-            // Para download
-            header('Content-Type: application/octet-stream');
-            header('Content-Disposition: attachment; filename="' . $anexo['nome_original'] . '"');
+
+        // Previne path traversal: extrai apenas o nome base do arquivo
+        $nome_seguro     = basename($anexo['nome_arquivo']);
+        $caminho_arquivo = $base_dir . DIRECTORY_SEPARATOR . $nome_seguro;
+
+        // Verifica que o caminho resolvido está dentro do diretório permitido
+        $caminho_real = realpath($caminho_arquivo);
+        if ($caminho_real === false || strpos($caminho_real, $base_dir . DIRECTORY_SEPARATOR) !== 0) {
+            header('Content-Type: application/json');
+            http_response_code(403);
+            echo json_encode(['error' => 'Acesso negado']);
+            exit;
         }
-        
-        header('Content-Length: ' . filesize($caminho_arquivo));
-        header('Cache-Control: must-revalidate');
-        header('Pragma: public');
-        
-        // Enviar arquivo
-        readfile($caminho_arquivo);
+
+        if (!file_exists($caminho_real)) {
+            header('Content-Type: application/json');
+            http_response_code(404);
+            echo json_encode(['error' => 'Arquivo não encontrado no servidor']);
+            exit;
+        }
+
+        // MIME type validado durante o upload (armazenado no banco via finfo)
+        $mime_type = $anexo['tipo'] ?: 'application/octet-stream';
+
+        // Sanitiza nome original para o header (evita injeção de header)
+        $nome_download = rawurlencode(basename($anexo['nome_original'] ?? $nome_seguro));
+
+        if ($action === 'view') {
+            header('Content-Type: ' . $mime_type);
+            header('Content-Disposition: inline; filename="' . $nome_download . '"');
+        } else {
+            header('Content-Type: application/octet-stream');
+            header('Content-Disposition: attachment; filename="' . $nome_download . '"');
+        }
+
+        header('Content-Length: ' . filesize($caminho_real));
+        header('Cache-Control: private, must-revalidate');
+        header('Pragma: private');
+        header('X-Content-Type-Options: nosniff');
+
+        readfile($caminho_real);
         exit;
-        
+
     } catch (Exception $e) {
-        error_log("[ANEXO DEBUG] Exception: " . $e->getMessage());
+        error_log('[ANEXOS GET] Erro: ' . $e->getMessage());
+        header('Content-Type: application/json');
         http_response_code(500);
         echo json_encode(['error' => 'Erro ao processar anexo']);
     }
 }
-?>

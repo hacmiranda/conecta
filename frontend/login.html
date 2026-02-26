@@ -1515,6 +1515,10 @@
                     localStorage.removeItem('loginBloqueado');
                     localStorage.setItem('usuario', JSON.stringify(response.usuario));
                     localStorage.setItem('token', response.token);
+                    // Salva o token CSRF dinâmico retornado pelo servidor
+                    if (response.csrf_token) {
+                        localStorage.setItem('csrf_token', response.csrf_token);
+                    }
                     document.getElementById('login-wrapper').classList.add('saindo');
                     setTimeout(() => { window.location.href = './index.html'; }, 400);
                 } else if (xhr.status === 400) {

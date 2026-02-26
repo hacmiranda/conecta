@@ -1,129 +1,138 @@
 <?php
 header('Content-Type: application/json');
-header('Content-Type: application/json');
-
-// CORS Seguro - Em produção deve ser específico
-$origin = $_SERVER['HTTP_ORIGIN'] ?? '*';
-// Validar origin se necessário
-header("Access-Control-Allow-Origin: $origin");
-header('Access-Control-Allow-Methods: POST, OPTIONS');
-header('Access-Control-Allow-Headers: Content-Type, Authorization, X-CSRF-Token');
-header('Access-Control-Allow-Credentials: true');
-// Cabeçalhos de Segurança
 header('X-Content-Type-Options: nosniff');
 header('X-Frame-Options: DENY');
+
+require_once __DIR__ . '/../config/database.php';
+require_once __DIR__ . '/../middleware/auth.php';
+require_once __DIR__ . '/../services/auditoria-service.php';
+require_once __DIR__ . '/../services/rate-limit-service.php';
+require_once __DIR__ . '/../config/turnstile.php';
+
+// Configura CORS e sessão segura antes de qualquer output
+AuthMiddleware::configurarCORS(['POST']);
+AuthMiddleware::configurarSessaoSegura();
+session_start();
 
 if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
     exit(0);
 }
 
-require_once __DIR__ . '/../config/database.php';
-require_once __DIR__ . '/../middleware/auth.php';
-require_once __DIR__ . '/../services/auditoria-service.php';
-require_once __DIR__ . '/../config/turnstile.php';
-
-session_start();
-
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $input = json_decode(file_get_contents('php://input'), true);
-    $email = $input['email'] ?? '';
+    $email = trim($input['email'] ?? '');
     $senha = $input['senha'] ?? '';
     $turnstileToken = $input['cf-turnstile-response'] ?? '';
-    
-    // Validar Turnstile primeiro
-    if (!validateTurnstile($turnstileToken, $_SERVER['REMOTE_ADDR'])) {
+    $ip = $_SERVER['REMOTE_ADDR'] ?? '0.0.0.0';
+
+    // Verifica rate limiting antes de qualquer processamento
+    $rateLimit = RateLimitService::verificar($ip, 'login', 5, 900);
+    if ($rateLimit['bloqueado']) {
+        $minutos = (int) ceil($rateLimit['segundos_restantes'] / 60);
+        http_response_code(429);
+        echo json_encode([
+            'error' => "Muitas tentativas de login. Tente novamente em {$minutos} minuto(s).",
+        ]);
+        exit;
+    }
+
+    // Valida Turnstile
+    if (!validateTurnstile($turnstileToken, $ip)) {
         http_response_code(400);
         echo json_encode(['error' => 'Verificação de segurança falhou. Tente novamente.']);
         exit;
     }
-    
+
     if (empty($email) || empty($senha)) {
         http_response_code(400);
         echo json_encode(['error' => 'Email e senha são obrigatórios']);
         exit;
     }
-    
+
     try {
         $database = new Database();
         $db = $database->getConnection();
-        
+
         $query = "SELECT * FROM usuarios WHERE email = :email";
         $stmt = $db->prepare($query);
         $stmt->bindParam(':email', $email);
         $stmt->execute();
-        
         $usuario = $stmt->fetch();
-        
+
+        $auditoriaService = new AuditoriaService($db);
+
         if (!$usuario) {
-            // Registrar falha de login
-            $auditoriaService = new AuditoriaService($db);
+            RateLimitService::registrar($ip, 'login');
             $auditoriaService->registrarLogin(null, $email, 'login_falha');
-            
             http_response_code(401);
-            echo json_encode(['error' => 'Usuário não encontrado']);
+            // Mensagem genérica para não revelar se o email existe
+            echo json_encode(['error' => 'Credenciais inválidas']);
             exit;
         }
-        
-        // Verificar se usuário está ativo
+
+        // Verifica se usuário está ativo
         if (isset($usuario['ativo']) && $usuario['ativo'] == 0) {
             http_response_code(403);
             echo json_encode(['error' => 'Usuário desativado. Entre em contato com o administrador.']);
             exit;
         }
-        
-        // Verificar senha (apenas compara hash)
+
+        // Verifica senha
+        $senhaValida = false;
+
         if (password_verify($senha, $usuario['senha'])) {
-            // Senha correta
-            
-            // Verificar se precisa rehashing (algoritmo atualizado)
-            if (password_needs_rehash($usuario['senha'], PASSWORD_DEFAULT)) {
-                $hash = password_hash($senha, PASSWORD_DEFAULT);
+            $senhaValida = true;
+
+            // Verifica se precisa de rehash para Argon2ID
+            if (password_needs_rehash($usuario['senha'], PASSWORD_ARGON2ID)) {
+                $novoHash = password_hash($senha, PASSWORD_ARGON2ID);
                 $update = $db->prepare("UPDATE usuarios SET senha = :senha WHERE id = :id");
-                $update->execute([':senha' => $hash, ':id' => $usuario['id']]);
+                $update->execute([':senha' => $novoHash, ':id' => $usuario['id']]);
             }
         } elseif ($usuario['senha'] === $senha) {
-            // Migração de legado: senha em texto plano -> converter para hash
-            $hash = password_hash($senha, PASSWORD_DEFAULT);
-            $update_query = "UPDATE usuarios SET senha = :senha WHERE id = :id";
-            $update_stmt = $db->prepare($update_query);
-            $update_stmt->bindParam(':senha', $hash);
-            $update_stmt->bindParam(':id', $usuario['id']);
-            $update_stmt->execute();
-        } else {
-            // Senha inválida
-            $auditoriaService = new AuditoriaService($db);
+            // Migração de legado: senha em texto plano → converter para Argon2ID
+            $novoHash = password_hash($senha, PASSWORD_ARGON2ID);
+            $update = $db->prepare("UPDATE usuarios SET senha = :senha WHERE id = :id");
+            $update->execute([':senha' => $novoHash, ':id' => $usuario['id']]);
+            $senhaValida = true;
+        }
+
+        if (!$senhaValida) {
+            RateLimitService::registrar($ip, 'login');
             $auditoriaService->registrarLogin($usuario['id'], $email, 'login_falha');
-            
             http_response_code(401);
             echo json_encode(['error' => 'Credenciais inválidas']);
             exit;
         }
-        
-        // Prevenir Session Fixation
+
+        // Login bem-sucedido: limpa rate limit e previne session fixation
+        RateLimitService::limpar($ip, 'login');
         session_regenerate_id(true);
-        
-        // Gerar token JWT
+
+        // Gera token JWT
         $token = AuthMiddleware::gerarToken($usuario);
-        
-        // Registrar login bem-sucedido
-        $auditoriaService = new AuditoriaService($db);
+
+        // Gera token CSRF e armazena na sessão
+        $csrfToken = AuthMiddleware::gerarCSRFToken();
+
         $auditoriaService->registrarLogin($usuario['id'], $email, 'login_sucesso');
-        
+
         echo json_encode([
-            'success' => true,
-            'token' => $token,
-            'usuario' => [
-                'id' => $usuario['id'],
-                'nome' => $usuario['nome'],
-                'email' => $usuario['email'],
-                'tipo' => $usuario['tipo'],
-                'avatar' => $usuario['avatar'] ?? null
-            ]
+            'success'    => true,
+            'token'      => $token,
+            'csrf_token' => $csrfToken,
+            'usuario'    => [
+                'id'     => $usuario['id'],
+                'nome'   => $usuario['nome'],
+                'email'  => $usuario['email'],
+                'tipo'   => $usuario['tipo'],
+                'avatar' => $usuario['avatar'] ?? null,
+            ],
         ]);
-        
+
     } catch (Exception $e) {
+        error_log('[AUTH POST] Erro: ' . $e->getMessage());
         http_response_code(500);
         echo json_encode(['error' => 'Erro interno do servidor']);
     }
 }
-?>

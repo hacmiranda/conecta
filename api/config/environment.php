@@ -1,12 +1,14 @@
 <?php
 /**
- * Configuração de Ambiente
- * Detecta automaticamente localhost ou produção
+ * Configuração de Ambiente — CRPDESK
+ * Detecta automaticamente localhost ou produção.
+ * Credenciais sensíveis são carregadas exclusivamente do arquivo .env.
  */
 
 class Environment {
     private static $isProduction = null;
-    
+    private static $envCache = null;
+
     /**
      * Detecta se está em produção ou localhost
      */
@@ -17,10 +19,9 @@ class Environment {
         }
         return self::$isProduction;
     }
-    private static $envCache = null;
 
     /**
-     * Carrega variáveis do arquivo .env (se existir)
+     * Carrega variáveis do arquivo .env
      */
     private static function loadEnv() {
         if (self::$envCache === null) {
@@ -29,112 +30,101 @@ class Environment {
             if (file_exists($envPath)) {
                 $lines = file($envPath, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
                 foreach ($lines as $line) {
-                    if (strpos(trim($line), '#') === 0) continue;
-                    @list($k, $v) = explode('=', $line, 2);
-                    if ($k) self::$envCache[trim($k)] = trim($v ?? '');
+                    $linha = trim($line);
+                    if ($linha === '' || $linha[0] === '#') continue;
+                    $partes = explode('=', $linha, 2);
+                    if (count($partes) === 2) {
+                        self::$envCache[trim($partes[0])] = trim($partes[1]);
+                    }
                 }
             }
         }
         return self::$envCache;
     }
-    
+
     /**
-     * Retorna configuração baseada no ambiente (.env com fallback)
+     * Retorna configuração baseada no ambiente.
+     * Credenciais vêm do .env com sufixo _LOCAL ou _PROD.
+     * Configurações não sensíveis têm fallback nos arrays abaixo.
      */
     public static function get($key, $default = null) {
         $env = self::loadEnv();
-        if (isset($env[$key]) && $env[$key] !== '') {
-            return $env[$key];
+        $sufixo = self::isProduction() ? '_PROD' : '_LOCAL';
+
+        // Tenta chave com sufixo de ambiente (ex: DB_PASS_PROD, JWT_SECRET_LOCAL)
+        $chaveEnv = strtoupper($key) . $sufixo;
+        if (isset($env[$chaveEnv]) && $env[$chaveEnv] !== '') {
+            return $env[$chaveEnv];
         }
-        
+
+        // Tenta chave sem sufixo (compatibilidade com valores genéricos no .env)
+        $chaveSimples = strtoupper($key);
+        if (isset($env[$chaveSimples]) && $env[$chaveSimples] !== '') {
+            return $env[$chaveSimples];
+        }
+
+        // Fallback para configurações não sensíveis (sem credenciais hardcoded)
         $config = self::isProduction() ? self::production() : self::localhost();
         return $config[$key] ?? $default;
     }
-    
+
     /**
-     * Configurações de LOCALHOST
+     * Configurações não sensíveis de LOCALHOST.
+     * Credenciais (senhas, tokens) NÃO estão aqui — devem vir do .env.
      */
     private static function localhost() {
         return [
             // Banco de Dados
-            'db_host' => 'localhost',
-            'db_name' => 'crpdesk',
-            'db_user' => 'root',
-            'db_pass' => '',
-            'db_charset' => 'utf8mb4',
-            
-            // Email IMAP/SMTP (usar conta de teste)
-            'imap_host' => 'email-ssl.com.br',
-            'imap_port' => 993,
-            'imap_user' => 'suporte2@crprs.org.br',
-            'imap_pass' => 'e8bxR46rPbhS8YEx6SpT@',
-            
-            'smtp_host' => 'email-ssl.com.br',
-            'smtp_port' => 465,
-            'smtp_user' => 'suporte2@crprs.org.br',
-            'smtp_pass' => 'e8bxR46rPbhS8YEx6SpT@',
-            
-            'from_email' => 'suporte2@crprs.org.br',
-            'from_name' => 'Helpdesk CRPRS [DEV]',
-            
+            'db_host'        => 'localhost',
+            'db_name'        => 'crpdesk',
+            'db_user'        => 'root',
+            'db_charset'     => 'utf8mb4',
+
+            // Email
+            'imap_host'      => 'email-ssl.com.br',
+            'imap_port'      => 993,
+            'smtp_host'      => 'email-ssl.com.br',
+            'smtp_port'      => 465,
+            'from_name'      => 'Helpdesk CRPRS [DEV]',
+
             // Caminhos
-            'base_url' => 'http://localhost/crpdesk',
-            'upload_path' => 'C:/xampp/htdocs/crpdesk/backend/anexos/',
-            'log_path' => 'C:/xampp/htdocs/crpdesk/backend/logs/',
-            
-            // Debug
-            'debug' => true,
+            'base_url'       => 'http://localhost/crpdesk',
+            'upload_path'    => 'C:/xampp/htdocs/crpdesk/backend/anexos/',
+            'log_path'       => 'C:/xampp/htdocs/crpdesk/backend/logs/',
+
+            // Debug habilitado apenas em desenvolvimento
+            'debug'          => true,
             'display_errors' => true,
-            'debug' => true,
-            'display_errors' => true,
-            
-            // Segurança
-            'jwt_secret' => 'crpdesk_dev_secret_key_2026_!@#',
-            'csrf_secret' => 'crpdesk_dev_csrf_secret_998877',
         ];
     }
-    
+
     /**
-     * Configurações de PRODUÇÃO
+     * Configurações não sensíveis de PRODUÇÃO.
+     * Credenciais (senhas, tokens) NÃO estão aqui — devem vir do .env.
      */
     private static function production() {
         return [
             // Banco de Dados
-            'db_host' => 'crpdesk.vpshost0269.mysql.dbaas.com.br',
-            'db_name' => 'crpdesk',
-            'db_user' => 'crpdesk',
-            'db_pass' => 'WlxjB#YRSsu7s',
-            'db_charset' => 'utf8mb4',
-            
-            // Email IMAP/SMTP
-            'imap_host' => 'email-ssl.com.br',
-            'imap_port' => 993,
-            'imap_user' => 'suporte@crprs.org.br',
-            'imap_pass' => 'Acvrg#huj45!asdloU',
-            
-            'smtp_host' => 'email-ssl.com.br',
-            'smtp_port' => 465,
-            'smtp_user' => 'suporte@crprs.org.br',
-            'smtp_pass' => 'Acvrg#huj45!asdloU',
-            
-            'from_email' => 'suporte@crprs.org.br',
-            'from_name' => 'Helpdesk CRPRS',
-            
+            'db_host'        => 'crpdesk.vpshost0269.mysql.dbaas.com.br',
+            'db_name'        => 'crpdesk',
+            'db_user'        => 'crpdesk',
+            'db_charset'     => 'utf8mb4',
+
+            // Email
+            'imap_host'      => 'email-ssl.com.br',
+            'imap_port'      => 993,
+            'smtp_host'      => 'email-ssl.com.br',
+            'smtp_port'      => 465,
+            'from_name'      => 'Helpdesk CRPRS',
+
             // Caminhos
-            'base_url' => 'https://crp07.org.br/crpdesk',
-            'upload_path' => __DIR__ . '/../../backend/anexos/',
-            'log_path' => __DIR__ . '/../../backend/logs/',
-            
-            // Debug
-            'debug' => false,
+            'base_url'       => 'https://crp07.org.br/crpdesk',
+            'upload_path'    => __DIR__ . '/../../backend/anexos/',
+            'log_path'       => __DIR__ . '/../../backend/logs/',
+
+            // Debug desabilitado em produção
+            'debug'          => false,
             'display_errors' => false,
-            // Debug
-            'debug' => false,
-            'display_errors' => false,
-            
-            // Segurança (Alterar em produção real se possível)
-            'jwt_secret' => 'cRpD3sK_Pr0d_S3cR3t_K3y_mV1t0_F0rT3_!@#_2026',
-            'csrf_secret' => 'cRpD3sK_Pr0d_CsRf_S3cR3t_XyZ_987',
         ];
     }
 }

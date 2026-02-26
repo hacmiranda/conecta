@@ -173,11 +173,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $categoria_id = $_POST['categoria_id'] ?? null;
     $email_solicitante = $_POST['email_solicitante'] ?? null;
     
-    // Sanitização de Entradas (Mitigação XSS)
-    $titulo = strip_tags($titulo_raw); // Títulos não devem ter HTML
-    $descricao = strip_tags($descricao_raw, '<p><br><strong><em><u><s><h1><h2><h3><h4><h5><h6><ul><ol><li><a><blockquote><span><img>');
-    $descricao = preg_replace('/on[a-z]+\s*=\s*(["\']).*?\1/i', '', $descricao);
-    $descricao = preg_replace('/javascript:/i', '#', $descricao);
+    // Sanitização de entradas — remove tags e atributos perigosos
+    $titulo = strip_tags($titulo_raw);
+
+    // Tags permitidas na descrição (sem <img> para evitar src malicioso)
+    $tags_permitidas = '<p><br><strong><em><u><s><h1><h2><h3><h4><h5><h6><ul><ol><li><a><blockquote><span>';
+    $descricao = strip_tags($descricao_raw, $tags_permitidas);
+    // Remove event handlers (onclick, onload, etc.)
+    $descricao = preg_replace('/\s+on\w+\s*=\s*(?:"[^"]*"|\'[^\']*\'|[^\s>]*)/i', '', $descricao);
+    // Remove protocolos perigosos em atributos href/src
+    $descricao = preg_replace('/(href|src)\s*=\s*["\']?\s*(?:javascript|vbscript|data)[^"\'>\s]*/i', '$1="#"', $descricao);
 
     // Se email não informado, usar email do usuário logado
     if (empty($email_solicitante)) {
@@ -223,64 +228,64 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         error_log("[DEBUG] Ticket criado com ID: $ticket_id");
         
         // Processar anexos se houver
-        error_log("[DEBUG] Verificando anexos");
         if (isset($_FILES['anexos']) && is_array($_FILES['anexos']['name'])) {
-            error_log("[DEBUG] Processando anexos");
-            $upload_dir = '../../backend/anexos/';
-            
-            // Criar pasta se não existir
+            $upload_dir = dirname(__DIR__, 2) . '/backend/anexos/';
+
             if (!is_dir($upload_dir)) {
-                mkdir($upload_dir, 0755, true);
+                mkdir($upload_dir, 0750, true);
             }
-            
+
+            // Whitelist dupla: extensão + MIME type real
+            $whitelist = [
+                'pdf'  => 'application/pdf',
+                'doc'  => 'application/msword',
+                'docx' => 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+                'txt'  => 'text/plain',
+                'csv'  => 'text/csv',
+                'xls'  => 'application/vnd.ms-excel',
+                'xlsx' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+                'png'  => 'image/png',
+                'jpg'  => 'image/jpeg',
+                'jpeg' => 'image/jpeg',
+            ];
+
             $total_arquivos = count($_FILES['anexos']['name']);
-            
-            // Processar cada arquivo
+
             for ($i = 0; $i < $total_arquivos; $i++) {
-                if ($_FILES['anexos']['error'][$i] === UPLOAD_ERR_OK) {
-                    $nome_original = $_FILES['anexos']['name'][$i];
-                    $tmp_name = $_FILES['anexos']['tmp_name'][$i];
-                    $size = $_FILES['anexos']['size'][$i];
-                    $type = $_FILES['anexos']['type'][$i];
-                    
-                    // Validar tipo de arquivo
-                    $extensao = strtolower(pathinfo($nome_original, PATHINFO_EXTENSION));
-                    $tipos_permitidos = ['pdf', 'doc', 'docx', 'txt', 'csv', 'xls', 'xlsx', 'png', 'jpg', 'jpeg', 'zip', 'rar'];
-                    
-                    if (in_array($extensao, $tipos_permitidos)) {
-                        $nome_arquivo = time() . '_' . $i . '_' . preg_replace('/[^a-zA-Z0-9._-]/', '_', $nome_original);
-                        $caminho_completo = $upload_dir . $nome_arquivo;
-                        
-                        if (move_uploaded_file($tmp_name, $caminho_completo)) {
-                            // Verificar se tabela anexos existe
-                            try {
-                                $anexo_query = "INSERT INTO anexos (ticket_id, nome_original, nome_arquivo, tamanho, tipo) 
-                                               VALUES (:ticket_id, :nome_original, :nome_arquivo, :tamanho, :tipo)";
-                                $anexo_stmt = $db->prepare($anexo_query);
-                                $anexo_stmt->bindParam(':ticket_id', $ticket_id);
-                                $anexo_stmt->bindParam(':nome_original', $nome_original);
-                                $anexo_stmt->bindParam(':nome_arquivo', $nome_arquivo);
-                                $anexo_stmt->bindParam(':tamanho', $size);
-                                $anexo_stmt->bindParam(':tipo', $type);
-                                $anexo_stmt->execute();
-                            } catch (Exception $e) {
-                                // Se tabela não existe, criar
-                                $create_table = "CREATE TABLE IF NOT EXISTS anexos (
-                                    id INT AUTO_INCREMENT PRIMARY KEY,
-                                    ticket_id INT NOT NULL,
-                                    nome_original VARCHAR(255) NOT NULL,
-                                    nome_arquivo VARCHAR(255) NOT NULL,
-                                    tamanho INT NOT NULL,
-                                    tipo VARCHAR(100),
-                                    criado_em TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                                    FOREIGN KEY (ticket_id) REFERENCES tickets(id) ON DELETE CASCADE
-                                )";
-                                $db->exec($create_table);
-                                
-                                // Tentar inserir novamente
-                                $anexo_stmt->execute();
-                            }
-                        }
+                if ($_FILES['anexos']['error'][$i] !== UPLOAD_ERR_OK) continue;
+
+                $nome_original = basename($_FILES['anexos']['name'][$i]);
+                $tmp_name      = $_FILES['anexos']['tmp_name'][$i];
+                $size          = $_FILES['anexos']['size'][$i];
+
+                // Valida extensão
+                $extensao = strtolower(pathinfo($nome_original, PATHINFO_EXTENSION));
+                if (!isset($whitelist[$extensao])) continue;
+
+                // Valida MIME type real do arquivo (não o informado pelo cliente)
+                $finfo     = finfo_open(FILEINFO_MIME_TYPE);
+                $mime_real = finfo_file($finfo, $tmp_name);
+                finfo_close($finfo);
+                if ($mime_real !== $whitelist[$extensao]) continue;
+
+                // Nome do arquivo no servidor: sem o nome original para evitar path traversal
+                $nome_arquivo    = time() . '_' . uniqid() . '.' . $extensao;
+                $caminho_completo = $upload_dir . $nome_arquivo;
+
+                if (move_uploaded_file($tmp_name, $caminho_completo)) {
+                    chmod($caminho_completo, 0640);
+                    try {
+                        $anexo_query = "INSERT INTO anexos (ticket_id, nome_original, nome_arquivo, tamanho, tipo)
+                                       VALUES (:ticket_id, :nome_original, :nome_arquivo, :tamanho, :tipo)";
+                        $anexo_stmt = $db->prepare($anexo_query);
+                        $anexo_stmt->bindParam(':ticket_id',    $ticket_id);
+                        $anexo_stmt->bindParam(':nome_original', $nome_original);
+                        $anexo_stmt->bindParam(':nome_arquivo',  $nome_arquivo);
+                        $anexo_stmt->bindParam(':tamanho',       $size);
+                        $anexo_stmt->bindParam(':tipo',          $mime_real);
+                        $anexo_stmt->execute();
+                    } catch (Exception $e) {
+                        error_log('[TICKETS POST] Erro ao inserir anexo: ' . $e->getMessage());
                     }
                 }
             }
