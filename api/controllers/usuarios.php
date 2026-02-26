@@ -189,15 +189,25 @@ if ($_SERVER['REQUEST_METHOD'] === 'DELETE') {
             echo json_encode(['error' => 'ID do usuário inválido ou não fornecido']);
             exit;
         }
-        
+
+        // Garante que o ID é um inteiro positivo antes de qualquer uso
+        $usuario_id = intval($usuario_id);
+        if ($usuario_id <= 0) {
+            http_response_code(400);
+            echo json_encode(['error' => 'ID do usuário inválido']);
+            exit;
+        }
+
+        // Nomes de tabela são hardcoded neste array (nunca vêm de input do usuário),
+        // portanto a interpolação em SELECT COUNT(*) é segura por design.
         $tabelas = [
-            ['tabela' => 'tickets', 'colunas' => ['usuario_id', 'agente_id', 'fechado_por'], 'msg' => 'tickets'],
-            ['tabela' => 'comentarios', 'colunas' => ['usuario_id'], 'msg' => 'comentários'],
-            ['tabela' => 'ticket_historico', 'colunas' => ['usuario_id'], 'msg' => 'histórico'],
-            ['tabela' => 'ticket_historico_status', 'colunas' => ['usuario_id'], 'msg' => 'histórico de status'],
-            ['tabela' => 'historico', 'colunas' => ['usuario_id'], 'msg' => 'registros de histórico']
+            ['tabela' => 'tickets',               'colunas' => ['usuario_id', 'agente_id', 'fechado_por'], 'msg' => 'tickets'],
+            ['tabela' => 'comentarios',            'colunas' => ['usuario_id'],                             'msg' => 'comentários'],
+            ['tabela' => 'ticket_historico',       'colunas' => ['usuario_id'],                             'msg' => 'histórico'],
+            ['tabela' => 'ticket_historico_status','colunas' => ['usuario_id'],                             'msg' => 'histórico de status'],
+            ['tabela' => 'historico',              'colunas' => ['usuario_id'],                             'msg' => 'registros de histórico'],
         ];
-        
+
         foreach ($tabelas as $t) {
             $where = implode(' OR ', array_map(fn($col) => "$col = ?", $t['colunas']));
             $stmt = $db->prepare("SELECT COUNT(*) as total FROM {$t['tabela']} WHERE $where");

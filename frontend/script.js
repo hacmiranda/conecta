@@ -18,6 +18,7 @@ function fazerLogout() {
     localStorage.removeItem('usuario');
     localStorage.removeItem('token');
     localStorage.removeItem('token_exp');
+    localStorage.removeItem('csrf_token');
     window.location.href = './login.html';
 }
 
@@ -388,14 +389,14 @@ function removerAnexo(index) {
 // Função para configurar headers de segurança
 function setSecurityHeaders(xhr) {
     const token = localStorage.getItem('token');
-    console.log('🔐 setSecurityHeaders - Token:', token ? 'EXISTS' : 'NOT FOUND');
     if (token) {
         xhr.setRequestHeader('Authorization', `Bearer ${token}`);
-        console.log('✅ Authorization header set');
-    } else {
-        console.error('❌ Token not found in localStorage');
     }
-    xhr.setRequestHeader('X-CSRF-Token', 'helpdesk-csrf-token');
+    // CSRF token dinâmico recebido no login e salvo no localStorage
+    const csrfToken = localStorage.getItem('csrf_token');
+    if (csrfToken) {
+        xhr.setRequestHeader('X-CSRF-Token', csrfToken);
+    }
 }
 
 // Formulário de novo ticket - VERSÃO COM XMLHttpRequest
@@ -1947,10 +1948,12 @@ function adicionarComentario(event, ticketId) {
 
     mostrarLoader();
 
+    const csrfToken = localStorage.getItem('csrf_token') || '';
     fetch('/crpdesk/api/controllers/comentarios.php', {
         method: 'POST',
         headers: {
-            'Authorization': `Bearer ${token}`
+            'Authorization': `Bearer ${token}`,
+            'X-CSRF-Token': csrfToken
         },
         body: formData
     })
@@ -1977,78 +1980,119 @@ function adicionarComentario(event, ticketId) {
             anexosComentarioSelecionados = [];
             atualizarListaAnexosComentario();
 
-            // Adicionar comentário na lista
+            // Adicionar comentário na lista usando DOM API para evitar XSS
             if (data.comentario) {
                 const listaComentarios = document.getElementById('lista-comentarios');
                 if (listaComentarios) {
-                    let novoComentarioHtml = `
-                    <div class="comentario-wrapper">
-                        <div class="comentario-info">
-                            <strong>💬 ${data.comentario.autor_nome}</strong> - ${new Date(data.comentario.criado_em).toLocaleString('pt-BR')}<br>
-                            <strong style="color: #666; font-size: 0.9em;">Comentário:</strong>
-                        </div>
-                        <div class="comentario">
-                            ${data.comentario.comentario}
-                        </div>
-                `;
+                    const wrapper = document.createElement('div');
+                    wrapper.className = 'comentario-wrapper';
 
+                    // Informações do autor (texto puro)
+                    const infoDiv = document.createElement('div');
+                    infoDiv.className = 'comentario-info';
+                    const autorStrong = document.createElement('strong');
+                    autorStrong.textContent = '💬 ' + (data.comentario.autor_nome || '');
+                    infoDiv.appendChild(autorStrong);
+                    infoDiv.appendChild(document.createTextNode(' - ' + new Date(data.comentario.criado_em).toLocaleString('pt-BR')));
+                    infoDiv.appendChild(document.createElement('br'));
+                    const comentarioLabel = document.createElement('strong');
+                    comentarioLabel.style.cssText = 'color: #666; font-size: 0.9em;';
+                    comentarioLabel.textContent = 'Comentário:';
+                    infoDiv.appendChild(comentarioLabel);
+                    wrapper.appendChild(infoDiv);
+
+                    // Conteúdo do comentário — sanitizado (Quill pode gerar HTML seguro)
+                    const comentarioDiv = document.createElement('div');
+                    comentarioDiv.className = 'comentario';
+                    comentarioDiv.innerHTML = sanitizeHTML(data.comentario.comentario || '');
+                    wrapper.appendChild(comentarioDiv);
+
+                    // Anexos
                     if (data.anexos && data.anexos.length > 0) {
-                        novoComentarioHtml += `
-                        <div style="margin-top: 0.5rem; padding-left: 1rem;">
-                            <strong style="color: #666; font-size: 0.9em;">Anexos:</strong><br>
-                    `;
+                        const anexosDiv = document.createElement('div');
+                        anexosDiv.style.cssText = 'margin-top: 0.5rem; padding-left: 1rem;';
+                        const anexosLabel = document.createElement('strong');
+                        anexosLabel.style.cssText = 'color: #666; font-size: 0.9em;';
+                        anexosLabel.textContent = 'Anexos:';
+                        anexosDiv.appendChild(anexosLabel);
+                        anexosDiv.appendChild(document.createElement('br'));
+
                         data.anexos.forEach(anexo => {
                             const tipo = anexo.tipo || anexo.tipo_mime || '';
                             const isPDF = tipo === 'application/pdf';
                             const isImage = tipo.startsWith('image/');
-                            const nomeExibir = anexo.nome_original || anexo.nome_arquivo;
-                            novoComentarioHtml += `
-                            <div style="margin-top: 0.3rem;">
-                                <a href="/crpdesk/api/controllers/anexos.php?id=${anexo.id}" download="${nomeExibir}" style="color: #007bff; text-decoration: none;"><img src="images/clipe-de-anexo.png" style="width: 14px; height: 14px; vertical-align: middle; margin-right: 4px;"> ${nomeExibir}</a>
-                                ${isPDF || isImage ? `<button onclick="visualizarAnexo(${anexo.id}, '${tipo}')" style="margin-left: 0.5rem; padding: 0.2rem 0.5rem; font-size: 0.8rem; cursor: pointer; border: 1px solid #007bff; background: white; color: #007bff; border-radius: 3px;">👁️ Ver</button>` : ''}
-                            </div>
-                        `;
+                            const nomeExibir = anexo.nome_original || anexo.nome_arquivo || '';
+                            const anexoIdSafe = parseInt(anexo.id, 10);
+
+                            const itemDiv = document.createElement('div');
+                            itemDiv.style.marginTop = '0.3rem';
+
+                            const link = document.createElement('a');
+                            link.href = '/crpdesk/api/controllers/anexos.php?id=' + anexoIdSafe;
+                            link.download = nomeExibir;
+                            link.style.cssText = 'color: #007bff; text-decoration: none;';
+                            const imgClipe = document.createElement('img');
+                            imgClipe.src = 'images/clipe-de-anexo.png';
+                            imgClipe.style.cssText = 'width: 14px; height: 14px; vertical-align: middle; margin-right: 4px;';
+                            imgClipe.alt = '';
+                            link.appendChild(imgClipe);
+                            link.appendChild(document.createTextNode(nomeExibir));
+                            itemDiv.appendChild(link);
+
+                            if (isPDF || isImage) {
+                                const btnVer = document.createElement('button');
+                                btnVer.textContent = '👁️ Ver';
+                                btnVer.style.cssText = 'margin-left: 0.5rem; padding: 0.2rem 0.5rem; font-size: 0.8rem; cursor: pointer; border: 1px solid #007bff; background: white; color: #007bff; border-radius: 3px;';
+                                btnVer.addEventListener('click', () => visualizarAnexo(anexoIdSafe, tipo));
+                                itemDiv.appendChild(btnVer);
+                            }
+                            anexosDiv.appendChild(itemDiv);
                         });
-                        novoComentarioHtml += `</div>`;
+                        wrapper.appendChild(anexosDiv);
                     }
 
-                    novoComentarioHtml += `</div>`;
+                    listaComentarios.appendChild(wrapper);
 
-                    // Adicionar registros de email se enviado
+                    // Registros de email enviado
                     if (enviarEmail) {
-                        const usuario = JSON.parse(localStorage.getItem('usuario'));
+                        const usuario = JSON.parse(localStorage.getItem('usuario') || '{}');
                         const agora = new Date().toLocaleString('pt-BR');
+                        const ticketAtual = JSON.parse(localStorage.getItem('ticketAtual') || '{}');
 
-                        // Buscar email do solicitante do ticketAtual
-                        const ticketAtual = JSON.parse(localStorage.getItem('ticketAtual'));
                         if (ticketAtual && ticketAtual.usuario_email) {
-                            novoComentarioHtml += `
-                            <div class="historico-wrapper">
-                                <div class="historico-info">
-                                    <strong>🕒 ${usuario.nome}</strong> - ${agora}
-                                </div>
-                                <div class="historico-acao">
-                                    📧 O comentário acima foi enviado por e-mail para: ${ticketAtual.usuario_email}
-                                </div>
-                            </div>
-                        `;
+                            const histDiv = document.createElement('div');
+                            histDiv.className = 'historico-wrapper';
+                            const histInfo = document.createElement('div');
+                            histInfo.className = 'historico-info';
+                            const nomeS = document.createElement('strong');
+                            nomeS.textContent = '🕒 ' + (usuario.nome || '');
+                            histInfo.appendChild(nomeS);
+                            histInfo.appendChild(document.createTextNode(' - ' + agora));
+                            const histAcao = document.createElement('div');
+                            histAcao.className = 'historico-acao';
+                            histAcao.textContent = '📧 O comentário acima foi enviado por e-mail para: ' + ticketAtual.usuario_email;
+                            histDiv.appendChild(histInfo);
+                            histDiv.appendChild(histAcao);
+                            listaComentarios.appendChild(histDiv);
                         }
 
                         if (comCopia) {
-                            novoComentarioHtml += `
-                            <div class="historico-wrapper">
-                                <div class="historico-info">
-                                    <strong>🕒 ${usuario.nome}</strong> - ${agora}
-                                </div>
-                                <div class="historico-acao">
-                                    📧 Cópia do comentário acima enviada por e-mail para: ${comCopia}
-                                </div>
-                            </div>
-                        `;
+                            const histDivC = document.createElement('div');
+                            histDivC.className = 'historico-wrapper';
+                            const histInfoC = document.createElement('div');
+                            histInfoC.className = 'historico-info';
+                            const nomeSC = document.createElement('strong');
+                            nomeSC.textContent = '🕒 ' + (usuario.nome || '');
+                            histInfoC.appendChild(nomeSC);
+                            histInfoC.appendChild(document.createTextNode(' - ' + agora));
+                            const histAcaoC = document.createElement('div');
+                            histAcaoC.className = 'historico-acao';
+                            histAcaoC.textContent = '📧 Cópia do comentário acima enviada por e-mail para: ' + comCopia;
+                            histDivC.appendChild(histInfoC);
+                            histDivC.appendChild(histAcaoC);
+                            listaComentarios.appendChild(histDivC);
                         }
                     }
-
-                    listaComentarios.insertAdjacentHTML('beforeend', novoComentarioHtml);
                 }
             }
         })
