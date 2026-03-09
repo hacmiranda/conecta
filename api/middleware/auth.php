@@ -1,5 +1,5 @@
 <?php
-require_once '../vendor/autoload.php';
+require_once __DIR__ . '/../vendor/autoload.php';
 use Firebase\JWT\JWT;
 use Firebase\JWT\Key;
 require_once __DIR__ . '/../config/environment.php';
@@ -125,8 +125,8 @@ class AuthMiddleware {
 
     /**
      * Valida o token CSRF enviado no header X-CSRF-Token.
-     * Compara com o token armazenado na sessão PHP.
-     * Deve ser chamado em endpoints POST/PUT/DELETE.
+     * Estratégia stateless: compara com o claim 'csrf' do JWT da requisição.
+     * Elimina dependência de sessão PHP — compatível com Cloudflare e múltiplos workers.
      */
     public static function verificarCSRF(): void {
         if ($_SERVER['REQUEST_METHOD'] === 'GET' || $_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
@@ -134,33 +134,52 @@ class AuthMiddleware {
         }
 
         $headers = self::getAllHeaders();
-        $csrf_token = null;
 
+        // Obter X-CSRF-Token do header
+        $csrf_token = null;
         foreach ($headers as $key => $value) {
             if (strtolower($key) === 'x-csrf-token') {
                 $csrf_token = $value;
                 break;
             }
         }
-
         if (!$csrf_token) {
             $csrf_token = $_POST['_csrf'] ?? null;
         }
-
         if (empty($csrf_token)) {
             http_response_code(403);
             echo json_encode(['error' => 'Token CSRF ausente']);
             exit;
         }
 
-        if (session_status() === PHP_SESSION_NONE) {
-            self::configurarSessaoSegura();
-            session_start();
+        // Obter Authorization header para extrair o claim csrf do JWT
+        $auth_header = null;
+        foreach ($headers as $key => $value) {
+            if (strtolower($key) === 'authorization') {
+                $auth_header = $value;
+                break;
+            }
+        }
+        if (!$auth_header) {
+            $auth_header = $_SERVER['HTTP_AUTHORIZATION'] ?? null;
         }
 
-        $token_sessao = $_SESSION['csrf_token'] ?? null;
+        if (!$auth_header || !preg_match('/Bearer\s(\S+)/', $auth_header, $matches)) {
+            http_response_code(403);
+            echo json_encode(['error' => 'Token CSRF inválido']);
+            exit;
+        }
 
-        if (!$token_sessao || !hash_equals($token_sessao, $csrf_token)) {
+        try {
+            $decoded = JWT::decode($matches[1], new Key(self::getSecretKey(), 'HS256'));
+            $csrf_esperado = $decoded->csrf ?? null;
+        } catch (Exception $e) {
+            http_response_code(403);
+            echo json_encode(['error' => 'Token CSRF inválido']);
+            exit;
+        }
+
+        if (!$csrf_esperado || !hash_equals($csrf_esperado, $csrf_token)) {
             http_response_code(403);
             echo json_encode(['error' => 'Token CSRF inválido']);
             exit;
@@ -168,18 +187,22 @@ class AuthMiddleware {
     }
 
     /**
-     * Gera e armazena um token CSRF na sessão.
-     * Retorna o token para envio ao cliente.
+     * Extrai o token CSRF do JWT presente na requisição atual.
+     * Usado em auth.php após gerar o token para retornar o csrf ao cliente.
      */
     public static function gerarCSRFToken(): string {
-        if (session_status() === PHP_SESSION_NONE) {
-            self::configurarSessaoSegura();
-            session_start();
+        $headers = self::getAllHeaders();
+        foreach ($headers as $key => $value) {
+            if (strtolower($key) === 'authorization') {
+                if (preg_match('/Bearer\s(\S+)/', $value, $m)) {
+                    try {
+                        $decoded = JWT::decode($m[1], new Key(self::getSecretKey(), 'HS256'));
+                        return $decoded->csrf ?? '';
+                    } catch (Exception $e) {}
+                }
+            }
         }
-        if (empty($_SESSION['csrf_token'])) {
-            $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
-        }
-        return $_SESSION['csrf_token'];
+        return bin2hex(random_bytes(16));
     }
 
     /**
@@ -190,23 +213,29 @@ class AuthMiddleware {
         $isHttps = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off')
                    || (($_SERVER['SERVER_PORT'] ?? 80) == 443);
 
-        session_set_cookie_params([
-            'lifetime' => 0,
-            'path'     => '/',
-            'secure'   => $isHttps,
-            'httponly' => true,
-            'samesite' => 'Strict',
-        ]);
+        if (PHP_VERSION_ID >= 70300) {
+            session_set_cookie_params([
+                'lifetime' => 0,
+                'path'     => '/',
+                'secure'   => $isHttps,
+                'httponly' => true,
+                'samesite' => 'Strict',
+            ]);
+        } else {
+            session_set_cookie_params(0, '/; samesite=Strict', '', $isHttps, true);
+        }
     }
 
     /**
      * Gera um token JWT para o usuário autenticado.
+     * Inclui claim 'csrf' para validação stateless (sem sessão PHP).
      */
     public static function gerarToken(array $user_data): string {
         $payload = [
             'id'    => $user_data['id'],
             'email' => $user_data['email'],
             'tipo'  => $user_data['tipo'],
+            'csrf'  => bin2hex(random_bytes(16)),
             'iat'   => time(),
             'exp'   => time() + (8 * 3600),
         ];

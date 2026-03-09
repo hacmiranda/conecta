@@ -80,3 +80,6 @@ const CanvasTooltip = (() => {
 
     return { show, move, hide };
 })();
+
+// Garantir acessibilidade global em qualquer escopo
+window.CanvasTooltip = CanvasTooltip;

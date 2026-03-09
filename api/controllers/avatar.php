@@ -59,7 +59,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         // Gerar nome único
         $extension = pathinfo($file['name'], PATHINFO_EXTENSION);
         $filename = 'avatar_' . $userId . '_' . time() . '.' . $extension;
-        $uploadPath = __DIR__ . '/../../backend/uploads/avatars/' . $filename;
+        $uploadDir = __DIR__ . '/../../backend/uploads/avatars/';
+
+        // Criar diretório se não existir
+        if (!is_dir($uploadDir)) {
+            if (!mkdir($uploadDir, 0755, true)) {
+                error_log("[AVATAR] Falha ao criar diretório: $uploadDir");
+                http_response_code(500);
+                echo json_encode(['error' => 'Erro ao preparar diretório de upload']);
+                exit;
+            }
+        }
+
+        $uploadPath = $uploadDir . $filename;
         
         // Buscar avatar antigo
         $select_query = "SELECT avatar FROM usuarios WHERE id = ?";
