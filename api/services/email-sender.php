@@ -43,7 +43,7 @@ class EmailSender {
         $this->mailer->SMTPSecure = PHPMailer::ENCRYPTION_SMTPS;
         $this->mailer->Port = EmailConfig::get('SMTP_PORT');
         $this->mailer->CharSet = 'UTF-8';
-        $this->mailer->Timeout = 10;
+        $this->mailer->Timeout = 30;
         $this->mailer->SMTPOptions = array(
             'ssl' => array(
                 'verify_peer' => false,
@@ -142,16 +142,26 @@ class EmailSender {
             $mensagem .= "Data: " . date('d/m/Y H:i', strtotime($ticket['criado_em'])) . "\n";
             $mensagem .= "Status: " . ucfirst($ticket['status']) . "\n";
             $mensagem .= "Prioridade: " . ucfirst($ticket['prioridade']) . "\n\n";
-            $mensagem .= "Descrição:\n" . $ticket['descricao'] . "\n\n";
+            // Limpar HTML/base64 da descrição para evitar emails gigantes (Quill pode gerar imagens base64)
+            $descricao_texto = strip_tags($ticket['descricao'] ?? '');
+            $descricao_texto = preg_replace('/data:[^;]+;base64,[^\s]+/', '[imagem]', $descricao_texto);
+            $descricao_texto = mb_substr(trim($descricao_texto), 0, 500);
+            if (mb_strlen($ticket['descricao'] ?? '') > 500) {
+                $descricao_texto .= '...';
+            }
+
+            $mensagem .= "Descrição:\n" . $descricao_texto . "\n\n";
             $mensagem .= "Acesse o sistema para atribuir e responder o ticket.\n\n";
             $mensagem .= "Atenciosamente,\nSistema Helpdesk CRPRS";
-            
+
+            $this->mailer->SMTPKeepAlive = true;
             $enviados = 0;
             foreach ($agentes as $agente) {
                 if ($this->enviarEmailTexto($agente['email'], $assunto, $mensagem)) {
                     $enviados++;
                 }
             }
+            $this->mailer->smtpClose();
             
             return $enviados > 0;
             
@@ -213,17 +223,28 @@ class EmailSender {
                 $ticket_id = (int) $m[1];
             }
 
-            // Auto-detectar tipo pelo assunto se não informado
+            // Auto-detectar tipo pelo assunto se não informado (case-insensitive via mb_strtolower)
             if ($tipo === null) {
+                $lower = mb_strtolower($assunto, 'UTF-8');
                 $tipo = match(true) {
-                    str_contains($assunto, 'criado')           => 'novo_ticket',
-                    str_contains($assunto, 'fechado')          => 'fechamento',
-                    str_contains($assunto, 'reaberto')         => 'reabertura',
-                    str_contains($assunto, 'atribuído')       => 'atribuicao',
-                    str_contains($assunto, 'comentário')      => 'comentario',
-                    str_contains($assunto, 'Novo comentário') => 'notif_agente',
-                    str_contains($assunto, 'encaminhamento')   => 'encaminhamento',
-                    default                                    => 'outros',
+                    // Mais específicos primeiro para evitar capturas incorretas
+                    str_contains($lower, 'primeira resposta')   => 'primeira_resposta',
+                    str_contains($lower, 'resposta do suporte') => 'resposta',
+                    str_contains($lower, 'novo ticket')         => 'notif_agente',
+                    str_contains($lower, 'novo comentário')     => 'notif_agente',
+                    str_contains($lower, 'novo comentario')     => 'notif_agente',
+                    str_contains($lower, 'criado')              => 'novo_ticket',
+                    str_contains($lower, 'fechado')             => 'fechamento',
+                    str_contains($lower, 'reaberto')            => 'reabertura',
+                    str_contains($lower, 'atribuído')           => 'atribuicao',
+                    str_contains($lower, 'atribuido')           => 'atribuicao',
+                    str_contains($lower, 'comentário')          => 'comentario',
+                    str_contains($lower, 'comentario')          => 'comentario',
+                    str_contains($lower, 'encaminhamento')      => 'encaminhamento',
+                    str_contains($lower, 'lembrete')            => 'lembrete',
+                    str_contains($lower, 'recuperação')         => 'recuperacao_senha',
+                    str_contains($lower, 'recuperacao')         => 'recuperacao_senha',
+                    default                                     => 'outros',
                 };
             }
 
@@ -397,22 +418,40 @@ class EmailSender {
             $autor = $stmt_autor->fetch();
             $autor_id = $autor ? $autor['usuario_id'] : $dados['usuario_id'];
             
+            // Autor do comentário (não notificar a si mesmo)
+            $query_autor = "SELECT usuario_id FROM comentarios WHERE id = ?";
+            $stmt_autor  = $this->db->prepare($query_autor);
+            $stmt_autor->execute([$comentario_id]);
+            $autor       = $stmt_autor->fetch();
+            $autor_id    = $autor ? $autor['usuario_id'] : null;
+
+            $num_ticket = str_pad($ticket_id, 5, '0', STR_PAD_LEFT);
+            $assunto    = "🎫 [#$num_ticket] Novo comentário - " . $dados['titulo'];
+            $mensagem   = "Novo comentário adicionado ao ticket #$num_ticket\n\n";
+            $mensagem  .= "Ticket: " . $dados['titulo'] . "\n";
+            $mensagem  .= "Autor: " . ($dados['comentario_autor'] ?? 'Solicitante') . "\n";
+            $mensagem  .= "Data: " . date('d/m/Y H:i') . "\n\n";
+            $mensagem  .= "Acesse o sistema para visualizar o comentário.\n\nAtenciosamente,\nSistema Helpdesk CRPRS";
+
             if ($dados['agente_id']) {
-                if ($dados['agente_email']) {
+                // Notificar agente responsável (se não for o próprio autor)
+                if ($dados['agente_email'] && $dados['agente_id'] != $autor_id) {
                     $this->enviarEmailTexto($dados['agente_email'], $assunto, $mensagem);
                 }
             } else {
-                // ... (lógica existente)
-                $query_agentes = "SELECT email FROM usuarios WHERE tipo IN ('agente', 'admin') AND email IS NOT NULL AND ativo = 1";
-                $stmt_agentes = $this->db->prepare($query_agentes);
+                // Sem agente: notificar todos os agentes/admins ativos
+                $query_agentes = "SELECT id, email FROM usuarios WHERE tipo IN ('agente', 'admin') AND email IS NOT NULL AND ativo = 1";
+                $stmt_agentes  = $this->db->prepare($query_agentes);
                 $stmt_agentes->execute();
                 $agentes = $stmt_agentes->fetchAll();
-                
+
                 foreach ($agentes as $agente) {
-                    $this->enviarEmailTexto($agente['email'], $assunto, $mensagem);
+                    if ($agente['id'] != $autor_id) {
+                        $this->enviarEmailTexto($agente['email'], $assunto, $mensagem);
+                    }
                 }
             }
-            
+
             return true;
             
         } catch (Exception $e) {
@@ -621,7 +660,7 @@ class EmailSender {
             
             $assunto = "🎫 [#" . str_pad($ticket_id, 5, '0', STR_PAD_LEFT) . "] Ticket reaberto - " . $ticket['titulo'];
             
-            return $this->enviarEmailHTML($ticket['usuario_email'], $assunto, $template);
+            return $this->enviarEmail($ticket['usuario_email'], $assunto, $template);
         } catch (Exception $e) {
             error_log('Erro ao notificar solicitante sobre reabertura: ' . $e->getMessage());
             return false;

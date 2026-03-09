@@ -3,9 +3,11 @@
  * Cloudflare Turnstile - Validação de CAPTCHA
  */
 
+require_once __DIR__ . '/environment.php';
+
 define('TURNSTILE_SITE_KEY', '0x4AAAAAACSR9w_nSv0Z5QIO');
 define('TURNSTILE_SECRET_KEY', '***REMOVIDO***');
-define('TURNSTILE_ENABLED', true);
+define('TURNSTILE_ENABLED', Environment::isProduction());
 
 /**
  * Valida o token Turnstile com a API da Cloudflare

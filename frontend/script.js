@@ -5,11 +5,23 @@ function sanitizeHTML(str) {
     return div.innerHTML;
 }
 
-// Global Injector de Header (JWT Auth) para Fetchs assíncronos extras
+// Global Injector de Header (JWT Auth + CSRF) para XMLHttpRequests
 window.setSecurityHeaders = function (xhr) {
     const token = localStorage.getItem('token');
     if (token) {
         xhr.setRequestHeader('Authorization', `Bearer ${token}`);
+    }
+    // CSRF: usa valor salvo no login ou extrai diretamente do JWT
+    let csrfToken = localStorage.getItem('csrf_token');
+    if (!csrfToken && token) {
+        try {
+            const partes = token.split('.');
+            const payload = JSON.parse(atob(partes[1].replace(/-/g, '+').replace(/_/g, '/')));
+            csrfToken = payload.csrf || null;
+        } catch (e) {}
+    }
+    if (csrfToken) {
+        xhr.setRequestHeader('X-CSRF-Token', csrfToken);
     }
 };
 
@@ -392,8 +404,15 @@ function setSecurityHeaders(xhr) {
     if (token) {
         xhr.setRequestHeader('Authorization', `Bearer ${token}`);
     }
-    // CSRF token dinâmico recebido no login e salvo no localStorage
-    const csrfToken = localStorage.getItem('csrf_token');
+    // CSRF: usa valor salvo no login ou extrai diretamente do JWT
+    let csrfToken = localStorage.getItem('csrf_token');
+    if (!csrfToken && token) {
+        try {
+            const partes = token.split('.');
+            const payload = JSON.parse(atob(partes[1].replace(/-/g, '+').replace(/_/g, '/')));
+            csrfToken = payload.csrf || null;
+        } catch (e) {}
+    }
     if (csrfToken) {
         xhr.setRequestHeader('X-CSRF-Token', csrfToken);
     }
@@ -1312,12 +1331,7 @@ function executarAlteracaoStatus(ticketId, novoStatus, callback) {
     const xhr = new XMLHttpRequest();
     xhr.open('PUT', `/crpdesk/api/controllers/tickets.php?id=${ticketId}`, true);
     xhr.setRequestHeader('Content-Type', 'application/json');
-
-    // Adicionar token de autenticação
-    const token = localStorage.getItem('token');
-    if (token) {
-        xhr.setRequestHeader('Authorization', `Bearer ${token}`);
-    }
+    setSecurityHeaders(xhr);
 
     xhr.onload = function () {
         ocultarLoader();
@@ -1447,6 +1461,7 @@ function marcarComentariosLidos(ticketId) {
     const usuario = JSON.parse(localStorage.getItem('usuario'));
     const xhr = new XMLHttpRequest();
     xhr.open('PUT', `/crpdesk/api/controllers/comentarios.php?marcar_lido=1&ticket_id=${ticketId}&usuario_id=${usuario.id}`);
+    setSecurityHeaders(xhr);
     xhr.send();
 }
 
@@ -1948,7 +1963,14 @@ function adicionarComentario(event, ticketId) {
 
     mostrarLoader();
 
-    const csrfToken = localStorage.getItem('csrf_token') || '';
+    let csrfToken = localStorage.getItem('csrf_token') || '';
+    if (!csrfToken) {
+        try {
+            const t = localStorage.getItem('token');
+            const payload = JSON.parse(atob(t.split('.')[1].replace(/-/g, '+').replace(/_/g, '/')));
+            csrfToken = payload.csrf || '';
+        } catch (e) {}
+    }
     fetch('/crpdesk/api/controllers/comentarios.php', {
         method: 'POST',
         headers: {
@@ -2001,10 +2023,10 @@ function adicionarComentario(event, ticketId) {
                     infoDiv.appendChild(comentarioLabel);
                     wrapper.appendChild(infoDiv);
 
-                    // Conteúdo do comentário — sanitizado (Quill pode gerar HTML seguro)
+                    // Conteúdo do comentário — renderizado como HTML (gerado pelo editor Quill)
                     const comentarioDiv = document.createElement('div');
                     comentarioDiv.className = 'comentario';
-                    comentarioDiv.innerHTML = sanitizeHTML(data.comentario.comentario || '');
+                    comentarioDiv.innerHTML = data.comentario.comentario || '';
                     wrapper.appendChild(comentarioDiv);
 
                     // Anexos
@@ -6740,13 +6762,17 @@ function mostrarLogEmails(dados, paginaAtual = 1) {
                 <label for="email-log-tipo" style="font-size:13px; font-weight:600; white-space:nowrap;">Tipo:</label>
                 <select id="email-log-tipo" style="${selectStyle}">
                     <option value="">Todos</option>
-                    <option value="novo_ticket">📩 Novo Ticket</option>
-                    <option value="comentario">💬 Comentário</option>
-                    <option value="notif_agente">👥 Notif. Agente</option>
-                    <option value="fechamento">🔒 Fechamento</option>
-                    <option value="reabertura">🔓 Reabertura</option>
+                    <option value="novo_ticket">📩 Novo Ticket (solicitante)</option>
+                    <option value="notif_agente">👥 Aviso Agente (novo ticket/comentário)</option>
+                    <option value="primeira_resposta">📧 Primeira Resposta (automática)</option>
+                    <option value="resposta">✉️ Resposta do Suporte</option>
+                    <option value="comentario">💬 Comentário (solicitante)</option>
                     <option value="atribuicao">👤 Atribuição</option>
+                    <option value="fechamento">🔒 Encerramento</option>
+                    <option value="reabertura">🔓 Reabertura</option>
                     <option value="encaminhamento">↪️ Encaminhamento</option>
+                    <option value="lembrete">🔔 Lembrete</option>
+                    <option value="recuperacao_senha">🔑 Recuperação de Senha</option>
                     <option value="outros">📌 Outros</option>
                 </select>
             </div>
@@ -6792,14 +6818,18 @@ function mostrarLogEmails(dados, paginaAtual = 1) {
         tabelaHtml = `<p style="color:${corTextoSub}; text-align:center; padding:30px;">Nenhum e-mail registrado no período.</p>`;
     } else {
         const tipoLabels = {
-            novo_ticket: '📩 Novo Ticket',
-            comentario: '💬 Comentário',
-            notif_agente: '👥 Notif. Agente',
-            fechamento: '🔒 Fechamento',
-            reabertura: '🔓 Reabertura',
-            atribuicao: '👤 Atribuição',
-            encaminhamento: '↪️ Encaminhamento',
-            outros: '📌 Outros',
+            novo_ticket:       '📩 Novo Ticket',
+            notif_agente:      '👥 Aviso Agente',
+            primeira_resposta: '📧 Primeira Resposta',
+            resposta:          '✉️ Resposta do Suporte',
+            comentario:        '💬 Comentário',
+            atribuicao:        '👤 Atribuição',
+            fechamento:        '🔒 Encerramento',
+            reabertura:        '🔓 Reabertura',
+            encaminhamento:    '↪️ Encaminhamento',
+            lembrete:          '🔔 Lembrete',
+            recuperacao_senha: '🔑 Recuperação de Senha',
+            outros:            '📌 Outros',
         };
 
         // Badges de status adaptados ao modo escuro
@@ -8429,9 +8459,6 @@ document.addEventListener('DOMContentLoaded', function () {
 
     // Inicializar avatar do header
     inicializarAvatar();
-
-    // Iniciar monitoramento de falhas de e-mail (apenas agentes/admins)
-    iniciarMonitoramentoEmailFalhas();
 
     // Atualizar ano no footer se existir
     const anoFooter = document.getElementById('ano-atual');

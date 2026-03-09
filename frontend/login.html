@@ -20,9 +20,7 @@
     <link
         href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200"
         rel="stylesheet">
-    <!-- Cloudflare Turnstile -->
-    <script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>
-
+    <!-- Cloudflare Turnstile (Carregado dinamicamente via JS) -->
     <style>
         /* ============================================
            RESET & BASE
@@ -1169,10 +1167,8 @@
                 </a>
 
                 <!-- Cloudflare Turnstile -->
-                <div class="turnstile-wrap">
-                    <div class="cf-turnstile" data-sitekey="0x4AAAAAACSR9w_nSv0Z5QIO" data-theme="light"
-                        aria-label="Verificação de segurança Cloudflare">
-                    </div>
+                <div class="turnstile-wrap" id="turnstile-container">
+                    <!-- Gerado dinamicamente via JS -->
                 </div>
 
                 <!-- Botão Entrar -->
@@ -1309,6 +1305,23 @@
         let timerInterval = null;
         let ultimaTentativa = null;
         const TEMPO_RESET_TENTATIVAS = 15 * 60 * 1000;
+        
+        // Em localhost o Turnstile não funciona — bypass automático
+        const isLocalhost = ['localhost', '127.0.0.1', '::1'].includes(location.hostname);
+        
+        // Inicializar Turnstile apenas em Produção
+        if (!isLocalhost) {
+            const script = document.createElement('script');
+            script.src = 'https://challenges.cloudflare.com/turnstile/v0/api.js';
+            script.async = true;
+            script.defer = true;
+            document.head.appendChild(script);
+
+            const tsContainer = document.getElementById('turnstile-container');
+            if (tsContainer) {
+                tsContainer.innerHTML = '<div class="cf-turnstile" data-sitekey="0x4AAAAAACSR9w_nSv0Z5QIO" data-theme="light" aria-label="Verificação de segurança Cloudflare"></div>';
+            }
+        }
 
         // Verificar bloqueio ao carregar
         verificarBloqueio();
@@ -1493,8 +1506,10 @@
             const turnstileInput = document.querySelector('[name="cf-turnstile-response"]');
             const turnstileToken = turnstileInput ? turnstileInput.value : '';
 
-            // Bloquear submit se captcha ainda não foi resolvido
-            if (!turnstileToken) {
+            // Em localhost o Turnstile não funciona — bypass automático já setado
+            
+            // Bloquear submit se captcha ainda não foi resolvido (apenas em produção)
+            if (!isLocalhost && !turnstileToken) {
                 mostrarAlert('Atenção', 'Por favor, complete a verificação de segurança antes de continuar.');
                 return;
             }
@@ -1507,6 +1522,7 @@
             const xhr = new XMLHttpRequest();
             xhr.open('POST', '/crpdesk/api/controllers/auth.php', true);
             xhr.setRequestHeader('Content-Type', 'application/json');
+            xhr.setRequestHeader('X-Requested-With', 'XMLHttpRequest');
 
             xhr.onload = function () {
                 if (xhr.status === 200) {

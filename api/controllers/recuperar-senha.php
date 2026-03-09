@@ -87,7 +87,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     } catch (Exception $e) {
         error_log('Erro recuperar senha: ' . $e->getMessage());
         http_response_code(500);
-        echo json_encode(['error' => 'Erro: ' . $e->getMessage(), 'file' => $e->getFile(), 'line' => $e->getLine()]);
+        
+        // Em caso de erro de email/SMTP, retornar mensagem clara pro usuário
+        $msg = $e->getMessage();
+        if (strpos(strtolower($msg), 'smtp') !== false || strpos(strtolower($msg), 'authenticate') !== false) {
+            echo json_encode(['error' => 'Erro ao enviar o e-mail: falha de autenticação no servidor de mensagens. Contate o suporte técnico.']);
+        } else {
+            // Esconde detalhes técnicos em produção
+            $displayMsg = strpos($msg, 'Invalid address') !== false ? 'Erro de configuração no servidor de e-mail.' : 'Erro interno ao processar a recuperação.';
+            echo json_encode(['error' => $displayMsg]);
+        }
     }
 }
 ?>

@@ -176,7 +176,10 @@ function carregarSeletorMacros() {
     const seletor = document.getElementById('seletor-macros');
     if (!seletor) return;
 
-    seletor.innerHTML = '<option value="">⚡ Usar Resposta Rápida (Macro)...</option>';
+    seletor.innerHTML = `
+        <option value="">⚡ Usar Resposta Rápida (Macro)...</option>
+        <option value="__gerenciar__">⚙️ Gerenciar Respostas Rápidas...</option>
+    `;
 
     const xhr = new XMLHttpRequest();
     xhr.open('GET', '/crpdesk/api/controllers/macros.php', true);
@@ -197,15 +200,22 @@ function carregarSeletorMacros() {
 function aplicarMacroTicket(macroId) {
     if (!macroId) return;
 
-    const macro = todasMacros.find(m => m.id == macroId);
-    if (macro && window.quillComentario) {
-        // Verifica se já tem texto para não engolir. Vamos concatenar ou substituir?
-        // Vamos apenas injetar
-        const conteudoAtual = window.quillComentario.root.innerHTML;
-        const conteudoLimpo = conteudoAtual === '<p><br></p>' ? '' : conteudoAtual;
-        window.quillComentario.root.innerHTML = conteudoLimpo + macro.texto;
-
-        // Resetar o seletor
+    if (macroId === '__gerenciar__') {
         document.getElementById('seletor-macros').value = '';
+        abrirModalMacros();
+        return;
     }
+
+    const macro = todasMacros.find(m => m.id == macroId);
+    if (!macro || !window.quillComentario) return;
+
+    const conteudoAtual = window.quillComentario.root.innerHTML;
+    const conteudoLimpo = conteudoAtual === '<p><br></p>' ? '' : conteudoAtual;
+    const novoConteudo = conteudoLimpo + macro.texto;
+
+    // Usar API do Quill para garantir sincronização do modelo interno
+    window.quillComentario.clipboard.dangerouslyPasteHTML(novoConteudo);
+
+    // Resetar o seletor
+    document.getElementById('seletor-macros').value = '';
 }

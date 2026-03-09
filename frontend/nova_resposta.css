@@ -6,6 +6,11 @@ tr.ticket-nova-resposta {
     /* Borda azul da mesma cor do status */
 }
 
+/* Garante que o fundo amarelo se aplica a todas as células, incluindo linhas pares */
+tr.ticket-nova-resposta td {
+    background-color: #fff3cd !important;
+}
+
 tr.ticket-nova-resposta td:nth-child(3),
 /* Coluna Assunto */
 tr.ticket-nova-resposta td:nth-child(1) a {
@@ -17,6 +22,10 @@ tr.ticket-nova-resposta td:nth-child(1) a {
 tr.ticket-nova-resposta:hover {
     background-color: #ffe8a1 !important;
     /* Amarelo um pouco mais escuro no hover */
+}
+
+tr.ticket-nova-resposta:hover td {
+    background-color: #ffe8a1 !important;
 }
 
 /* Ajustar cor do status dentro da linha de nova resposta para combinar */

@@ -83,15 +83,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if (password_verify($senha, $usuario['senha'])) {
             $senhaValida = true;
 
-            // Verifica se precisa de rehash para Argon2ID
-            if (password_needs_rehash($usuario['senha'], PASSWORD_ARGON2ID)) {
-                $novoHash = password_hash($senha, PASSWORD_ARGON2ID);
+            $algoHash = defined('PASSWORD_ARGON2ID') ? PASSWORD_ARGON2ID : PASSWORD_DEFAULT;
+            // Verifica se precisa de rehash
+            if (password_needs_rehash($usuario['senha'], $algoHash)) {
+                $novoHash = password_hash($senha, $algoHash);
                 $update = $db->prepare("UPDATE usuarios SET senha = :senha WHERE id = :id");
                 $update->execute([':senha' => $novoHash, ':id' => $usuario['id']]);
             }
         } elseif ($usuario['senha'] === $senha) {
-            // Migração de legado: senha em texto plano → converter para Argon2ID
-            $novoHash = password_hash($senha, PASSWORD_ARGON2ID);
+            // Migração de legado: senha em texto plano → converter para hash atual
+            $algoHash = defined('PASSWORD_ARGON2ID') ? PASSWORD_ARGON2ID : PASSWORD_DEFAULT;
+            $novoHash = password_hash($senha, $algoHash);
             $update = $db->prepare("UPDATE usuarios SET senha = :senha WHERE id = :id");
             $update->execute([':senha' => $novoHash, ':id' => $usuario['id']]);
             $senhaValida = true;
@@ -105,15 +107,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             exit;
         }
 
-        // Login bem-sucedido: limpa rate limit e previne session fixation
+        // Login bem-sucedido: limpa rate limit
         RateLimitService::limpar($ip, 'login');
-        session_regenerate_id(true);
 
-        // Gera token JWT
+        // Gera token JWT (já inclui claim 'csrf' stateless)
         $token = AuthMiddleware::gerarToken($usuario);
 
-        // Gera token CSRF e armazena na sessão
-        $csrfToken = AuthMiddleware::gerarCSRFToken();
+        // Extrai CSRF do JWT gerado (stateless — sem sessão PHP)
+        $jwtParts = explode('.', $token);
+        $jwtPayload = json_decode(base64_decode(str_replace(['-', '_'], ['+', '/'], $jwtParts[1])), true);
+        $csrfToken = $jwtPayload['csrf'] ?? bin2hex(random_bytes(16));
 
         $auditoriaService->registrarLogin($usuario['id'], $email, 'login_sucesso');
 
@@ -133,6 +136,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     } catch (Exception $e) {
         error_log('[AUTH POST] Erro: ' . $e->getMessage());
         http_response_code(500);
-        echo json_encode(['error' => 'Erro interno do servidor']);
+        // [DEBUG TEMP] Mostra o erro real em vez de ocultar
+        echo json_encode(['error' => 'Erro interno do servidor: ' . $e->getMessage()]);
     }
 }

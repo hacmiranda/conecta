@@ -468,12 +468,7 @@ function executarAlteracaoStatusNovo(ticketId, novoStatus, observacoes = null) {
     const xhr = new XMLHttpRequest();
     xhr.open('PUT', `/crpdesk/api/controllers/tickets.php?id=${ticketId}`, true);
     xhr.setRequestHeader('Content-Type', 'application/json');
-
-    // Adicionar token de autenticação
-    const token = localStorage.getItem('token');
-    if (token) {
-        xhr.setRequestHeader('Authorization', `Bearer ${token}`);
-    }
+    setSecurityHeaders(xhr);
 
     xhr.onload = function () {
         if (xhr.status === 200) {
@@ -535,12 +530,7 @@ function executarAlteracaoPrioridadeNova(ticketId, novaPrioridade) {
     const xhr = new XMLHttpRequest();
     xhr.open('PUT', `/crpdesk/api/controllers/tickets.php?id=${ticketId}`, true);
     xhr.setRequestHeader('Content-Type', 'application/json');
-
-    // Adicionar token de autenticação
-    const token = localStorage.getItem('token');
-    if (token) {
-        xhr.setRequestHeader('Authorization', `Bearer ${token}`);
-    }
+    setSecurityHeaders(xhr);
 
     xhr.onload = function () {
         if (xhr.status === 200) {

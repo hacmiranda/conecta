@@ -52,7 +52,7 @@ try {
 
 // Testar SMTP
 try {
-    require_once '../vendor/autoload.php';
+    require_once __DIR__ . '/../vendor/autoload.php';
     
     $smtp_host = !empty($data['smtp_host']) ? $data['smtp_host'] : EmailConfig::SMTP_HOST;
     $smtp_port = !empty($data['smtp_port']) ? $data['smtp_port'] : EmailConfig::SMTP_PORT;

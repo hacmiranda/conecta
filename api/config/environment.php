@@ -86,6 +86,7 @@ class Environment {
             'smtp_host'      => 'email-ssl.com.br',
             'smtp_port'      => 465,
             'from_name'      => 'Helpdesk CRPRS [DEV]',
+            'from_email'     => 'suporte@crprs.org.br',
 
             // Caminhos
             'base_url'       => 'http://localhost/crpdesk',
@@ -116,6 +117,7 @@ class Environment {
             'smtp_host'      => 'email-ssl.com.br',
             'smtp_port'      => 465,
             'from_name'      => 'Helpdesk CRPRS',
+            'from_email'     => 'suporte@crprs.org.br',
 
             // Caminhos
             'base_url'       => 'https://crp07.org.br/crpdesk',

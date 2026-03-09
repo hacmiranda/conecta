@@ -1,35 +1,140 @@
-// === SISTEMA DE NOTIFICAÇÕES (SSE / PUSH HTTP) ===
+// === SISTEMA DE NOTIFICAÇÕES (Polling — compatível com Cloudflare) ===
+// SSE substituído por polling: o Cloudflare encerra conexões long-lived com erro 524.
 
-let sseSource = null;
+let _notificacoesInterval = null;
 
 function inciarNotificacoes() {
     const token = localStorage.getItem('token');
     if (!token) return;
 
-    // Fecha conexão anterior se existir
-    if (sseSource) {
-        sseSource.close();
+    // Cancela polling anterior se existir
+    if (_notificacoesInterval) {
+        clearInterval(_notificacoesInterval);
     }
 
-    // Inicia a escuta contínua via Server-Sent Events (SSE)
-    sseSource = new EventSource(`/crpdesk/api/controllers/notificacoes-stream.php?token=${token}`);
+    // Busca imediata ao iniciar
+    _buscarNotificacoes();
 
-    // Quando o PHP mandar as atualizações (event: update)
-    sseSource.addEventListener('update', function (event) {
-        try {
-            const data = JSON.parse(event.data);
-            atualizarBadgeNotificacoes(data.nao_lidas);
-            renderizarNotificacoes(data.notificacoes);
-        } catch (e) {
-            console.error("Erro parseando payload do SSE", e);
+    // Polling a cada 30 segundos
+    _notificacoesInterval = setInterval(_buscarNotificacoes, 30000);
+}
+
+function _buscarNotificacoes() {
+    const token = localStorage.getItem('token');
+    if (!token) return;
+
+    const xhr = new XMLHttpRequest();
+    xhr.open('GET', '/crpdesk/api/controllers/notificacoes.php', true);
+    setSecurityHeaders(xhr);
+
+    xhr.onload = function () {
+        if (xhr.status === 200) {
+            try {
+                const data = JSON.parse(xhr.responseText);
+                const usuario = JSON.parse(localStorage.getItem('usuario') || '{}');
+
+                // Para agentes e admins, incluir alertas de falha de e-mail no sino
+                if (['agente', 'admin'].includes(usuario.tipo)) {
+                    _mesclarAlertaEmail(data.notificacoes, data.nao_lidas);
+                } else {
+                    atualizarBadgeNotificacoes(data.nao_lidas);
+                    renderizarNotificacoes(data.notificacoes);
+                }
+            } catch (e) {
+                console.error('Erro ao processar notificações', e);
+            }
+        } else if (xhr.status === 401) {
+            // Token expirou — para o polling
+            clearInterval(_notificacoesInterval);
         }
-    });
-
-    // Tratamento de erros de conexão (O navegador tentará religar automaticamente)
-    sseSource.onerror = function (err) {
-        console.warn("Conexão SSE caiu ou token inválido. Re-tentando em background...", err);
-        // Opcional: Se err.eventPhase == EventSource.CLOSED poderia disparar recarregamento do token
     };
+
+    xhr.onerror = function () {
+        console.warn('Erro de rede ao buscar notificações. Próxima tentativa em 30s.');
+    };
+
+    xhr.send();
+}
+
+// Lê o estado de dispensa do alerta de falha de e-mail salvo no localStorage
+function _getEmailFalhaDispensa() {
+    try {
+        return JSON.parse(localStorage.getItem('email_falha_dispensada') || '{}');
+    } catch (e) {
+        return {};
+    }
+}
+
+// Consulta email-alert.php e injeta alerta de falhas no topo da lista de notificações
+function _mesclarAlertaEmail(notificacoes, naoLidas) {
+    const xhr = new XMLHttpRequest();
+    xhr.open('GET', '/crpdesk/api/controllers/email-alert.php', true);
+    setSecurityHeaders(xhr);
+
+    xhr.onload = function () {
+        let todas = notificacoes;
+        let total = naoLidas;
+
+        if (xhr.status === 200) {
+            try {
+                const dados = JSON.parse(xhr.responseText);
+                if (dados.falhas_24h > 0) {
+                    const ultimaFalha = dados.ultima_falha || '';
+                    const dispensada = _getEmailFalhaDispensa();
+
+                    // Se o usuário excluiu e não há falhas mais recentes, não exibe
+                    const foiExcluida = dispensada.excluida && ultimaFalha <= dispensada.excluida;
+                    // Se o usuário marcou como lida e não há falhas mais recentes, exibe como lida
+                    const foiLida = dispensada.lida && ultimaFalha <= dispensada.lida;
+
+                    if (!foiExcluida) {
+                        const dt = ultimaFalha
+                            ? new Date(ultimaFalha).toLocaleString('pt-BR')
+                            : '';
+                        todas = [{
+                            id: '__email_falha__',
+                            titulo: `⚠️ Falhas no envio de e-mail (${dados.falhas_24h})`,
+                            mensagem: `${dados.falhas_24h} falha(s) nas últimas 24h.${dt ? ' Última: ' + dt : ''} Clique para ver o log.`,
+                            lida: foiLida ? 1 : 0,
+                            ticket_id: null,
+                            criado_em: ultimaFalha || new Date().toISOString(),
+                            _tipo: 'email_falha',
+                            _ultima_falha: ultimaFalha
+                        }, ...notificacoes];
+                        if (!foiLida) total = naoLidas + 1;
+                    }
+                }
+            } catch (e) { /* silencioso */ }
+        }
+
+        atualizarBadgeNotificacoes(total);
+        renderizarNotificacoes(todas);
+    };
+
+    xhr.onerror = function () {
+        // Se falhar a consulta de e-mail, renderiza apenas as notificações normais
+        atualizarBadgeNotificacoes(naoLidas);
+        renderizarNotificacoes(notificacoes);
+    };
+
+    xhr.send();
+}
+
+// Marca o alerta de falha de e-mail como lido (persiste no localStorage)
+function _marcarEmailFalhaLida(ultimaFalha) {
+    const dispensada = _getEmailFalhaDispensa();
+    dispensada.lida = ultimaFalha;
+    localStorage.setItem('email_falha_dispensada', JSON.stringify(dispensada));
+    _buscarNotificacoes();
+}
+
+// Exclui/descarta o alerta de falha de e-mail (persiste no localStorage)
+function _excluirEmailFalha(ultimaFalha) {
+    const dispensada = _getEmailFalhaDispensa();
+    dispensada.excluida = ultimaFalha;
+    dispensada.lida = ultimaFalha; // também marca como lida
+    localStorage.setItem('email_falha_dispensada', JSON.stringify(dispensada));
+    _buscarNotificacoes();
 }
 
 function atualizarBadgeNotificacoes(quantidade) {
@@ -66,21 +171,44 @@ function renderizarNotificacoes(notificacoes) {
 
     let html = '';
     notificacoes.forEach(notif => {
-        const bgCor = notif.lida == 0 ? '#fff5f5' : '#ffffff';
-        const barraCor = notif.lida == 0 ? 'var(--vermelho, #e53e3e)' : 'transparent';
-        const txtCor = notif.lida == 0 ? '#c53030' : '#777';
-        const tituloCor = notif.lida == 0 ? '#9b2c2c' : '#555';
+        if (notif._tipo === 'email_falha') {
+            const foiLida = notif.lida == 1;
+            const bgCor    = foiLida ? '#ffffff' : '#fffbeb';
+            const bordaCor = foiLida ? '#d1d5db' : '#d97706';
+            const tituloCor = foiLida ? '#555' : '#92400e';
+            const msgCor    = foiLida ? '#777' : '#b45309';
+            const ultimaFalhaEsc = (notif._ultima_falha || '').replace(/'/g, "\\'");
 
-        // Se a notificação tem ticket, clica nela e abre
-        const onclickAction = notif.ticket_id ? `abrirDetalhesNotificacao(${notif.id}, ${notif.ticket_id})` : `marcarNotificacaoLida(${notif.id})`;
+            html += `
+                <div style="background: ${bgCor}; border-left: 4px solid ${bordaCor}; padding: 0.8rem; margin-bottom: 0.5rem; border-radius: 4px; box-shadow: 0 1px 2px rgba(0,0,0,0.05);">
+                    <div onclick="fecharNavDropdown('notificacoes'); irParaLogEmails();" style="cursor: pointer;">
+                        <div style="font-weight: 600; font-size: 0.9rem; color: ${tituloCor}; margin-bottom: 0.3rem;">${notif.titulo}</div>
+                        <div style="font-size: 0.8rem; color: ${msgCor}; line-height: 1.3;">${notif.mensagem}</div>
+                        <div style="font-size: 0.7rem; color: #aaa; margin-top: 0.4rem; text-align: right;">Ver log de e-mails →</div>
+                    </div>
+                    <div style="display: flex; gap: 0.4rem; margin-top: 0.5rem; justify-content: flex-end;">
+                        ${!foiLida ? `<button onclick="event.stopPropagation(); _marcarEmailFalhaLida('${ultimaFalhaEsc}')" style="font-size: 0.7rem; padding: 2px 8px; border: 1px solid #d97706; background: transparent; color: #d97706; border-radius: 4px; cursor: pointer;">Marcar como lida</button>` : ''}
+                        <button onclick="event.stopPropagation(); _excluirEmailFalha('${ultimaFalhaEsc}')" style="font-size: 0.7rem; padding: 2px 8px; border: 1px solid #dc2626; background: transparent; color: #dc2626; border-radius: 4px; cursor: pointer;">Excluir</button>
+                    </div>
+                </div>
+            `;
+        } else {
+            const bgCor = notif.lida == 0 ? '#fff5f5' : '#ffffff';
+            const barraCor = notif.lida == 0 ? 'var(--vermelho, #e53e3e)' : 'transparent';
+            const txtCor = notif.lida == 0 ? '#c53030' : '#777';
+            const tituloCor = notif.lida == 0 ? '#9b2c2c' : '#555';
 
-        html += `
-            <div onclick="${onclickAction}" style="background: ${bgCor}; border-left: 4px solid ${barraCor}; padding: 0.8rem; margin-bottom: 0.5rem; border-radius: 4px; box-shadow: 0 1px 2px rgba(0,0,0,0.05); cursor: pointer; transition: background 0.2s;">
-                <div style="font-weight: 600; font-size: 0.9rem; color: ${tituloCor}; margin-bottom: 0.3rem;">${notif.titulo}</div>
-                <div style="font-size: 0.8rem; color: ${txtCor}; line-height: 1.3;">${notif.mensagem}</div>
-                <div style="font-size: 0.7rem; color: #aaa; margin-top: 0.4rem; text-align: right;">${new Date(notif.criado_em).toLocaleString('pt-BR')}</div>
-            </div>
-        `;
+            // Se a notificação tem ticket, clica nela e abre
+            const onclickAction = notif.ticket_id ? `abrirDetalhesNotificacao(${notif.id}, ${notif.ticket_id})` : `marcarNotificacaoLida(${notif.id})`;
+
+            html += `
+                <div onclick="${onclickAction}" style="background: ${bgCor}; border-left: 4px solid ${barraCor}; padding: 0.8rem; margin-bottom: 0.5rem; border-radius: 4px; box-shadow: 0 1px 2px rgba(0,0,0,0.05); cursor: pointer; transition: background 0.2s;">
+                    <div style="font-weight: 600; font-size: 0.9rem; color: ${tituloCor}; margin-bottom: 0.3rem;">${notif.titulo}</div>
+                    <div style="font-size: 0.8rem; color: ${txtCor}; line-height: 1.3;">${notif.mensagem}</div>
+                    <div style="font-size: 0.7rem; color: #aaa; margin-top: 0.4rem; text-align: right;">${new Date(notif.criado_em).toLocaleString('pt-BR')}</div>
+                </div>
+            `;
+        }
     });
 
     lista.innerHTML = html;
@@ -93,8 +221,7 @@ function marcarNotificacaoLida(id) {
 
     xhr.onload = function () {
         if (xhr.status === 200) {
-            // carregarNotificacoes() foi removido.
-            // O EventSource assumirá e re-renderizará a lista na próxima verificação background.
+            _buscarNotificacoes(); // Atualiza badge e lista imediatamente
         }
     };
     xhr.send();
@@ -107,8 +234,7 @@ function marcarTodasComoLidas() {
 
     xhr.onload = function () {
         if (xhr.status === 200) {
-            // carregarNotificacoes() foi removido.
-            // O EventSource varrerá em fundo e limpará a lista.
+            _buscarNotificacoes(); // Atualiza badge e lista imediatamente
         }
     };
     xhr.send();
