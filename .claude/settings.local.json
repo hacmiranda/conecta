@@ -36,7 +36,9 @@
       "Bash(powershell -Command \"\\(Get-Item ''C:\\\\xampp\\\\htdocs\\\\crpdesk\\\\frontend\\\\index.html''\\).Length\")",
       "Bash(C:xamppmysqlbinmysql.exe -u root -e \"USE crpdesk; SELECT DISTINCT tipo FROM email_logs LIMIT 50;\")",
       "Bash(./mysql.exe -u root -e \"USE crpdesk; SELECT DISTINCT tipo FROM email_logs LIMIT 50;\")",
-      "Bash(grep -n \"CREATE TABLE.*anexos\" /c/xampp/htdocs/crpdesk/database/*.sql)"
+      "Bash(grep -n \"CREATE TABLE.*anexos\" /c/xampp/htdocs/crpdesk/database/*.sql)",
+      "Bash(git add api/controllers/comentarios.php api/services/email-sender.php backend/email-template-emcopia.html backend/email-template-resposta.html frontend/alpine-components.js frontend/macros.js frontend/script.js)",
+      "Bash(git commit:*)"
     ]
   }
 }
