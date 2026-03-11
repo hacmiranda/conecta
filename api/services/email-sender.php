@@ -342,17 +342,25 @@ class EmailSender {
             if (!$dados || !$dados['usuario_email']) return false;
             
             $assunto = "🎫 [#" . str_pad($ticket_id, 5, '0', STR_PAD_LEFT) . "] Resposta do Suporte - " . $dados['titulo'];
-            
+
+            // Remove imagens base64 inline (inseridas no editor Quill) para não "estourar" o e-mail.
+            // Imagens anexadas como arquivo continuam sendo enviadas normalmente como attachment.
+            $comentario_email = preg_replace(
+                '/<img\s[^>]*src=["\']data:[^"\']+["\'][^>]*>/i',
+                '<em style="color:#888;">[Imagem disponível no portal de suporte]</em>',
+                $dados['comentario']
+            );
+
             // Template para o solicitante
             $template_solicitante = file_get_contents(dirname(__DIR__, 2) . '/backend/email-template-resposta.html');
             $assinatura = file_get_contents(dirname(__DIR__, 2) . '/backend/AssinaturaEmail.html');
-            
+
             $html_solicitante = str_replace(
                 ['{{NOME_USUARIO}}', '{{NUMERO_TICKET}}', '{{TITULO_TICKET}}', '{{NOME_AGENTE}}', '{{DATA_RESPOSTA}}', '{{COMENTARIO_AGENTE}}', '{{ASSINATURA_EMAIL}}'],
-                [$dados['usuario_nome'], str_pad($ticket_id, 5, '0', STR_PAD_LEFT), $dados['titulo'], $dados['comentario_autor'], date('d/m/Y H:i'), nl2br(htmlspecialchars($dados['comentario'])), $assinatura],
+                [$dados['usuario_nome'], str_pad($ticket_id, 5, '0', STR_PAD_LEFT), $dados['titulo'], $dados['comentario_autor'], date('d/m/Y H:i'), $comentario_email, $assinatura],
                 $template_solicitante
             );
-            
+
             // Buscar anexos do comentário
             $anexos = [];
             try {
@@ -363,23 +371,23 @@ class EmailSender {
             } catch (Exception $e) {
                 error_log('Erro ao buscar anexos: ' . $e->getMessage());
             }
-            
+
             // Enviar para o solicitante
             $this->enviarEmailComAnexos($dados['usuario_email'], $assunto, $html_solicitante, $anexos);
-            
+
             // Enviar cópia se fornecido
             if ($com_copia) {
                 $template_copia = file_get_contents(dirname(__DIR__, 2) . '/backend/email-template-emcopia.html');
-                
+
                 $html_copia = str_replace(
                     ['{{NUMERO_TICKET}}', '{{TITULO_TICKET}}', '{{NOME_AGENTE}}', '{{DATA_RESPOSTA}}', '{{COMENTARIO_AGENTE}}', '{{ASSINATURA_EMAIL}}'],
-                    [str_pad($ticket_id, 5, '0', STR_PAD_LEFT), $dados['titulo'], $dados['comentario_autor'], date('d/m/Y H:i'), nl2br(htmlspecialchars($dados['comentario'])), $assinatura],
+                    [str_pad($ticket_id, 5, '0', STR_PAD_LEFT), $dados['titulo'], $dados['comentario_autor'], date('d/m/Y H:i'), $comentario_email, $assinatura],
                     $template_copia
                 );
-                
+
                 // Adicionar info do solicitante no template de cópia
                 $html_copia = str_replace('<strong>Solicitante:</strong> <br>', '<strong>Solicitante:</strong> ' . $dados['usuario_nome'] . ' (' . $dados['usuario_email'] . ')<br>', $html_copia);
-                
+
                 $this->enviarEmailComAnexos($com_copia, $assunto, $html_copia, $anexos);
             }
             

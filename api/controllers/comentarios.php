@@ -73,7 +73,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if ($usuario_id === null) {
             $usuario_id = $_POST['usuario_id'] ?? 1;
         }
-        $enviar_email = isset($_POST['enviar_email']) && $_POST['enviar_email'] === 'true';
+        $enviar_email = !empty($_POST['enviar_email']) && $_POST['enviar_email'] !== '0';
         $com_copia = $_POST['com_copia'] ?? null;
     } else {
         $input = json_decode(file_get_contents('php://input'), true);
@@ -90,6 +90,28 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $comentario = strip_tags($comentario_raw, '<p><br><strong><em><u><s><h1><h2><h3><h4><h5><h6><ul><ol><li><a><blockquote><span><img>');
     $comentario = preg_replace('/on[a-z]+\s*=\s*(["\']).*?\1/i', '', $comentario);
     $comentario = preg_replace('/javascript:/i', '#', $comentario);
+
+    // Converte classes de tamanho do Quill para estilos inline (compatível com e-mail e histórico sem CSS do Quill)
+    $quill_sizes = ['small' => '0.75em', 'large' => '1.5em', 'huge' => '2.5em'];
+    $comentario = preg_replace_callback(
+        '/<span\b([^>]*)class="ql-size-(small|large|huge)"([^>]*)>/i',
+        function ($m) use ($quill_sizes) {
+            $before  = $m[1];
+            $tamanho = $m[2];
+            $after   = $m[3];
+            $fs      = $quill_sizes[$tamanho];
+            $attrs   = trim($before . $after);
+            // Injeta font-size no style existente ou cria novo atributo style
+            if (preg_match('/style="([^"]*)"/i', $attrs, $sm)) {
+                $novo_style = 'style="font-size:' . $fs . '; ' . trim($sm[1], '; ') . '"';
+                $attrs = preg_replace('/style="[^"]*"/i', $novo_style, $attrs);
+            } else {
+                $attrs .= ($attrs ? ' ' : '') . 'style="font-size:' . $fs . ';"';
+            }
+            return '<span ' . trim($attrs) . '>';
+        },
+        $comentario
+    );
     
     if ($usuario_id !== null) {
         error_log("[COMENTARIOS] Usando usuario_id final: {$usuario_id}");
