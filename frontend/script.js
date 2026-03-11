@@ -1470,7 +1470,7 @@ function verDetalhes(ticketId) {
                 // Inicializando o Quill APÓS o DOM do ticket ser montado
                 window.quillComentario = new Quill('#editor-comentario', {
                     theme: 'snow',
-                    placeholder: 'Escreva sua resposta ou nota interna aqui. Dica: você pode colar imagens (Ctrl+V).',
+                    placeholder: 'Escreva sua resposta ou nota interna aqui.',
                     modules: {
                         toolbar: [
                             ['bold', 'italic', 'underline', 'strike'],
@@ -1478,7 +1478,7 @@ function verDetalhes(ticketId) {
                             [{ 'list': 'ordered' }, { 'list': 'bullet' }],
                             [{ 'size': ['small', false, 'large', 'huge'] }],
                             [{ 'color': [] }, { 'background': [] }],
-                            ['link', 'image'],
+                            ['link'],
                             ['clean']
                         ]
                     }
@@ -8471,11 +8471,11 @@ function enviarEFecharTicket(ticketId) {
             const comCopia = document.getElementById('com-copia').value;
             if (comCopia) formData.append('com_copia', comCopia);
         }
-        const anexosInput = document.getElementById('anexos-comentario');
-        if (anexosInput.files.length > 0) {
-            for (let i = 0; i < anexosInput.files.length; i++) {
-                formData.append('anexos[]', anexosInput.files[i]);
-            }
+        // Usar o array acumulado (o input é limpo após validação, então .files estaria vazio)
+        if (anexosComentarioSelecionados.length > 0) {
+            anexosComentarioSelecionados.forEach(arquivo => {
+                formData.append('anexos[]', arquivo);
+            });
         }
         const xhr = new XMLHttpRequest();
         xhr.open('POST', '/crpdesk/api/controllers/comentarios.php', true);

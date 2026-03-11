@@ -21,7 +21,7 @@ document.addEventListener('alpine:init', () => {
                             [{ 'indent': '-1' }, { 'indent': '+1' }],
                             [{ 'size': ['small', false, 'large', 'huge'] }],
                             [{ 'color': [] }, { 'background': [] }],
-                            ['link', 'image', 'video'],
+                            ['link'],
                             ['clean']
                         ]
                     }

@@ -85,7 +85,7 @@ function abrirFormularioMacro() {
                     [{ 'list': 'ordered' }, { 'list': 'bullet' }],
                     [{ 'size': ['small', false, 'large', 'huge'] }],
                     [{ 'color': [] }, { 'background': [] }],
-                    ['link', 'image'],
+                    ['link'],
                     ['clean']
                 ]
             }
