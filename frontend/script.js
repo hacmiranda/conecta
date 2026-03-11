@@ -5,6 +5,51 @@ function sanitizeHTML(str) {
     return div.innerHTML;
 }
 
+// Retorna headers de autenticação para uso com fetch()
+function getAuthHeaders() {
+    const token = localStorage.getItem('token');
+    const headers = {};
+    if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
+        let csrfToken = localStorage.getItem('csrf_token');
+        if (!csrfToken) {
+            try {
+                const partes = token.split('.');
+                const payload = JSON.parse(atob(partes[1].replace(/-/g, '+').replace(/_/g, '/')));
+                csrfToken = payload.csrf || null;
+            } catch (e) {}
+        }
+        if (csrfToken) headers['X-CSRF-Token'] = csrfToken;
+    }
+    return headers;
+}
+
+// Download autenticado de anexo via fetch + Blob
+async function baixarAnexo(id, nomeOriginal) {
+    try {
+        const resp = await fetch(`../api/controllers/anexos.php?id=${id}&action=download`, {
+            headers: getAuthHeaders()
+        });
+        if (!resp.ok) {
+            const err = await resp.json().catch(() => ({}));
+            alert('Erro ao baixar anexo: ' + (err.error || resp.statusText));
+            return;
+        }
+        const blob = await resp.blob();
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = nomeOriginal || 'anexo';
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        setTimeout(() => URL.revokeObjectURL(url), 10000);
+    } catch (e) {
+        alert('Erro ao baixar anexo.');
+        console.error(e);
+    }
+}
+
 // Global Injector de Header (JWT Auth + CSRF) para XMLHttpRequests
 window.setSecurityHeaders = function (xhr) {
     const token = localStorage.getItem('token');
@@ -1554,7 +1599,7 @@ function mostrarDetalhesTicket(ticket) {
                                 </div>
                                 <div style="display: flex; gap: 0.5rem;">
                                     ${isPDF || isImage ? `<button class="btn-visualizar" onclick="visualizarAnexo(${anexo.id}, '${tipo}')">👁️ Visualizar</button>` : ''}
-                                    <a href="../api/controllers/anexos.php?id=${anexo.id}&action=download" class="btn-small" style="text-decoration: none;">⬇ Download</a>
+                                    <button class="btn-small" onclick="baixarAnexo(${anexo.id}, '${(anexo.nome_original || anexo.nome_arquivo).replace(/'/g, "\\'")}')">⬇ Download</button>
                                 </div>
                             </div>
                         `;
@@ -1670,7 +1715,7 @@ function mostrarDetalhesTicket(ticket) {
                 `<button class="btn-visualizar" onclick="visualizarAnexo(${anexo.id}, '${anexo.tipo || anexo.tipo_mime}')">👁️ Visualizar</button>` :
                 ''
             }
-                                    <a href="../api/controllers/anexos.php?id=${anexo.id}&action=download" class="btn-small" style="text-decoration: none;">📥 Download</a>
+                                    <button class="btn-small" onclick="baixarAnexo(${anexo.id}, '${anexo.nome_original.replace(/'/g, "\\'")}')">📥 Download</button>
                                 </div>
                             </div>
                         `).join('')}
@@ -1753,10 +1798,8 @@ function mostrarDetalhesTicket(ticket) {
     `;
 }
 
-// Visualizar anexo inline
-function visualizarAnexo(anexoId, tipoMime) {
-    console.log('🔍 Visualizando anexo:', anexoId, tipoMime);
-
+// Visualizar anexo inline — usa fetch autenticado para evitar erro de token
+async function visualizarAnexo(anexoId, tipoMime) {
     const modal = document.getElementById('visualizador-anexo');
     const conteudo = document.getElementById('conteudo-anexo');
 
@@ -1765,30 +1808,56 @@ function visualizarAnexo(anexoId, tipoMime) {
         return;
     }
 
-    const baseUrl = '../api/controllers/anexos.php';
-
-    if (tipoMime === 'application/pdf') {
-        conteudo.innerHTML = `
-            <iframe src="${baseUrl}?id=${anexoId}&action=view" width="100%" height="600px" style="border: none;" 
-                    onload="console.log('PDF carregado')" 
-                    onerror="console.error('Erro ao carregar PDF')"></iframe>
-            <p style="margin-top: 15px; text-align: center; padding: 0 20px;">
-                <a href="${baseUrl}?id=${anexoId}&action=download" target="_blank" class="btn-small" style="color: #000; white-space: nowrap; display: inline-block;">📄 Abrir em nova aba</a>
-            </p>
-        `;
-    } else if (tipoMime.startsWith('image/')) {
-        conteudo.innerHTML = `<img src="${baseUrl}?id=${anexoId}&action=view" style="max-width: 100%; height: auto; display: block; margin: 0 auto;" onload="console.log('Imagem carregada')" onerror="console.error('Erro ao carregar imagem')">`;
-    } else {
-        conteudo.innerHTML = `<p>Tipo de arquivo não suportado para visualização: ${tipoMime}</p>`;
+    // Libera blob URL anterior, se houver
+    if (modal._blobUrl) {
+        URL.revokeObjectURL(modal._blobUrl);
+        modal._blobUrl = null;
     }
 
-    console.log('📄 Conteúdo definido:', conteudo.innerHTML);
+    conteudo.innerHTML = '<p style="text-align:center;padding:2rem;">Carregando...</p>';
     modal.style.display = 'block';
+
+    try {
+        const resp = await fetch(`../api/controllers/anexos.php?id=${anexoId}&action=view`, {
+            headers: getAuthHeaders()
+        });
+
+        if (!resp.ok) {
+            const err = await resp.json().catch(() => ({}));
+            conteudo.innerHTML = `<p style="color:red;text-align:center;">Erro ao carregar anexo: ${err.error || resp.statusText}</p>`;
+            return;
+        }
+
+        const blob = await resp.blob();
+        const blobUrl = URL.createObjectURL(blob);
+        modal._blobUrl = blobUrl;
+
+        if (tipoMime === 'application/pdf') {
+            conteudo.innerHTML = `
+                <iframe src="${blobUrl}" width="100%" height="600px" style="border: none;"></iframe>
+                <p style="margin-top: 15px; text-align: center; padding: 0 20px;">
+                    <button class="btn-small" onclick="baixarAnexo(${anexoId})" style="white-space: nowrap;">📄 Baixar PDF</button>
+                </p>
+            `;
+        } else if (tipoMime.startsWith('image/')) {
+            conteudo.innerHTML = `<img src="${blobUrl}" style="max-width: 100%; height: auto; display: block; margin: 0 auto;" alt="Visualização do anexo">`;
+        } else {
+            conteudo.innerHTML = `<p>Tipo de arquivo não suportado para visualização: ${tipoMime}</p>`;
+        }
+    } catch (e) {
+        console.error('Erro ao visualizar anexo:', e);
+        conteudo.innerHTML = '<p style="color:red;text-align:center;">Erro ao carregar o arquivo.</p>';
+    }
 }
 
 // Fechar visualizador
 function fecharVisualizador() {
-    document.getElementById('visualizador-anexo').style.display = 'none';
+    const modal = document.getElementById('visualizador-anexo');
+    if (modal._blobUrl) {
+        URL.revokeObjectURL(modal._blobUrl);
+        modal._blobUrl = null;
+    }
+    modal.style.display = 'none';
 }
 
 // Mostrar/ocultar campo "com cópia"
@@ -2049,16 +2118,15 @@ function adicionarComentario(event, ticketId) {
                             const itemDiv = document.createElement('div');
                             itemDiv.style.marginTop = '0.3rem';
 
-                            const link = document.createElement('a');
-                            link.href = '/crpdesk/api/controllers/anexos.php?id=' + anexoIdSafe;
-                            link.download = nomeExibir;
-                            link.style.cssText = 'color: #007bff; text-decoration: none;';
+                            const link = document.createElement('button');
+                            link.style.cssText = 'color: #007bff; text-decoration: none; background: none; border: none; cursor: pointer; padding: 0; font-size: inherit;';
                             const imgClipe = document.createElement('img');
                             imgClipe.src = 'images/clipe-de-anexo.png';
                             imgClipe.style.cssText = 'width: 14px; height: 14px; vertical-align: middle; margin-right: 4px;';
                             imgClipe.alt = '';
                             link.appendChild(imgClipe);
                             link.appendChild(document.createTextNode(nomeExibir));
+                            link.addEventListener('click', () => baixarAnexo(anexoIdSafe, nomeExibir));
                             itemDiv.appendChild(link);
 
                             if (isPDF || isImage) {
@@ -8379,8 +8447,15 @@ function testarConexaoEmail() {
 
 // Função para enviar comentário e fechar ticket
 function enviarEFecharTicket(ticketId) {
+    // Sincroniza o Quill com o input hidden antes de ler o valor
+    if (window.quillComentario) {
+        document.getElementById('novo-comentario').value = window.quillComentario.root.innerHTML;
+        if (window.quillComentario.getText().trim().length === 0) {
+            document.getElementById('novo-comentario').value = '';
+        }
+    }
     const comentario = document.getElementById('novo-comentario').value.trim();
-    if (!comentario) {
+    if (!comentario || comentario.replace(/<[^>]*>/g, '').trim().length < 3) {
         mostrarAlert('Atenção', 'Por favor, adicione um comentário antes de fechar o ticket.');
         return;
     }

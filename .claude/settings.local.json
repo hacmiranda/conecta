@@ -35,7 +35,8 @@
       "Bash(powershell -Command \"\\(Get-Item ''C:\\\\xampp\\\\htdocs\\\\crpdesk\\\\api\\\\services\\\\email-sender.php''\\).Length\")",
       "Bash(powershell -Command \"\\(Get-Item ''C:\\\\xampp\\\\htdocs\\\\crpdesk\\\\frontend\\\\index.html''\\).Length\")",
       "Bash(C:xamppmysqlbinmysql.exe -u root -e \"USE crpdesk; SELECT DISTINCT tipo FROM email_logs LIMIT 50;\")",
-      "Bash(./mysql.exe -u root -e \"USE crpdesk; SELECT DISTINCT tipo FROM email_logs LIMIT 50;\")"
+      "Bash(./mysql.exe -u root -e \"USE crpdesk; SELECT DISTINCT tipo FROM email_logs LIMIT 50;\")",
+      "Bash(grep -n \"CREATE TABLE.*anexos\" /c/xampp/htdocs/crpdesk/database/*.sql)"
     ]
   }
 }
