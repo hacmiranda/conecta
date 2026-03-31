@@ -2018,7 +2018,7 @@ function adicionarComentario(event, ticketId) {
     formData.append('ticket_id', ticketId);
     formData.append('comentario', comentario);
     formData.append('usuario_id', usuario.id);
-    formData.append('enviar_email', enviarEmail);
+    formData.append('enviar_email', enviarEmail ? '1' : '0');
     formData.append('com_copia', comCopia);
 
     // Adicionar anexos acumulados se houver
