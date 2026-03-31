@@ -241,6 +241,10 @@ class EmailService {
                 $corpo_limpo .= "\n\n📎 " . $total_anexos . " anexo(s) do email foram salvos.";
             }
 
+            // Safety net: garante UTF-8 válido para evitar erro no banco (ex: emails em iso-8859-1)
+            $corpo_limpo = mb_convert_encoding($corpo_limpo, 'UTF-8', 'UTF-8');
+            $assunto     = mb_convert_encoding($assunto, 'UTF-8', 'UTF-8');
+
             // --- INÍCIO VERIFICAÇÃO EXTRA DE DUPLICIDADE (TICKETS) ---
             $dup_ticket_query = "SELECT id FROM tickets 
                                WHERE usuario_id = :usuario_id 
@@ -810,7 +814,7 @@ class EmailService {
                         $section = $part_number + 1;
                         $body = imap_fetchbody($inbox, $email_number, $section);
                         
-                        // Decodificar
+                        // Decodificar transfer encoding
                         if (isset($part->encoding)) {
                             if ($part->encoding == 3) {
                                 $body = base64_decode($body);
@@ -818,7 +822,10 @@ class EmailService {
                                 $body = quoted_printable_decode($body);
                             }
                         }
-                        
+
+                        // Converter charset para UTF-8 (ex: iso-8859-1 → utf-8)
+                        $body = $this->converterParaUtf8($body, $this->detectarCharset($part));
+
                         if (!empty($body)) {
                             // Outlook costuma enviar HTML vazio ou com apenas tags básicas
                             // Verificar se tem conteúdo real
@@ -877,7 +884,10 @@ class EmailService {
                         $body = quoted_printable_decode($body);
                     }
                 }
-                
+
+                // Converter charset para UTF-8
+                $body = $this->converterParaUtf8($body, $this->detectarCharset($part));
+
                 if (!empty($body)) {
                     return $body;
                 }
@@ -886,6 +896,30 @@ class EmailService {
         return '';
     }
     
+    // Detecta o charset declarado nos parâmetros MIME de uma parte do e-mail
+    private function detectarCharset($part): string {
+        if (isset($part->parameters)) {
+            foreach ($part->parameters as $param) {
+                if (strtolower($param->attribute) === 'charset' && !empty($param->value)) {
+                    return $param->value;
+                }
+            }
+        }
+        return 'UTF-8';
+    }
+
+    // Converte texto de qualquer charset para UTF-8 válido
+    private function converterParaUtf8(string $texto, string $charset = 'UTF-8'): string {
+        $charset = strtoupper(trim($charset));
+        // Normaliza aliases comuns
+        if (in_array($charset, ['UTF-8', 'UTF8', 'UTF_8'])) {
+            // Já é UTF-8 mas garante que sequências inválidas sejam corrigidas
+            return mb_convert_encoding($texto, 'UTF-8', 'UTF-8');
+        }
+        $convertido = @mb_convert_encoding($texto, 'UTF-8', $charset);
+        return ($convertido !== false && $convertido !== '') ? $convertido : $texto;
+    }
+
     private function decodificarTexto($texto) {
         $decoded = mb_decode_mimeheader($texto);
         return $decoded;
