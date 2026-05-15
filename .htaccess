@@ -27,7 +27,7 @@ RewriteRule ^(.*)$ /crpdesk/frontend/login.html [L,R=301]
     # Content Security Policy
     # Permite: próprio domínio, Google Fonts, CDN do Chart.js/Alpine/Quill,
     # Cloudflare Turnstile, imagens inline (data:) para Quill editor
-    Header always set Content-Security-Policy "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' cdn.jsdelivr.net cdn.quilljs.com cdnjs.cloudflare.com challenges.cloudflare.com static.cloudflareinsights.com; style-src 'self' 'unsafe-inline' fonts.googleapis.com cdn.jsdelivr.net cdn.quilljs.com cdnjs.cloudflare.com; font-src 'self' fonts.gstatic.com; img-src 'self' data: blob:; connect-src 'self' challenges.cloudflare.com cdn.quilljs.com cdnjs.cloudflare.com cloudflareinsights.com; frame-src challenges.cloudflare.com; object-src 'none'; base-uri 'self'; form-action 'self';"
+    Header always set Content-Security-Policy "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' cdn.jsdelivr.net cdn.quilljs.com cdnjs.cloudflare.com challenges.cloudflare.com static.cloudflareinsights.com; style-src 'self' 'unsafe-inline' fonts.googleapis.com cdn.jsdelivr.net cdn.quilljs.com cdnjs.cloudflare.com; font-src 'self' fonts.gstatic.com; img-src 'self' data: blob:; connect-src 'self' challenges.cloudflare.com cdn.quilljs.com cdnjs.cloudflare.com cloudflareinsights.com; frame-src challenges.cloudflare.com blob:; object-src 'none'; base-uri 'self'; form-action 'self';"
 
     # Restringe acesso a APIs do navegador desnecessárias
     Header always set Permissions-Policy "camera=(), microphone=(), geolocation=(), payment=()"
