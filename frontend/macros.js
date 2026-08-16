@@ -21,7 +21,7 @@ function carregarMacros() {
     lista.innerHTML = '<p>Carregando...</p>';
 
     const xhr = new XMLHttpRequest();
-    xhr.open('GET', '/crpdesk/api/controllers/macros.php', true);
+    xhr.open('GET', window.APP_CONFIG.apiBase + 'macros.php', true);
     setSecurityHeaders(xhr);
 
     xhr.onload = function () {
@@ -37,7 +37,7 @@ function carregarMacros() {
 
 function renderizarListaMacros() {
     const lista = document.getElementById('lista-macros-container');
-    const usuarioLogado = JSON.parse(localStorage.getItem('usuario'));
+    const usuarioLogado = JSON.parse(localStorage.getItem('cd_usuario'));
 
     if (todasMacros.length === 0) {
         lista.innerHTML = '<p>Nenhuma macro encontrada. Crie sua primeira resposta rápida!</p>';
@@ -126,7 +126,7 @@ function salvarMacro() {
 
     const payload = { titulo, texto };
     const method = id ? 'PUT' : 'POST';
-    const url = id ? `/crpdesk/api/controllers/macros.php?id=${id}` : '/crpdesk/api/controllers/macros.php';
+    const url = id ? `${window.APP_CONFIG.apiBase}macros.php?id=${id}` : window.APP_CONFIG.apiBase + 'macros.php';
 
     const xhr = new XMLHttpRequest();
     xhr.open(method, url, true);
@@ -153,7 +153,7 @@ function excluirMacro(id) {
     if (!confirm('Tem certeza que deseja excluir esta macro?')) return;
 
     const xhr = new XMLHttpRequest();
-    xhr.open('DELETE', `/crpdesk/api/controllers/macros.php?id=${id}`, true);
+    xhr.open('DELETE', `${window.APP_CONFIG.apiBase}macros.php?id=${id}`, true);
     setSecurityHeaders(xhr);
 
     xhr.onload = function () {
@@ -182,7 +182,7 @@ function carregarSeletorMacros() {
     `;
 
     const xhr = new XMLHttpRequest();
-    xhr.open('GET', '/crpdesk/api/controllers/macros.php', true);
+    xhr.open('GET', window.APP_CONFIG.apiBase + 'macros.php', true);
     setSecurityHeaders(xhr);
 
     xhr.onload = function () {

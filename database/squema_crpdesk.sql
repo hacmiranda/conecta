@@ -21,8 +21,11 @@ SET time_zone = "+00:00";
 --
 -- Database: `crpdesk`
 --
-CREATE DATABASE IF NOT EXISTS `crpdesk` DEFAULT CHARACTER SET latin1 COLLATE latin1_general_ci;
+DROP DATABASE IF EXISTS `crpdesk`;
+CREATE DATABASE IF NOT EXISTS `crpdesk` DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 USE `crpdesk`;
+
+SET FOREIGN_KEY_CHECKS = 0;
 
 -- --------------------------------------------------------
 
@@ -1826,20 +1829,14 @@ INSERT INTO `usuarios` (`id`, `nome`, `email`, `anydesk_id`, `tipo`, `ativo`, `c
 -- --------------------------------------------------------
 
 --
--- Stand-in structure for view `vw_tickets_sla`
--- (See below for the actual view)
---
-CREATE TABLE IF NOT EXISTS `vw_tickets_sla` (
-);
-
--- --------------------------------------------------------
-
---
 -- Structure for view `vw_tickets_sla`
 --
 DROP TABLE IF EXISTS `vw_tickets_sla`;
+DROP VIEW IF EXISTS `vw_tickets_sla`;
 
-CREATE ALGORITHM=UNDEFINED DEFINER=`crpdesk`@`%` SQL SECURITY DEFINER VIEW `vw_tickets_sla`  AS  select `t`.`id` AS `id`,`t`.`titulo` AS `titulo`,`t`.`status` AS `status`,`t`.`prioridade` AS `prioridade`,`t`.`criado_em` AS `criado_em`,`u`.`nome` AS `solicitante`,`a`.`nome` AS `agente`,`s`.`sla_resposta_minutos` AS `sla_resposta_minutos`,`s`.`sla_resolucao_horas` AS `sla_resolucao_horas`,`s`.`primeira_resposta_em` AS `primeira_resposta_em`,`s`.`resolvido_em` AS `resolvido_em`,`s`.`sla_resposta_vencido` AS `sla_resposta_vencido`,`s`.`sla_resolucao_vencido` AS `sla_resolucao_vencido`,`s`.`tempo_pausado_segundos` AS `tempo_pausado_segundos`,`s`.`tempo_primeira_resposta_segundos` AS `tempo_primeira_resposta_segundos`,`s`.`tempo_resolucao_segundos` AS `tempo_resolucao_segundos`,(case when (isnull(`s`.`primeira_resposta_em`) and (`s`.`pausado` = 0)) then ((`s`.`sla_resposta_minutos` * 60) - `calcular_segundos_uteis`(`t`.`criado_em`,now())) else NULL end) AS `tempo_restante_resposta_segundos`,(case when (isnull(`s`.`resolvido_em`) and (`s`.`pausado` = 0)) then ((`s`.`sla_resolucao_horas` * 3600) - (`calcular_segundos_uteis`(`t`.`criado_em`,now()) - `s`.`tempo_pausado_segundos`)) else NULL end) AS `tempo_restante_resolucao_segundos` from (((`tickets` `t` left join `usuarios` `u` on((`t`.`usuario_id` = `u`.`id`))) left join `usuarios` `a` on((`t`.`agente_id` = `a`.`id`))) left join `ticket_sla` `s` on((`t`.`id` = `s`.`ticket_id`))) ;
+CREATE OR REPLACE VIEW `vw_tickets_sla` AS 
+select `t`.`id` AS `id`,`t`.`titulo` AS `titulo`,`t`.`status` AS `status`,`t`.`prioridade` AS `prioridade`,`t`.`criado_em` AS `criado_em`,`u`.`nome` AS `solicitante`,`a`.`nome` AS `agente`,`s`.`sla_resposta_minutos` AS `sla_resposta_minutos`,`s`.`sla_resolucao_horas` AS `sla_resolucao_horas`,`s`.`primeira_resposta_em` AS `primeira_resposta_em`,`s`.`resolvido_em` AS `resolvido_em`,`s`.`sla_resposta_vencido` AS `sla_resposta_vencido`,`s`.`sla_resolucao_vencido` AS `sla_resolucao_vencido`,`s`.`tempo_pausado_segundos` AS `tempo_pausado_segundos`,`s`.`tempo_primeira_resposta_segundos` AS `tempo_primeira_resposta_segundos`,`s`.`tempo_resolucao_segundos` AS `tempo_resolucao_segundos`
+from (((`tickets` `t` left join `usuarios` `u` on((`t`.`usuario_id` = `u`.`id`))) left join `usuarios` `a` on((`t`.`agente_id` = `a`.`id`))) left join `ticket_sla` `s` on((`t`.`id` = `s`.`ticket_id`)));
 
 --
 -- Constraints for dumped tables

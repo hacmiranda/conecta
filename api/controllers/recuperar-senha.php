@@ -62,11 +62,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         
         $link = "https://crp07.org.br/crpdesk/frontend/redefinir-senha.html?token=$token";
         
-        $assunto = "Recuperação de Senha - CRPDESK";
+        $assunto = "Recuperação de Senha - Conecta CRPRS";
         $mensagem = "
             <h2>Recuperação de Senha</h2>
             <p>Olá, {$usuario['nome']}!</p>
-            <p>Você solicitou a recuperação de senha do sistema CRPDESK.</p>
+            <p>Você solicitou a recuperação de senha do Conecta CRPRS.</p>
             <p>Clique no link abaixo para redefinir sua senha:</p>
             <p><a href='$link' style='background-color: #f79226; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; display: inline-block;'>Redefinir Senha</a></p>
             <p>Ou copie e cole este link no navegador:</p>

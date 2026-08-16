@@ -14,7 +14,7 @@ function mostrarDashboardNaTela(dados) {
     let html = `
         <div class="dashboard-grid">
             <div class="dashboard-card">
-                <h3>🎫 Total de Tickets</h3>
+                <h3>🎫 Total de Demandas</h3>
                 <div class="dashboard-number">${dados.total_tickets}</div>
             </div>
             <div class="dashboard-card">
@@ -33,11 +33,11 @@ function mostrarDashboardNaTela(dados) {
         
         <div class="dashboard-grid">
             <div class="dashboard-card">
-                <h3>📊 Tickets por Status</h3>
+                <h3>📊 Demandas por Status</h3>
                 <canvas id="grafico-status" width="400" height="300"></canvas>
             </div>
             <div class="dashboard-card">
-                <h3>🔥 Tickets por Prioridade</h3>
+                <h3>🔥 Demandas por Prioridade</h3>
                 <canvas id="grafico-prioridade" width="400" height="200"></canvas>
             </div>
         </div>
@@ -59,7 +59,7 @@ function mostrarDashboardNaTela(dados) {
                 <canvas id="grafico-resolucao" width="400" height="200"></canvas>
             </div>
             <div class="dashboard-card">
-                <h3>📅 Tickets por Dia da Semana</h3>
+                <h3>📅 Demandas por Dia da Semana</h3>
                 <canvas id="grafico-dia-semana" width="400" height="200"></canvas>
             </div>
         </div>
@@ -77,17 +77,17 @@ function mostrarDashboardNaTela(dados) {
         
         <div class="dashboard-grid">
             <div class="dashboard-card">
-                <h3>🏆 Top 5 Categorias</h3>
+                <h3>🏆 Top 5 Subcategorias</h3>
                 <div class="dashboard-list">`;
     
     (dados.top_categorias || []).forEach(item => {
-        html += `<div class="dashboard-item"><span>${item.nome || 'Sem categoria'}</span><span>${item.total}</span></div>`;
+        html += `<div class="dashboard-item"><span>${item.nome || 'Sem subcategoria'}</span><span>${item.total}</span></div>`;
     });
     
-    html += `</div></div><div class="dashboard-card"><h3>📁 Tickets por Macrocategoria</h3><div class="dashboard-list">`;
+    html += `</div></div><div class="dashboard-card"><h3>📁 Demandas por Categoria</h3><div class="dashboard-list">`;
     
     (dados.ticketsPorMacrocategoria || []).forEach(item => {
-        html += `<div class="dashboard-item"><span>${item.nome || 'Sem macrocategoria'}</span><span>${item.quantidade}</span></div>`;
+        html += `<div class="dashboard-item"><span>${item.nome || 'Sem categoria'}</span><span>${item.quantidade}</span></div>`;
     });
     
     html += `</div></div></div>`;

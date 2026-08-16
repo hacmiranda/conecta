@@ -1,33 +1,41 @@
 <?php
-header('Access-Control-Allow-Origin: *');
-header('Access-Control-Allow-Methods: GET, POST, OPTIONS');
-header('Access-Control-Allow-Headers: Content-Type, Authorization');
 header('Content-Type: application/json; charset=utf-8');
+
+require_once __DIR__ . '/../config/database.php';
+require_once __DIR__ . '/../middleware/auth.php';
+
+AuthMiddleware::configurarCORS(['GET', 'POST']);
 
 if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
     http_response_code(200);
     exit;
 }
 
-require_once __DIR__ . '/../config/database.php';
-require_once __DIR__ . '/../middleware/auth.php';
-
 try {
     $user = AuthMiddleware::verificarAuth();
-    AuthMiddleware::verificarAdmin($user);
-    
+    AuthMiddleware::verificarSupervisor($user);
+
+    $ehSupervisor = ($user['tipo'] ?? '') === 'supervisor';
+    $setorEscopo = $user['setor_id'] ?? 0;
+
     $database = new Database();
     $db = $database->getConnection();
-    
+
     if ($_SERVER['REQUEST_METHOD'] === 'GET') {
         $tipo = $_GET['tipo'] ?? 'geral';
         $pagina = isset($_GET['pagina']) ? (int)$_GET['pagina'] : 1;
         $limite = isset($_GET['limite']) ? (int)$_GET['limite'] : 50;
         $offset = ($pagina - 1) * $limite;
-        
+
         $filtros = [];
         $params = [];
-        
+
+        // Supervisor só vê ações praticadas por gente do próprio setor; admin vê tudo
+        if ($ehSupervisor) {
+            $filtros[] = "a.usuario_id IN (SELECT id FROM usuarios WHERE setor_id = :setor_id_escopo)";
+            $params[':setor_id_escopo'] = $setorEscopo;
+        }
+
         if (isset($_GET['acao'])) {
             $filtros[] = "a.acao = :acao";
             $params[':acao'] = $_GET['acao'];
@@ -113,7 +121,13 @@ try {
         elseif ($tipo === 'tickets') {
             $filtrosTicket = [];
             $paramsTicket = [];
-            
+
+            // Supervisor só vê alterações de demandas do próprio setor; admin vê tudo
+            if ($ehSupervisor) {
+                $filtrosTicket[] = "t.setor_id = :setor_id_escopo";
+                $paramsTicket[':setor_id_escopo'] = $setorEscopo;
+            }
+
             if (isset($_GET['ticket_id'])) {
                 $filtrosTicket[] = "at.ticket_id = :ticket_id";
                 $paramsTicket[':ticket_id'] = $_GET['ticket_id'];
@@ -142,14 +156,14 @@ try {
             $whereTicket = count($filtrosTicket) > 0 ? 'WHERE ' . implode(' AND ', $filtrosTicket) : '';
             
             // Contar total
-            $queryCount = "SELECT COUNT(*) as total FROM auditoria_tickets at $whereTicket";
+            $queryCount = "SELECT COUNT(*) as total FROM auditoria_tickets at LEFT JOIN tickets t ON at.ticket_id = t.id $whereTicket";
             $stmtCount = $db->prepare($queryCount);
             foreach ($paramsTicket as $key => $value) {
                 $stmtCount->bindValue($key, $value);
             }
             $stmtCount->execute();
             $total = $stmtCount->fetch(PDO::FETCH_ASSOC)['total'];
-            
+
             // Buscar registros
             $query = "SELECT at.*, u.nome as usuario_nome, t.titulo as ticket_titulo
                       FROM auditoria_tickets at
@@ -181,7 +195,13 @@ try {
         elseif ($tipo === 'login') {
             $filtrosLogin = [];
             $paramsLogin = [];
-            
+
+            // Supervisor só vê logins de gente do próprio setor; admin vê tudo
+            if ($ehSupervisor) {
+                $filtrosLogin[] = "al.usuario_id IN (SELECT id FROM usuarios WHERE setor_id = :setor_id_escopo)";
+                $paramsLogin[':setor_id_escopo'] = $setorEscopo;
+            }
+
             if (isset($_GET['usuario_id'])) {
                 $filtrosLogin[] = "al.usuario_id = :usuario_id";
                 $paramsLogin[':usuario_id'] = $_GET['usuario_id'];
@@ -241,32 +261,51 @@ try {
         
         // Estatísticas
         elseif ($tipo === 'estatisticas') {
+            // Supervisor só vê estatísticas da gente/demandas do próprio setor; admin vê tudo
+            $filtroAcao = $ehSupervisor ? "WHERE usuario_id IN (SELECT id FROM usuarios WHERE setor_id = :setor_id_escopo)" : "";
+            $filtroAcaoA = $ehSupervisor ? "WHERE a.usuario_id IN (SELECT id FROM usuarios WHERE setor_id = :setor_id_escopo)" : "";
+            $filtroLogin = $ehSupervisor
+                ? "AND usuario_id IN (SELECT id FROM usuarios WHERE setor_id = :setor_id_escopo)"
+                : "";
+            $filtroTicketCampo = $ehSupervisor ? "WHERE t.setor_id = :setor_id_escopo" : "";
+
             // Ações por tipo
-            $queryAcoes = "SELECT acao, COUNT(*) as total FROM auditoria GROUP BY acao ORDER BY total DESC";
-            $stmtAcoes = $db->query($queryAcoes);
+            $queryAcoes = "SELECT acao, COUNT(*) as total FROM auditoria $filtroAcao GROUP BY acao ORDER BY total DESC";
+            $stmtAcoes = $db->prepare($queryAcoes);
+            if ($ehSupervisor) $stmtAcoes->bindValue(':setor_id_escopo', $setorEscopo);
+            $stmtAcoes->execute();
             $acoesPorTipo = $stmtAcoes->fetchAll(PDO::FETCH_ASSOC);
-            
+
             // Ações por usuário
-            $queryUsuarios = "SELECT u.nome, COUNT(*) as total FROM auditoria a 
-                             LEFT JOIN usuarios u ON a.usuario_id = u.id 
+            $queryUsuarios = "SELECT u.nome, COUNT(*) as total FROM auditoria a
+                             LEFT JOIN usuarios u ON a.usuario_id = u.id
+                             $filtroAcaoA
                              GROUP BY a.usuario_id ORDER BY total DESC LIMIT 10";
-            $stmtUsuarios = $db->query($queryUsuarios);
+            $stmtUsuarios = $db->prepare($queryUsuarios);
+            if ($ehSupervisor) $stmtUsuarios->bindValue(':setor_id_escopo', $setorEscopo);
+            $stmtUsuarios->execute();
             $acoesPorUsuario = $stmtUsuarios->fetchAll(PDO::FETCH_ASSOC);
-            
+
             // Logins por dia (últimos 30 dias)
-            $queryLogins = "SELECT DATE(criado_em) as data, 
+            $queryLogins = "SELECT DATE(criado_em) as data,
                            SUM(CASE WHEN acao = 'login_sucesso' THEN 1 ELSE 0 END) as sucessos,
                            SUM(CASE WHEN acao = 'login_falha' THEN 1 ELSE 0 END) as falhas
-                           FROM auditoria_login 
-                           WHERE criado_em >= DATE_SUB(NOW(), INTERVAL 30 DAY)
+                           FROM auditoria_login
+                           WHERE criado_em >= DATE_SUB(NOW(), INTERVAL 30 DAY) $filtroLogin
                            GROUP BY DATE(criado_em) ORDER BY data DESC";
-            $stmtLogins = $db->query($queryLogins);
+            $stmtLogins = $db->prepare($queryLogins);
+            if ($ehSupervisor) $stmtLogins->bindValue(':setor_id_escopo', $setorEscopo);
+            $stmtLogins->execute();
             $loginsPorDia = $stmtLogins->fetchAll(PDO::FETCH_ASSOC);
-            
+
             // Alterações de tickets por campo
-            $queryTickets = "SELECT campo, COUNT(*) as total FROM auditoria_tickets 
-                            GROUP BY campo ORDER BY total DESC";
-            $stmtTickets = $db->query($queryTickets);
+            $queryTickets = "SELECT at.campo, COUNT(*) as total FROM auditoria_tickets at
+                            LEFT JOIN tickets t ON at.ticket_id = t.id
+                            $filtroTicketCampo
+                            GROUP BY at.campo ORDER BY total DESC";
+            $stmtTickets = $db->prepare($queryTickets);
+            if ($ehSupervisor) $stmtTickets->bindValue(':setor_id_escopo', $setorEscopo);
+            $stmtTickets->execute();
             $alteracoesPorCampo = $stmtTickets->fetchAll(PDO::FETCH_ASSOC);
             
             echo json_encode([
@@ -281,12 +320,13 @@ try {
     // Exportar para CSV
     elseif ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_GET['exportar'])) {
         $tipo = $_GET['tipo'] ?? 'geral';
-        
+
         if ($tipo === 'geral') {
-            $query = "SELECT a.*, 
-                             u.nome as usuario_nome, 
+            $filtroExport = $ehSupervisor ? "WHERE a.usuario_id IN (SELECT id FROM usuarios WHERE setor_id = :setor_id_escopo)" : "";
+            $query = "SELECT a.*,
+                             u.nome as usuario_nome,
                              u.email as usuario_email,
-                             CASE 
+                             CASE
                                  WHEN a.acao IN ('ativar_usuario', 'desativar_usuario', 'excluir_usuario') THEN
                                      CONCAT(
                                          COALESCE(JSON_UNQUOTE(JSON_EXTRACT(a.dados_anteriores, '$.nome')), ''),
@@ -298,23 +338,30 @@ try {
                              END as usuario_afetado
                       FROM auditoria a
                       LEFT JOIN usuarios u ON a.usuario_id = u.id
+                      $filtroExport
                       ORDER BY a.criado_em DESC";
         } elseif ($tipo === 'tickets') {
+            $filtroExport = $ehSupervisor ? "WHERE t.setor_id = :setor_id_escopo" : "";
             $query = "SELECT at.*, u.nome as usuario_nome, t.titulo as ticket_titulo
                       FROM auditoria_tickets at
                       LEFT JOIN usuarios u ON at.usuario_id = u.id
                       LEFT JOIN tickets t ON at.ticket_id = t.id
+                      $filtroExport
                       ORDER BY at.criado_em DESC";
         } elseif ($tipo === 'login') {
+            $filtroExport = $ehSupervisor ? "WHERE al.usuario_id IN (SELECT id FROM usuarios WHERE setor_id = :setor_id_escopo)" : "";
             $query = "SELECT al.*, u.nome as usuario_nome
                       FROM auditoria_login al
                       LEFT JOIN usuarios u ON al.usuario_id = u.id
+                      $filtroExport
                       ORDER BY al.criado_em DESC";
         }
-        
-        $stmt = $db->query($query);
+
+        $stmt = $db->prepare($query);
+        if ($ehSupervisor) $stmt->bindValue(':setor_id_escopo', $setorEscopo);
+        $stmt->execute();
         $registros = $stmt->fetchAll(PDO::FETCH_ASSOC);
-        
+
         echo json_encode(['registros' => $registros]);
     }
     

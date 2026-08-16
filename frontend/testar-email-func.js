@@ -13,7 +13,7 @@ function testarConexaoEmail() {
     mostrarLoader();
     
     const xhr = new XMLHttpRequest();
-    xhr.open('POST', '/crpdesk/api/controllers/testar-email.php', true);
+    xhr.open('POST', window.APP_CONFIG.apiBase + 'testar-email.php', true);
     xhr.setRequestHeader('Content-Type', 'application/json');
     setSecurityHeaders(xhr);
     

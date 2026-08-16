@@ -25,16 +25,16 @@ try {
     
     foreach ($lembretes as $lembrete) {
         $ticket_formatado_email = str_pad($lembrete['ticket_numero'], 5, '0', STR_PAD_LEFT);
-        $assunto = "🔔 [Lembrete] Ticket #" . $ticket_formatado_email . " - {$lembrete['ticket_titulo']}";
+        $assunto = "🔔 [Lembrete] Demanda #" . $ticket_formatado_email . " - {$lembrete['ticket_titulo']}";
         $mensagem = "
-            <h2>🔔 Lembrete de Ticket</h2>
-            <p><strong>Ticket:</strong> #" . $ticket_formatado_email . " - {$lembrete['ticket_titulo']}</p>
+            <h2>🔔 Lembrete de Demanda</h2>
+            <p><strong>Demanda:</strong> #" . $ticket_formatado_email . " - {$lembrete['ticket_titulo']}</p>
             <p><strong>Lembrete:</strong> {$lembrete['descricao']}</p>
             <p><strong>Data/Hora:</strong> " . date('d/m/Y H:i', strtotime($lembrete['data_lembrete'] . ' ' . $lembrete['hora_lembrete'])) . "</p>
-            <p><a href='http://localhost/crpdesk/frontend/index.html'>Acessar Ticket</a></p>
+            <p><a href='" . Environment::get('base_url') . "/frontend/index.html'>Acessar Demanda</a></p>
         ";
-        
-        $notif_titulo = "🔔 Lembrete: Ticket #" . $ticket_formatado_email . " - " . $lembrete['ticket_titulo'];
+
+        $notif_titulo = "🔔 Lembrete: Demanda #" . $ticket_formatado_email . " - " . $lembrete['ticket_titulo'];
         $notif_msg = "Seu lembrete agendado: " . $lembrete['descricao'];
 
         if ($lembrete['agente_id']) {
@@ -52,7 +52,7 @@ try {
             $notif_stmt->execute();
         } else {
             // "Todos os agentes": Buscar todos os agentes/admins ativos
-            $agentes_query = "SELECT id, email FROM usuarios WHERE tipo IN ('agente', 'admin') AND ativo = 1";
+            $agentes_query = "SELECT id, email FROM usuarios WHERE tipo IN ('usuario', 'supervisor', 'admin') AND ativo = 1";
             $agentes_stmt = $db->prepare($agentes_query);
             $agentes_stmt->execute();
             $todosAgentes = $agentes_stmt->fetchAll(PDO::FETCH_ASSOC);

@@ -129,7 +129,7 @@ function criarGraficoAgente(dados) {
                     const pct = Math.round((parseInt(fatia.agente.total) / total) * 100);
                     CanvasTooltip.show(e,
                         `<strong style="color:${fatia.cor}">${fatia.agente.nome}</strong><br>` +
-                        `Tickets: <strong>${fatia.agente.total}</strong><br>` +
+                        `Demandas: <strong>${fatia.agente.total}</strong><br>` +
                         `Percentual: <strong>${pct}%</strong>`
                     );
                 });
@@ -214,7 +214,7 @@ function criarGraficoResolucao(dados) {
                     const pct = Math.round((barra.valor / totalResolucao) * 100);
                     CanvasTooltip.show(e,
                         `<strong style="color:${barra.cor}">${barra.label}</strong><br>` +
-                        `Tickets: <strong>${barra.valor}</strong><br>` +
+                        `Demandas: <strong>${barra.valor}</strong><br>` +
                         `Percentual: <strong>${pct}%</strong>`
                     );
                 });
@@ -311,7 +311,7 @@ function criarGraficoDiaSemana(dados) {
                     const pct = Math.round((barra.valor / totalDias) * 100);
                     CanvasTooltip.show(e,
                         `<strong style="color:#39dd52">${barra.dia}</strong><br>` +
-                        `Tickets: <strong>${barra.valor}</strong><br>` +
+                        `Demandas: <strong>${barra.valor}</strong><br>` +
                         `Percentual: <strong>${pct}%</strong>`
                     );
                 });
@@ -502,7 +502,7 @@ function criarGraficoStatusAgente(dados) {
                     CanvasTooltip.show(e,
                         `<strong style="color:#94a3b8">${seg.agente}</strong><br>` +
                         `<span style="color:${seg.cor}">● ${seg.label}</span><br>` +
-                        `Tickets: <strong>${seg.valor}</strong><br>` +
+                        `Demandas: <strong>${seg.valor}</strong><br>` +
                         `Percentual: <strong>${pct}%</strong>`
                     );
                 });
@@ -603,7 +603,7 @@ function criarGraficoFunil(dados) {
                     const pct = Math.round((etapa.valor / totalFunil) * 100);
                     CanvasTooltip.show(e,
                         `<strong style="color:${etapa.cor}">${etapa.nome}</strong><br>` +
-                        `Tickets: <strong>${etapa.valor}</strong><br>` +
+                        `Demandas: <strong>${etapa.valor}</strong><br>` +
                         `Percentual: <strong>${pct}%</strong>`
                     );
                 });
@@ -784,7 +784,7 @@ function criarGraficoDiarios30d(dados) {
                 CanvasTooltip.show(e,
                     `<strong style="color:#39dd52">${closest.label}</strong>` +
                     (isPico ? ' <span style="color:#39dd52">▲ Pico</span>' : '') + `<br>` +
-                    `Tickets: <strong>${closest.valor}</strong><br>` +
+                    `Demandas: <strong>${closest.valor}</strong><br>` +
                     `Percentual: <strong>${pct}%</strong>`
                 );
             });
@@ -980,7 +980,7 @@ function criarGraficoStatusMensal(dados) {
                 CanvasTooltip.show(e,
                     `<strong style="color:#94a3b8">${seg.mes}</strong><br>` +
                     `<span style="color:${seg.cor}">● ${seg.label}</span><br>` +
-                    `Tickets: <strong>${seg.valor}</strong><br>` +
+                    `Demandas: <strong>${seg.valor}</strong><br>` +
                     `Percentual: <strong>${pct}%</strong>`
                 );
             });
@@ -1101,7 +1101,7 @@ function criarGraficoHeatmap(dados) {
                 const horaStr = `${String(hora).padStart(2,'0')}:00`;
                 CanvasTooltip.show(e,
                     `<strong style="color:#94a3b8">${diasNomes[dIdx]}, ${horaStr}</strong><br>` +
-                    `Tickets: <strong>${valor}</strong><br>` +
+                    `Demandas: <strong>${valor}</strong><br>` +
                     `Percentual: <strong>${pct}%</strong>`
                 );
             });

@@ -1,28 +1,33 @@
 <?php
-header('Access-Control-Allow-Origin: *');
-header('Access-Control-Allow-Methods: GET, POST, OPTIONS');
-header('Access-Control-Allow-Headers: Content-Type, Authorization');
 header('Content-Type: application/json; charset=utf-8');
+
+require_once __DIR__ . '/../config/database.php';
+require_once __DIR__ . '/../middleware/auth.php';
+
+AuthMiddleware::configurarCORS(['GET', 'POST']);
 
 if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
     http_response_code(200);
     exit;
 }
 
-require_once __DIR__ . '/../config/database.php';
-require_once __DIR__ . '/../middleware/auth.php';
-
 try {
     $user = AuthMiddleware::verificarAuth();
-    AuthMiddleware::verificarAdmin($user);
-    
+    AuthMiddleware::verificarSupervisor($user);
+
     $database = new Database();
     $db = $database->getConnection();
-    
+
     if ($_SERVER['REQUEST_METHOD'] === 'GET') {
         $filtros = [];
         $params = [];
-        
+
+        // Supervisor só vê ações praticadas por gente do próprio setor; admin vê tudo
+        if (($user['tipo'] ?? '') === 'supervisor') {
+            $filtros[] = "a.usuario_id IN (SELECT id FROM usuarios WHERE setor_id = :setor_id_escopo)";
+            $params[':setor_id_escopo'] = $user['setor_id'] ?? 0;
+        }
+
         if (isset($_GET['acao'])) {
             $filtros[] = "a.acao = :acao";
             $params[':acao'] = $_GET['acao'];

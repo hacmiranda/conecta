@@ -1,29 +1,41 @@
 <?php
 header('Content-Type: application/json');
-header('Access-Control-Allow-Origin: *');
-header('Access-Control-Allow-Methods: GET, POST, PUT, DELETE, OPTIONS');
-header('Access-Control-Allow-Headers: Content-Type, Authorization, X-CSRF-Token');
+
+require_once __DIR__ . '/../config/database.php';
+require_once __DIR__ . '/../middleware/auth.php';
+
+AuthMiddleware::configurarCORS(['GET', 'POST', 'PUT', 'DELETE']);
 
 if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
     exit(0);
 }
 
-require_once __DIR__ . '/../config/database.php';
-require_once __DIR__ . '/../middleware/auth.php';
-
 $database = new Database();
 $db = $database->getConnection();
 
-// GET - Listar status disponíveis
+// GET - Listar status disponíveis (opcionalmente só os ativos de um setor, via ?setor_id=)
 if ($_SERVER['REQUEST_METHOD'] === 'GET') {
     try {
-        $query = "SELECT * FROM ticket_status WHERE ativo = TRUE ORDER BY ordem";
-        $stmt = $db->prepare($query);
+        $setor_id = isset($_GET['setor_id']) && $_GET['setor_id'] !== '' ? (int) $_GET['setor_id'] : null;
+
+        if ($setor_id) {
+            $query = "SELECT t.*
+                      FROM ticket_status t
+                      INNER JOIN setor_status st ON st.status_id = t.id AND st.setor_id = :setor_id AND st.ativo = 1
+                      WHERE t.ativo = TRUE
+                      ORDER BY st.ordem";
+            $stmt = $db->prepare($query);
+            $stmt->bindParam(':setor_id', $setor_id, PDO::PARAM_INT);
+        } else {
+            $query = "SELECT * FROM ticket_status WHERE ativo = TRUE ORDER BY ordem";
+            $stmt = $db->prepare($query);
+        }
+
         $stmt->execute();
         $status = $stmt->fetchAll();
-        
+
         echo json_encode($status);
-        
+
     } catch (Exception $e) {
         http_response_code(500);
         echo json_encode(['error' => 'Erro ao buscar status']);
@@ -42,7 +54,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'PUT') {
     
     if (!$ticket_id || !$novo_status) {
         http_response_code(400);
-        echo json_encode(['error' => 'Ticket ID e status são obrigatórios']);
+        echo json_encode(['error' => 'ID da demanda e status são obrigatórios']);
         exit;
     }
     
@@ -57,7 +69,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'PUT') {
         $ticket = $stmt->fetch();
         
         if (!$ticket) {
-            throw new Exception('Ticket não encontrado');
+            throw new Exception('Demanda não encontrada');
         }
         
         $status_anterior = $ticket['status'];

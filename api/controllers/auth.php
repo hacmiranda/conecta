@@ -53,7 +53,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $database = new Database();
         $db = $database->getConnection();
 
-        $query = "SELECT * FROM usuarios WHERE email = :email";
+        $query = "SELECT u.*, s.nome as setor_nome FROM usuarios u LEFT JOIN setores s ON s.id = u.setor_id WHERE u.email = :email";
         $stmt = $db->prepare($query);
         $stmt->bindParam(':email', $email);
         $stmt->execute();
@@ -125,11 +125,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             'token'      => $token,
             'csrf_token' => $csrfToken,
             'usuario'    => [
-                'id'     => $usuario['id'],
-                'nome'   => $usuario['nome'],
-                'email'  => $usuario['email'],
-                'tipo'   => $usuario['tipo'],
-                'avatar' => $usuario['avatar'] ?? null,
+                'id'         => $usuario['id'],
+                'nome'       => $usuario['nome'],
+                'email'      => $usuario['email'],
+                'tipo'       => $usuario['tipo'],
+                'avatar'     => $usuario['avatar'] ?? null,
+                'cargo'      => $usuario['cargo'] ?? null,
+                'setor_id'   => $usuario['setor_id'] ?? null,
+                'setor_nome' => $usuario['setor_nome'] ?? null,
             ],
         ]);
 

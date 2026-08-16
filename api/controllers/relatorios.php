@@ -1,21 +1,23 @@
 <?php
 header('Content-Type: application/json');
-header('Access-Control-Allow-Origin: *');
-header('Access-Control-Allow-Methods: GET, OPTIONS');
-header('Access-Control-Allow-Headers: Content-Type, Authorization, X-CSRF-Token');
+
+require_once __DIR__ . '/../config/database.php';
+require_once __DIR__ . '/../services/sla-service.php';
+require_once __DIR__ . '/../middleware/auth.php';
+
+AuthMiddleware::configurarCORS(['GET']);
 
 if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
     exit(0);
 }
-
-require_once __DIR__ . '/../config/database.php';
-require_once __DIR__ . '/../services/sla-service.php';
 
 $database = new Database();
 $db = $database->getConnection();
 
 // GET - Gerar relatório com filtros
 if ($_SERVER['REQUEST_METHOD'] === 'GET') {
+    $user = AuthMiddleware::verificarAuth();
+
     try {
         // Parâmetros de filtro
         $dataInicio = $_GET['dataInicio'] ?? null;
@@ -71,7 +73,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
             $query .= " AND t.agente_id = :agente";
             $params[':agente'] = $agente;
         }
-        
+
+        // Escopo por papel: admin vê tudo; supervisor só o próprio setor; usuario/cliente só o que é seu
+        $tipo = $user['tipo'] ?? '';
+        if ($tipo === 'supervisor') {
+            $query .= " AND t.setor_id = :setor_id_escopo";
+            $params[':setor_id_escopo'] = $user['setor_id'] ?? 0;
+        } elseif ($tipo === 'usuario') {
+            $query .= " AND (t.agente_id = :self_id_escopo OR t.usuario_id = :self_id_escopo2)";
+            $params[':self_id_escopo'] = $user['id'];
+            $params[':self_id_escopo2'] = $user['id'];
+        } elseif ($tipo === 'cliente') {
+            $query .= " AND t.usuario_id = :self_id_escopo";
+            $params[':self_id_escopo'] = $user['id'];
+        }
+
         $query .= " ORDER BY t.criado_em DESC";
         
         $stmt = $db->prepare($query);
@@ -101,7 +117,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
                 $queryPrimeiraResposta = "SELECT MIN(c.criado_em) as primeira_resposta
                                          FROM comentarios c
                                          INNER JOIN usuarios u ON c.usuario_id = u.id
-                                         WHERE c.ticket_id = :ticket_id AND u.tipo IN ('agente', 'admin')";
+                                         WHERE c.ticket_id = :ticket_id AND u.tipo IN ('usuario', 'supervisor', 'admin')";
                 $stmtPR = $db->prepare($queryPrimeiraResposta);
                 $stmtPR->bindParam(':ticket_id', $ticket['id']);
                 $stmtPR->execute();

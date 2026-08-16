@@ -9,25 +9,36 @@ AddDefaultCharset UTF-8
     Require all denied
 </FilesMatch>
 
+# Bloquear scripts de diagnóstico/manutenção que não fazem parte da aplicação pública
+<FilesMatch "^(check_db|migrate_db|test_php_input|test_integracao)\.php$">
+    Require all denied
+</FilesMatch>
+
+
 # Permitir header Authorization e redirecionar
 RewriteEngine On
 RewriteCond %{HTTP:Authorization} .
 RewriteRule .* - [E=HTTP_AUTHORIZATION:%{HTTP:Authorization}]
 
-RewriteCond %{REQUEST_URI} ^/crpdesk/?$
-RewriteRule ^(.*)$ /crpdesk/frontend/login.html [L,R=301]
+RewriteCond %{REQUEST_URI} ^/conecta/?$
+RewriteRule ^(.*)$ /conecta/frontend/login.html [L,R=301]
 
 # Cabeçalhos de Segurança Globais (SEGURANCA_SPEC.md)
 <IfModule mod_headers.c>
     Header always set X-Content-Type-Options "nosniff"
-    Header always set X-Frame-Options "DENY"
+    # SAMEORIGIN é o fallback para navegadores que não suportam CSP frame-ancestors
+    # (a política real de quem pode incorporar este módulo em <iframe> é a frame-ancestors abaixo).
+    Header always set X-Frame-Options "SAMEORIGIN"
     Header always set X-XSS-Protection "1; mode=block"
     Header always set Referrer-Policy "strict-origin-when-cross-origin"
 
     # Content Security Policy
     # Permite: próprio domínio, Google Fonts, CDN do Chart.js/Alpine/Quill,
     # Cloudflare Turnstile, imagens inline (data:) para Quill editor
-    Header always set Content-Security-Policy "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' cdn.jsdelivr.net cdn.quilljs.com cdnjs.cloudflare.com challenges.cloudflare.com static.cloudflareinsights.com; style-src 'self' 'unsafe-inline' fonts.googleapis.com cdn.jsdelivr.net cdn.quilljs.com cdnjs.cloudflare.com; font-src 'self' fonts.gstatic.com; img-src 'self' data: blob:; connect-src 'self' challenges.cloudflare.com cdn.quilljs.com cdnjs.cloudflare.com cloudflareinsights.com; frame-src challenges.cloudflare.com blob:; object-src 'none'; base-uri 'self'; form-action 'self';"
+    # frame-ancestors: origens autorizadas a incorporar este módulo em <iframe>.
+    # 'self' + origens de dev local por padrão. Ao integrar com o painel agregador real,
+    # adicionar o domínio de produção aqui E em CORS_ALLOWED_ORIGINS_* no api/config/.env.
+    Header always set Content-Security-Policy "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' cdn.jsdelivr.net cdn.quilljs.com cdnjs.cloudflare.com challenges.cloudflare.com static.cloudflareinsights.com; style-src 'self' 'unsafe-inline' fonts.googleapis.com cdn.jsdelivr.net cdn.quilljs.com cdnjs.cloudflare.com; font-src 'self' fonts.gstatic.com; img-src 'self' data: blob:; connect-src 'self' challenges.cloudflare.com cdn.quilljs.com cdnjs.cloudflare.com cloudflareinsights.com; frame-src challenges.cloudflare.com blob:; frame-ancestors 'self' http://localhost:* http://127.0.0.1:*; object-src 'none'; base-uri 'self'; form-action 'self';"
 
     # Restringe acesso a APIs do navegador desnecessárias
     Header always set Permissions-Policy "camera=(), microphone=(), geolocation=(), payment=()"

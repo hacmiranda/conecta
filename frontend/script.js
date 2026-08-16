@@ -7,11 +7,11 @@ function sanitizeHTML(str) {
 
 // Retorna headers de autenticação para uso com fetch()
 function getAuthHeaders() {
-    const token = localStorage.getItem('token');
+    const token = localStorage.getItem('cd_token');
     const headers = {};
     if (token) {
         headers['Authorization'] = `Bearer ${token}`;
-        let csrfToken = localStorage.getItem('csrf_token');
+        let csrfToken = localStorage.getItem('cd_csrf_token');
         if (!csrfToken) {
             try {
                 const partes = token.split('.');
@@ -52,12 +52,12 @@ async function baixarAnexo(id, nomeOriginal) {
 
 // Global Injector de Header (JWT Auth + CSRF) para XMLHttpRequests
 window.setSecurityHeaders = function (xhr) {
-    const token = localStorage.getItem('token');
+    const token = localStorage.getItem('cd_token');
     if (token) {
         xhr.setRequestHeader('Authorization', `Bearer ${token}`);
     }
     // CSRF: usa valor salvo no login ou extrai diretamente do JWT
-    let csrfToken = localStorage.getItem('csrf_token');
+    let csrfToken = localStorage.getItem('cd_csrf_token');
     if (!csrfToken && token) {
         try {
             const partes = token.split('.');
@@ -72,62 +72,23 @@ window.setSecurityHeaders = function (xhr) {
 
 // Função de logout
 function fazerLogout() {
-    localStorage.removeItem('usuario');
-    localStorage.removeItem('token');
-    localStorage.removeItem('token_exp');
-    localStorage.removeItem('csrf_token');
+    localStorage.removeItem('cd_usuario');
+    localStorage.removeItem('cd_token');
+    localStorage.removeItem('cd_token_exp');
+    localStorage.removeItem('cd_csrf_token');
     window.location.href = './login.html';
 }
 
-// Monitoramento de Sessão e Inatividade
-let tempoInatividade;
-const TEMPO_LIMITE_INATIVIDADE = 30 * 60 * 1000; // 30 minutos
-
+// Sessão sem expiração: nem por tempo de token, nem por inatividade.
+// Mantém só o "pseudo-cron" de lembretes, que dependia deste mesmo timer.
 function iniciarMonitoramentoSessao() {
-    // 1. Monitorar expiração do Token (8h)
-    verificarExpiracaoToken();
-    setInterval(verificarExpiracaoToken, 60000); // Checar a cada minuto
-
-    // 2. Monitorar Inatividade do Usuário (30min)
-    window.onload = resetarTimerInatividade;
-    document.onmousemove = resetarTimerInatividade;
-    document.onkeydown = resetarTimerInatividade;
-    document.onclick = resetarTimerInatividade;
-    document.onscroll = resetarTimerInatividade;
-
-    // Iniciar timer
-    resetarTimerInatividade();
+    pingLembretes();
+    setInterval(pingLembretes, 60000); // Checar a cada minuto
 }
 
-function resetarTimerInatividade() {
-    clearTimeout(tempoInatividade);
-    tempoInatividade = setTimeout(() => {
-        mostrarAlert('Sessão Expirada', 'Você ficou 30 minutos inativo. Por segurança, sua sessão foi encerrada.', () => {
-            fazerLogout();
-        });
-    }, TEMPO_LIMITE_INATIVIDADE);
-}
-
-function verificarExpiracaoToken() {
-    const token = localStorage.getItem('token');
-    if (!token) return;
-
-    try {
-        const payload = JSON.parse(atob(token.split('.')[1]));
-        const agora = Math.floor(Date.now() / 1000);
-
-        if (payload.exp < agora) {
-            mostrarAlert('Sessão Expirada', 'Seu token de acesso expirou. Por favor, faça login novamente.', () => {
-                fazerLogout();
-            });
-        } else {
-            // "Pseudo-Cron": Ping automático para o script de lembretes a cada 1 minuto
-            fetch('/crpdesk/api/cron/verificar-lembretes.php').catch(() => { });
-        }
-    } catch (e) {
-        // Token inválido
-        fazerLogout();
-    }
+function pingLembretes() {
+    if (!localStorage.getItem('cd_token')) return;
+    fetch('/conecta/api/cron/verificar-lembretes.php').catch(() => { });
 }
 
 // ======================================================
@@ -137,9 +98,9 @@ const EMAIL_ALERT_INTERVAL = 5 * 60 * 1000; // Checar a cada 5 minutos
 const EMAIL_ALERT_DISMISSED = 'emailAlertDismissedAt';
 
 function iniciarMonitoramentoEmailFalhas() {
-    // Só monitora se for agente ou admin
-    const usuario = JSON.parse(localStorage.getItem('usuario') || '{}');
-    if (!['agente', 'admin'].includes(usuario.tipo)) return;
+    // Só monitora se for funcionário interno (usuario/supervisor/admin)
+    const usuario = JSON.parse(localStorage.getItem('cd_usuario') || '{}');
+    if (!['usuario', 'supervisor', 'admin'].includes(usuario.tipo)) return;
 
     verificarFalhasEmail(); // verificação imediata
     setInterval(verificarFalhasEmail, EMAIL_ALERT_INTERVAL);
@@ -147,7 +108,7 @@ function iniciarMonitoramentoEmailFalhas() {
 
 function verificarFalhasEmail() {
     const xhr = new XMLHttpRequest();
-    xhr.open('GET', '/crpdesk/api/controllers/email-alert.php', true);
+    xhr.open('GET', window.APP_CONFIG.apiBase + 'email-alert.php', true);
     setSecurityHeaders(xhr);
 
     xhr.onload = function () {
@@ -229,12 +190,13 @@ function irParaLogEmails() {
 // 👤 HEADER AVATAR
 // ======================================================
 function inicializarAvatar() {
-    const usuario = JSON.parse(localStorage.getItem('usuario') || '{}');
+    const usuario = JSON.parse(localStorage.getItem('cd_usuario') || '{}');
     if (!usuario.nome) return;
 
     const nome = usuario.nome || '';
     const email = usuario.email || '';
     const tipo = usuario.tipo || '';
+    const cargo = usuario.cargo || '';
 
     // Gerar iniciais (até 2)
     const iniciais = nome
@@ -250,7 +212,12 @@ function inicializarAvatar() {
     setEl('header-avatar-iniciais', iniciais);
     setEl('header-avatar-iniciais-sm', iniciais);
     setEl('header-avatar-nome', nome.split(' ')[0]); // primeiro nome no botão
-    setEl('header-avatar-role', tipo === 'admin' ? 'Administrador' : tipo === 'agente' ? 'Agente' : 'Usuário');
+    setEl('header-avatar-role', 'Perfil: ' + (tipo === 'admin' ? 'Administrador' : tipo === 'supervisor' ? 'Supervisor' : 'Usuário'));
+    const elCargo = document.getElementById('header-avatar-cargo');
+    if (elCargo) {
+        elCargo.textContent = cargo;
+        elCargo.style.display = cargo ? '' : 'none';
+    }
     setEl('had-nome', nome);
     setEl('had-email', email);
 }
@@ -308,7 +275,7 @@ function mostrarSecao(secaoId) {
     document.getElementById(secaoId).classList.add('active');
 
     // Salvar seção ativa no localStorage
-    localStorage.setItem('secaoAtiva', secaoId);
+    localStorage.setItem('cd_secaoAtiva', secaoId);
 
     // Ativar botão correspondente por ID (robusto, sem depender de índice de posição)
     const mapaBotoes = {
@@ -334,10 +301,10 @@ function mostrarSecao(secaoId) {
             }
         }, 200);
     } else if (secaoId === 'config') {
-        // Verificar se é admin
-        const usuario = JSON.parse(localStorage.getItem('usuario'));
-        if (usuario.tipo !== 'admin') {
-            mostrarAlert('Acesso Negado', 'Apenas administradores podem acessar as configurações.', function () {
+        // Verificar se é admin ou supervisor
+        const usuario = JSON.parse(localStorage.getItem('cd_usuario'));
+        if (usuario.tipo !== 'admin' && usuario.tipo !== 'supervisor') {
+            mostrarAlert('Acesso Negado', 'Apenas administradores e supervisores podem acessar as configurações.', function () {
                 mostrarSecao('tickets');
             });
             return;
@@ -445,12 +412,12 @@ function removerAnexo(index) {
 
 // Função para configurar headers de segurança
 function setSecurityHeaders(xhr) {
-    const token = localStorage.getItem('token');
+    const token = localStorage.getItem('cd_token');
     if (token) {
         xhr.setRequestHeader('Authorization', `Bearer ${token}`);
     }
     // CSRF: usa valor salvo no login ou extrai diretamente do JWT
-    let csrfToken = localStorage.getItem('csrf_token');
+    let csrfToken = localStorage.getItem('cd_csrf_token');
     if (!csrfToken && token) {
         try {
             const partes = token.split('.');
@@ -507,7 +474,7 @@ document.getElementById('form-ticket').addEventListener('submit', function (e) {
     }
 
     const xhr = new XMLHttpRequest();
-    xhr.open('POST', '/crpdesk/api/controllers/tickets.php', true);
+    xhr.open('POST', window.APP_CONFIG.apiBase + 'tickets.php', true);
     xhr.timeout = 30000; // 30 segundos
 
     // Configurar headers de segurança
@@ -519,7 +486,7 @@ document.getElementById('form-ticket').addEventListener('submit', function (e) {
             try {
                 const response = JSON.parse(xhr.responseText);
                 limparFormularioTicket();
-                mostrarToast('Sucesso', 'Ticket criado com sucesso!', 'success');
+                mostrarToast('Sucesso', 'Demanda criada com sucesso!', 'success');
             } catch (e) {
                 console.error('Erro ao parsear resposta:', e);
                 mostrarAlert('Erro', 'Erro na resposta do servidor');
@@ -527,9 +494,9 @@ document.getElementById('form-ticket').addEventListener('submit', function (e) {
         } else {
             try {
                 const errorResponse = JSON.parse(xhr.responseText);
-                mostrarAlert('Erro', errorResponse.error || 'Erro ao criar ticket');
+                mostrarAlert('Erro', errorResponse.error || 'Erro ao criar demanda');
             } catch (e) {
-                mostrarAlert('Erro', 'Erro ao criar ticket');
+                mostrarAlert('Erro', 'Erro ao criar demanda');
             }
         }
     };
@@ -551,7 +518,8 @@ document.getElementById('form-ticket').addEventListener('submit', function (e) {
 function carregarTickets() {
     mostrarSkeletonTickets();
     const xhr = new XMLHttpRequest();
-    xhr.open('GET', '/crpdesk/api/controllers/tickets.php', true);
+    xhr.open('GET', window.APP_CONFIG.apiBase + 'tickets.php', true);
+    setSecurityHeaders(xhr);
 
     xhr.onload = function () {
         if (xhr.status === 200) {
@@ -563,7 +531,7 @@ function carregarTickets() {
             aplicarFiltroMeusTickets();
         } else {
             console.error('Erro ao carregar tickets:', xhr.status, xhr.responseText);
-            document.getElementById('lista-tickets').innerHTML = '<p>Erro ao carregar tickets.</p>';
+            document.getElementById('lista-tickets').innerHTML = '<p>Erro ao carregar demandas.</p>';
         }
     };
 
@@ -577,17 +545,17 @@ function carregarTickets() {
 
 // Estado de paginação e filtros da tabela
 let paginaAtual = 1;
-let porPagina = parseInt(localStorage.getItem('ticketsPorPagina') || '50');
+let porPagina = parseInt(localStorage.getItem('cd_ticketsPorPagina') || '50');
 let filtroStatusAtivo = 'todos';
 let ticketsFiltradosPorStatus = [];
-let modoVisualizacaoTickets = localStorage.getItem('ticketsModoView') || 'lista';
+let modoVisualizacaoTickets = localStorage.getItem('cd_ticketsModoView') || 'lista';
 
 function aplicarFiltroMeusTickets() {
     const filtroAtivo = document.getElementById('filtro-meus-tickets').checked;
     let ticketsFiltrados = ticketsAtuais;
 
     if (filtroAtivo) {
-        const usuarioLogado = JSON.parse(localStorage.getItem('usuario'));
+        const usuarioLogado = JSON.parse(localStorage.getItem('cd_usuario'));
         ticketsFiltrados = ticketsAtuais.filter(ticket => ticket.agente_id == usuarioLogado.id);
     }
 
@@ -624,7 +592,7 @@ function aplicarFiltroMeusTicketsFechados() {
     let ticketsFiltrados = ticketsFechadosAtuais;
 
     if (filtroAtivo) {
-        const usuarioLogado = JSON.parse(localStorage.getItem('usuario'));
+        const usuarioLogado = JSON.parse(localStorage.getItem('cd_usuario'));
         ticketsFiltrados = ticketsFechadosAtuais.filter(ticket => ticket.agente_id == usuarioLogado.id);
     }
 
@@ -647,7 +615,7 @@ function mostrarSkeletonTickets(idContainer = 'lista-tickets') {
             <td><div class="skeleton-block sm"></div></td>
         </tr>`).join('');
     lista.innerHTML = `
-        <table class="skeleton-tabela" aria-hidden="true" aria-label="Carregando tickets...">
+        <table class="skeleton-tabela" aria-hidden="true" aria-label="Carregando demandas...">
             <thead><tr>${Array.from({ length: 8 }, () => '<th></th>').join('')}</tr></thead>
             <tbody>${linhas}</tbody>
         </table>`;
@@ -723,7 +691,7 @@ function aplicarFiltroPill(btn) {
     const base = (() => {
         const filtroMeus = document.getElementById('filtro-meus-tickets');
         if (filtroMeus && filtroMeus.checked) {
-            const u = JSON.parse(localStorage.getItem('usuario'));
+            const u = JSON.parse(localStorage.getItem('cd_usuario'));
             return ticketsAtuais.filter(t => t.agente_id == u.id);
         }
         return ticketsAtuais;
@@ -829,7 +797,7 @@ function calcularTextoSLA(ticket) {
 // === MODO KANBAN ===
 function toggleVisaoTickets() {
     modoVisualizacaoTickets = modoVisualizacaoTickets === 'lista' ? 'kanban' : 'lista';
-    localStorage.setItem('ticketsModoView', modoVisualizacaoTickets);
+    localStorage.setItem('cd_ticketsModoView', modoVisualizacaoTickets);
     const btn = document.getElementById('btn-toggle-view');
     if (btn) {
         btn.innerHTML = modoVisualizacaoTickets === 'lista' ? '<span class="material-symbols-outlined" style="font-size: 1.2rem; margin-right: 0.3rem;">view_kanban</span> Kanban' : '<span class="material-symbols-outlined" style="font-size: 1.2rem; margin-right: 0.3rem;">list_alt</span> Tabela';
@@ -935,7 +903,7 @@ function mostrarTicketsNaTela(tickets) {
     }
 
     // Atualizar contadores
-    const usuarioLogado = JSON.parse(localStorage.getItem('usuario'));
+    const usuarioLogado = JSON.parse(localStorage.getItem('cd_usuario'));
     const totalAbertos = ticketsAtuais.length;
     const meusTickets = ticketsAtuais.filter(t => t.agente_id == usuarioLogado.id).length;
     document.getElementById('total-tickets-abertos').textContent = `(${totalAbertos})`;
@@ -951,7 +919,7 @@ function mostrarTicketsNaTela(tickets) {
         listaTickets.innerHTML = `
             <div style="text-align:center; padding: 3rem 1rem; color: #64748b;">
                 <span class="material-symbols-outlined" style="font-size:3rem; opacity:0.4;">inbox</span>
-                <p style="margin-top:0.5rem; font-size:0.95rem;">Nenhum ticket encontrado para este filtro.</p>
+                <p style="margin-top:0.5rem; font-size:0.95rem;">Nenhuma demanda encontrada para este filtro.</p>
             </div>`;
         return;
     }
@@ -973,15 +941,15 @@ function mostrarTicketsNaTela(tickets) {
     const ticketsPagina = tickets.slice(inicio, fim);
 
     let tabelaHTML = `
-        <table class="tickets-tabela" role="grid" aria-label="Lista de tickets abertos">
+        <table class="tickets-tabela" role="grid" aria-label="Lista de demandas abertas">
             <thead>
                 <tr>
-                    <th onclick="ordenarTabela('id')" class="sortable" data-campo="id" scope="col">Nº Ticket <span class="sort-arrows">↕</span></th>
+                    <th onclick="ordenarTabela('id')" class="sortable" data-campo="id" scope="col">Nº Demanda <span class="sort-arrows">↕</span></th>
                     <th onclick="ordenarTabela('criado_em')" class="sortable" data-campo="criado_em" scope="col">Abertura <span class="sort-arrows">↕</span></th>
                     <th onclick="ordenarTabela('titulo')" class="sortable" data-campo="titulo" scope="col">Assunto <span class="sort-arrows">↕</span></th>
                     <th onclick="ordenarTabela('usuario_nome')" class="sortable" data-campo="usuario_nome" scope="col">Solicitante <span class="sort-arrows">↕</span></th>
                     <th onclick="ordenarTabela('agente_nome')" class="sortable" data-campo="agente_nome" scope="col">Responsável <span class="sort-arrows">↕</span></th>
-                    <th onclick="ordenarTabela('categoria_nome')" class="sortable" data-campo="categoria_nome" scope="col">Categoria <span class="sort-arrows">↕</span></th>
+                    <th onclick="ordenarTabela('categoria_nome')" class="sortable" data-campo="categoria_nome" scope="col">Subcategoria <span class="sort-arrows">↕</span></th>
                     <th onclick="ordenarTabela('status')" class="sortable" data-campo="status" scope="col">Status <span class="sort-arrows">↕</span></th>
                     <th onclick="ordenarTabela('prioridade')" class="sortable" data-campo="prioridade" scope="col">Prioridade <span class="sort-arrows">↕</span></th>
                 </tr>
@@ -999,13 +967,13 @@ function mostrarTicketsNaTela(tickets) {
 
         // Ícones Material Symbols (substituindo PNGs)
         const iconeAnexo = ticket.tem_anexos > 0
-            ? `<span class="material-symbols-outlined icone-tabela icone-anexo-ms" data-vg-tooltip="Este ticket possui arquivos anexados." data-vg-title="ANEXOS" aria-label="Tem anexos">attach_file</span>` : '';
+            ? `<span class="material-symbols-outlined icone-tabela icone-anexo-ms" data-vg-tooltip="Esta demanda possui arquivos anexados." data-vg-title="ANEXOS" aria-label="Tem anexos">attach_file</span>` : '';
         const iconeComentario = ticket.tem_comentario_nao_lido
-            ? `<span class="material-symbols-outlined icone-tabela icone-comentario-ms" data-vg-tooltip="Há um ou mais comentários novos ainda não lidos neste ticket." data-vg-title="NOVA MENSAGEM" aria-label="Novo comentário">chat_bubble</span>` : '';
+            ? `<span class="material-symbols-outlined icone-tabela icone-comentario-ms" data-vg-tooltip="Há um ou mais comentários novos ainda não lidos nesta demanda." data-vg-title="NOVA MENSAGEM" aria-label="Novo comentário">chat_bubble</span>` : '';
         const iconomeLembrete = ticket.proximo_lembrete
             ? `<span class="material-symbols-outlined icone-tabela icone-lembrete-ms" data-vg-tooltip="Lembrete agendado para ${new Date(ticket.proximo_lembrete).toLocaleString('pt-BR')}." data-vg-title="LEMBRETE ATIVO" aria-label="Tem lembrete">event</span>` : '';
         const iconeMesclado = ticket.eh_mesclado > 0
-            ? `<span class="material-symbols-outlined icone-tabela" data-vg-tooltip="Este ticket foi mesclado com outro chamado." data-vg-title="TICKET MESCLADO" aria-label="Mesclado" style="color:#6366f1">call_merge</span>` : '';
+            ? `<span class="material-symbols-outlined icone-tabela" data-vg-tooltip="Esta demanda foi mesclada com outra demanda." data-vg-title="DEMANDA MESCLADA" aria-label="Mesclado" style="color:#6366f1">call_merge</span>` : '';
 
         // SLA badge inline
         const slaInfo = calcularTextoSLA(ticket);
@@ -1027,7 +995,7 @@ function mostrarTicketsNaTela(tickets) {
 
         tabelaHTML += `
             <tr data-ticket-id="${ticket.id}" class="${isNovaResposta ? 'ticket-nova-resposta' : ''}" ${modoMergeAtivo ? 'style="cursor:pointer;"' : ''}>
-                <td data-label="Nº Ticket">
+                <td data-label="Nº Demanda">
                     <a href="#" onclick="${modoMergeAtivo ? 'event.stopPropagation();' : ''} verDetalhes(${ticket.id})" class="ticket-link">#${String(ticket.id).padStart(5, '0')}</a>
                     ${iconeMesclado}${iconeAnexo}${iconeComentario}${iconomeLembrete}
                 </td>
@@ -1039,9 +1007,9 @@ function mostrarTicketsNaTela(tickets) {
                     <span class="ticket-titulo-texto" data-vg-tooltip="${tituloSeguro}" data-vg-title="ASSUNTO">${ticket.titulo}</span>
                 </td>
                 <td data-label="Solicitante">${solicitante}${emailExibir}</td>
-                <td data-label="Responsável"><span class="status ${ticket.agente_nome ? 'atribuido' : 'nao-atribuido'} ${modoMergeAtivo ? '' : 'clickable'}" ${modoMergeAtivo ? '' : `onclick="event.stopPropagation(); atribuirTicket(${ticket.id})" title="Clique para atribuir"`}>${ticket.agente_nome || 'Não atribuído'}</span></td>
-                <td data-label="Categoria"><span class="status categoria ${ticket.categoria_nome ? '' : 'sem-categoria'} ${modoMergeAtivo ? '' : 'clickable'}" ${modoMergeAtivo ? '' : `onclick="event.stopPropagation(); alterarCategoria(${ticket.id})" title="Clique para alterar"`}>${ticket.categoria_nome || 'Sem categoria'}</span></td>
-                <td data-label="Status"><span class="status ${ticket.status} ${modoMergeAtivo ? '' : 'clickable'}" ${modoMergeAtivo ? '' : `onclick="event.stopPropagation(); alterarStatusNovo(${ticket.id})"`} title="Clique para alterar">${window.STATUS_CONFIG && window.STATUS_CONFIG[ticket.status] ? window.STATUS_CONFIG[ticket.status].nome : (typeof formatarNomeStatus === 'function' ? formatarNomeStatus(ticket.status) : ticket.status)}</span></td>
+                <td data-label="Responsável"><span class="status ${ticket.agente_nome ? 'atribuido' : 'nao-atribuido'} ${modoMergeAtivo ? '' : 'clickable'}" ${modoMergeAtivo ? '' : `onclick="event.stopPropagation(); atribuirTicket(${ticket.id})" title="Clique para atribuir"`}>${ticket.agente_nome || 'Não atribuído'}</span>${(ticket.agente_nome && ticket.atribuido_em) ? `<small class="ticket-data-hora">desde ${new Date(ticket.atribuido_em).toLocaleDateString('pt-BR')}</small>` : ''}</td>
+                <td data-label="Subcategoria"><span class="status categoria ${ticket.categoria_nome ? '' : 'sem-categoria'} ${modoMergeAtivo ? '' : 'clickable'}" ${modoMergeAtivo ? '' : `onclick="event.stopPropagation(); alterarCategoria(${ticket.id})" title="Clique para alterar"`}>${ticket.categoria_nome || 'Sem subcategoria'}</span></td>
+                <td data-label="Status"><span class="status ${ticket.status} ${modoMergeAtivo ? '' : 'clickable'}" ${modoMergeAtivo ? '' : `onclick="event.stopPropagation(); alterarStatusNovo(${ticket.id}, ${ticket.setor_id || 'null'})"`} title="Clique para alterar">${window.STATUS_CONFIG && window.STATUS_CONFIG[ticket.status] ? window.STATUS_CONFIG[ticket.status].nome : (typeof formatarNomeStatus === 'function' ? formatarNomeStatus(ticket.status) : ticket.status)}</span></td>
                 <td data-label="Prioridade"><span class="status prioridade ${ticket.prioridade || 'normal'} ${modoMergeAtivo ? '' : 'clickable'}" ${modoMergeAtivo ? '' : `onclick="event.stopPropagation(); alterarPrioridade(${ticket.id})" title="Clique para alterar"`}>${typeof formatarNomePrioridade === 'function' ? formatarNomePrioridade(ticket.prioridade) : (ticket.prioridade ? ticket.prioridade.charAt(0).toUpperCase() + ticket.prioridade.slice(1).toLowerCase() : 'Normal')}</span></td>
             </tr>
         `;
@@ -1055,9 +1023,9 @@ function mostrarTicketsNaTela(tickets) {
     tabelaHTML += `
             </tbody>
         </table>
-        <div class="tabela-footer" role="navigation" aria-label="Paginação de tickets">
+        <div class="tabela-footer" role="navigation" aria-label="Paginação de demandas">
             <div class="tabela-resumo">
-                Exibindo <strong>${inicioExib}–${fimExib}</strong> de <strong>${totalExib}</strong> ticket${totalExib !== 1 ? 's' : ''}
+                Exibindo <strong>${inicioExib}–${fimExib}</strong> de <strong>${totalExib}</strong> demanda${totalExib !== 1 ? "s" : ""}
             </div>
             <div class="paginacao">
                 <button class="btn-paginacao" onclick="irParaPagina(${paginaAtual - 1})" ${paginaAtual <= 1 ? 'disabled' : ''} aria-label="Página anterior">‹</button>
@@ -1111,7 +1079,7 @@ function mostrarTicketsNaTela(tickets) {
 
 function alterarPorPagina(valor) {
     porPagina = parseInt(valor);
-    localStorage.setItem('ticketsPorPagina', porPagina);
+    localStorage.setItem('cd_ticketsPorPagina', porPagina);
     paginaAtual = 1;
     mostrarTicketsNaTela(ticketsFiltradosPorStatus.length > 0 ? ticketsFiltradosPorStatus : ticketsAtuais);
 }
@@ -1120,14 +1088,15 @@ function alterarPorPagina(valor) {
 function atribuirTicket(ticketId) {
     // Carregar lista de agentes
     const xhr = new XMLHttpRequest();
-    xhr.open('GET', '/crpdesk/api/controllers/agentes.php', true);
+    xhr.open('GET', window.APP_CONFIG.apiBase + 'agentes.php', true);
+    setSecurityHeaders(xhr);
 
     xhr.onload = function () {
         if (xhr.status === 200) {
             const agentes = JSON.parse(xhr.responseText);
 
             mostrarSelect(
-                'Atribuir Ticket',
+                'Atribuir Demanda',
                 'Selecione o agente responsável:',
                 agentes,
                 function (agenteEscolhido) {
@@ -1148,7 +1117,7 @@ function atribuirTicket(ticketId) {
 function confirmarAtribuicao(ticketId, agenteId, agenteNome) {
     mostrarConfirm(
         'Confirmar Atribuição',
-        `Atribuir ticket para ${agenteNome}?`,
+        `Atribuir demanda para ${agenteNome}?`,
         function (confirmado) {
             if (!confirmado) return;
 
@@ -1161,7 +1130,7 @@ function confirmarAtribuicao(ticketId, agenteId, agenteNome) {
 function executarAtribuicao(ticketId, agenteId, agenteNome) {
     // Buscar status atual do ticket
     const ticketAtual = ticketsAtuais.find(t => t.id === ticketId);
-    const usuario = JSON.parse(localStorage.getItem('usuario'));
+    const usuario = JSON.parse(localStorage.getItem('cd_usuario'));
     const dados = {
         agente_id: agenteId,
         atribuido_por: usuario ? usuario.id : 1
@@ -1173,7 +1142,7 @@ function executarAtribuicao(ticketId, agenteId, agenteNome) {
     mostrarLoader();
 
     const xhr = new XMLHttpRequest();
-    xhr.open('PUT', `/crpdesk/api/controllers/tickets.php?id=${ticketId}`, true);
+    xhr.open('PUT', `${window.APP_CONFIG.apiBase}tickets.php?id=${ticketId}`, true);
     xhr.setRequestHeader('Content-Type', 'application/json');
 
     // Adicionar token de autenticação
@@ -1186,28 +1155,167 @@ function executarAtribuicao(ticketId, agenteId, agenteNome) {
             carregarTickets();
 
             // Se estiver na página de detalhes, recarregar detalhes
-            const ticketAtivo = localStorage.getItem('ticketAtivo');
+            const ticketAtivo = localStorage.getItem('cd_ticketAtivo');
             if (ticketAtivo && parseInt(ticketAtivo) === ticketId) {
                 setTimeout(() => verDetalhes(ticketId), 300);
             }
 
             const mensagem = dados.status ?
-                `Ticket atribuído para ${agenteNome} e status alterado para "Em atendimento"!` :
-                `Ticket atribuído para ${agenteNome} com sucesso!`;
+                `Demanda atribuída para ${agenteNome} e status alterado para "Em atendimento"!` :
+                `Demanda atribuída para ${agenteNome} com sucesso!`;
 
             mostrarToast('Sucesso', mensagem, 'success');
         } else {
             ocultarLoader();
-            mostrarAlert('Erro', 'Erro ao atribuir ticket');
+            mostrarAlert('Erro', 'Erro ao atribuir demanda');
         }
     };
 
     xhr.send(JSON.stringify(dados));
 }
 
+// ==== Fase 2: Atribuição, Devolução, Repasse e Transferência de Setor ====
+
+function executarAcaoDemanda(ticketId, acao, extra, comentario, mensagemSucesso) {
+    mostrarLoader();
+
+    const xhr = new XMLHttpRequest();
+    xhr.open('POST', `${window.APP_CONFIG.apiBase}demanda-acoes.php`, true);
+    xhr.setRequestHeader('Content-Type', 'application/json');
+    setSecurityHeaders(xhr);
+
+    xhr.onload = function () {
+        ocultarLoader();
+        if (xhr.status === 200) {
+            mostrarToast('Sucesso', mensagemSucesso || 'Ação registrada com sucesso!', 'success');
+            carregarTickets();
+            const ticketAtivo = localStorage.getItem('cd_ticketAtivo');
+            if (ticketAtivo && parseInt(ticketAtivo) === ticketId) {
+                setTimeout(() => verDetalhes(ticketId), 300);
+            }
+        } else {
+            let mensagemErro = 'Erro ao executar ação';
+            try { mensagemErro = JSON.parse(xhr.responseText).error || mensagemErro; } catch (e) { }
+            mostrarAlert('Erro', mensagemErro);
+        }
+    };
+
+    xhr.onerror = function () {
+        ocultarLoader();
+        mostrarAlert('Erro', 'Erro de conexão');
+    };
+
+    xhr.send(JSON.stringify(Object.assign({ ticket_id: ticketId, acao: acao, comentario: comentario }, extra || {})));
+}
+
+function pedirComentarioEExecutar(ticketId, acao, extra, tituloPrompt, mensagemPrompt, mensagemSucesso) {
+    mostrarPromptObservacoes(tituloPrompt, mensagemPrompt, function (comentario) {
+        if (comentario === null || comentario === undefined) return;
+        const texto = comentario.trim();
+        if (!texto) {
+            mostrarAlert('Comentário obrigatório', 'Descreva o motivo desta ação antes de confirmar.');
+            return;
+        }
+        executarAcaoDemanda(ticketId, acao, extra, texto, mensagemSucesso);
+    });
+}
+
+// Devolver a demanda ao supervisor do setor (quem está com ela atribuída)
+function devolverAoSupervisor(ticketId) {
+    pedirComentarioEExecutar(
+        ticketId, 'devolver', {},
+        'Devolver ao Supervisor',
+        'Explique o motivo da devolução:',
+        'Demanda devolvida ao supervisor!'
+    );
+}
+
+// Repassar a demanda para um colega do mesmo setor
+function repassarParaColega(ticketId) {
+    const xhr = new XMLHttpRequest();
+    xhr.open('GET', window.APP_CONFIG.apiBase + 'agentes.php', true);
+    setSecurityHeaders(xhr);
+
+    xhr.onload = function () {
+        if (xhr.status !== 200) {
+            mostrarAlert('Erro', 'Erro ao carregar colegas do setor');
+            return;
+        }
+        const usuario = JSON.parse(localStorage.getItem('cd_usuario'));
+        const colegas = JSON.parse(xhr.responseText).filter(u => u.id != usuario.id);
+
+        if (colegas.length === 0) {
+            mostrarAlert('Sem colegas', 'Não há outros colegas no seu setor para repassar esta demanda.');
+            return;
+        }
+
+        mostrarSelect('Repassar Demanda', 'Selecione o colega que vai assumir:', colegas, function (colegaEscolhido) {
+            if (!colegaEscolhido) return;
+            pedirComentarioEExecutar(
+                ticketId, 'reatribuir_colega', { usuario_id: colegaEscolhido.id },
+                'Repassar Demanda',
+                `Explique o motivo de repassar para ${colegaEscolhido.nome}:`,
+                `Demanda repassada para ${colegaEscolhido.nome}!`
+            );
+        });
+    };
+
+    xhr.send();
+}
+
+// Transferir a demanda para outro setor
+function transferirParaSetor(ticketId) {
+    const xhr = new XMLHttpRequest();
+    xhr.open('GET', window.APP_CONFIG.apiBase + 'setores.php', true);
+    setSecurityHeaders(xhr);
+
+    xhr.onload = function () {
+        if (xhr.status !== 200) {
+            mostrarAlert('Erro', 'Erro ao carregar setores');
+            return;
+        }
+        const usuario = JSON.parse(localStorage.getItem('cd_usuario'));
+        const setoresDisponiveis = JSON.parse(xhr.responseText)
+            .filter(s => s.ativo == 1 && s.id != usuario.setor_id)
+            .map(s => ({ id: s.id, nome: s.nome }));
+
+        if (setoresDisponiveis.length === 0) {
+            mostrarAlert('Sem setores', 'Não há outro setor ativo disponível para transferência.');
+            return;
+        }
+
+        mostrarSelect('Transferir para Outro Setor', 'Selecione o setor de destino:', setoresDisponiveis, function (setorEscolhido) {
+            if (!setorEscolhido) return;
+            pedirComentarioEExecutar(
+                ticketId, 'transferir_setor', { setor_id: setorEscolhido.id },
+                'Transferir para Outro Setor',
+                `Explique o motivo da transferência para ${setorEscolhido.nome}:`,
+                `Demanda transferida para ${setorEscolhido.nome}!`
+            );
+        });
+    };
+
+    xhr.send();
+}
+
 // Alterar status do ticket
+// Descobre o setor_id de um ticket já carregado (lista atual, lista de fechados ou detalhe aberto),
+// para filtrar status/prioridade/categoria pelas opções ativas naquele setor.
+function obterSetorIdDoTicket(ticketId) {
+    const emLista = (typeof ticketsAtuais !== 'undefined' && ticketsAtuais.find(t => t.id === ticketId))
+        || (typeof ticketsFechadosAtuais !== 'undefined' && ticketsFechadosAtuais.find(t => t.id === ticketId));
+    if (emLista) return emLista.setor_id || null;
+
+    try {
+        const ticketAtual = JSON.parse(localStorage.getItem('cd_ticketAtual') || 'null');
+        if (ticketAtual && ticketAtual.id === ticketId) return ticketAtual.setor_id || null;
+    } catch (e) { }
+
+    return null;
+}
+
 function alterarStatus(ticketId) {
-    const statusOpcoes = [
+    const statusOpcoesFallback = [
         { id: 'novo', nome: '🆕 Novo' },
         { id: 'em_atendimento', nome: '🔧 Em atendimento' },
         { id: 'aguardando', nome: '⏳ Aguardando' },
@@ -1220,30 +1328,49 @@ function alterarStatus(ticketId) {
         { id: 'cancelado', nome: '❌ Cancelado' }
     ];
 
-    mostrarSelect(
-        'Alterar Status',
-        'Selecione o novo status do ticket:',
-        statusOpcoes,
-        function (statusEscolhido) {
-            if (statusEscolhido) {
-                executarAlteracaoStatus(ticketId, statusEscolhido.id);
+    const abrirSelect = (opcoes) => {
+        mostrarSelect(
+            'Alterar Status',
+            'Selecione o novo status da demanda:',
+            opcoes,
+            function (statusEscolhido) {
+                if (statusEscolhido) {
+                    executarAlteracaoStatus(ticketId, statusEscolhido.id);
+                }
             }
-        }
-    );
+        );
+    };
+
+    if (typeof carregarStatusDisponiveis !== 'function') {
+        abrirSelect(statusOpcoesFallback);
+        return;
+    }
+
+    const setorId = obterSetorIdDoTicket(ticketId);
+    carregarStatusDisponiveis(setorId).then(statusList => {
+        const opcoes = statusList.map(item => ({
+            id: item.nome,
+            nome: `${window.STATUS_CONFIG?.[item.nome]?.icone || ''} ${typeof formatarNomeStatus === 'function' ? formatarNomeStatus(item.nome) : item.nome}`
+        }));
+        abrirSelect(opcoes.length > 0 ? opcoes : statusOpcoesFallback);
+    }).catch(() => abrirSelect(statusOpcoesFallback));
 }
 
 // Alterar categoria do ticket
 function alterarCategoria(ticketId) {
+    const setorId = obterSetorIdDoTicket(ticketId);
+    const filtroSetor = setorId ? `?setor_id=${setorId}` : '';
+
     const xhr = new XMLHttpRequest();
-    xhr.open('GET', '/crpdesk/api/controllers/categorias.php', true);
+    xhr.open('GET', window.APP_CONFIG.apiBase + 'categorias.php' + filtroSetor, true);
 
     xhr.onload = function () {
         if (xhr.status === 200) {
             const categorias = JSON.parse(xhr.responseText);
 
             mostrarSelect(
-                'Alterar Categoria',
-                'Selecione a nova categoria do ticket:',
+                'Alterar Subcategoria',
+                'Selecione a nova subcategoria da demanda:',
                 categorias,
                 function (categoriaEscolhida) {
                     if (categoriaEscolhida) {
@@ -1252,7 +1379,7 @@ function alterarCategoria(ticketId) {
                 }
             );
         } else {
-            mostrarAlert('Erro', 'Erro ao carregar categorias');
+            mostrarAlert('Erro', 'Erro ao carregar subcategorias');
         }
     };
 
@@ -1264,7 +1391,7 @@ function executarAlteracaoCategoria(ticketId, categoriaId) {
     mostrarLoader();
 
     const xhr = new XMLHttpRequest();
-    xhr.open('PUT', `/crpdesk/api/controllers/tickets.php?id=${ticketId}`, true);
+    xhr.open('PUT', `${window.APP_CONFIG.apiBase}tickets.php?id=${ticketId}`, true);
     xhr.setRequestHeader('Content-Type', 'application/json');
 
     // Adicionar token de autenticação
@@ -1277,20 +1404,20 @@ function executarAlteracaoCategoria(ticketId, categoriaId) {
             carregarTickets();
 
             // Se estiver na página de detalhes, recarregar detalhes
-            const ticketAtivo = localStorage.getItem('ticketAtivo');
+            const ticketAtivo = localStorage.getItem('cd_ticketAtivo');
             if (ticketAtivo && parseInt(ticketAtivo) === ticketId) {
                 setTimeout(() => verDetalhes(ticketId), 300);
             }
 
-            mostrarToast('Sucesso', 'Categoria alterada com sucesso!', 'success');
+            mostrarToast('Sucesso', 'Subcategoria alterada com sucesso!', 'success');
         } else {
             ocultarLoader();
-            mostrarAlert('Erro', 'Erro ao alterar categoria: ' + xhr.responseText);
+            mostrarAlert('Erro', 'Erro ao alterar subcategoria: ' + xhr.responseText);
         }
     };
 
     xhr.onerror = function () {
-        mostrarAlert('Erro', 'Erro de conexão ao alterar categoria');
+        mostrarAlert('Erro', 'Erro de conexão ao alterar subcategoria');
     };
 
     xhr.send(JSON.stringify({ categoria_id: categoriaId }));
@@ -1298,28 +1425,39 @@ function executarAlteracaoCategoria(ticketId, categoriaId) {
 
 // Alterar prioridade do ticket
 function alterarPrioridade(ticketId) {
-    console.log('🔄 alterarPrioridade chamada para ticket:', ticketId);
-
-    const prioridadeOpcoes = [
+    const prioridadeOpcoesFallback = [
         { id: 'baixa', nome: 'Baixa' },
         { id: 'normal', nome: 'Normal' },
         { id: 'alta', nome: 'Alta' },
         { id: 'urgente', nome: 'Urgente' }
     ];
 
-    console.log('📋 Opções de prioridade:', prioridadeOpcoes);
-
-    mostrarSelect(
-        'Alterar Prioridade',
-        'Selecione a nova prioridade do ticket:',
-        prioridadeOpcoes,
-        function (prioridadeEscolhida) {
-            console.log('🎯 Prioridade escolhida:', prioridadeEscolhida);
-            if (prioridadeEscolhida) {
-                executarAlteracaoPrioridade(ticketId, prioridadeEscolhida.id);
+    const abrirSelect = (opcoes) => {
+        mostrarSelect(
+            'Alterar Prioridade',
+            'Selecione a nova prioridade da demanda:',
+            opcoes,
+            function (prioridadeEscolhida) {
+                if (prioridadeEscolhida) {
+                    executarAlteracaoPrioridade(ticketId, prioridadeEscolhida.id);
+                }
             }
-        }
-    );
+        );
+    };
+
+    if (typeof carregarPrioridadesDisponiveis !== 'function') {
+        abrirSelect(prioridadeOpcoesFallback);
+        return;
+    }
+
+    const setorId = obterSetorIdDoTicket(ticketId);
+    carregarPrioridadesDisponiveis(setorId).then(prioridadesList => {
+        const opcoes = prioridadesList.map(p => ({
+            id: p.nome,
+            nome: typeof formatarNomePrioridade === 'function' ? formatarNomePrioridade(p.nome) : p.nome
+        }));
+        abrirSelect(opcoes.length > 0 ? opcoes : prioridadeOpcoesFallback);
+    }).catch(() => abrirSelect(prioridadeOpcoesFallback));
 }
 
 // Executar alteração de prioridade
@@ -1330,7 +1468,7 @@ function executarAlteracaoPrioridade(ticketId, novaPrioridade) {
     console.log('✅ mostrarLoader chamado');
 
     const xhr = new XMLHttpRequest();
-    xhr.open('PUT', `/crpdesk/api/controllers/tickets.php?id=${ticketId}`, true);
+    xhr.open('PUT', `${window.APP_CONFIG.apiBase}tickets.php?id=${ticketId}`, true);
     xhr.setRequestHeader('Content-Type', 'application/json');
 
     // Adicionar token de autenticação
@@ -1343,7 +1481,7 @@ function executarAlteracaoPrioridade(ticketId, novaPrioridade) {
             carregarTickets();
 
             // Se estiver na página de detalhes, recarregar detalhes
-            const ticketAtivo = localStorage.getItem('ticketAtivo');
+            const ticketAtivo = localStorage.getItem('cd_ticketAtivo');
             if (ticketAtivo && parseInt(ticketAtivo) === ticketId) {
                 setTimeout(() => verDetalhes(ticketId), 300);
             }
@@ -1371,17 +1509,17 @@ function executarAlteracaoStatus(ticketId, novoStatus, callback) {
 
     mostrarLoader();
 
-    const usuario = JSON.parse(localStorage.getItem('usuario'));
+    const usuario = JSON.parse(localStorage.getItem('cd_usuario'));
 
     const xhr = new XMLHttpRequest();
-    xhr.open('PUT', `/crpdesk/api/controllers/tickets.php?id=${ticketId}`, true);
+    xhr.open('PUT', `${window.APP_CONFIG.apiBase}tickets.php?id=${ticketId}`, true);
     xhr.setRequestHeader('Content-Type', 'application/json');
     setSecurityHeaders(xhr);
 
     xhr.onload = function () {
         ocultarLoader();
         if (xhr.status === 200) {
-            const mensagem = (novoStatus === 'aberto' || novoStatus === 'atendimento') ? 'Ticket reaberto com sucesso!' : 'Status alterado com sucesso!';
+            const mensagem = (novoStatus === 'aberto' || novoStatus === 'atendimento') ? 'Demanda reaberta com sucesso!' : 'Status alterado com sucesso!';
 
             // Se for encerramento, animar remoção da lista
             if (novoStatus === 'encerrado' || novoStatus === 'cancelado') {
@@ -1397,7 +1535,7 @@ function executarAlteracaoStatus(ticketId, novoStatus, callback) {
             }
 
             // Se estiver na página de detalhes, recarregar detalhes
-            const ticketAtivo = localStorage.getItem('ticketAtivo');
+            const ticketAtivo = localStorage.getItem('cd_ticketAtivo');
             if (ticketAtivo && parseInt(ticketAtivo) === ticketId && !callback) {
                 setTimeout(() => verDetalhes(ticketId), 300);
             }
@@ -1411,9 +1549,9 @@ function executarAlteracaoStatus(ticketId, novoStatus, callback) {
         } else {
             try {
                 const erro = JSON.parse(xhr.responseText);
-                mostrarAlert('Atenção', erro.error || 'Erro ao atualizar ticket');
+                mostrarAlert('Atenção', erro.error || 'Erro ao atualizar demanda');
             } catch (e) {
-                mostrarAlert('Erro', 'Erro ao atualizar ticket');
+                mostrarAlert('Erro', 'Erro ao atualizar demanda');
             }
         }
     };
@@ -1444,24 +1582,25 @@ function verDetalhes(ticketId) {
     const secaoAtiva = document.querySelector('.secao.active');
     if (secaoAtiva && secaoAtiva.id !== 'detalhes') {
         secaoOrigem = secaoAtiva.id;
-        localStorage.setItem('secaoOrigem', secaoOrigem);
+        localStorage.setItem('cd_secaoOrigem', secaoOrigem);
     }
 
     // Salvar ticket ativo
-    localStorage.setItem('ticketAtivo', ticketId);
-    localStorage.setItem('secaoAtiva', 'detalhes');
+    localStorage.setItem('cd_ticketAtivo', ticketId);
+    localStorage.setItem('cd_secaoAtiva', 'detalhes');
 
     mostrarLoader();
 
     const xhr = new XMLHttpRequest();
-    xhr.open('GET', `/crpdesk/api/controllers/tickets.php?id=${ticketId}`, true);
+    xhr.open('GET', `${window.APP_CONFIG.apiBase}tickets.php?id=${ticketId}`, true);
+    setSecurityHeaders(xhr);
 
     xhr.onload = function () {
         ocultarLoader();
         if (xhr.status === 200) {
             const ticket = JSON.parse(xhr.responseText);
             // Salvar dados do ticket para saber se é fechado
-            localStorage.setItem('ticketAtual', JSON.stringify(ticket));
+            localStorage.setItem('cd_ticketAtual', JSON.stringify(ticket));
             mostrarSecao('detalhes');
 
             setTimeout(() => {
@@ -1489,7 +1628,7 @@ function verDetalhes(ticketId) {
             }, 100);
         } else {
             console.error('Erro ao carregar detalhes:', xhr.status, xhr.responseText);
-            mostrarAlert('Erro', 'Erro ao carregar detalhes do ticket');
+            mostrarAlert('Erro', 'Erro ao carregar detalhes da demanda');
         }
     };
 
@@ -1503,9 +1642,9 @@ function verDetalhes(ticketId) {
 }
 
 function marcarComentariosLidos(ticketId) {
-    const usuario = JSON.parse(localStorage.getItem('usuario'));
+    const usuario = JSON.parse(localStorage.getItem('cd_usuario'));
     const xhr = new XMLHttpRequest();
-    xhr.open('PUT', `/crpdesk/api/controllers/comentarios.php?marcar_lido=1&ticket_id=${ticketId}&usuario_id=${usuario.id}`);
+    xhr.open('PUT', `${window.APP_CONFIG.apiBase}comentarios.php?marcar_lido=1&ticket_id=${ticketId}&usuario_id=${usuario.id}`);
     setSecurityHeaders(xhr);
     xhr.send();
 }
@@ -1534,22 +1673,67 @@ function formatarAcaoHistorico(acao, valorAnterior, valorNovo) {
             const priorNova = formatarPrioridade(valorNovo);
             return `alterou a prioridade de <strong>${priorAnt}</strong> para <strong>${priorNova}</strong>`;
         case 'categoria':
-            const catAnt = valorAnterior || 'Sem categoria';
-            const catNova = valorNovo || 'Sem categoria';
+            const catAnt = valorAnterior || 'Sem subcategoria';
+            const catNova = valorNovo || 'Sem subcategoria';
             return `alterou a categoria de <strong>${catAnt}</strong> para <strong>${catNova}</strong>`;
         case 'atribuicao':
             const agenteAnt = valorAnterior && valorAnterior !== 'Não atribuído' ? valorAnterior : null;
             const agenteNovo = valorNovo || 'Não atribuído';
             if (agenteAnt) {
-                return `reatribuiu o ticket de <strong>${agenteAnt}</strong> para <strong>${agenteNovo}</strong>`;
+                return `reatribuiu a demanda de <strong>${agenteAnt}</strong> para <strong>${agenteNovo}</strong>`;
             } else {
-                return `atribuiu o ticket para <strong>${agenteNovo}</strong>`;
+                return `atribuiu a demanda para <strong>${agenteNovo}</strong>`;
             }
         case 'merge':
-            return `mesclou os tickets <strong>#${valorNovo}</strong> neste ticket`;
+            return `mesclou as demandas <strong>#${valorNovo}</strong> nesta demanda`;
+        case 'atribuicao_supervisor':
+            return `atribuiu a demanda para <strong>${valorNovo}</strong>`;
+        case 'devolucao':
+            return `devolveu a demanda ao supervisor (estava com <strong>${valorAnterior}</strong>)`;
+        case 'reatribuicao_colega':
+            return `repassou a demanda de <strong>${valorAnterior}</strong> para <strong>${valorNovo}</strong>`;
+        case 'transferencia_setor':
+            return `transferiu a demanda do setor <strong>${valorAnterior}</strong> para <strong>${valorNovo}</strong>`;
         default:
             return `realizou a ação: <strong>${acao}</strong>`;
     }
+}
+
+// Monta os botões de ação de fluxo multi-setor (atribuir/devolver/repassar/transferir)
+// disponíveis conforme o papel do usuário logado e o estado atual da demanda.
+function gerarAcoesDemandaHTML(ticket) {
+    const usuario = JSON.parse(localStorage.getItem('cd_usuario'));
+    if (!usuario) return '';
+
+    const demandaEncerrada = ['encerrado', 'fechado', 'cancelado'].includes(ticket.status);
+    if (demandaEncerrada) return '';
+
+    const ehResponsavelAtual = ticket.agente_id && ticket.agente_id == usuario.id;
+    const botoes = [];
+
+    if (usuario.tipo === 'supervisor' || usuario.tipo === 'admin') {
+        botoes.push(`<button class="btn-primary" onclick="atribuirTicket(${ticket.id})">👤 Atribuir a Colaborador</button>`);
+    }
+
+    if (usuario.tipo === 'usuario' && ehResponsavelAtual) {
+        botoes.push(`<button class="btn-primary" onclick="devolverAoSupervisor(${ticket.id})" style="background-color:#6c757d;">↩️ Devolver ao Supervisor</button>`);
+        botoes.push(`<button class="btn-primary" onclick="repassarParaColega(${ticket.id})" style="background-color:#17a2b8;">🔁 Repassar a Colega</button>`);
+    }
+
+    if (usuario.tipo === 'supervisor' || (usuario.tipo === 'usuario' && ehResponsavelAtual)) {
+        botoes.push(`<button class="btn-primary" onclick="transferirParaSetor(${ticket.id})" style="background-color:#fd7e14;">🏢 Transferir para Outro Setor</button>`);
+    }
+
+    if (botoes.length === 0) return '';
+
+    return `
+        <div class="acoes-demanda-section" style="margin-top: 1.5rem; border-top: 1px solid #eee; padding-top: 1rem;">
+            <h3 style="font-size: 1.1rem; font-weight: bold; margin-bottom: 0.75rem;">Ações da Demanda</h3>
+            <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
+                ${botoes.join('')}
+            </div>
+        </div>
+    `;
 }
 
 // Mostrar detalhes do ticket
@@ -1619,9 +1803,9 @@ function mostrarDetalhesTicket(ticket) {
                         acao = `alterou a categoria de <strong>${partes[0]}</strong> para <strong>${partes[1]}</strong>`;
                     } else if (item.acao === 'atribuicao') {
                         if (partes[0] === 'Não atribuído') {
-                            acao = `atribuiu o ticket para <strong>${partes[1]}</strong>`;
+                            acao = `atribuiu a demanda para <strong>${partes[1]}</strong>`;
                         } else {
-                            acao = `reatribuiu o ticket de <strong>${partes[0]}</strong> para <strong>${partes[1]}</strong>`;
+                            acao = `reatribuiu a demanda de <strong>${partes[0]}</strong> para <strong>${partes[1]}</strong>`;
                         }
                     }
                 } else {
@@ -1646,7 +1830,7 @@ function mostrarDetalhesTicket(ticket) {
         comentariosHtml = '<p style="color: #999; font-style: italic;">Nenhum comentário ou histórico ainda.</p>';
     }
 
-    const usuario = JSON.parse(localStorage.getItem('usuario'));
+    const usuario = JSON.parse(localStorage.getItem('cd_usuario'));
     const isAdmin = usuario && usuario.tipo === 'admin';
 
     detalhesDiv.innerHTML = `
@@ -1663,7 +1847,7 @@ function mostrarDetalhesTicket(ticket) {
             <div class="ticket-header">
                 <div style="display: flex; align-items: center; gap: 1rem;">
                     <span class="ticket-id" style="font-size: 1.5rem;">#${String(ticket.id).padStart(5, '0')}</span>
-                    ${ticket.eh_mesclado > 0 ? '<span title="Ticket mesclado" style="font-size: 1.5rem;">🔗</span>' : ''}
+                    ${ticket.eh_mesclado > 0 ? '<span title="Demanda mesclada" style="font-size: 1.5rem;">🔗</span>' : ''}
                     ${ticket.status === 'fechado' ? '<span class="carimbo-fechado">FECHADO</span>' : ''}
                 </div>
                 <div style="display: flex; gap: 0.5rem; align-items: center;">
@@ -1671,7 +1855,7 @@ function mostrarDetalhesTicket(ticket) {
                         ${ticket.agente_nome || 'Não atribuído'}
                     </span>
                     <span class="status categoria ${ticket.categoria_nome ? '' : 'sem-categoria'} ${ticket.status === 'fechado' ? 'disabled' : 'clickable'}" ${ticket.status === 'fechado' ? '' : `onclick="alterarCategoria(${ticket.id})" title="Clique para alterar"`}>
-                        ${ticket.categoria_nome || 'Sem categoria'}
+                        ${ticket.categoria_nome || 'Sem subcategoria'}
                     </span>
                     <span class="status ${ticket.status || 'aberto'} ${ticket.status === 'encerrado' ? 'disabled' : 'clickable'}" ${ticket.status === 'encerrado' ? '' : `onclick="alterarStatus(${ticket.id})" title="Clique para alterar"`}>
                         ${typeof formatarNomeStatus === 'function' ? formatarNomeStatus(ticket.status || 'aberto') : (window.STATUS_CONFIG && window.STATUS_CONFIG[ticket.status || 'aberto'] ? window.STATUS_CONFIG[ticket.status || 'aberto'].nome : (ticket.status || 'aberto').charAt(0).toUpperCase() + (ticket.status || 'aberto').slice(1).toLowerCase())}
@@ -1699,7 +1883,13 @@ function mostrarDetalhesTicket(ticket) {
             `<p><strong>Encerrado por:</strong> ${ticket.fechado_por_nome} em ${new Date(ticket.fechado_em).toLocaleString('pt-BR')}</p>` :
             ''
         }
-            
+            ${ticket.agente_nome && ticket.atribuido_em ?
+            `<p><strong>Atribuída a:</strong> ${ticket.agente_nome} em ${new Date(ticket.atribuido_em).toLocaleString('pt-BR')}</p>` :
+            ''
+        }
+
+            ${gerarAcoesDemandaHTML(ticket)}
+
             ${ticket.anexos.length > 0 ? `
                 <div class="anexos-section" style="margin-top: 1.5rem; border-top: 1px solid #eee; padding-top: 1rem;">
                     <h3><img src="images/clipe-de-anexo.png" style="width: 20px; height: 20px; vertical-align: middle; margin-right: 0.5rem;" alt="Anexos">Anexos (${ticket.anexos.length})</h3>
@@ -2010,8 +2200,8 @@ function adicionarComentario(event, ticketId) {
     const comentario = document.getElementById('novo-comentario').value;
     const enviarEmail = document.getElementById('enviar-email').checked;
     const comCopia = document.getElementById('com-copia').value;
-    const usuario = JSON.parse(localStorage.getItem('usuario'));
-    const token = localStorage.getItem('token');
+    const usuario = JSON.parse(localStorage.getItem('cd_usuario'));
+    const token = localStorage.getItem('cd_token');
 
     // Usar FormData para suportar anexos
     const formData = new FormData();
@@ -2032,15 +2222,15 @@ function adicionarComentario(event, ticketId) {
 
     mostrarLoader();
 
-    let csrfToken = localStorage.getItem('csrf_token') || '';
+    let csrfToken = localStorage.getItem('cd_csrf_token') || '';
     if (!csrfToken) {
         try {
-            const t = localStorage.getItem('token');
+            const t = localStorage.getItem('cd_token');
             const payload = JSON.parse(atob(t.split('.')[1].replace(/-/g, '+').replace(/_/g, '/')));
             csrfToken = payload.csrf || '';
         } catch (e) {}
     }
-    fetch('/crpdesk/api/controllers/comentarios.php', {
+    fetch(window.APP_CONFIG.apiBase + 'comentarios.php', {
         method: 'POST',
         headers: {
             'Authorization': `Bearer ${token}`,
@@ -2145,9 +2335,9 @@ function adicionarComentario(event, ticketId) {
 
                     // Registros de email enviado
                     if (enviarEmail) {
-                        const usuario = JSON.parse(localStorage.getItem('usuario') || '{}');
+                        const usuario = JSON.parse(localStorage.getItem('cd_usuario') || '{}');
                         const agora = new Date().toLocaleString('pt-BR');
-                        const ticketAtual = JSON.parse(localStorage.getItem('ticketAtual') || '{}');
+                        const ticketAtual = JSON.parse(localStorage.getItem('cd_ticketAtual') || '{}');
 
                         if (ticketAtual && ticketAtual.usuario_email) {
                             const histDiv = document.createElement('div');
@@ -2296,7 +2486,7 @@ function mostrarConfirm(titulo, mensagem, callback, isPerigoso = false) {
     btnConfirm.classList.remove('btn-danger-modal', 'btn-primary-modal', 'btn-laranja-modal', 'btn-vermelho-modal');
 
     if (titulo.toLowerCase().includes('enviar e fechar')) {
-        // Modal "Enviar e Fechar Ticket" usa botão "Sim"
+        // Modal "Enviar e Fechar Demanda" usa botão "Sim"
         header.classList.add('atribuicao');
         btnConfirm.classList.add('btn-primary-modal');
         btnConfirm.textContent = 'Sim';
@@ -2347,8 +2537,8 @@ function mostrarSelect(titulo, mensagem, opcoes, callback) {
 
     const optionsDiv = document.getElementById('modal-select-options');
 
-    // Adicionar campo de pesquisa se for categoria
-    if (titulo.includes('Categoria')) {
+    // Adicionar campo de pesquisa se for (sub)categoria
+    if (/categoria/i.test(titulo)) {
         optionsDiv.innerHTML = `
             <div style="margin-bottom: 1rem;">
                 <input type="text" id="pesquisa-categoria" placeholder="Digite para pesquisar..." 
@@ -2471,6 +2661,214 @@ function selecionarModal(opcao) {
     }
 }
 
+// === GERENCIAMENTO DE SETORES (admin) ===
+
+function mostrarSetores() {
+    document.querySelectorAll('.btn-config').forEach(btn => btn.classList.remove('active'));
+    localStorage.setItem('cd_subSecaoAtiva', 'setores');
+    const configTitle = document.getElementById('config-title');
+    if (configTitle) configTitle.textContent = '🏢 Gerenciar Setores';
+
+    const content = document.getElementById('config-content');
+    if (content) {
+        content.style.animation = 'none';
+        setTimeout(() => {
+            content.style.animation = '';
+            carregarSetores();
+        }, 100);
+    } else {
+        setTimeout(() => mostrarSetores(), 200);
+    }
+}
+
+function carregarSetores() {
+    const usuarioLogado = JSON.parse(localStorage.getItem('cd_usuario') || '{}');
+    const ehAdmin = usuarioLogado.tipo === 'admin';
+
+    const xhr = new XMLHttpRequest();
+    xhr.open('GET', window.APP_CONFIG.apiBase + 'setores.php' + (ehAdmin ? '?incluir_inativos=1' : ''), true);
+    setSecurityHeaders(xhr);
+
+    xhr.onload = function () {
+        if (xhr.status === 200) {
+            let setores = JSON.parse(xhr.responseText);
+            // Supervisor só gerencia (edita o nome de) o próprio setor
+            if (!ehAdmin) {
+                setores = setores.filter(s => s.id == usuarioLogado.setor_id);
+            }
+            mostrarListaSetores(setores);
+        } else {
+            document.getElementById('config-content').innerHTML = '<p>Erro ao carregar setores.</p>';
+        }
+    };
+    xhr.send();
+}
+
+function mostrarListaSetores(setores) {
+    const content = document.getElementById('config-content');
+    const usuarioLogado = JSON.parse(localStorage.getItem('cd_usuario') || '{}');
+    const ehAdmin = usuarioLogado.tipo === 'admin';
+
+    const cards = setores.map(setor => `
+        <div class="usuario-card ${setor.ativo == 0 ? 'usuario-inativo' : ''}">
+            <div class="usuario-info">
+                <h4>${setor.nome} ${setor.ativo == 0 ? '<span style="color: #dc3545;">(Inativo)</span>' : ''}</h4>
+                <p><strong>Criado:</strong> ${new Date(setor.criado_em).toLocaleDateString('pt-BR')}</p>
+            </div>
+            <div class="usuario-acoes">
+                ${ehAdmin ? `
+                    <button class="btn-${setor.ativo == 1 ? 'desativar' : 'ativar'}" onclick="alternarAtivoSetor(${setor.id}, ${setor.ativo == 1 ? 'false' : 'true'})">
+                        ${setor.ativo == 1 ? 'Desativar' : 'Ativar'}
+                    </button>
+                ` : ''}
+                <button class="btn-editar" onclick="editarSetor(${setor.id}, '${setor.nome.replace(/'/g, "\\'")}')">Editar</button>
+            </div>
+        </div>
+    `).join('');
+
+    content.innerHTML = `
+        ${ehAdmin ? `
+            <button onclick="toggleFormSetor()" class="btn-primary" style="margin-bottom: 1rem;">➕ Adicionar Novo Setor</button>
+
+            <div class="form-usuario" id="form-novo-setor" style="display: none; overflow: hidden; max-height: 0; transition: max-height 0.3s ease-out;">
+                <h3>Adicionar Novo Setor</h3>
+                <form id="form-setor" onsubmit="criarSetor(event)">
+                    <div class="form-group">
+                        <label for="nome-setor">Nome do setor:</label>
+                        <input type="text" id="nome-setor" required>
+                    </div>
+                    <button type="submit" class="btn-primary">Adicionar Setor</button>
+                </form>
+            </div>
+        ` : '<p style="color:#666;margin-bottom:1rem;">Você pode renomear o seu próprio setor. Criar, desativar ou excluir setores é uma ação exclusiva de administradores.</p>'}
+
+        <div class="usuarios-grid">${cards}</div>
+    `;
+}
+
+function toggleFormSetor() {
+    const form = document.getElementById('form-novo-setor');
+    const isVisible = form.style.display === 'block';
+
+    if (isVisible) {
+        form.style.maxHeight = '0';
+        setTimeout(() => form.style.display = 'none', 300);
+    } else {
+        form.style.display = 'block';
+        setTimeout(() => form.style.maxHeight = form.scrollHeight + 'px', 10);
+    }
+}
+
+function criarSetor(event) {
+    event.preventDefault();
+    const nome = document.getElementById('nome-setor').value;
+
+    const xhr = new XMLHttpRequest();
+    xhr.open('POST', window.APP_CONFIG.apiBase + 'setores.php', true);
+    xhr.setRequestHeader('Content-Type', 'application/json');
+    setSecurityHeaders(xhr);
+
+    xhr.onload = function () {
+        if (xhr.status === 200) {
+            mostrarToast('Sucesso', 'Setor criado com sucesso!', 'success');
+            document.getElementById('form-setor').reset();
+            carregarSetores();
+        } else {
+            const response = xhr.responseText ? JSON.parse(xhr.responseText) : {};
+            mostrarAlert('Erro', response.error || 'Erro ao criar setor');
+        }
+    };
+    xhr.send(JSON.stringify({ nome }));
+}
+
+function editarSetor(setorId, nomeAtual) {
+    document.getElementById('modal-prompt-message').innerHTML = `
+        <div class="form-group">
+            <label for="edit-nome-setor">Nome do setor:</label>
+            <input type="text" id="edit-nome-setor" value="${nomeAtual}" required>
+        </div>
+    `;
+    document.getElementById('modal-prompt-title').textContent = 'Editar Setor';
+    document.getElementById('modal-prompt-input').style.display = 'none';
+    document.getElementById('modal-overlay').classList.add('show');
+    document.getElementById('modal-prompt').classList.add('show');
+
+    modalCallback = function (confirmado) {
+        if (confirmado) {
+            const novoNome = document.getElementById('edit-nome-setor').value.trim();
+            if (novoNome) executarEdicaoSetor(setorId, novoNome);
+        }
+        document.getElementById('modal-prompt-input').style.display = 'block';
+        document.getElementById('modal-prompt-message').innerHTML = '';
+    };
+}
+
+function executarEdicaoSetor(setorId, nome) {
+    const xhr = new XMLHttpRequest();
+    xhr.open('PUT', `${window.APP_CONFIG.apiBase}setores.php/${setorId}`, true);
+    xhr.setRequestHeader('Content-Type', 'application/json');
+    setSecurityHeaders(xhr);
+
+    xhr.onload = function () {
+        if (xhr.status === 200) {
+            mostrarToast('Sucesso', 'Setor atualizado com sucesso!', 'success');
+            carregarSetores();
+        } else {
+            const response = xhr.responseText ? JSON.parse(xhr.responseText) : {};
+            mostrarAlert('Erro', response.error || 'Erro ao atualizar setor');
+        }
+    };
+    xhr.send(JSON.stringify({ nome }));
+}
+
+function alternarAtivoSetor(setorId, ativo) {
+    const xhr = new XMLHttpRequest();
+    xhr.open('PUT', `${window.APP_CONFIG.apiBase}setores.php/${setorId}`, true);
+    xhr.setRequestHeader('Content-Type', 'application/json');
+    setSecurityHeaders(xhr);
+
+    xhr.onload = function () {
+        if (xhr.status === 200) {
+            mostrarToast('Sucesso', ativo ? 'Setor ativado!' : 'Setor desativado!', 'success');
+            carregarSetores();
+        } else {
+            const response = xhr.responseText ? JSON.parse(xhr.responseText) : {};
+            mostrarAlert('Erro', response.error || 'Erro ao atualizar setor');
+        }
+    };
+    xhr.send(JSON.stringify({ ativo }));
+}
+
+// === CONTROLE DE VISIBILIDADE POR PAPEL ===
+
+// Mostra/oculta o menu Configurações e seus itens conforme o papel do usuário logado.
+// admin: vê tudo. supervisor: vê só "Gerenciar Usuários" (escopado ao próprio setor).
+// usuario/cliente: menu Configurações fica oculto por completo.
+function aplicarVisibilidadePorPapel(tipo) {
+    const menuConfigWrapper = document.getElementById('nav-config-wrapper');
+    if (!menuConfigWrapper) return;
+
+    if (tipo === 'admin') {
+        menuConfigWrapper.style.display = '';
+        return;
+    }
+
+    if (tipo === 'supervisor') {
+        menuConfigWrapper.style.display = '';
+        // Categorias, Auditoria e Setores são liberados para supervisor (escopados ao próprio
+        // setor no backend e na tela — supervisor só vê/edita o nome do próprio setor).
+        const itensAdminApenas = ['btn-config-horarios', 'btn-config-email', 'btn-config-personalizacao'];
+        itensAdminApenas.forEach(id => {
+            const el = document.getElementById(id);
+            if (el) el.style.display = 'none';
+        });
+        return;
+    }
+
+    // usuario/cliente: sem acesso a Configurações
+    menuConfigWrapper.style.display = 'none';
+}
+
 // === GERENCIAMENTO DE USUÁRIOS ===
 
 // Mostrar gerenciamento de usuários
@@ -2480,7 +2878,7 @@ function mostrarUsuarios() {
     const _bbtn_usuarios = document.getElementById('btn-usuarios'); if (_bbtn_usuarios) _bbtn_usuarios.classList.add('active');
 
     // Salvar subseção
-    localStorage.setItem('subSecaoAtiva', 'usuarios');
+    localStorage.setItem('cd_subSecaoAtiva', 'usuarios');
     const configTitle = document.getElementById('config-title'); if (configTitle) configTitle.textContent = String.fromCodePoint(0x1F465) + ' Gerenciar Usu\u00e1rios';
 
     const content = document.getElementById('config-content');
@@ -2498,16 +2896,31 @@ function mostrarUsuarios() {
 
 // Carregar lista de usuários
 function carregarUsuarios() {
-    const xhr = new XMLHttpRequest();
-    xhr.open('GET', '/crpdesk/api/controllers/usuarios.php', true);
+    const usuarioLogado = JSON.parse(localStorage.getItem('cd_usuario') || '{}');
+    const ehAdmin = usuarioLogado.tipo === 'admin';
 
-    // Adicionar token de autenticação
+    const xhr = new XMLHttpRequest();
+    xhr.open('GET', window.APP_CONFIG.apiBase + 'usuarios.php', true);
     setSecurityHeaders(xhr);
 
     xhr.onload = function () {
         if (xhr.status === 200) {
             const usuarios = JSON.parse(xhr.responseText);
-            mostrarListaUsuarios(usuarios);
+
+            // Admin precisa da lista de setores para poder escolher em qual setor
+            // cadastrar/mover um usuário. Supervisor não precisa (fica travado no próprio setor).
+            if (ehAdmin) {
+                const xhrSetores = new XMLHttpRequest();
+                xhrSetores.open('GET', window.APP_CONFIG.apiBase + 'setores.php', true);
+                setSecurityHeaders(xhrSetores);
+                xhrSetores.onload = function () {
+                    const setores = xhrSetores.status === 200 ? JSON.parse(xhrSetores.responseText) : [];
+                    mostrarListaUsuarios(usuarios, setores);
+                };
+                xhrSetores.send();
+            } else {
+                mostrarListaUsuarios(usuarios, []);
+            }
         } else {
             document.getElementById('config-content').innerHTML = '<p>Erro ao carregar usuários.</p>';
         }
@@ -2517,137 +2930,142 @@ function carregarUsuarios() {
 }
 
 // Mostrar lista de usuários
-function mostrarListaUsuarios(usuarios) {
+function mostrarListaUsuarios(usuarios, setores) {
     const content = document.getElementById('config-content');
+    const usuarioLogado = JSON.parse(localStorage.getItem('cd_usuario') || '{}');
+    const ehAdmin = usuarioLogado.tipo === 'admin';
+    setores = setores || [];
 
-    // Debug: verificar tipos existentes
-    console.log('Usuários recebidos:', usuarios.map(u => ({ nome: u.nome, tipo: u.tipo })));
-
-    // Separar usuários por tipo (tratar vazios como usuários comuns)
+    // Separar por papel (tratar vazio como usuário comum, por segurança de exibição)
     const admins = usuarios.filter(u => u.tipo === 'admin');
-    const agentes = usuarios.filter(u => u.tipo === 'agente');
+    const supervisores = usuarios.filter(u => u.tipo === 'supervisor');
     const usuariosComuns = usuarios.filter(u => u.tipo === 'usuario' || u.tipo === '' || !u.tipo);
-    const outrosTipos = usuarios.filter(u => u.tipo && !['admin', 'agente', 'usuario', ''].includes(u.tipo));
+    const outrosTipos = usuarios.filter(u => u.tipo && !['admin', 'supervisor', 'usuario', ''].includes(u.tipo));
 
-    console.log('Separação:', { admins: admins.length, agentes: agentes.length, usuariosComuns: usuariosComuns.length, outros: outrosTipos.length });
-    console.log('Outros tipos encontrados:', outrosTipos.map(u => u.tipo));
+    function rotuloTipo(tipo) {
+        if (tipo === 'admin') return 'Administrador';
+        if (tipo === 'supervisor') return 'Supervisor';
+        if (tipo === 'usuario' || !tipo) return 'Usuário';
+        return tipo;
+    }
 
     function gerarCardUsuario(usuario) {
-        const tipoExibicao = (usuario.tipo === 'usuario' || usuario.tipo === '' || !usuario.tipo) ? 'Usuário' :
-            usuario.tipo === 'agente' ? 'Agente' :
-                usuario.tipo === 'admin' ? 'Administrador' : usuario.tipo;
-
-        const isAgenteOuAdmin = usuario.tipo === 'agente' || usuario.tipo === 'admin';
+        const tipoExibicao = rotuloTipo(usuario.tipo);
         const statusAtivo = usuario.ativo === 1 || usuario.ativo === '1';
 
         return `
             <div class="usuario-card ${!statusAtivo ? 'usuario-inativo' : ''}">
                 <div class="usuario-info">
                     <h4>${usuario.nome} ${!statusAtivo ? '<span style="color: #dc3545;">(Inativo)</span>' : ''}</h4>
-                    <p>${usuario.email}</p>
-                    <p><strong>Tipo:</strong> ${tipoExibicao} | <strong>Criado:</strong> ${new Date(usuario.criado_em).toLocaleDateString('pt-BR')}</p>
+                    <p>${usuario.email}${usuario.username ? ` · <code>${usuario.username}</code>` : ''}</p>
+                    <p><strong>Papel:</strong> ${tipoExibicao}${usuario.cargo ? ` · <strong>Cargo:</strong> ${usuario.cargo}` : ''}${usuario.setor_nome ? ` · <strong>Setor:</strong> ${usuario.setor_nome}` : ''}</p>
+                    <p><strong>Criado:</strong> ${new Date(usuario.criado_em).toLocaleDateString('pt-BR')}</p>
                 </div>
                 <div class="usuario-acoes">
-                    ${isAgenteOuAdmin ? `
-                        <button class="btn-${statusAtivo ? 'desativar' : 'ativar'}" onclick="${statusAtivo ? 'desativar' : 'ativar'}Usuario(${usuario.id})">
-                            ${statusAtivo ? 'Desativar' : 'Ativar'}
-                        </button>
-                    ` : ''}
+                    <button class="btn-${statusAtivo ? 'desativar' : 'ativar'}" onclick="${statusAtivo ? 'desativar' : 'ativar'}Usuario(${usuario.id})">
+                        ${statusAtivo ? 'Desativar' : 'Ativar'}
+                    </button>
                     <button class="btn-editar" onclick="editarUsuario(${usuario.id})">Editar</button>
-                    <button class="btn-excluir" onclick="excluirUsuario(${usuario.id})">Excluir</button>
+                    ${ehAdmin ? `<button class="btn-excluir" onclick="excluirUsuario(${usuario.id})">Excluir</button>` : ''}
                 </div>
             </div>
         `;
     }
-
-    let adminsHtml = '';
-    admins.forEach(admin => {
-        adminsHtml += gerarCardUsuario(admin);
-    });
-
-    let agentesHtml = '';
-    agentes.forEach(agente => {
-        agentesHtml += gerarCardUsuario(agente);
-    });
-
-    let usuariosComunsHtml = '';
-    usuariosComuns.forEach(usuario => {
-        usuariosComunsHtml += gerarCardUsuario(usuario);
-    });
 
     let secoes = '';
 
     if (admins.length > 0) {
-        secoes += `
-            <h3>👑 Administradores (${admins.length})</h3>
-            <div class="usuarios-grid">
-                ${adminsHtml}
-            </div>
-        `;
+        secoes += `<h3>👑 Administradores (${admins.length})</h3><div class="usuarios-grid">${admins.map(gerarCardUsuario).join('')}</div>`;
     }
-
-    if (agentes.length > 0) {
-        secoes += `
-            <h3>🛠️ Agentes (${agentes.length})</h3>
-            <div class="usuarios-grid">
-                ${agentesHtml}
-            </div>
-        `;
+    if (supervisores.length > 0) {
+        secoes += `<h3>🧭 Supervisores (${supervisores.length})</h3><div class="usuarios-grid">${supervisores.map(gerarCardUsuario).join('')}</div>`;
     }
-
     if (usuariosComuns.length > 0) {
-        secoes += `
-            <h3>👥 Usuários (${usuariosComuns.length})</h3>
-            <div class="usuarios-grid">
-                ${usuariosComunsHtml}
-            </div>
-        `;
+        secoes += `<h3>👥 Usuários (${usuariosComuns.length})</h3><div class="usuarios-grid">${usuariosComuns.map(gerarCardUsuario).join('')}</div>`;
     }
-
-    // Mostrar outros tipos se existirem
     if (outrosTipos.length > 0) {
-        let outrosHtml = '';
-        outrosTipos.forEach(usuario => {
-            outrosHtml += gerarCardUsuario(usuario);
-        });
-
-        secoes += `
-            <h3>🔄 Outros Tipos (${outrosTipos.length})</h3>
-            <div class="usuarios-grid">
-                ${outrosHtml}
-            </div>
-        `;
+        secoes += `<h3>🔄 Outros Papéis (${outrosTipos.length})</h3><div class="usuarios-grid">${outrosTipos.map(gerarCardUsuario).join('')}</div>`;
     }
+
+    // Opções de papel: supervisor só pode cadastrar "usuario"; admin pode tudo
+    const opcoesTipo = ehAdmin
+        ? `<option value="usuario">Usuário</option>
+           <option value="supervisor">Supervisor</option>
+           <option value="admin">Administrador</option>`
+        : `<option value="usuario">Usuário</option>`;
+
+    // Setor só é escolhido pelo admin — supervisor fica travado no próprio setor no backend
+    const campoSetor = ehAdmin ? `
+                    <div class="form-group">
+                        <label for="setor-usuario">Setor:</label>
+                        <select id="setor-usuario">
+                            <option value="">Nenhum (obrigatório para Usuário/Supervisor)</option>
+                            ${setores.map(s => `<option value="${s.id}">${s.nome}</option>`).join('')}
+                        </select>
+                    </div>` : '';
 
     content.innerHTML = `
         <button onclick="toggleFormUsuario()" class="btn-primary" style="margin-bottom: 1rem;">
             ➕ Adicionar Novo Usuário
         </button>
-        
+
         <div class="form-usuario" id="form-novo-usuario" style="display: none; overflow: hidden; max-height: 0; transition: max-height 0.3s ease-out;">
             <h3>Adicionar Novo Usuário</h3>
             <form id="form-usuario" onsubmit="criarUsuario(event)">
-                <div class="form-group">
-                    <label for="nome-usuario">Nome:</label>
-                    <input type="text" id="nome-usuario" required>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="nome-usuario">Nome completo:</label>
+                        <input type="text" id="nome-usuario" required oninput="sugerirUsername()">
+                    </div>
+                    <div class="form-group">
+                        <label for="username-usuario">Nome de usuário:</label>
+                        <input type="text" id="username-usuario" placeholder="gerado automaticamente (nome.sobrenome)"
+                            oninput="this.dataset.editadoManualmente='true'">
+                    </div>
                 </div>
-                <div class="form-group">
-                    <label for="email-usuario">Email:</label>
-                    <input type="email" id="email-usuario" required>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="email-usuario">Email:</label>
+                        <input type="email" id="email-usuario" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="cargo-usuario">Cargo/Função:</label>
+                        <input type="text" id="cargo-usuario">
+                    </div>
                 </div>
-                <div class="form-group">
-                    <label for="tipo-usuario">Tipo:</label>
-                    <select id="tipo-usuario">
-                        <option value="agente">Agente</option>
-                        <option value="admin">Administrador</option>
-                    </select>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="tipo-usuario">Perfil:</label>
+                        <select id="tipo-usuario">
+                            ${opcoesTipo}
+                        </select>
+                    </div>
+                    ${campoSetor}
                 </div>
                 <button type="submit" class="btn-primary">Adicionar Usuário</button>
             </form>
         </div>
-        
+
         ${secoes}
     `;
+}
+
+// Sugere um username (nome.sobrenome) a partir do nome completo digitado, sem sobrescrever edição manual
+function sugerirUsername() {
+    const campoUsername = document.getElementById('username-usuario');
+    if (!campoUsername || campoUsername.dataset.editadoManualmente === 'true') return;
+
+    const nome = document.getElementById('nome-usuario').value.trim();
+    const partes = nome.normalize('NFD').replace(/[̀-ͯ]/g, '')
+        .toLowerCase().replace(/[^a-z\s]/g, '').trim().split(/\s+/).filter(Boolean);
+
+    if (partes.length === 0) {
+        campoUsername.value = '';
+    } else if (partes.length === 1) {
+        campoUsername.value = partes[0];
+    } else {
+        campoUsername.value = `${partes[0]}.${partes[partes.length - 1]}`;
+    }
 }
 
 // Criar novo usuário
@@ -2655,11 +3073,20 @@ function criarUsuario(event) {
     event.preventDefault();
 
     const nome = document.getElementById('nome-usuario').value;
+    const username = document.getElementById('username-usuario').value.trim();
     const email = document.getElementById('email-usuario').value;
+    const cargo = document.getElementById('cargo-usuario').value;
     const tipo = document.getElementById('tipo-usuario').value;
+    const campoSetor = document.getElementById('setor-usuario');
+    const setor_id = campoSetor ? campoSetor.value : null;
+
+    if ((tipo === 'usuario' || tipo === 'supervisor') && campoSetor && !setor_id) {
+        mostrarAlert('Erro', 'Selecione um setor para os perfis Usuário/Supervisor.');
+        return;
+    }
 
     const xhr = new XMLHttpRequest();
-    xhr.open('POST', '/crpdesk/api/controllers/usuarios.php', true);
+    xhr.open('POST', window.APP_CONFIG.apiBase + 'usuarios.php', true);
     xhr.setRequestHeader('Content-Type', 'application/json');
 
     // Adicionar token de autenticação
@@ -2680,25 +3107,36 @@ function criarUsuario(event) {
         }
     };
 
-    xhr.send(JSON.stringify({ nome, email, tipo }));
+    xhr.send(JSON.stringify({ nome, username, email, cargo, tipo, setor_id }));
 }
 
 // Editar usuário
 function editarUsuario(usuarioId) {
+    const usuarioLogado = JSON.parse(localStorage.getItem('cd_usuario') || '{}');
+    const ehAdmin = usuarioLogado.tipo === 'admin';
+
     // Buscar dados atuais do usuário
     const xhr = new XMLHttpRequest();
-    xhr.open('GET', '/crpdesk/api/controllers/usuarios.php', true);
-
-    // Adicionar token de autenticação
+    xhr.open('GET', window.APP_CONFIG.apiBase + 'usuarios.php', true);
     setSecurityHeaders(xhr);
 
     xhr.onload = function () {
         if (xhr.status === 200) {
             const usuarios = JSON.parse(xhr.responseText);
             const usuario = usuarios.find(u => u.id === usuarioId);
+            if (!usuario) return;
 
-            if (usuario) {
-                mostrarFormularioEdicaoUsuario(usuario);
+            if (ehAdmin) {
+                const xhrSetores = new XMLHttpRequest();
+                xhrSetores.open('GET', window.APP_CONFIG.apiBase + 'setores.php', true);
+                setSecurityHeaders(xhrSetores);
+                xhrSetores.onload = function () {
+                    const setores = xhrSetores.status === 200 ? JSON.parse(xhrSetores.responseText) : [];
+                    mostrarFormularioEdicaoUsuario(usuario, setores);
+                };
+                xhrSetores.send();
+            } else {
+                mostrarFormularioEdicaoUsuario(usuario, []);
             }
         }
     };
@@ -2707,20 +3145,46 @@ function editarUsuario(usuarioId) {
 }
 
 // Mostrar formulário de edição de usuário
-function mostrarFormularioEdicaoUsuario(usuario) {
+function mostrarFormularioEdicaoUsuario(usuario, setores) {
+    const usuarioLogado = JSON.parse(localStorage.getItem('cd_usuario') || '{}');
+    const ehAdmin = usuarioLogado.tipo === 'admin';
+    setores = setores || [];
+
+    const opcoesTipo = ehAdmin
+        ? `<option value="usuario" ${usuario.tipo === 'usuario' ? 'selected' : ''}>Usuário</option>
+           <option value="supervisor" ${usuario.tipo === 'supervisor' ? 'selected' : ''}>Supervisor</option>
+           <option value="admin" ${usuario.tipo === 'admin' ? 'selected' : ''}>Administrador</option>`
+        : `<option value="usuario" selected>Usuário</option>`;
+
+    const campoSetor = ehAdmin ? `
+        <div class="form-group">
+            <label for="edit-setor">Setor:</label>
+            <select id="edit-setor">
+                <option value="">Nenhum (obrigatório para Usuário/Supervisor)</option>
+                ${setores.map(s => `<option value="${s.id}" ${String(usuario.setor_id) === String(s.id) ? 'selected' : ''}>${s.nome}</option>`).join('')}
+            </select>
+        </div>` : '';
+
     const content = `
         <div class="form-group">
             <label for="edit-nome">Nome:</label>
             <input type="text" id="edit-nome" value="${usuario.nome}" required>
         </div>
         <div class="form-group">
-            <label for="edit-tipo">Função:</label>
-            <select id="edit-tipo">
-                <option value="usuario" ${usuario.tipo === 'usuario' ? 'selected' : ''}>Usuário</option>
-                <option value="agente" ${usuario.tipo === 'agente' ? 'selected' : ''}>Agente</option>
-                <option value="admin" ${usuario.tipo === 'admin' ? 'selected' : ''}>Administrador</option>
+            <label for="edit-username">Nome de usuário:</label>
+            <input type="text" id="edit-username" value="${usuario.username || ''}">
+        </div>
+        <div class="form-group">
+            <label for="edit-cargo">Cargo/Função:</label>
+            <input type="text" id="edit-cargo" value="${usuario.cargo || ''}">
+        </div>
+        <div class="form-group">
+            <label for="edit-tipo">Perfil:</label>
+            <select id="edit-tipo" ${ehAdmin ? '' : 'disabled'}>
+                ${opcoesTipo}
             </select>
         </div>
+        ${campoSetor}
     `;
 
     document.getElementById('modal-prompt-message').innerHTML = content;
@@ -2733,10 +3197,19 @@ function mostrarFormularioEdicaoUsuario(usuario) {
     modalCallback = function (confirmado) {
         if (confirmado) {
             const nome = document.getElementById('edit-nome').value;
+            const username = document.getElementById('edit-username').value.trim();
+            const cargo = document.getElementById('edit-cargo').value;
             const tipo = document.getElementById('edit-tipo').value;
+            const campoSetorEl = document.getElementById('edit-setor');
+            const setor_id = campoSetorEl ? campoSetorEl.value : null;
+
+            if ((tipo === 'usuario' || tipo === 'supervisor') && campoSetorEl && !setor_id) {
+                mostrarAlert('Erro', 'Selecione um setor para os perfis Usuário/Supervisor.');
+                return;
+            }
 
             if (nome && tipo) {
-                executarEdicaoUsuario(usuario.id, nome, usuario.email, tipo);
+                executarEdicaoUsuario(usuario.id, nome, usuario.email, tipo, username, cargo, setor_id);
             }
         }
 
@@ -2747,11 +3220,11 @@ function mostrarFormularioEdicaoUsuario(usuario) {
 }
 
 // Executar edição de usuário
-function executarEdicaoUsuario(usuarioId, nome, email, tipo) {
-    console.log('🔄 Editando Usuário:', { usuarioId, nome, email, tipo });
+function executarEdicaoUsuario(usuarioId, nome, email, tipo, username, cargo, setor_id) {
+    console.log('🔄 Editando Usuário:', { usuarioId, nome, email, tipo, username, cargo, setor_id });
 
     const xhr = new XMLHttpRequest();
-    xhr.open('PUT', `/crpdesk/api/controllers/usuarios.php/${usuarioId}`, true);
+    xhr.open('PUT', `${window.APP_CONFIG.apiBase}usuarios.php/${usuarioId}`, true);
     xhr.setRequestHeader('Content-Type', 'application/json');
 
     // Adicionar token de autenticação
@@ -2768,7 +3241,7 @@ function executarEdicaoUsuario(usuarioId, nome, email, tipo) {
         }
     };
 
-    xhr.send(JSON.stringify({ nome, email, tipo }));
+    xhr.send(JSON.stringify({ nome, email, tipo, username, cargo, setor_id }));
 }
 
 // Excluir usuário
@@ -2787,7 +3260,7 @@ function excluirUsuario(usuarioId) {
 // Executar exclusão de usuário
 function executarExclusaoUsuario(usuarioId) {
     const xhr = new XMLHttpRequest();
-    xhr.open('DELETE', `/crpdesk/api/controllers/usuarios.php?id=${usuarioId}`, true);
+    xhr.open('DELETE', `${window.APP_CONFIG.apiBase}usuarios.php?id=${usuarioId}`, true);
 
     // Adicionar token de autenticação
     setSecurityHeaders(xhr);
@@ -2808,15 +3281,15 @@ function executarExclusaoUsuario(usuarioId) {
 // Excluir ticket
 function excluirTicket(ticketId) {
     mostrarConfirm(
-        'Excluir Ticket',
-        'Tem certeza que deseja excluir este ticket? Esta ação não pode ser desfeita.',
+        'Excluir Demanda',
+        'Tem certeza que deseja excluir esta demanda? Esta ação não pode ser desfeita.',
         function (confirmado) {
             if (!confirmado) return;
 
             // Segunda confirmação com cabeçalho vermelho
             mostrarConfirm(
                 'Confirmação Final',
-                'ATENÇÃO: O ticket e todos os seus comentários serão excluídos permanentemente. Confirma?',
+                'ATENÇÃO: A demanda e todos os seus comentários serão excluídos permanentemente. Confirma?',
                 function (confirmadoFinal) {
                     if (!confirmadoFinal) return;
 
@@ -2831,13 +3304,13 @@ function excluirTicket(ticketId) {
 // Executar exclusão do ticket
 function executarExclusaoTicket(ticketId, callback) {
     // Verificar se ticket está fechado antes de excluir
-    const ticketAtual = JSON.parse(localStorage.getItem('ticketAtual') || '{}');
+    const ticketAtual = JSON.parse(localStorage.getItem('cd_ticketAtual') || '{}');
     const isTicketFechado = ticketAtual.status === 'encerrado' || ticketAtual.status === 'cancelado';
 
     // Validar se ticket tem responsável (REMOVIDO: permitir exclusão sem responsável)
     /*
     if (!ticketAtual.agente_id) {
-        mostrarAlert('Atenção', 'Este ticket não possui responsável. Atribua o ticket antes de excluí-lo.');
+        mostrarAlert('Atenção', 'Esta demanda não possui responsável. Atribua a demanda antes de excluí-la.');
         return;
     }
     */
@@ -2845,13 +3318,13 @@ function executarExclusaoTicket(ticketId, callback) {
     // Validar se ticket tem categoria (REMOVIDO: permitir exclusão sem categoria)
     /*
     if (!ticketAtual.categoria_id) {
-        mostrarAlert('Atenção', 'Este ticket não possui categoria. Defina uma categoria antes de excluí-lo.');
+        mostrarAlert('Atenção', 'Esta demanda não possui subcategoria. Defina uma subcategoria antes de excluí-la.');
         return;
     }
     */
 
     const xhr = new XMLHttpRequest();
-    xhr.open('DELETE', `/crpdesk/api/controllers/tickets.php?id=${ticketId}`, true);
+    xhr.open('DELETE', `${window.APP_CONFIG.apiBase}tickets.php?id=${ticketId}`, true);
 
     // Adicionar token de autenticação
     setSecurityHeaders(xhr);
@@ -2863,7 +3336,7 @@ function executarExclusaoTicket(ticketId, callback) {
                 row.classList.add('ticket-removendo');
             }
 
-            mostrarToast('Sucesso', 'Ticket removido com sucesso!', 'success');
+            mostrarToast('Sucesso', 'Demanda removida com sucesso!', 'success');
 
             // Aguardar um pouco e redirecionar
             setTimeout(() => {
@@ -2871,8 +3344,8 @@ function executarExclusaoTicket(ticketId, callback) {
                     callback();
                 } else {
                     // Limpar dados e ir para lista apropriada
-                    localStorage.removeItem('ticketAtivo');
-                    localStorage.removeItem('ticketAtual');
+                    localStorage.removeItem('cd_ticketAtivo');
+                    localStorage.removeItem('cd_ticketAtual');
 
                     if (isTicketFechado) {
                         mostrarTicketsFechados();
@@ -2883,7 +3356,7 @@ function executarExclusaoTicket(ticketId, callback) {
             }, 500);
         } else {
             const response = JSON.parse(xhr.responseText);
-            mostrarAlert('Erro', response.error || 'Erro ao remover ticket');
+            mostrarAlert('Erro', response.error || 'Erro ao remover demanda');
         }
     };
 
@@ -2901,8 +3374,11 @@ let todasCategorias = [];
 
 function carregarCategorias() {
     console.log('📁 Carregando categorias...');
+    const usuario = JSON.parse(localStorage.getItem('cd_usuario') || '{}');
+    const filtroSetor = usuario.setor_id ? `?setor_id=${usuario.setor_id}` : '';
+
     const xhr = new XMLHttpRequest();
-    xhr.open('GET', '/crpdesk/api/controllers/categorias.php', true);
+    xhr.open('GET', window.APP_CONFIG.apiBase + 'categorias.php' + filtroSetor, true);
 
     xhr.onload = function () {
         if (xhr.status === 200) {
@@ -2919,6 +3395,34 @@ function carregarCategorias() {
     };
 
     xhr.send();
+}
+
+// Popula o select de prioridade do formulário "Nova Demanda" com as prioridades
+// ativas no setor de quem está criando (cliente/admin sem setor veem o catálogo inteiro).
+function popularPrioridadesFormNovo() {
+    const select = document.getElementById('prioridade');
+    if (!select || typeof carregarPrioridadesDisponiveis !== 'function') return;
+
+    const usuario = JSON.parse(localStorage.getItem('cd_usuario') || '{}');
+
+    carregarPrioridadesDisponiveis(usuario.setor_id || null).then(prioridadesList => {
+        if (!prioridadesList || prioridadesList.length === 0) return;
+
+        const valorAtual = select.value || 'normal';
+        select.innerHTML = prioridadesList.map(p => {
+            const nome = typeof formatarNomePrioridade === 'function' ? formatarNomePrioridade(p.nome) : p.nome;
+            return `<option value="${p.nome}">${nome}</option>`;
+        }).join('');
+
+        // Mantém a seleção atual se ainda existir na lista; senão cai em "normal" (ou o primeiro item)
+        if (select.querySelector(`option[value="${valorAtual}"]`)) {
+            select.value = valorAtual;
+        } else if (select.querySelector('option[value="normal"]')) {
+            select.value = 'normal';
+        }
+    }).catch(err => {
+        console.warn('Não foi possível carregar prioridades do setor, mantendo lista padrão', err);
+    });
 }
 
 // Configurar sistema de pesquisa de categoria
@@ -3045,7 +3549,7 @@ function renderizarCategoriasForm(categorias) {
     if (categorias.length === 0) {
         const item = document.createElement('div');
         item.className = 'categoria-item-form';
-        item.textContent = 'Nenhuma categoria encontrada';
+        item.textContent = 'Nenhuma subcategoria encontrada';
         item.style.color = '#999';
         item.style.fontStyle = 'italic';
         item.style.cursor = 'default';
@@ -3091,7 +3595,7 @@ function mostrarCategoriasDropdown(categorias) {
     dropdown.innerHTML = '';
 
     if (categorias.length === 0) {
-        dropdown.innerHTML = '<div class="categoria-item">Nenhuma categoria encontrada</div>';
+        dropdown.innerHTML = '<div class="categoria-item">Nenhuma subcategoria encontrada</div>';
         dropdown.classList.add('show');
         return;
     }
@@ -3113,15 +3617,17 @@ function mostrarCategoriasDropdown(categorias) {
     dropdown.classList.add('show');
 }
 
-// Mostrar gerenciamento de categorias
+// Mostrar gerenciamento de categorias e subcategorias
+// (nomes internos de função/variável seguem usando "categoria"/"macrocategoria" —
+// mesma nomenclatura das tabelas do banco — só o texto exibido ao usuário mudou)
 function mostrarCategorias() {
     // Ativar botão
     document.querySelectorAll('.btn-config').forEach(btn => btn.classList.remove('active')); // nav
     const _bbtn_categorias = document.getElementById('btn-categorias'); if (_bbtn_categorias) _bbtn_categorias.classList.add('active');
 
     // Salvar subseção
-    localStorage.setItem('subSecaoAtiva', 'categorias');
-    const configTitle = document.getElementById('config-title'); if (configTitle) configTitle.textContent = String.fromCodePoint(0x1F4C1) + ' Categorias';
+    localStorage.setItem('cd_subSecaoAtiva', 'categorias');
+    const configTitle = document.getElementById('config-title'); if (configTitle) configTitle.textContent = String.fromCodePoint(0x1F4C1) + ' Categorias e Subcategorias';
 
     const content = document.getElementById('config-content');
     content.style.animation = 'none';
@@ -3131,60 +3637,49 @@ function mostrarCategorias() {
     }, 10);
 }
 
-// Carregar macrocategorias para o select
+// Carregar macrocategorias (exibidas como "Categoria") para o select de subcategoria
 function carregarMacrocategorias() {
-    console.log('🔌 Carregando macrocategorias...');
     const xhr = new XMLHttpRequest();
-    xhr.open('GET', '/crpdesk/api/controllers/macrocategorias.php', true);
+    xhr.open('GET', window.APP_CONFIG.apiBase + 'macrocategorias.php', true);
 
     xhr.onload = function () {
-        console.log('📡 Status:', xhr.status);
-        console.log('📡 Resposta:', xhr.responseText);
-
         if (xhr.status === 200) {
             const macrocategorias = JSON.parse(xhr.responseText);
-            console.log('📁 Macrocategorias:', macrocategorias);
-
             const select = document.getElementById('macrocategoria-categoria');
-            console.log('🔍 Select encontrado:', !!select);
 
             if (select) {
-                // Limpar opções existentes (exceto a primeira)
-                select.innerHTML = '<option value="">Selecione uma macrocategoria</option>';
-
+                select.innerHTML = '<option value="">Selecione uma categoria</option>';
                 macrocategorias.forEach(macro => {
                     const option = document.createElement('option');
                     option.value = macro.id;
                     option.textContent = macro.nome;
                     select.appendChild(option);
                 });
-
-                console.log('✅ Macrocategorias carregadas no select');
             }
         } else {
-            console.error('❌ Erro ao carregar macrocategorias:', xhr.status, xhr.responseText);
+            console.error('❌ Erro ao carregar categorias:', xhr.status, xhr.responseText);
         }
     };
 
     xhr.onerror = function () {
-        console.error('❌ Erro de conexão ao carregar macrocategorias');
+        console.error('❌ Erro de conexão ao carregar categorias');
     };
 
     xhr.send();
 }
 
-// Carregar lista de categorias
+// Carregar lista de subcategorias (tabela "categorias")
 function carregarListaCategorias() {
     const xhr = new XMLHttpRequest();
-    xhr.open('GET', '/crpdesk/api/controllers/categorias.php', true);
+    xhr.open('GET', window.APP_CONFIG.apiBase + 'categorias.php', true);
 
     xhr.onload = function () {
         if (xhr.status === 200) {
             const categorias = JSON.parse(xhr.responseText);
 
-            // Carregar macrocategorias para exibição
+            // Carregar macrocategorias (Categoria) para exibição agrupada
             const xhr2 = new XMLHttpRequest();
-            xhr2.open('GET', '/crpdesk/api/controllers/macrocategorias.php', true);
+            xhr2.open('GET', window.APP_CONFIG.apiBase + 'macrocategorias.php', true);
 
             xhr2.onload = function () {
                 if (xhr2.status === 200) {
@@ -3195,42 +3690,52 @@ function carregarListaCategorias() {
 
             xhr2.send();
         } else {
-            document.getElementById('config-content').innerHTML = '<p>Erro ao carregar categorias.</p>';
+            document.getElementById('config-content').innerHTML = '<p>Erro ao carregar subcategorias.</p>';
         }
     };
 
     xhr.send();
 }
 
-// Mostrar lista de categorias
+// Mostrar lista de categorias (grupos) e subcategorias
 function mostrarListaCategorias(categorias, macrocategorias) {
     const content = document.getElementById('config-content');
 
-    // Agrupar categorias por macrocategoria
+    // Agrupar subcategorias por categoria
     const categoriasPorMacro = {};
     const macroMap = {};
 
     macrocategorias.forEach(macro => {
         macroMap[macro.id] = macro.nome;
-        categoriasPorMacro[macro.nome] = [];
+        categoriasPorMacro[macro.id] = { nome: macro.nome, itens: [] };
     });
 
+    const semCategoria = { nome: 'Sem Categoria', itens: [] };
+
     categorias.forEach(categoria => {
-        const macroNome = macroMap[categoria.macrocategoria_id] || 'Sem Macrocategoria';
-        if (!categoriasPorMacro[macroNome]) {
-            categoriasPorMacro[macroNome] = [];
-        }
-        categoriasPorMacro[macroNome].push(categoria);
+        const grupo = categoriasPorMacro[categoria.macrocategoria_id] || semCategoria;
+        grupo.itens.push(categoria);
     });
 
     let categoriasHtml = '';
 
-    Object.keys(categoriasPorMacro).forEach(macroNome => {
-        const cats = categoriasPorMacro[macroNome];
-        if (cats.length > 0) {
-            categoriasHtml += `<h3>📁 ${macroNome} (${cats.length})</h3><div class="usuarios-grid">`;
-
-            cats.forEach(categoria => {
+    // Grupos de subcategorias (uma seção por Categoria, com botões de editar/excluir na própria Categoria)
+    macrocategorias.forEach(macro => {
+        const grupo = categoriasPorMacro[macro.id];
+        categoriasHtml += `
+            <div class="usuario-card" style="margin-bottom: 0.75rem;">
+                <div class="usuario-info">
+                    <h4>📁 ${macro.nome} <span style="font-weight: normal; color: #666;">(${grupo.itens.length} subcategoria${grupo.itens.length !== 1 ? 's' : ''})</span></h4>
+                </div>
+                <div class="usuario-acoes">
+                    <button class="btn-editar" onclick="editarMacrocategoria(${macro.id}, '${macro.nome.replace(/'/g, "\\'")}')">Editar</button>
+                    <button class="btn-excluir" onclick="excluirMacrocategoria(${macro.id})">Excluir</button>
+                </div>
+            </div>
+        `;
+        if (grupo.itens.length > 0) {
+            categoriasHtml += '<div class="usuarios-grid" style="margin-bottom: 1.5rem;">';
+            grupo.itens.forEach(categoria => {
                 categoriasHtml += `
                     <div class="usuario-card">
                         <div class="usuario-info">
@@ -3244,18 +3749,48 @@ function mostrarListaCategorias(categorias, macrocategorias) {
                     </div>
                 `;
             });
-
             categoriasHtml += '</div>';
         }
     });
 
+    if (semCategoria.itens.length > 0) {
+        categoriasHtml += `<h3>📁 Sem Categoria (${semCategoria.itens.length})</h3><div class="usuarios-grid" style="margin-bottom: 1.5rem;">`;
+        semCategoria.itens.forEach(categoria => {
+            categoriasHtml += `
+                <div class="usuario-card">
+                    <div class="usuario-info">
+                        <h4>${categoria.nome}</h4>
+                        <p><strong>Criado:</strong> ${new Date(categoria.criado_em).toLocaleDateString('pt-BR')}</p>
+                    </div>
+                    <div class="usuario-acoes">
+                        <button class="btn-editar" onclick="editarCategoria(${categoria.id})">Editar</button>
+                        <button class="btn-excluir" onclick="excluirCategoria(${categoria.id})">Excluir</button>
+                    </div>
+                </div>
+            `;
+        });
+        categoriasHtml += '</div>';
+    }
+
     content.innerHTML = `
-        <button onclick="toggleFormCategoria()" class="btn-primary" style="margin-bottom: 1rem;">
-            ➕ Adicionar Nova Categoria
-        </button>
-        
-        <div class="form-usuario" id="form-nova-categoria" style="display: none; overflow: hidden; max-height: 0; transition: max-height 0.3s ease-out;">
+        <div style="display: flex; gap: 0.75rem; margin-bottom: 1rem; flex-wrap: wrap;">
+            <button onclick="toggleFormMacrocategoria()" class="btn-primary">➕ Adicionar Nova Categoria</button>
+            <button onclick="toggleFormCategoria()" class="btn-primary">➕ Adicionar Nova Subcategoria</button>
+        </div>
+
+        <div class="form-usuario" id="form-nova-macrocategoria" style="display: none; overflow: hidden; max-height: 0; transition: max-height 0.3s ease-out;">
             <h3>Adicionar Nova Categoria</h3>
+            <form id="form-macrocategoria" onsubmit="criarMacrocategoria(event)">
+                <div class="form-group">
+                    <label for="nome-macrocategoria">Nome:</label>
+                    <input type="text" id="nome-macrocategoria" required>
+                </div>
+                <button type="submit" class="btn-primary">Adicionar Categoria</button>
+            </form>
+        </div>
+
+        <div class="form-usuario" id="form-nova-categoria" style="display: none; overflow: hidden; max-height: 0; transition: max-height 0.3s ease-out;">
+            <h3>Adicionar Nova Subcategoria</h3>
             <form id="form-categoria" onsubmit="criarCategoria(event)">
                 <div class="form-group">
                     <label for="nome-categoria">Nome:</label>
@@ -3265,23 +3800,137 @@ function mostrarListaCategorias(categorias, macrocategorias) {
                     </small>
                 </div>
                 <div class="form-group">
-                    <label for="macrocategoria-categoria">Macrocategoria:</label>
+                    <label for="macrocategoria-categoria">Categoria:</label>
                     <select id="macrocategoria-categoria" required>
-                        <option value="">Selecione uma macrocategoria</option>
+                        <option value="">Selecione uma categoria</option>
                     </select>
                 </div>
-                <button type="submit" class="btn-primary">Adicionar Categoria</button>
+                <button type="submit" class="btn-primary">Adicionar Subcategoria</button>
             </form>
         </div>
-        
+
         ${categoriasHtml}
     `;
 
-    // Carregar macrocategorias após renderizar o HTML
+    // Carregar categorias após renderizar o HTML
     setTimeout(() => carregarMacrocategorias(), 100);
 }
 
-// Criar nova categoria
+// Alternar exibição do formulário de nova categoria (macrocategoria)
+function toggleFormMacrocategoria() {
+    const form = document.getElementById('form-nova-macrocategoria');
+    const isVisible = form.style.display === 'block';
+
+    if (isVisible) {
+        form.style.maxHeight = '0';
+        setTimeout(() => form.style.display = 'none', 300);
+    } else {
+        form.style.display = 'block';
+        setTimeout(() => form.style.maxHeight = form.scrollHeight + 'px', 10);
+    }
+}
+
+// Criar nova categoria (macrocategoria)
+function criarMacrocategoria(event) {
+    event.preventDefault();
+
+    const nome = document.getElementById('nome-macrocategoria').value.trim();
+    if (!nome) return;
+
+    const xhr = new XMLHttpRequest();
+    xhr.open('POST', window.APP_CONFIG.apiBase + 'macrocategorias.php', true);
+    xhr.setRequestHeader('Content-Type', 'application/json');
+    setSecurityHeaders(xhr);
+
+    xhr.onload = function () {
+        if (xhr.status === 200) {
+            document.getElementById('form-macrocategoria').reset();
+            carregarListaCategorias();
+            mostrarToast('Sucesso', 'Categoria criada com sucesso!', 'success');
+        } else {
+            const response = xhr.responseText ? JSON.parse(xhr.responseText) : {};
+            mostrarAlert('Erro', response.error || 'Erro ao criar categoria');
+        }
+    };
+
+    xhr.send(JSON.stringify({ nome }));
+}
+
+// Editar categoria (macrocategoria)
+function editarMacrocategoria(macroId, nomeAtual) {
+    document.getElementById('modal-prompt-message').innerHTML = `
+        <div class="form-group">
+            <label for="edit-nome-macro">Nome:</label>
+            <input type="text" id="edit-nome-macro" value="${nomeAtual}" required>
+        </div>
+    `;
+    document.getElementById('modal-prompt-title').textContent = 'Editar Categoria';
+    document.getElementById('modal-prompt-input').style.display = 'none';
+    document.getElementById('modal-overlay').classList.add('show');
+    document.getElementById('modal-prompt').classList.add('show');
+
+    modalCallback = function (confirmado) {
+        if (confirmado) {
+            const nome = document.getElementById('edit-nome-macro').value.trim();
+            if (nome) executarEdicaoMacrocategoria(macroId, nome);
+        }
+        document.getElementById('modal-prompt-input').style.display = 'block';
+        document.getElementById('modal-prompt-message').innerHTML = '';
+    };
+}
+
+// Executar edição de categoria (macrocategoria)
+function executarEdicaoMacrocategoria(macroId, nome) {
+    const xhr = new XMLHttpRequest();
+    xhr.open('PUT', `${window.APP_CONFIG.apiBase}macrocategorias.php/${macroId}`, true);
+    xhr.setRequestHeader('Content-Type', 'application/json');
+    setSecurityHeaders(xhr);
+
+    xhr.onload = function () {
+        if (xhr.status === 200) {
+            carregarListaCategorias();
+            mostrarToast('Sucesso', 'Categoria atualizada com sucesso!', 'success');
+        } else {
+            const response = xhr.responseText ? JSON.parse(xhr.responseText) : {};
+            mostrarAlert('Erro', response.error || 'Erro ao atualizar categoria');
+        }
+    };
+
+    xhr.send(JSON.stringify({ nome }));
+}
+
+// Excluir categoria (macrocategoria)
+function excluirMacrocategoria(macroId) {
+    mostrarConfirm(
+        'Excluir Categoria',
+        'Tem certeza que deseja excluir esta categoria? Ela precisa estar sem subcategorias vinculadas.',
+        function (confirmado) {
+            if (!confirmado) return;
+            executarExclusaoMacrocategoria(macroId);
+        }
+    );
+}
+
+// Executar exclusão de categoria (macrocategoria)
+function executarExclusaoMacrocategoria(macroId) {
+    const xhr = new XMLHttpRequest();
+    xhr.open('DELETE', `${window.APP_CONFIG.apiBase}macrocategorias.php/${macroId}`, true);
+    setSecurityHeaders(xhr);
+
+    xhr.onload = function () {
+        if (xhr.status === 200) {
+            mostrarToast('Sucesso', 'Categoria excluída com sucesso!', 'success');
+            carregarListaCategorias();
+        } else {
+            const response = xhr.responseText ? JSON.parse(xhr.responseText) : {};
+            mostrarAlert('Erro', response.error || 'Erro ao excluir categoria');
+        }
+    };
+
+    xhr.send();
+}
+
+// Criar nova subcategoria (categoria)
 function criarCategoria(event) {
     event.preventDefault();
 
@@ -3290,13 +3939,13 @@ function criarCategoria(event) {
     const macrocategoria_id = document.getElementById('macrocategoria-categoria').value;
 
     if (!macrocategoria_id) {
-        mostrarAlert('Erro', 'Selecione uma macrocategoria!');
+        mostrarAlert('Erro', 'Selecione uma categoria!');
         return;
     }
 
-    // Verificar se categoria já existe
+    // Verificar se subcategoria já existe
     const xhr1 = new XMLHttpRequest();
-    xhr1.open('GET', '/crpdesk/api/controllers/categorias.php', true);
+    xhr1.open('GET', window.APP_CONFIG.apiBase + 'categorias.php', true);
 
     xhr1.onload = function () {
         if (xhr1.status === 200) {
@@ -3304,13 +3953,13 @@ function criarCategoria(event) {
             const categoriaExiste = categorias.some(cat => cat.nome.toLowerCase() === nome.toLowerCase());
 
             if (categoriaExiste) {
-                mostrarAlert('Erro', 'Esta categoria já existe!');
+                mostrarAlert('Erro', 'Esta subcategoria já existe!');
                 return;
             }
 
-            // Criar categoria
+            // Criar subcategoria
             const xhr2 = new XMLHttpRequest();
-            xhr2.open('POST', '/crpdesk/api/controllers/categorias.php', true);
+            xhr2.open('POST', window.APP_CONFIG.apiBase + 'categorias.php', true);
             xhr2.setRequestHeader('Content-Type', 'application/json');
 
             // Adicionar token de autenticação
@@ -3320,9 +3969,9 @@ function criarCategoria(event) {
                 if (xhr2.status === 200) {
                     document.getElementById('form-categoria').reset();
                     carregarListaCategorias();
-                    mostrarToast('Sucesso', 'Categoria criada com sucesso!', 'success');
+                    mostrarToast('Sucesso', 'Subcategoria criada com sucesso!', 'success');
                 } else {
-                    mostrarAlert('Erro', 'Erro ao criar categoria');
+                    mostrarAlert('Erro', 'Erro ao criar subcategoria');
                 }
             };
 
@@ -3333,7 +3982,7 @@ function criarCategoria(event) {
     xhr1.send();
 }
 
-// Formatar nome da categoria
+// Formatar nome da subcategoria
 function formatarNomeCategoria(nome) {
     const abreviaturas = ['SEI', 'BRC', 'VPN', 'TI', 'RH', 'CEO', 'CTO', 'CFO', 'CPF', 'CNPJ', 'PDF', 'XML', 'HTML', 'CSS', 'JS', 'SQL', 'API', 'URL', 'HTTP', 'HTTPS', 'FTP', 'SSH', 'DNS', 'IP', 'TCP', 'UDP', 'USB', 'HD', 'SSD', 'RAM', 'CPU', 'GPU', 'RFID', 'NFC', 'QR'];
 
@@ -3367,26 +4016,21 @@ function formatarNomeCategoria(nome) {
     return nomeProcessado;
 }
 
-// Editar categoria
+// Editar subcategoria (categoria)
 function editarCategoria(categoriaId) {
-    console.log('✏️ Editando categoria ID:', categoriaId);
-
-    // Buscar dados atuais da categoria
+    // Buscar dados atuais da subcategoria
     const xhr = new XMLHttpRequest();
-    xhr.open('GET', '/crpdesk/api/controllers/categorias.php', true);
+    xhr.open('GET', window.APP_CONFIG.apiBase + 'categorias.php', true);
 
     xhr.onload = function () {
-        console.log('📡 Categorias carregadas para edição:', xhr.status);
         if (xhr.status === 200) {
             const categorias = JSON.parse(xhr.responseText);
             const categoria = categorias.find(c => c.id === categoriaId);
 
-            console.log('🔍 Categoria encontrada:', categoria);
-
             if (categoria) {
                 mostrarFormularioEdicaoCategoria(categoria);
             } else {
-                console.error('❌ Categoria não encontrada');
+                console.error('❌ Subcategoria não encontrada');
             }
         }
     };
@@ -3394,25 +4038,20 @@ function editarCategoria(categoriaId) {
     xhr.send();
 }
 
-// Mostrar formulário de edição de categoria
+// Mostrar formulário de edição de subcategoria
 function mostrarFormularioEdicaoCategoria(categoria) {
-    console.log('📝 Criando modal para categoria:', categoria);
-
-    // Carregar macrocategorias
+    // Carregar categorias (macrocategorias)
     const xhr = new XMLHttpRequest();
-    xhr.open('GET', '/crpdesk/api/controllers/macrocategorias.php', true);
+    xhr.open('GET', window.APP_CONFIG.apiBase + 'macrocategorias.php', true);
 
     xhr.onload = function () {
-        console.log('📡 Macrocategorias para modal:', xhr.status);
         if (xhr.status === 200) {
             const macrocategorias = JSON.parse(xhr.responseText);
-            console.log('📁 Macrocategorias recebidas:', macrocategorias.length);
 
-            let opcoesHtml = '<option value="">Selecione uma macrocategoria</option>';
+            let opcoesHtml = '<option value="">Selecione uma categoria</option>';
             macrocategorias.forEach(macro => {
                 const selected = macro.id === categoria.macrocategoria_id ? 'selected' : '';
                 opcoesHtml += `<option value="${macro.id}" ${selected}>${macro.nome}</option>`;
-                console.log(`🔘 Opção: ${macro.nome} (ID: ${macro.id}) - Selected: ${selected}`);
             });
 
             const content = `
@@ -3424,7 +4063,7 @@ function mostrarFormularioEdicaoCategoria(categoria) {
                     </small>
                 </div>
                 <div class="form-group">
-                    <label for="edit-macro-cat">Macrocategoria:</label>
+                    <label for="edit-macro-cat">Categoria:</label>
                     <select id="edit-macro-cat" required>
                         ${opcoesHtml}
                     </select>
@@ -3432,27 +4071,20 @@ function mostrarFormularioEdicaoCategoria(categoria) {
             `;
 
             document.getElementById('modal-prompt-message').innerHTML = content;
-            document.getElementById('modal-prompt-title').textContent = 'Editar Categoria';
+            document.getElementById('modal-prompt-title').textContent = 'Editar Subcategoria';
             document.getElementById('modal-prompt-input').style.display = 'none';
 
             document.getElementById('modal-overlay').classList.add('show');
             document.getElementById('modal-prompt').classList.add('show');
 
-            console.log('🔓 Modal aberto, aguardando confirmação...');
-
             modalCallback = function (confirmado) {
-                console.log('🔘 Modal callback:', confirmado);
-
                 if (confirmado === true) {
                     const nome = document.getElementById('edit-nome-cat').value;
                     const macrocategoriaId = document.getElementById('edit-macro-cat').value;
 
-                    console.log('📝 Valores do modal:', { nome, macrocategoriaId });
-
                     if (nome && macrocategoriaId) {
                         executarEdicaoCategoria(categoria.id, nome.trim(), macrocategoriaId);
                     } else {
-                        console.error('❌ Campos obrigatórios não preenchidos');
                         mostrarAlert('Erro', 'Preencha todos os campos obrigatórios');
                     }
                 }
@@ -3467,42 +4099,38 @@ function mostrarFormularioEdicaoCategoria(categoria) {
     xhr.send();
 }
 
-// Executar edição de categoria
+// Executar edição de subcategoria
 function executarEdicaoCategoria(categoriaId, nomeOriginal, macrocategoriaId) {
     const nome = formatarNomeCategoria(nomeOriginal);
 
-    console.log('🔄 Enviando edição:', { categoriaId, nome, macrocategoriaId });
-
     const xhr = new XMLHttpRequest();
-    xhr.open('PUT', `/crpdesk/api/controllers/categorias.php/${categoriaId}`, true);
+    xhr.open('PUT', `${window.APP_CONFIG.apiBase}categorias.php/${categoriaId}`, true);
     xhr.setRequestHeader('Content-Type', 'application/json');
+    setSecurityHeaders(xhr);
 
     xhr.onload = function () {
-        console.log('📞 Resposta do servidor:', xhr.status, xhr.responseText);
         if (xhr.status === 200) {
-            console.log('🔄 Atualizando listas...');
             carregarListaCategorias();
             carregarCategorias();
-            mostrarToast('Sucesso', 'Categoria atualizada com sucesso!', 'success');
+            mostrarToast('Sucesso', 'Subcategoria atualizada com sucesso!', 'success');
         } else {
             const response = xhr.responseText ? JSON.parse(xhr.responseText) : {};
-            mostrarAlert('Erro', response.error || 'Erro ao atualizar categoria');
+            mostrarAlert('Erro', response.error || 'Erro ao atualizar subcategoria');
         }
     };
 
     xhr.onerror = function () {
-        console.error('❌ Erro de conexão');
         mostrarAlert('Erro', 'Erro de conexão');
     };
 
     xhr.send(JSON.stringify({ nome, macrocategoria_id: macrocategoriaId }));
 }
 
-// Excluir categoria
+// Excluir subcategoria (categoria)
 function excluirCategoria(categoriaId) {
     mostrarConfirm(
-        'Excluir Categoria',
-        'Tem certeza que deseja excluir esta categoria?',
+        'Excluir Subcategoria',
+        'Tem certeza que deseja excluir esta subcategoria?',
         function (confirmado) {
             if (!confirmado) return;
 
@@ -3511,14 +4139,15 @@ function excluirCategoria(categoriaId) {
     );
 }
 
-// Executar exclusão de categoria
+// Executar exclusão de subcategoria
 function executarExclusaoCategoria(categoriaId) {
     const xhr = new XMLHttpRequest();
-    xhr.open('DELETE', `/crpdesk/api/controllers/categorias.php/${categoriaId}`, true);
+    xhr.open('DELETE', `${window.APP_CONFIG.apiBase}categorias.php/${categoriaId}`, true);
+    setSecurityHeaders(xhr);
 
     xhr.onload = function () {
         if (xhr.status === 200) {
-            mostrarToast('Sucesso', 'Categoria excluída com sucesso!', 'success');
+            mostrarToast('Sucesso', 'Subcategoria excluída com sucesso!', 'success');
             carregarListaCategorias();
             // Atualizar lista global de categorias
             carregarCategorias();
@@ -3529,6 +4158,463 @@ function executarExclusaoCategoria(categoriaId) {
     };
 
     xhr.send();
+}
+
+// ==== Fase 3: Ativação por Setor (categorias, status, prioridades) ====
+
+let setorConfigAtual = null;
+let abaConfigSetorAtiva = 'categorias';
+
+function mostrarConfigSetor() {
+    document.querySelectorAll('.btn-config').forEach(btn => btn.classList.remove('active'));
+
+    localStorage.setItem('cd_subSecaoAtiva', 'setor-config');
+    const configTitle = document.getElementById('config-title');
+    if (configTitle) configTitle.textContent = '🧭 Ativação por Setor';
+
+    const content = document.getElementById('config-content');
+    if (!content) {
+        setTimeout(() => mostrarConfigSetor(), 200);
+        return;
+    }
+
+    const usuario = JSON.parse(localStorage.getItem('cd_usuario') || '{}');
+
+    if (usuario.tipo === 'admin') {
+        const xhr = new XMLHttpRequest();
+        xhr.open('GET', window.APP_CONFIG.apiBase + 'setores.php', true);
+        setSecurityHeaders(xhr);
+        xhr.onload = function () {
+            if (xhr.status === 200) {
+                const setores = JSON.parse(xhr.responseText);
+                renderizarPainelConfigSetor(setores, setores[0] ? setores[0].id : null);
+            } else {
+                content.innerHTML = '<p>Erro ao carregar setores.</p>';
+            }
+        };
+        xhr.send();
+    } else {
+        renderizarPainelConfigSetor([], usuario.setor_id);
+    }
+}
+
+function renderizarPainelConfigSetor(setores, setorInicialId) {
+    const content = document.getElementById('config-content');
+    const usuario = JSON.parse(localStorage.getItem('cd_usuario') || '{}');
+    const ehAdmin = usuario.tipo === 'admin';
+
+    setorConfigAtual = setorInicialId;
+    abaConfigSetorAtiva = 'categorias';
+
+    const seletorHtml = ehAdmin ? `
+        <div class="form-group" style="max-width: 320px;">
+            <label for="setor-config-select">Setor:</label>
+            <select id="setor-config-select" onchange="setorConfigAtual = parseInt(this.value); carregarAbaConfigSetor('categorias')">
+                ${setores.map(s => `<option value="${s.id}" ${s.id == setorInicialId ? 'selected' : ''}>${s.nome}</option>`).join('')}
+            </select>
+        </div>
+    ` : '';
+
+    content.innerHTML = `
+        <p style="color:#666;margin-bottom:1rem;">Ative/desative e reordene quais categorias, status e prioridades aparecem para este setor. O catálogo continua compartilhado com os outros setores — nada é apagado aqui, só escondido.</p>
+        ${seletorHtml}
+        <div class="tabs-container" style="margin-bottom:1rem;">
+            <button type="button" class="tab-btn active" id="tab-config-categorias" onclick="carregarAbaConfigSetor('categorias')">📁 Categorias</button>
+            <button type="button" class="tab-btn" id="tab-config-status" onclick="carregarAbaConfigSetor('status')">🚦 Status</button>
+            <button type="button" class="tab-btn" id="tab-config-prioridades" onclick="carregarAbaConfigSetor('prioridades')">🔥 Prioridades</button>
+            <button type="button" class="tab-btn" id="tab-config-emails" onclick="carregarAbaConfigSetor('emails')">📧 E-mails</button>
+        </div>
+        <div id="config-setor-lista"></div>
+    `;
+
+    if (!setorConfigAtual) {
+        document.getElementById('config-setor-lista').innerHTML = '<p style="color:#999;font-style:italic;">Nenhum setor disponível.</p>';
+        return;
+    }
+
+    carregarAbaConfigSetor('categorias');
+}
+
+function carregarAbaConfigSetor(tipo) {
+    abaConfigSetorAtiva = tipo;
+    document.querySelectorAll('.tabs-container .tab-btn').forEach(b => b.classList.remove('active'));
+    const btnAtivo = document.getElementById('tab-config-' + tipo);
+    if (btnAtivo) btnAtivo.classList.add('active');
+
+    if (tipo === 'emails') {
+        carregarEmailsSetor();
+        return;
+    }
+
+    const lista = document.getElementById('config-setor-lista');
+    if (!lista || !setorConfigAtual) return;
+    lista.innerHTML = '<p>Carregando...</p>';
+
+    const xhr = new XMLHttpRequest();
+    xhr.open('GET', `${window.APP_CONFIG.apiBase}setor-config.php?tipo=${tipo}&setor_id=${setorConfigAtual}`, true);
+    setSecurityHeaders(xhr);
+
+    xhr.onload = function () {
+        if (xhr.status === 200) {
+            renderizarListaConfigSetor(JSON.parse(xhr.responseText), tipo);
+        } else {
+            lista.innerHTML = '<p>Erro ao carregar configuração.</p>';
+        }
+    };
+
+    xhr.onerror = function () {
+        lista.innerHTML = '<p>Erro de conexão.</p>';
+    };
+
+    xhr.send();
+}
+
+// ==== Fase 4: E-mails por Setor ====
+
+const LIMITE_EMAILS_POR_SETOR = 2;
+
+function carregarEmailsSetor() {
+    const lista = document.getElementById('config-setor-lista');
+    if (!lista || !setorConfigAtual) return;
+    lista.innerHTML = '<p>Carregando...</p>';
+
+    const xhr = new XMLHttpRequest();
+    xhr.open('GET', `${window.APP_CONFIG.apiBase}setor-emails.php?setor_id=${setorConfigAtual}`, true);
+    setSecurityHeaders(xhr);
+
+    xhr.onload = function () {
+        if (xhr.status === 200) {
+            renderizarEmailsSetor(JSON.parse(xhr.responseText));
+        } else {
+            lista.innerHTML = '<p>Erro ao carregar e-mails do setor.</p>';
+        }
+    };
+
+    xhr.onerror = function () {
+        lista.innerHTML = '<p>Erro de conexão.</p>';
+    };
+
+    xhr.send();
+}
+
+function renderizarEmailsSetor(caixas) {
+    const lista = document.getElementById('config-setor-lista');
+
+    const cardsHtml = caixas.map(caixa => `
+        <div class="config-setor-item ${caixa.ativo ? '' : 'config-setor-item-inativo'}" style="flex-direction:column;align-items:flex-start;gap:0.5rem;">
+            <div style="display:flex;justify-content:space-between;align-items:center;width:100%;">
+                <div>
+                    <strong>${caixa.email}</strong>
+                    <div style="font-size:0.85rem;color:#666;">${caixa.imap_host}:${caixa.imap_port} · usuário: ${caixa.imap_user}</div>
+                </div>
+                <label class="switch-label">
+                    <label class="switch">
+                        <input type="checkbox" ${caixa.ativo ? 'checked' : ''} onchange="alternarAtivoEmailSetor(${caixa.id}, this.checked)">
+                        <span class="slider"></span>
+                    </label>
+                </label>
+            </div>
+            <div style="display:flex;gap:0.5rem;">
+                <button type="button" class="btn-small" onclick="excluirEmailSetor(${caixa.id})">🗑️ Excluir</button>
+            </div>
+        </div>
+    `).join('');
+
+    const podeAdicionar = caixas.length < LIMITE_EMAILS_POR_SETOR;
+
+    lista.innerHTML = `
+        <p style="color:#666;margin-bottom:1rem;">Até ${LIMITE_EMAILS_POR_SETOR} caixas de e-mail (IMAP) por setor. E-mails recebidos nelas viram demandas automaticamente já neste setor.</p>
+        <div class="config-setor-itens">${cardsHtml}</div>
+        ${podeAdicionar ? `
+            <button type="button" class="btn-primary" style="margin-top:1rem;" onclick="mostrarFormularioEmailSetor()">➕ Adicionar Caixa de E-mail</button>
+            <div id="form-email-setor-container"></div>
+        ` : `<p style="margin-top:1rem;color:#999;font-style:italic;">Limite de ${LIMITE_EMAILS_POR_SETOR} caixas atingido para este setor.</p>`}
+
+        <div style="margin-top:2rem;border-top:1px solid #eee;padding-top:1rem;">
+            <h4 style="margin-bottom:0.75rem;">📨 Log de E-mails Recebidos</h4>
+            <div id="log-emails-processados-setor"><p>Carregando...</p></div>
+        </div>
+    `;
+
+    carregarLogEmailsProcessadosSetor();
+}
+
+function carregarLogEmailsProcessadosSetor() {
+    const container = document.getElementById('log-emails-processados-setor');
+    if (!container || !setorConfigAtual) return;
+
+    const xhr = new XMLHttpRequest();
+    xhr.open('GET', `${window.APP_CONFIG.apiBase}emails-processados.php?setor_id=${setorConfigAtual}&limite=20`, true);
+    setSecurityHeaders(xhr);
+
+    xhr.onload = function () {
+        if (xhr.status !== 200) {
+            container.innerHTML = '<p>Erro ao carregar log de e-mails.</p>';
+            return;
+        }
+        const dados = JSON.parse(xhr.responseText);
+        if (!dados.registros || dados.registros.length === 0) {
+            container.innerHTML = '<p style="color:#999;font-style:italic;">Nenhum e-mail processado ainda para este setor.</p>';
+            return;
+        }
+
+        const rotuloTipo = { novo_ticket: '🆕 Nova demanda', comentario: '💬 Comentário', erro: '❌ Erro' };
+
+        container.innerHTML = `
+            <div class="config-setor-itens">
+                ${dados.registros.map(r => `
+                    <div class="config-setor-item" style="flex-direction:column;align-items:flex-start;gap:0.25rem;">
+                        <div style="display:flex;justify-content:space-between;width:100%;">
+                            <strong>${r.assunto || '(sem assunto)'}</strong>
+                            <span style="font-size:0.85rem;color:#666;">${new Date(r.processado_em).toLocaleString('pt-BR')}</span>
+                        </div>
+                        <div style="font-size:0.85rem;color:#666;">
+                            De: ${r.email_remetente} · Caixa: ${r.setor_email_endereco || '—'} · ${rotuloTipo[r.tipo] || r.tipo}
+                            ${r.ticket_id ? ` · Demanda #${String(r.ticket_id).padStart(5, '0')}` : ''}
+                        </div>
+                    </div>
+                `).join('')}
+            </div>
+        `;
+    };
+
+    xhr.onerror = function () {
+        container.innerHTML = '<p>Erro de conexão.</p>';
+    };
+
+    xhr.send();
+}
+
+function mostrarFormularioEmailSetor() {
+    const container = document.getElementById('form-email-setor-container');
+    if (!container) return;
+
+    container.innerHTML = `
+        <form id="form-nova-caixa-email" style="margin-top:1rem;border-top:1px solid #eee;padding-top:1rem;" onsubmit="salvarEmailSetor(event)">
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="novo-email-endereco">E-mail:</label>
+                    <input type="email" id="novo-email-endereco" required placeholder="setor@crprs.org.br">
+                </div>
+                <div class="form-group">
+                    <label for="novo-email-usuario">Usuário IMAP:</label>
+                    <input type="text" id="novo-email-usuario" required placeholder="geralmente igual ao e-mail">
+                </div>
+            </div>
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="novo-email-host">Host IMAP:</label>
+                    <input type="text" id="novo-email-host" required placeholder="email-ssl.com.br">
+                </div>
+                <div class="form-group">
+                    <label for="novo-email-porta">Porta IMAP:</label>
+                    <input type="number" id="novo-email-porta" required value="993">
+                </div>
+            </div>
+            <div class="form-group">
+                <label for="novo-email-senha">Senha IMAP:</label>
+                <input type="password" id="novo-email-senha" required autocomplete="new-password">
+            </div>
+            <div id="resultado-teste-email" style="margin-bottom:0.75rem;"></div>
+            <div style="display:flex;gap:0.5rem;">
+                <button type="button" class="btn-small" onclick="testarEmailSetor()">🔌 Testar Conexão</button>
+                <button type="submit" class="btn-primary">Salvar</button>
+                <button type="button" class="btn-small" onclick="document.getElementById('form-email-setor-container').innerHTML=''">Cancelar</button>
+            </div>
+        </form>
+    `;
+}
+
+function coletarDadosFormEmailSetor() {
+    return {
+        email: document.getElementById('novo-email-endereco').value.trim(),
+        imap_user: document.getElementById('novo-email-usuario').value.trim(),
+        imap_host: document.getElementById('novo-email-host').value.trim(),
+        imap_port: parseInt(document.getElementById('novo-email-porta').value, 10) || 993,
+        imap_pass: document.getElementById('novo-email-senha').value
+    };
+}
+
+function testarEmailSetor() {
+    const dados = coletarDadosFormEmailSetor();
+    const resultadoDiv = document.getElementById('resultado-teste-email');
+
+    if (!dados.email || !dados.imap_user || !dados.imap_host || !dados.imap_pass) {
+        resultadoDiv.innerHTML = '<p style="color:#dc3545;">Preencha todos os campos antes de testar.</p>';
+        return;
+    }
+
+    resultadoDiv.innerHTML = '<p>Testando conexão...</p>';
+
+    const xhr = new XMLHttpRequest();
+    xhr.open('POST', window.APP_CONFIG.apiBase + 'setor-emails.php', true);
+    xhr.setRequestHeader('Content-Type', 'application/json');
+    setSecurityHeaders(xhr);
+
+    xhr.onload = function () {
+        try {
+            const resp = JSON.parse(xhr.responseText);
+            const cor = resp.sucesso ? '#28a745' : '#dc3545';
+            resultadoDiv.innerHTML = `<p style="color:${cor};">${resp.sucesso ? '✅' : '❌'} ${resp.mensagem}</p>`;
+        } catch (e) {
+            resultadoDiv.innerHTML = '<p style="color:#dc3545;">Erro ao testar conexão.</p>';
+        }
+    };
+
+    xhr.onerror = function () {
+        resultadoDiv.innerHTML = '<p style="color:#dc3545;">Erro de conexão.</p>';
+    };
+
+    xhr.send(JSON.stringify(Object.assign({ acao: 'testar' }, dados)));
+}
+
+function salvarEmailSetor(event) {
+    event.preventDefault();
+    const dados = coletarDadosFormEmailSetor();
+
+    mostrarLoader();
+
+    const xhr = new XMLHttpRequest();
+    xhr.open('POST', window.APP_CONFIG.apiBase + 'setor-emails.php', true);
+    xhr.setRequestHeader('Content-Type', 'application/json');
+    setSecurityHeaders(xhr);
+
+    xhr.onload = function () {
+        ocultarLoader();
+        if (xhr.status === 200) {
+            mostrarToast('Sucesso', 'Caixa de e-mail cadastrada!', 'success');
+            carregarEmailsSetor();
+        } else {
+            let mensagemErro = 'Erro ao cadastrar caixa de e-mail';
+            try { mensagemErro = JSON.parse(xhr.responseText).error || mensagemErro; } catch (e) { }
+            mostrarAlert('Erro', mensagemErro);
+        }
+    };
+
+    xhr.onerror = function () {
+        ocultarLoader();
+        mostrarAlert('Erro', 'Erro de conexão');
+    };
+
+    xhr.send(JSON.stringify(Object.assign({ setor_id: setorConfigAtual }, dados)));
+}
+
+function alternarAtivoEmailSetor(id, ativo) {
+    const xhr = new XMLHttpRequest();
+    xhr.open('PUT', `${window.APP_CONFIG.apiBase}setor-emails.php/${id}`, true);
+    xhr.setRequestHeader('Content-Type', 'application/json');
+    setSecurityHeaders(xhr);
+
+    xhr.onload = function () {
+        if (xhr.status === 200) {
+            mostrarToast('Sucesso', 'Caixa de e-mail atualizada!', 'success');
+        } else {
+            mostrarAlert('Erro', 'Erro ao atualizar caixa de e-mail');
+            carregarEmailsSetor();
+        }
+    };
+
+    xhr.send(JSON.stringify({ ativo: ativo }));
+}
+
+function excluirEmailSetor(id) {
+    mostrarConfirm('Excluir Caixa de E-mail', 'Tem certeza que deseja excluir esta caixa de e-mail? Novos e-mails recebidos nela deixarão de virar demandas.', function (confirmado) {
+        if (!confirmado) return;
+
+        const xhr = new XMLHttpRequest();
+        xhr.open('DELETE', `${window.APP_CONFIG.apiBase}setor-emails.php/${id}`, true);
+        setSecurityHeaders(xhr);
+
+        xhr.onload = function () {
+            if (xhr.status === 200) {
+                mostrarToast('Sucesso', 'Caixa de e-mail excluída!', 'success');
+                carregarEmailsSetor();
+            } else {
+                mostrarAlert('Erro', 'Erro ao excluir caixa de e-mail');
+            }
+        };
+
+        xhr.send();
+    });
+}
+
+function formatarNomeItemConfigSetor(tipo, nome) {
+    if (tipo === 'status') return typeof formatarNomeStatus === 'function' ? formatarNomeStatus(nome) : nome;
+    if (tipo === 'prioridades') return typeof formatarNomePrioridade === 'function' ? formatarNomePrioridade(nome) : nome;
+    return nome;
+}
+
+function renderizarListaConfigSetor(itens, tipo) {
+    const lista = document.getElementById('config-setor-lista');
+
+    if (itens.length === 0) {
+        lista.innerHTML = '<p style="color:#999;font-style:italic;">Nenhum item cadastrado no catálogo global ainda.</p>';
+        return;
+    }
+
+    lista.innerHTML = `
+        <div class="config-setor-itens">
+            ${itens.map((item, index) => `
+                <div class="config-setor-item ${item.ativo ? '' : 'config-setor-item-inativo'}">
+                    <label class="switch-label" style="flex:1;">
+                        <label class="switch">
+                            <input type="checkbox" ${item.ativo ? 'checked' : ''} onchange="alternarAtivoConfigSetor(${item.id}, '${tipo}', this.checked)">
+                            <span class="slider"></span>
+                        </label>
+                        <span>${formatarNomeItemConfigSetor(tipo, item.nome)}</span>
+                    </label>
+                    <div class="config-setor-item-ordem">
+                        <button type="button" class="btn-small" ${index === 0 ? 'disabled' : ''} onclick="moverItemConfigSetor(${item.id}, '${tipo}', 'up')" title="Mover para cima">▲</button>
+                        <button type="button" class="btn-small" ${index === itens.length - 1 ? 'disabled' : ''} onclick="moverItemConfigSetor(${item.id}, '${tipo}', 'down')" title="Mover para baixo">▼</button>
+                    </div>
+                </div>
+            `).join('')}
+        </div>
+    `;
+}
+
+function alternarAtivoConfigSetor(itemId, tipo, ativo) {
+    const xhr = new XMLHttpRequest();
+    xhr.open('PUT', window.APP_CONFIG.apiBase + 'setor-config.php', true);
+    xhr.setRequestHeader('Content-Type', 'application/json');
+    setSecurityHeaders(xhr);
+
+    xhr.onload = function () {
+        if (xhr.status === 200) {
+            mostrarToast('Sucesso', 'Configuração atualizada!', 'success');
+        } else {
+            mostrarAlert('Erro', 'Erro ao atualizar configuração');
+            carregarAbaConfigSetor(tipo);
+        }
+    };
+
+    xhr.onerror = function () {
+        mostrarAlert('Erro', 'Erro de conexão');
+        carregarAbaConfigSetor(tipo);
+    };
+
+    xhr.send(JSON.stringify({ tipo: tipo, setor_id: setorConfigAtual, item_id: itemId, ativo: ativo }));
+}
+
+function moverItemConfigSetor(itemId, tipo, direcao) {
+    const xhr = new XMLHttpRequest();
+    xhr.open('POST', window.APP_CONFIG.apiBase + 'setor-config.php', true);
+    xhr.setRequestHeader('Content-Type', 'application/json');
+    setSecurityHeaders(xhr);
+
+    xhr.onload = function () {
+        if (xhr.status === 200) {
+            carregarAbaConfigSetor(tipo);
+        } else {
+            mostrarAlert('Erro', 'Erro ao reordenar');
+        }
+    };
+
+    xhr.onerror = function () {
+        mostrarAlert('Erro', 'Erro de conexão');
+    };
+
+    xhr.send(JSON.stringify({ tipo: tipo, setor_id: setorConfigAtual, item_id: itemId, direcao: direcao }));
 }
 
 // Função para limpar formulário de ticket completamente
@@ -3603,13 +4689,28 @@ function limparFormularioTicket() {
 // Carregar tickets fechados (encerrados e cancelados)
 function carregarTicketsFechados() {
     mostrarSkeletonTickets('lista-fechados');
+
+    // Supervisor: Arquivo inclui também demandas que passaram pelo setor e foram transferidas.
+    // Usuario: Arquivo inclui também demandas que ele já atendeu e foram repassadas/devolvidas.
+    const usuarioLogado = JSON.parse(localStorage.getItem('cd_usuario') || '{}');
+    const sufixoArquivo = (usuarioLogado.tipo === 'supervisor' || usuarioLogado.tipo === 'usuario') ? '?arquivo=1' : '';
+
     const xhr = new XMLHttpRequest();
-    xhr.open('GET', '/crpdesk/api/controllers/tickets.php', true);
+    xhr.open('GET', window.APP_CONFIG.apiBase + 'tickets.php' + sufixoArquivo, true);
+    setSecurityHeaders(xhr);
 
     xhr.onload = function () {
         if (xhr.status === 200) {
             const todosTickets = JSON.parse(xhr.responseText);
-            const ticketsFechados = todosTickets.filter(ticket => ticket.status === 'encerrado' || ticket.status === 'cancelado');
+            // Encerrados/cancelados sempre entram no Arquivo. Além disso: para o supervisor, uma
+            // demanda transferida para outro setor "sai" do seu Arquivo mesmo sem estar fechada;
+            // para o usuario, uma demanda repassada/devolvida (não é mais dele) também entra.
+            const ticketsFechados = todosTickets.filter(ticket => {
+                if (ticket.status === 'encerrado' || ticket.status === 'cancelado') return true;
+                if (usuarioLogado.tipo === 'supervisor') return ticket.setor_id != usuarioLogado.setor_id;
+                if (usuarioLogado.tipo === 'usuario') return ticket.agente_id != usuarioLogado.id && ticket.usuario_id != usuarioLogado.id;
+                return false;
+            });
 
             // Re-aplicar ordenação persistida antes de renderizar
             if (ordemFechados.campo) {
@@ -3683,7 +4784,7 @@ function aplicarFiltroMeusTicketsFechados() {
     let base = ticketsFechadosAtuais;
 
     if (filtroAtivo && filtroAtivo.checked) {
-        const usuarioLogado = JSON.parse(localStorage.getItem('usuario'));
+        const usuarioLogado = JSON.parse(localStorage.getItem('cd_usuario'));
         base = ticketsFechadosAtuais.filter(ticket => ticket.agente_id == usuarioLogado.id);
     }
 
@@ -3710,7 +4811,7 @@ function irParaPaginaFechados(p) {
 
 function alterarPorPaginaFechados(valor) {
     porPaginaFechados = parseInt(valor);
-    localStorage.setItem('ticketsFechadosPorPagina', porPaginaFechados);
+    localStorage.setItem('cd_ticketsFechadosPorPagina', porPaginaFechados);
     paginaAtualFechados = 1;
     mostrarTicketsFechadosNaTela(ticketsFechadosFiltradosPorBusca.length > 0 ? ticketsFechadosFiltradosPorBusca : ticketsFechadosAtuais);
 }
@@ -3735,7 +4836,7 @@ function mostrarTicketsFechadosNaTela(tickets) {
         listaFechados.innerHTML = `
             <div style="text-align:center; padding: 3rem 1rem; color: #64748b;">
                 <span class="material-symbols-outlined" style="font-size:3rem; opacity:0.4;">inbox</span>
-                <p style="margin-top:0.5rem; font-size:0.95rem;">Nenhum ticket fechado encontrado para este filtro.</p>
+                <p style="margin-top:0.5rem; font-size:0.95rem;">Nenhuma demanda fechada encontrada para este filtro.</p>
             </div>`;
         return;
     }
@@ -3751,12 +4852,12 @@ function mostrarTicketsFechadosNaTela(tickets) {
         <table class="tickets-tabela">
             <thead>
                 <tr>
-                    <th onclick="ordenarTabelaFechados('id')" class="sortable" data-campo-fechado="id">Nº Ticket <span class="sort-arrows">↕</span></th>
+                    <th onclick="ordenarTabelaFechados('id')" class="sortable" data-campo-fechado="id">Nº Demanda <span class="sort-arrows">↕</span></th>
                     <th onclick="ordenarTabelaFechados('criado_em')" class="sortable" data-campo-fechado="criado_em">Abertura <span class="sort-arrows">↕</span></th>
                     <th onclick="ordenarTabelaFechados('titulo')" class="sortable" data-campo-fechado="titulo">Assunto <span class="sort-arrows">↕</span></th>
                     <th onclick="ordenarTabelaFechados('usuario_nome')" class="sortable" data-campo-fechado="usuario_nome">Solicitante <span class="sort-arrows">↕</span></th>
                     <th onclick="ordenarTabelaFechados('agente_nome')" class="sortable" data-campo-fechado="agente_nome">Responsável <span class="sort-arrows">↕</span></th>
-                    <th onclick="ordenarTabelaFechados('categoria_nome')" class="sortable" data-campo-fechado="categoria_nome">Categoria <span class="sort-arrows">↕</span></th>
+                    <th onclick="ordenarTabelaFechados('categoria_nome')" class="sortable" data-campo-fechado="categoria_nome">Subcategoria <span class="sort-arrows">↕</span></th>
                     <th onclick="ordenarTabelaFechados('status')" class="sortable" data-campo-fechado="status">Status <span class="sort-arrows">↕</span></th>
                     <th onclick="ordenarTabelaFechados('fechado_em')" class="sortable" data-campo-fechado="fechado_em" style="white-space: nowrap;">Encerramento <span class="sort-arrows">↕</span></th>
                     <th>Ações</th>
@@ -3768,16 +4869,16 @@ function mostrarTicketsFechadosNaTela(tickets) {
     ticketsPagina.forEach(ticket => {
         // Ícones Material Symbols
         const iconeAnexo = ticket.tem_anexos > 0
-            ? `<span class="material-symbols-outlined icone-tabela icone-anexo-ms" data-vg-tooltip="Este ticket possui arquivos anexados." data-vg-title="ANEXOS" aria-label="Tem anexos">attach_file</span>` : '';
+            ? `<span class="material-symbols-outlined icone-tabela icone-anexo-ms" data-vg-tooltip="Esta demanda possui arquivos anexados." data-vg-title="ANEXOS" aria-label="Tem anexos">attach_file</span>` : '';
         const iconeMesclado = ticket.eh_mesclado > 0
-            ? `<span class="material-symbols-outlined icone-tabela" data-vg-tooltip="Este ticket foi mesclado com outro chamado." data-vg-title="TICKET MESCLADO" aria-label="Mesclado" style="color:#6366f1">call_merge</span>` : '';
+            ? `<span class="material-symbols-outlined icone-tabela" data-vg-tooltip="Esta demanda foi mesclada com outra demanda." data-vg-title="DEMANDA MESCLADA" aria-label="Mesclado" style="color:#6366f1">call_merge</span>` : '';
 
         // Título truncado
         const tituloSeguro = (ticket.titulo || '').replace(/"/g, '&quot;').replace(/</g, '&lt;');
 
         tabelaHTML += `
             <tr data-ticket-id="${ticket.id}" ${modoMergeFechadosAtivo ? 'style="cursor: pointer;"' : ''}>
-                <td data-label="Nº Ticket">
+                <td data-label="Nº Demanda">
                     <a href="#" onclick="${modoMergeFechadosAtivo ? 'event.stopPropagation();' : ''} verDetalhes(${ticket.id})" class="ticket-link">#${String(ticket.id).padStart(5, '0')}</a>
                     ${iconeMesclado}${iconeAnexo}
                 </td>
@@ -3790,7 +4891,7 @@ function mostrarTicketsFechadosNaTela(tickets) {
                     ${ticket.usuario_email ? `<span class="ticket-data-hora" style="font-size: 0.85em;">${ofuscarEmail(ticket.usuario_email)}</span>` : ''}
                 </td>
                 <td data-label="Responsável">${ticket.agente_nome || 'Não atribuído'}</td>
-                <td data-label="Categoria">${ticket.categoria_nome || 'Sem categoria'}</td>
+                <td data-label="Subcategoria">${ticket.categoria_nome || 'Sem subcategoria'}</td>
                 <td data-label="Status"><span class="status ${ticket.status}">${ticket.status === 'encerrado' ? '🏁 Encerrado' : '❌ Cancelado'}</span></td>
                 <td data-label="Encerramento" style="font-size: 0.8rem; font-weight: bold;">${ticket.fechado_em ? new Date(ticket.fechado_em).toLocaleDateString('pt-BR') + '<span class="ticket-data-hora">' + new Date(ticket.fechado_em).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }) + '</span>' : '-'}</td>
                 <td data-label="Ações">
@@ -3808,9 +4909,9 @@ function mostrarTicketsFechadosNaTela(tickets) {
     tabelaHTML += `
             </tbody>
         </table>
-        <div class="tabela-footer" role="navigation" aria-label="Paginação de tickets fechados">
+        <div class="tabela-footer" role="navigation" aria-label="Paginação de demandas fechadas">
             <div class="tabela-resumo">
-                Exibindo <strong>${inicioExib}–${fimExib}</strong> de <strong>${totalExib}</strong> ticket${totalExib !== 1 ? 's' : ''}
+                Exibindo <strong>${inicioExib}–${fimExib}</strong> de <strong>${totalExib}</strong> demanda${totalExib !== 1 ? "s" : ""}
             </div>
             <div class="paginacao">
                 <button class="btn-paginacao" onclick="irParaPaginaFechados(${paginaAtualFechados - 1})" ${paginaAtualFechados <= 1 ? 'disabled' : ''} aria-label="Página anterior">‹</button>
@@ -3874,8 +4975,8 @@ function mostrarRelatorios() {
 // Reabrir ticket fechado
 function reabrirTicket(ticketId) {
     mostrarConfirm(
-        'Reabrir Ticket',
-        'Tem certeza que deseja reabrir este ticket?',
+        'Reabrir Demanda',
+        'Tem certeza que deseja reabrir esta demanda?',
         function (confirmado) {
             if (!confirmado) return;
 
@@ -3897,8 +4998,8 @@ function reabrirTicket(ticketId) {
 // Remover ticket fechado
 function removerTicketFechado(ticketId) {
     mostrarConfirm(
-        'Remover Ticket',
-        'Tem certeza que deseja remover este ticket fechado? Esta ação não pode ser desfeita.',
+        'Remover Demanda',
+        'Tem certeza que deseja remover esta demanda fechada? Esta ação não pode ser desfeita.',
         function (confirmado) {
             if (!confirmado) return;
 
@@ -3919,8 +5020,8 @@ function mostrarTicketsComAtualizacao() {
 // Função para voltar à seção de origem
 function voltarParaOrigem() {
     // Limpar ticket ativo
-    localStorage.removeItem('ticketAtivo');
-    localStorage.removeItem('secaoOrigem');
+    localStorage.removeItem('cd_ticketAtivo');
+    localStorage.removeItem('cd_secaoOrigem');
 
     if (secaoOrigem === 'fechados') {
         mostrarTicketsFechados();
@@ -3939,19 +5040,20 @@ function mostrarDashboard() {
 function carregarDashboard() {
     // Primeiro inicializar tabelas
     const xhrInit = new XMLHttpRequest();
-    xhrInit.open('POST', '/crpdesk/api/controllers/init-tempo.php', true);
+    xhrInit.open('POST', window.APP_CONFIG.apiBase + 'init-tempo.php', true);
     xhrInit.setRequestHeader('Content-Type', 'application/json');
 
     xhrInit.onload = function () {
         // Inicializar histórico
         const xhrHist = new XMLHttpRequest();
-        xhrHist.open('POST', '/crpdesk/api/controllers/init-historico.php', true);
+        xhrHist.open('POST', window.APP_CONFIG.apiBase + 'init-historico.php', true);
         xhrHist.setRequestHeader('Content-Type', 'application/json');
 
         xhrHist.onload = function () {
             // Depois carregar dashboard
             const xhr = new XMLHttpRequest();
-            xhr.open('GET', '/crpdesk/api/controllers/dashboard.php', true);
+            xhr.open('GET', window.APP_CONFIG.apiBase + 'dashboard.php', true);
+            setSecurityHeaders(xhr);
 
             xhr.onload = function () {
                 if (xhr.status === 200) {
@@ -3989,7 +5091,7 @@ function mostrarDashboardNaTela(dados) {
             <div class="dashboard-card">
                 <h3 class="card-title-flex">
                     <div class="title-left">
-                        <span class="material-symbols-outlined" aria-hidden="true">tag</span> Total de Tickets
+                        <span class="material-symbols-outlined" aria-hidden="true">tag</span> Total de Demandas
                     </div>
                     <span class="material-symbols-outlined info-icon" onclick="mostrarInfoGrafico('total')" title="Clique para mais informações" aria-hidden="true">info</span>
                 </h3>
@@ -4034,7 +5136,7 @@ function mostrarDashboardNaTela(dados) {
                     <span class="material-symbols-outlined info-icon" onclick="mostrarInfoGrafico('tempo-total')" title="Clique para mais informações" aria-hidden="true">info</span>
                 </h3>
                 <div class="dashboard-number scale-bounce">${formatarTempo(dados.tempoMedioSegundos)}</div>
-                <div class="dashboard-subtitle">Até o encerramento do ticket</div>
+                <div class="dashboard-subtitle">Até o encerramento da demanda</div>
             </div>
         </div>
 
@@ -4069,7 +5171,7 @@ function mostrarDashboardNaTela(dados) {
                     <span class="material-symbols-outlined info-icon" onclick="mostrarInfoGrafico('sla-vencido')" title="Clique para mais informações" aria-hidden="true">info</span>
                 </h3>
                 <div class="dashboard-number count-up sla-vencido-number" data-target="${dados.sla_vencido || 0}">0</div>
-                <div class="dashboard-subtitle">Tickets ativos com SLA expirado</div>
+                <div class="dashboard-subtitle">Demandas ativas com SLA expirado</div>
             </div>
             <div class="dashboard-card kpi-origem-externa">
                 <h3 class="card-title-flex">
@@ -4079,7 +5181,7 @@ function mostrarDashboardNaTela(dados) {
                     <span class="material-symbols-outlined info-icon" onclick="mostrarInfoGrafico('origem-externa')" title="Clique para mais informações" aria-hidden="true">info</span>
                 </h3>
                 <div class="dashboard-number count-up origem-externa-number" data-target="${dados.total_origem_externa || 0}">0</div>
-                <div class="dashboard-subtitle">Tickets recebidos por integração</div>
+                <div class="dashboard-subtitle">Demandas recebidas por integração</div>
             </div>
         </div>
 
@@ -4087,7 +5189,7 @@ function mostrarDashboardNaTela(dados) {
             <div class="dashboard-card">
                 <h3 class="card-title-flex">
                     <div class="title-left">
-                        <span class="material-symbols-outlined" aria-hidden="true">donut_large</span> Tickets por Status <span class="text-caption">(apenas ativos)</span>
+                        <span class="material-symbols-outlined" aria-hidden="true">donut_large</span> Demandas por Status <span class="text-caption">(apenas ativos)</span>
                     </div>
                     <span class="material-symbols-outlined info-icon" onclick="mostrarInfoGrafico('status')" title="Clique para mais informações" aria-hidden="true">info</span>
                 </h3>
@@ -4096,7 +5198,7 @@ function mostrarDashboardNaTela(dados) {
             <div class="dashboard-card">
                 <h3 class="card-title-flex">
                     <div class="title-left">
-                        <span class="material-symbols-outlined" aria-hidden="true">local_fire_department</span> Tickets por Prioridade <span class="text-caption">(apenas ativos)</span>
+                        <span class="material-symbols-outlined" aria-hidden="true">local_fire_department</span> Demandas por Prioridade <span class="text-caption">(apenas ativos)</span>
                     </div>
                     <span class="material-symbols-outlined info-icon" onclick="mostrarInfoGrafico('prioridade')" title="Clique para mais informações" aria-hidden="true">info</span>
                 </h3>
@@ -4135,7 +5237,7 @@ function mostrarDashboardNaTela(dados) {
             <div class="dashboard-card">
                 <h3 class="card-title-flex">
                     <div class="title-left">
-                        <span class="material-symbols-outlined" aria-hidden="true">calendar_month</span> Tickets Dia da Semana
+                        <span class="material-symbols-outlined" aria-hidden="true">calendar_month</span> Demandas Dia da Semana
                     </div>
                     <span class="material-symbols-outlined info-icon" onclick="mostrarInfoGrafico('dia-semana')" title="Clique para mais informações" aria-hidden="true">info</span>
                 </h3>
@@ -4171,24 +5273,24 @@ function mostrarDashboardNaTela(dados) {
 
     html += `</div></div><div class="dashboard-card"><h3 class="card-title-flex">
                     <div class="title-left">
-                        <span class="material-symbols-outlined" aria-hidden="true">category</span> Top 5 Categorias
+                        <span class="material-symbols-outlined" aria-hidden="true">category</span> Top 5 Subcategorias
                     </div>
                 </h3><div class="dashboard-list">`;
 
     (dados.top_categorias || []).forEach((item, index) => {
         const trofeu = index === 0 ? ' <span class="material-symbols-outlined item-trofeu" aria-hidden="true">emoji_events</span>' : '';
-        html += `<div class="dashboard-item dashboard-item-animate" data-delay="${index * 0.1}"><span>${item.nome || 'Sem categoria'}${trofeu}</span><span>${item.total}</span></div>`;
+        html += `<div class="dashboard-item dashboard-item-animate" data-delay="${index * 0.1}"><span>${item.nome || 'Sem subcategoria'}${trofeu}</span><span>${item.total}</span></div>`;
     });
 
     html += `</div></div><div class="dashboard-card"><h3 class="card-title-flex">
                     <div class="title-left">
-                        <span class="material-symbols-outlined" aria-hidden="true">folder_open</span> Tickets por Macrocategoria
+                        <span class="material-symbols-outlined" aria-hidden="true">folder_open</span> Demandas por Categoria
                     </div>
                 </h3><div class="dashboard-list">`;
 
     (dados.ticketsPorMacrocategoria || []).forEach((item, index) => {
         const trofeu = index === 0 ? ' <span class="material-symbols-outlined item-trofeu" aria-hidden="true">emoji_events</span>' : '';
-        html += `<div class="dashboard-item dashboard-item-animate" data-delay="${index * 0.1}"><span>${item.nome || 'Sem macrocategoria'}${trofeu}</span><span>${item.quantidade}</span></div>`;
+        html += `<div class="dashboard-item dashboard-item-animate" data-delay="${index * 0.1}"><span>${item.nome || 'Sem categoria'}${trofeu}</span><span>${item.quantidade}</span></div>`;
     });
 
     html += `</div></div></div>`;
@@ -4260,12 +5362,12 @@ function mostrarDashboardNaTela(dados) {
 let ticketsAtuais = [];
 let ticketsFechadosAtuais = [];
 let paginaAtualFechados = 1;
-let porPaginaFechados = parseInt(localStorage.getItem('ticketsFechadosPorPagina') || '50');
+let porPaginaFechados = parseInt(localStorage.getItem('cd_ticketsFechadosPorPagina') || '50');
 let ticketsFechadosFiltradosPorBusca = [];
 
 // Restaurar ordenação salva ou usar default
-const _ordemSalva = JSON.parse(localStorage.getItem('ticketsOrdem') || 'null');
-const _ordemFechadosSalva = JSON.parse(localStorage.getItem('ticketsFechadosOrdem') || 'null');
+const _ordemSalva = JSON.parse(localStorage.getItem('cd_ticketsOrdem') || 'null');
+const _ordemFechadosSalva = JSON.parse(localStorage.getItem('cd_ticketsFechadosOrdem') || 'null');
 
 let ordemAtual = _ordemSalva || { campo: 'id', direcao: 'desc' };
 let ordemFechados = _ordemFechadosSalva || { campo: 'id', direcao: 'desc' };
@@ -4281,7 +5383,7 @@ function ordenarTabela(campo) {
     }
 
     // Persistir no localStorage
-    localStorage.setItem('ticketsOrdem', JSON.stringify(ordemAtual));
+    localStorage.setItem('cd_ticketsOrdem', JSON.stringify(ordemAtual));
 
     // Ordenar tickets
     const ticketsOrdenados = [...ticketsAtuais].sort((a, b) => {
@@ -4347,7 +5449,7 @@ function ordenarTabelaFechados(campo) {
     }
 
     // Persistir no localStorage
-    localStorage.setItem('ticketsFechadosOrdem', JSON.stringify(ordemFechados));
+    localStorage.setItem('cd_ticketsFechadosOrdem', JSON.stringify(ordemFechados));
 
     // Ordenar tickets fechados
     const ticketsOrdenados = [...ticketsFechadosAtuais].sort((a, b) => {
@@ -4390,10 +5492,10 @@ function obterIconePrioridade(prioridade) {
 
 // Restaurar seção ativa após reload
 function restaurarSecaoAtiva() {
-    const secaoSalva = localStorage.getItem('secaoAtiva');
-    const subSecaoSalva = localStorage.getItem('subSecaoAtiva');
-    const secaoOrigemSalva = localStorage.getItem('secaoOrigem');
-    const ticketAtivo = localStorage.getItem('ticketAtivo');
+    const secaoSalva = localStorage.getItem('cd_secaoAtiva');
+    const subSecaoSalva = localStorage.getItem('cd_subSecaoAtiva');
+    const secaoOrigemSalva = localStorage.getItem('cd_secaoOrigem');
+    const ticketAtivo = localStorage.getItem('cd_ticketAtivo');
 
     // Restaurar seção de origem se houver
     if (secaoOrigemSalva) {
@@ -4436,17 +5538,35 @@ function restaurarSecaoAtiva() {
             mostrarSLA();
         }
     } else if (secaoSalva === 'config') {
-        const usuario = JSON.parse(localStorage.getItem('usuario'));
-        if (usuario.tipo !== 'admin') {
+        const usuario = JSON.parse(localStorage.getItem('cd_usuario'));
+        if (usuario.tipo !== 'admin' && usuario.tipo !== 'supervisor') {
             mostrarSecao('tickets');
             carregarTickets();
+        } else if (usuario.tipo === 'supervisor') {
+            // Supervisor tem acesso a Usuários, Categorias, Ativação por Setor, Auditoria e Setores (próprio) dentro de Configurações
+            mostrarSecao('config');
+            if (subSecaoSalva === 'categorias') {
+                mostrarCategorias();
+            } else if (subSecaoSalva === 'setor-config') {
+                mostrarConfigSetor();
+            } else if (subSecaoSalva === 'auditoria') {
+                mostrarAuditoria();
+            } else if (subSecaoSalva === 'setores') {
+                mostrarSetores();
+            } else {
+                mostrarUsuarios();
+            }
         } else {
             mostrarSecao('config');
             // Restaurar subseção de configuração
-            if (subSecaoSalva === 'usuarios') {
+            if (subSecaoSalva === 'setores') {
+                mostrarSetores();
+            } else if (subSecaoSalva === 'usuarios') {
                 mostrarUsuarios();
             } else if (subSecaoSalva === 'categorias') {
                 mostrarCategorias();
+            } else if (subSecaoSalva === 'setor-config') {
+                mostrarConfigSetor();
             } else if (subSecaoSalva === 'auditoria') {
                 mostrarAuditoria();
             } else if (subSecaoSalva === 'personalizacao') {
@@ -4481,10 +5601,10 @@ function mostrarAlterarSenha() {
 
 // Salvar seção ativa
 function salvarSecaoAtiva(secaoId) {
-    localStorage.setItem('secaoAtiva', secaoId);
+    localStorage.setItem('cd_secaoAtiva', secaoId);
     // Limpar subseção se não for config
     if (secaoId !== 'config') {
-        localStorage.removeItem('subSecaoAtiva');
+        localStorage.removeItem('cd_subSecaoAtiva');
     }
 }
 
@@ -4499,7 +5619,7 @@ function mostrarRelatorios() {
 function carregarFiltrosRelatorio() {
     // Carregar categorias
     const xhr1 = new XMLHttpRequest();
-    xhr1.open('GET', '/crpdesk/api/controllers/categorias.php', true);
+    xhr1.open('GET', window.APP_CONFIG.apiBase + 'categorias.php', true);
     xhr1.onload = function () {
         if (xhr1.status === 200) {
             const categorias = JSON.parse(xhr1.responseText);
@@ -4516,7 +5636,8 @@ function carregarFiltrosRelatorio() {
 
     // Carregar agentes
     const xhr2 = new XMLHttpRequest();
-    xhr2.open('GET', '/crpdesk/api/controllers/agentes.php', true);
+    xhr2.open('GET', window.APP_CONFIG.apiBase + 'agentes.php', true);
+    setSecurityHeaders(xhr2);
     xhr2.onload = function () {
         if (xhr2.status === 200) {
             const agentes = JSON.parse(xhr2.responseText);
@@ -4595,7 +5716,8 @@ function gerarRelatorio() {
     });
 
     const xhr = new XMLHttpRequest();
-    xhr.open('GET', `/crpdesk/api/controllers/relatorios.php?${params}`, true);
+    xhr.open('GET', `${window.APP_CONFIG.apiBase}relatorios.php?${params}`, true);
+    setSecurityHeaders(xhr);
     xhr.onload = function () {
         if (xhr.status === 200) {
             const dados = JSON.parse(xhr.responseText);
@@ -4622,11 +5744,11 @@ function exibirRelatorio(dados) {
     let html = `
         <div class="relatorio-resumo">
             <div class="resumo-card">
-                <h3>Total de Tickets</h3>
+                <h3>Total de Demandas</h3>
                 <div class="resumo-numero">${dados.estatisticas.totalTickets}</div>
             </div>
             <div class="resumo-card">
-                <h3>Tickets Encerrados</h3>
+                <h3>Demandas Encerradas</h3>
                 <div class="resumo-numero">${dados.estatisticas.ticketsEncerrados || 0}</div>
             </div>
             <div class="resumo-card">
@@ -4643,12 +5765,12 @@ function exibirRelatorio(dados) {
             <table class="tickets-tabela">
                 <thead>
                     <tr>
-                        <th>Nº Ticket</th>
+                        <th>Nº Demanda</th>
                         <th>Abertura</th>
                         <th>Assunto</th>
                         <th>Solicitante</th>
                         <th>Responsável</th>
-                        <th>Categoria</th>
+                        <th>Subcategoria</th>
                         <th>Status</th>
                         <th>Prioridade</th>
                         <th>Fechamento</th>
@@ -4672,13 +5794,13 @@ function exibirRelatorio(dados) {
             <tr>
                 <td>
                     #${String(ticket.id).padStart(5, '0')}
-                    ${ticket.tem_anexos > 0 ? '<img src="images/clipe-de-anexo.png" class="icone-anexo" title="Ticket com anexos" alt="Anexo">' : ''}
+                    ${ticket.tem_anexos > 0 ? '<img src="images/clipe-de-anexo.png" class="icone-anexo" title="Demanda com anexos" alt="Anexo">' : ''}
                 </td>
                 <td>${dataAberturaFormatada}<br><small style="color: #666;">${horaAberturaFormatada}</small></td>
                 <td>${ticket.titulo}</td>
                 <td>${ticket.usuario_nome || 'N/A'}</td>
                 <td>${ticket.agente_nome || 'Não atribuído'}</td>
-                <td>${ticket.categoria_nome || 'Sem categoria'}</td>
+                <td>${ticket.categoria_nome || 'Sem subcategoria'}</td>
                 <td>${ticket.status.charAt(0).toUpperCase() + ticket.status.slice(1)}</td>
                 <td>${ticket.prioridade.charAt(0).toUpperCase() + ticket.prioridade.slice(1)}</td>
                 <td><small style=""color: #666;"">${dataFechamento}</small></td>
@@ -4714,7 +5836,7 @@ function exportarRelatorio(formato) {
 function exportarExcel() {
     const dados = dadosRelatorioAtual;
     let csv = '\uFEFF'; // BOM UTF-8
-    csv += 'Nº Ticket;Data Abertura;Hora Abertura;Assunto;Solicitante;Responsável;Categoria;Status;Prioridade;Data Fechamento;Hora Fechamento\n';
+    csv += 'Nº Demanda;Data Abertura;Hora Abertura;Assunto;Solicitante;Responsável;Subcategoria;Status;Prioridade;Data Fechamento;Hora Fechamento\n';
 
     dados.tickets.forEach(ticket => {
         const dataAbertura = new Date(ticket.criado_em);
@@ -4733,7 +5855,7 @@ function exportarExcel() {
         const titulo = ticket.titulo.replace(/;/g, ',');
         const solicitante = (ticket.usuario_nome || 'N/A').replace(/;/g, ',');
         const responsavel = (ticket.agente_nome || 'Não atribuído').replace(/;/g, ',');
-        const categoria = (ticket.categoria_nome || 'Sem categoria').replace(/;/g, ',');
+        const categoria = (ticket.categoria_nome || 'Sem subcategoria').replace(/;/g, ',');
         const status = ticket.status.charAt(0).toUpperCase() + ticket.status.slice(1);
         const prioridade = ticket.prioridade.charAt(0).toUpperCase() + ticket.prioridade.slice(1);
 
@@ -4756,7 +5878,7 @@ function exportarPDF() {
     printWindow.document.write(`
         <html>
         <head>
-            <title>Relatório de Tickets</title>
+            <title>Relatório de Demandas</title>
             <style>
                 body { font-family: Arial, sans-serif; margin: 20px; }
                 h1 { color: #f79226; text-align: center; }
@@ -4772,16 +5894,16 @@ function exportarPDF() {
             </style>
         </head>
         <body>
-            <h1>Relatório de Tickets - CRPRS Helpdesk</h1>
+            <h1>Relatório de Demandas - Conecta CRPRS</h1>
             <p style="text-align: center; color: #666;">Gerado em: ${new Date().toLocaleString('pt-BR')}</p>
             
             <div class="resumo">
                 <div class="resumo-card">
-                    <h3>Total de Tickets</h3>
+                    <h3>Total de Demandas</h3>
                     <div class="resumo-numero">${dados.estatisticas.totalTickets}</div>
                 </div>
                 <div class="resumo-card">
-                    <h3>Tickets Encerrados</h3>
+                    <h3>Demandas Encerradas</h3>
                     <div class="resumo-numero">${dados.estatisticas.ticketsEncerrados || 0}</div>
                 </div>
             </div>
@@ -4794,7 +5916,7 @@ function exportarPDF() {
                         <th>Assunto</th>
                         <th>Solicitante</th>
                         <th>Responsável</th>
-                        <th>Categoria</th>
+                        <th>Subcategoria</th>
                         <th>Status</th>
                         <th>Prioridade</th>
                         <th>Fechamento</th>
@@ -4822,7 +5944,7 @@ function exportarPDF() {
                 <td>${ticket.titulo}</td>
                 <td>${ticket.usuario_nome || 'N/A'}</td>
                 <td>${ticket.agente_nome || 'Não atribuído'}</td>
-                <td>${ticket.categoria_nome || 'Sem categoria'}</td>
+                <td>${ticket.categoria_nome || 'Sem subcategoria'}</td>
                 <td>${ticket.status.charAt(0).toUpperCase() + ticket.status.slice(1)}</td>
                 <td>${ticket.prioridade.charAt(0).toUpperCase() + ticket.prioridade.slice(1)}</td>
                 <td><small style=""color: #666;"">${dataFechamento}</small></td>
@@ -4885,10 +6007,10 @@ function alterarSenha(event) {
         return;
     }
 
-    const usuario = JSON.parse(localStorage.getItem('usuario'));
+    const usuario = JSON.parse(localStorage.getItem('cd_usuario'));
 
     const xhr = new XMLHttpRequest();
-    xhr.open('POST', '/crpdesk/api/controllers/alterar-senha.php', true);
+    xhr.open('POST', window.APP_CONFIG.apiBase + 'alterar-senha.php', true);
     xhr.setRequestHeader('Content-Type', 'application/json');
 
     xhr.onload = function () {
@@ -4971,8 +6093,8 @@ document.addEventListener('keydown', function (e) {
 // Inicializar aplicação
 document.addEventListener('DOMContentLoaded', function () {
     // Verificar se há usuário logado e token válido
-    const usuario = localStorage.getItem('usuario');
-    const token = localStorage.getItem('token');
+    const usuario = localStorage.getItem('cd_usuario');
+    const token = localStorage.getItem('cd_token');
     if (!usuario || !token) {
         localStorage.clear();
         window.location.href = './login.html';
@@ -4986,13 +6108,8 @@ document.addEventListener('DOMContentLoaded', function () {
         nomeUsuarioEl.textContent = dadosUsuario.nome;
     }
 
-    // Mostrar/ocultar seções baseado no tipo de usuário
-    if (dadosUsuario.tipo === 'admin') {
-        const menuConfig = document.getElementById('menu-config');
-        if (menuConfig) {
-            menuConfig.style.display = 'block';
-        }
-    }
+    // Mostrar/ocultar menu Configurações e seus itens conforme o papel do usuário
+    aplicarVisibilidadePorPapel(dadosUsuario.tipo);
 
     // Inicializar sistema de SLA
     if (typeof inicializarSistemaSLA === 'function') {
@@ -5005,14 +6122,14 @@ document.addEventListener('DOMContentLoaded', function () {
     if (!primeiroAcesso) {
         // Primeiro acesso - forçar lista de tickets
         sessionStorage.setItem('primeiroAcesso', 'false');
-        localStorage.removeItem('secaoAtiva');
-        localStorage.removeItem('subSecaoAtiva');
-        localStorage.removeItem('ticketAtivo');
-        localStorage.removeItem('secaoOrigem');
+        localStorage.removeItem('cd_secaoAtiva');
+        localStorage.removeItem('cd_subSecaoAtiva');
+        localStorage.removeItem('cd_ticketAtivo');
+        localStorage.removeItem('cd_secaoOrigem');
         carregarTickets();
     } else {
         // Acesso normal - restaurar seção salva
-        const secaoSalva = localStorage.getItem('secaoAtiva');
+        const secaoSalva = localStorage.getItem('cd_secaoAtiva');
 
         if (secaoSalva && secaoSalva !== 'tickets') {
             restaurarSecaoAtiva();
@@ -5023,6 +6140,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
     // Carregar categorias por último
     carregarCategorias();
+    popularPrioridadesFormNovo();
 
     // Atualizar lista de tickets a cada 1 minuto
     setInterval(() => {
@@ -5046,10 +6164,10 @@ document.addEventListener('DOMContentLoaded', function () {
     mostrarDicaAtalhos();
 
     // Mostrar dicas apenas no segundo login (após completar tutorial)
-    const naoMostrar = localStorage.getItem('naoMostrarDicas') === 'true';
-    const jaViuTutorial = localStorage.getItem('tutorialCompleto') === 'true';
+    const naoMostrar = localStorage.getItem('cd_naoMostrarDicas') === 'true';
+    const jaViuTutorial = localStorage.getItem('cd_tutorialCompleto') === 'true';
 
-    if (!naoMostrar && jaViuTutorial && dadosUsuario && (dadosUsuario.tipo === 'agente' || dadosUsuario.tipo === 'admin')) {
+    if (!naoMostrar && jaViuTutorial && dadosUsuario && ['usuario', 'supervisor', 'admin'].includes(dadosUsuario.tipo)) {
         setTimeout(() => {
             mostrarDicas();
         }, 2000);
@@ -5068,7 +6186,7 @@ function toggleModoMergeFechados() {
         btn.textContent = '❌ Cancelar Merge';
         btn.classList.add('active');
         info.style.display = 'block';
-        mostrarToast('Modo Merge', 'Clique nos tickets fechados para selecioná-los', 'info');
+        mostrarToast('Modo Merge', 'Clique nas demandas fechadas para selecioná-las', 'info');
         mostrarTicketsFechadosNaTela(ticketsFechadosAtuais);
     } else {
         cancelarMergeFechados();
@@ -5083,7 +6201,7 @@ function cancelarMergeFechados() {
     const info = document.getElementById('merge-info-fechados');
     const btnExecute = document.getElementById('btn-merge-execute-fechados');
 
-    btn.textContent = '🔗 Mesclar Tickets';
+    btn.textContent = '🔗 Mesclar Demandas';
     btn.classList.remove('active');
     info.style.display = 'none';
     btnExecute.disabled = true;
@@ -5135,7 +6253,7 @@ function atualizarClassesMergeFechados() {
 
 function executarMergeFechados() {
     if (ticketsFechadosSelecionados.length < 2) {
-        mostrarAlert('Erro', 'Selecione pelo menos 2 tickets para mesclar.');
+        mostrarAlert('Erro', 'Selecione pelo menos 2 demandas para mesclar.');
         return;
     }
 
@@ -5144,14 +6262,14 @@ function executarMergeFechados() {
 
     mostrarConfirm(
         'Confirmar Merge',
-        `Mesclar ${ticketsSecundarios.length} ticket(s) fechado(s) no ticket principal #${String(ticketPrincipal).padStart(5, '0')}?\n\n⚠️ ATENÇÃO: Esta ação não pode ser desfeita!`,
+        `Mesclar ${ticketsSecundarios.length} demanda(s) fechada(s) na demanda principal #${String(ticketPrincipal).padStart(5, '0')}?\n\n⚠️ ATENÇÃO: Esta ação não pode ser desfeita!`,
         function (confirmado) {
             if (!confirmado) return;
 
             mostrarLoader();
 
             const xhr = new XMLHttpRequest();
-            xhr.open('POST', '/crpdesk/api/controllers/merge.php', true);
+            xhr.open('POST', window.APP_CONFIG.apiBase + 'merge.php', true);
             xhr.setRequestHeader('Content-Type', 'application/json');
 
             xhr.onload = function () {
@@ -5160,14 +6278,14 @@ function executarMergeFechados() {
                     let response;
                     try {
                         response = JSON.parse(xhr.responseText);
-                        mostrarToast('Sucesso', `${response.tickets_mesclados} ticket(s) fechado(s) mesclado(s) com sucesso!`, 'success');
+                        mostrarToast("Sucesso", `${response.tickets_mesclados} demanda(s) fechada(s) mesclada(s) com sucesso!`, "success");
                         cancelarMergeFechados();
                         carregarTicketsFechados();
                     } catch (e) {
                         mostrarAlert('Erro', 'Resposta inválida do servidor');
                     }
                 } else {
-                    mostrarAlert('Erro', 'Erro ao mesclar tickets fechados');
+                    mostrarAlert('Erro', 'Erro ao mesclar demandas fechadas');
                 }
             };
 
@@ -5244,7 +6362,7 @@ function toggleModoEscuro() {
     document.body.classList.toggle('modo-escuro');
     const isDark = document.body.classList.contains('modo-escuro');
 
-    localStorage.setItem('modoEscuro', isDark);
+    localStorage.setItem('cd_modoEscuro', isDark);
 
     const btn = document.getElementById('btn-modo-escuro');
     if (btn) {
@@ -5266,7 +6384,7 @@ function toggleModoEscuro() {
 }
 
 // Restaurar modo escuro
-if (localStorage.getItem('modoEscuro') === 'true') {
+if (localStorage.getItem('cd_modoEscuro') === 'true') {
     document.body.classList.add('modo-escuro');
     const btn = document.getElementById('btn-modo-escuro');
     if (btn) {
@@ -5390,7 +6508,7 @@ function criarGraficoStatus(dados) {
         ctx.fillText(total, centerX, centerY - 6);
         ctx.font = '9px Inter, Arial';
         ctx.fillStyle = '#475569';
-        ctx.fillText('tickets', centerX, centerY + 9);
+        ctx.fillText('demandas', centerX, centerY + 9);
         ctx.textBaseline = 'alphabetic';
     }
 
@@ -5503,7 +6621,7 @@ function criarGraficoStatus(dados) {
         const pct = Math.round((fatia.valor / total) * 100);
         CanvasTooltip.show(e,
             `<strong style="color:${fatia.cor}">${fatia.label}</strong><br>` +
-            `Tickets: <strong>${fatia.valor}</strong><br>` +
+            `Demandas: <strong>${fatia.valor}</strong><br>` +
             `Percentual: <strong>${pct}%</strong>`
         );
     });
@@ -5592,7 +6710,7 @@ function criarGraficoPrioridade(dados) {
         const pct = Math.round((barra.valor / totalPrioridade) * 100);
         CanvasTooltip.show(e,
             `<strong style="color:${barra.cor}">${barra.label}</strong><br>` +
-            `Tickets: <strong>${barra.valor}</strong><br>` +
+            `Demandas: <strong>${barra.valor}</strong><br>` +
             `Percentual: <strong>${pct}%</strong>`
         );
     });
@@ -5721,7 +6839,7 @@ function criarGraficoMensal(dados) {
                     const pct = Math.round((closest.valor / totalMensal) * 100);
                     CanvasTooltip.show(e,
                         `<strong style="color:#39dd52">${closest.mes}</strong><br>` +
-                        `Tickets: <strong>${closest.valor}</strong><br>` +
+                        `Demandas: <strong>${closest.valor}</strong><br>` +
                         `Percentual: <strong>${pct}%</strong>`
                     );
                 });
@@ -5750,7 +6868,7 @@ function toggleModoMerge() {
         btn.textContent = '❌ Cancelar Merge';
         btn.classList.add('active');
         info.style.display = 'block';
-        mostrarToast('Modo Merge', 'Clique nos tickets para selecioná-los', 'info');
+        mostrarToast('Modo Merge', 'Clique nas demandas para selecioná-las', 'info');
         // Recarregar tabela para adicionar listeners
         mostrarTicketsNaTela(ticketsAtuais);
     } else {
@@ -5766,7 +6884,7 @@ function cancelarMerge() {
     const info = document.getElementById('merge-info');
     const btnExecute = document.getElementById('btn-merge-execute');
 
-    btn.textContent = '🔗 Mesclar Tickets';
+    btn.textContent = '🔗 Mesclar Demandas';
     btn.classList.remove('active');
     info.style.display = 'none';
     btnExecute.disabled = true;
@@ -5823,7 +6941,7 @@ function atualizarClassesMerge() {
 
 function executarMerge() {
     if (ticketsSelecionados.length < 2) {
-        mostrarAlert('Erro', 'Selecione pelo menos 2 tickets para mesclar.');
+        mostrarAlert('Erro', 'Selecione pelo menos 2 demandas para mesclar.');
         return;
     }
 
@@ -5832,7 +6950,7 @@ function executarMerge() {
 
     mostrarConfirm(
         'Confirmar Merge',
-        `Mesclar ${ticketsSecundarios.length} ticket(s) no ticket principal #${String(ticketPrincipal).padStart(5, '0')}?\n\nOs tickets secundários serão encerrados e seus comentários/anexos serão transferidos.\n\n⚠️ ATENÇÃO: Esta ação não pode ser desfeita!`,
+        `Mesclar ${ticketsSecundarios.length} demanda(s) na demanda principal #${String(ticketPrincipal).padStart(5, '0')}?\n\nAs demandas secundárias serão encerradas e seus comentários/anexos serão transferidos.\n\n⚠️ ATENÇÃO: Esta ação não pode ser desfeita!`,
         function (confirmado) {
             if (!confirmado) return;
 
@@ -5840,7 +6958,7 @@ function executarMerge() {
             mostrarLoader();
 
             const xhr = new XMLHttpRequest();
-            xhr.open('POST', '/crpdesk/api/controllers/merge.php', true);
+            xhr.open('POST', window.APP_CONFIG.apiBase + 'merge.php', true);
             xhr.setRequestHeader('Content-Type', 'application/json');
 
             xhr.onload = function () {
@@ -5854,7 +6972,7 @@ function executarMerge() {
                         mostrarAlert('Erro', 'Resposta inválida do servidor');
                         return;
                     }
-                    mostrarToast('Sucesso', `${response.tickets_mesclados} ticket(s) mesclado(s) com sucesso!`, 'success');
+                    mostrarToast('Sucesso', `${response.tickets_mesclados} demanda(s) mesclada(s) com sucesso!`, 'success');
 
                     // Animar remoção dos tickets fechados
                     ticketsSecundarios.forEach((ticketId, index) => {
@@ -5879,16 +6997,16 @@ function executarMerge() {
                     let error;
                     try {
                         error = JSON.parse(xhr.responseText);
-                        mostrarAlert('Erro', error.error || 'Erro ao mesclar tickets');
+                        mostrarAlert('Erro', error.error || 'Erro ao mesclar demandas');
                     } catch (e) {
-                        mostrarAlert('Erro', 'Erro ao mesclar tickets: ' + xhr.responseText);
+                        mostrarAlert('Erro', 'Erro ao mesclar demandas: ' + xhr.responseText);
                     }
                 }
             };
 
             xhr.onerror = function () {
                 ocultarLoader();
-                mostrarAlert('Erro', 'Erro de conexão ao mesclar tickets');
+                mostrarAlert('Erro', 'Erro de conexão ao mesclar demandas');
             };
 
             xhr.send(JSON.stringify({
@@ -5902,20 +7020,20 @@ function executarMerge() {
 // Seção Sobre
 function mostrarSobre() {
     mostrarSecao('sobre');
-    localStorage.removeItem('subSecaoAtiva');
+    localStorage.removeItem('cd_subSecaoAtiva');
 
     const content = document.getElementById('sobre-content');
     content.innerHTML = `
         <div class="ajuda-container" style="animation: fadeInUp 0.4s ease-out; max-width: 900px; margin: 0 auto; padding-top: 2.5rem;">
 
             <!-- Cabeçalho da página -->
-            <div style="background: linear-gradient(135deg, #1e3a8a 0%, #1a3a7a 100%); color: white; padding: 2.5rem 2rem; border-radius: 14px; margin-bottom: 2rem; box-shadow: 0 4px 20px rgba(30,58,138,0.25); display: flex; align-items: center; gap: 2rem; flex-wrap: wrap;">
+            <div style="background: linear-gradient(135deg, #004373 0%, #002d4d 100%); color: white; padding: 2.5rem 2rem; border-radius: 14px; margin-bottom: 2rem; box-shadow: 0 4px 20px rgba(0, 67, 115,0.25); display: flex; align-items: center; gap: 2rem; flex-wrap: wrap;">
                 <div style="flex-shrink: 0; width: 80px; height: 80px; background: rgba(255,255,255,0.12); border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 2.5rem; box-shadow: 0 2px 12px rgba(0,0,0,0.2);">
                     🖥️
                 </div>
                 <div style="flex: 1; min-width: 200px;">
-                    <div style="font-size: 0.8rem; text-transform: uppercase; letter-spacing: 1.5px; opacity: 0.75; margin-bottom: 0.3rem;">Sistema de Helpdesk</div>
-                    <h2 style="margin: 0 0 0.3rem; font-size: 2rem; font-weight: 700; letter-spacing: -0.5px; color: white; border: none; padding: 0;">CRPDESK</h2>
+                    <div style="font-size: 0.8rem; text-transform: uppercase; letter-spacing: 1.5px; opacity: 0.75; margin-bottom: 0.3rem;">Sistema de Gestão de Demandas</div>
+                    <h2 style="margin: 0 0 0.3rem; font-size: 2rem; font-weight: 700; letter-spacing: -0.5px; color: white; border: none; padding: 0;">Conecta CRPRS</h2>
                     <div style="font-size: 1rem; opacity: 0.9;">Conselho Regional de Psicologia do Rio Grande do Sul</div>
                 </div>
                 <div style="text-align: center; flex-shrink: 0;">
@@ -5926,10 +7044,10 @@ function mostrarSobre() {
 
             <!-- Cards de informação -->
             <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 1rem; margin-bottom: 2rem;">
-                <div style="background: var(--bg-card, #fff); border-radius: 10px; padding: 1.2rem 1.4rem; box-shadow: var(--shadow-sm, 0 1px 4px rgba(0,0,0,0.08)); border-left: 4px solid #1e3a8a;">
+                <div style="background: var(--bg-card, #fff); border-radius: 10px; padding: 1.2rem 1.4rem; box-shadow: var(--shadow-sm, 0 1px 4px rgba(0,0,0,0.08)); border-left: 4px solid #004373;">
                     <div style="font-size: 1.4rem; margin-bottom: 0.4rem;">🏛️</div>
                     <div style="font-size: 0.75rem; text-transform: uppercase; color: var(--text-secondary, #666); letter-spacing: 0.8px; margin-bottom: 0.2rem;">Organização</div>
-                    <div style="font-size: 0.95rem; font-weight: 600; color: var(--text-primary, #1e3a8a);">CRPRS — Conselho Regional de Psicologia do Rio Grande do Sul</div>
+                    <div style="font-size: 0.95rem; font-weight: 600; color: var(--text-primary, #004373);">CRPRS — Conselho Regional de Psicologia do Rio Grande do Sul</div>
                 </div>
                 <div style="background: var(--bg-card, #fff); border-radius: 10px; padding: 1.2rem 1.4rem; box-shadow: var(--shadow-sm, 0 1px 4px rgba(0,0,0,0.08)); border-left: 4px solid #f79226;">
                     <div style="font-size: 1.4rem; margin-bottom: 0.4rem;">🛠️</div>
@@ -5945,7 +7063,7 @@ function mostrarSobre() {
 
             <!-- Changelog 3.0 -->
             <div style="background: var(--bg-card, #fff); border-radius: 12px; box-shadow: var(--shadow-sm, 0 1px 4px rgba(0,0,0,0.08)); overflow: hidden; margin-bottom: 1.5rem;">
-                <div style="background: linear-gradient(135deg, #1e3a8a 0%, #1a3a7a 100%); padding: 1rem 1.5rem; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 0.5rem;">
+                <div style="background: linear-gradient(135deg, #004373 0%, #002d4d 100%); padding: 1rem 1.5rem; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 0.5rem;">
                     <div style="display: flex; align-items: center; gap: 0.75rem;">
                         <span style="font-size: 1.3rem;">📦</span>
                         <span style="color: white; font-size: 1.1rem; font-weight: 700;">Versão 3.0</span>
@@ -5958,14 +7076,14 @@ function mostrarSobre() {
 
                     <!-- Tabela de tickets -->
                     <div style="margin-bottom: 1.5rem;">
-                        <div style="font-size: 0.9rem; font-weight: 700; color: var(--text-primary, #1e3a8a); margin-bottom: 0.8rem; display: flex; align-items: center; gap: 0.5rem; padding-bottom: 0.5rem; border-bottom: 1px solid var(--border-color, #e5e7eb);">
-                            <span>🎫</span> Tabelas de Tickets — Melhorias de UX e Unificação
+                        <div style="font-size: 0.9rem; font-weight: 700; color: var(--text-primary, #004373); margin-bottom: 0.8rem; display: flex; align-items: center; gap: 0.5rem; padding-bottom: 0.5rem; border-bottom: 1px solid var(--border-color, #e5e7eb);">
+                            <span>🎫</span> Tabelas de Demandas — Melhorias de UX e Unificação
                         </div>
                         <ul style="margin: 0; padding-left: 1.4rem; font-size: 0.88rem; color: var(--text-secondary, #555); line-height: 1.8;">
-                            <li><strong>Unificação da Tabela de Tickets Encerrados</strong>: Paridade de design e performance com "Tickets Abertos" — paginação dedicada, busca com debounce (300ms), skeleton loading, ordenação persistente independente.</li>
+                            <li><strong>Unificação da Tabela de Demandas Encerradas</strong>: Paridade de design e performance com "Demandas Abertas" — paginação dedicada, busca com debounce (300ms), skeleton loading, ordenação persistente independente.</li>
                             <li><strong>Módulo Kanban</strong>: Visão Kanban com toggle Tabela/Kanban, drag &amp; drop assíncrono e colunas inteligentes (Novo, Em Atendimento, Aguardando, Resp. Usuário).</li>
                             <li><strong>Responsividade Híbrida</strong>: Tabela se transforma em cards em telas &lt; 768px usando data-labels CSS e pseudo-elementos <code>:before</code>.</li>
-                            <li><strong>Editor WYSIWYG (Quill.js)</strong>: Formatação rica nos tickets e comentários — negrito, listas, imagens. Migração para <code>LONGTEXT</code> no banco.</li>
+                            <li><strong>Editor WYSIWYG (Quill.js)</strong>: Formatação rica nas demandas e comentários — negrito, listas, imagens. Migração para <code>LONGTEXT</code> no banco.</li>
                             <li><strong>Indicador de ordenação ativa</strong>: Coluna ordenada exibe ↑ ou ↓ em laranja; demais exibem ↕ cinza. Persistente via <code>localStorage</code>.</li>
                             <li><strong>Filtros rápidos por status</strong>: Pills com contadores em tempo real — Todos, Novo, Em atendimento, Aguardando, Nova resposta, Urgente.</li>
                             <li><strong>Badge de SLA inline</strong>: Tempo restante (ou vencimento) — 🟢 OK, 🟡 Alerta, 🔴 Crítico, 🩸 Vencido, ⬜ Pausado. Respeita <code>prefers-reduced-motion</code>.</li>
@@ -5976,7 +7094,7 @@ function mostrarSobre() {
 
                     <!-- Macros -->
                     <div style="margin-bottom: 1.5rem;">
-                        <div style="font-size: 0.9rem; font-weight: 700; color: var(--text-primary, #1e3a8a); margin-bottom: 0.8rem; display: flex; align-items: center; gap: 0.5rem; padding-bottom: 0.5rem; border-bottom: 1px solid var(--border-color, #e5e7eb);">
+                        <div style="font-size: 0.9rem; font-weight: 700; color: var(--text-primary, #004373); margin-bottom: 0.8rem; display: flex; align-items: center; gap: 0.5rem; padding-bottom: 0.5rem; border-bottom: 1px solid var(--border-color, #e5e7eb);">
                             <span>⚡</span> Respostas Rápidas (Macros)
                         </div>
                         <ul style="margin: 0; padding-left: 1.4rem; font-size: 0.88rem; color: var(--text-secondary, #555); line-height: 1.8;">
@@ -5988,20 +7106,20 @@ function mostrarSobre() {
 
                     <!-- Notificações SSE -->
                     <div style="margin-bottom: 1.5rem;">
-                        <div style="font-size: 0.9rem; font-weight: 700; color: var(--text-primary, #1e3a8a); margin-bottom: 0.8rem; display: flex; align-items: center; gap: 0.5rem; padding-bottom: 0.5rem; border-bottom: 1px solid var(--border-color, #e5e7eb);">
+                        <div style="font-size: 0.9rem; font-weight: 700; color: var(--text-primary, #004373); margin-bottom: 0.8rem; display: flex; align-items: center; gap: 0.5rem; padding-bottom: 0.5rem; border-bottom: 1px solid var(--border-color, #e5e7eb);">
                             <span>🔔</span> Notificações em Tempo Real (SSE)
                         </div>
                         <ul style="margin: 0; padding-left: 1.4rem; font-size: 0.88rem; color: var(--text-secondary, #555); line-height: 1.8;">
                             <li>Migração de polling AJAX para <strong>Server-Sent Events</strong> (EventSource) — menor latência e carga no servidor.</li>
                             <li>Badge pulsante com contador de alertas não lidos sobre o ícone do sino.</li>
-                            <li>Dropdown de feed com histórico; clicar na notificação abre o ticket correspondente e marca como lida.</li>
-                            <li>Triggers em <code>tickets.php</code> e <code>comentarios.php</code>: nova atribuição, novo ticket e novos comentários.</li>
+                            <li>Dropdown de feed com histórico; clicar na notificação abre a demanda correspondente e marca como lida.</li>
+                            <li>Triggers em <code>tickets.php</code> e <code>comentarios.php</code>: nova atribuição, nova demanda e novos comentários.</li>
                         </ul>
                     </div>
 
                     <!-- Alpine.js -->
                     <div style="margin-bottom: 1.5rem;">
-                        <div style="font-size: 0.9rem; font-weight: 700; color: var(--text-primary, #1e3a8a); margin-bottom: 0.8rem; display: flex; align-items: center; gap: 0.5rem; padding-bottom: 0.5rem; border-bottom: 1px solid var(--border-color, #e5e7eb);">
+                        <div style="font-size: 0.9rem; font-weight: 700; color: var(--text-primary, #004373); margin-bottom: 0.8rem; display: flex; align-items: center; gap: 0.5rem; padding-bottom: 0.5rem; border-bottom: 1px solid var(--border-color, #e5e7eb);">
                             <span>🏗️</span> Arquitetura Frontend — Componentização (Alpine.js)
                         </div>
                         <ul style="margin: 0; padding-left: 1.4rem; font-size: 0.88rem; color: var(--text-secondary, #555); line-height: 1.8;">
@@ -6013,22 +7131,22 @@ function mostrarSobre() {
 
                     <!-- Segurança -->
                     <div style="margin-bottom: 1.5rem;">
-                        <div style="font-size: 0.9rem; font-weight: 700; color: var(--text-primary, #1e3a8a); margin-bottom: 0.8rem; display: flex; align-items: center; gap: 0.5rem; padding-bottom: 0.5rem; border-bottom: 1px solid var(--border-color, #e5e7eb);">
+                        <div style="font-size: 0.9rem; font-weight: 700; color: var(--text-primary, #004373); margin-bottom: 0.8rem; display: flex; align-items: center; gap: 0.5rem; padding-bottom: 0.5rem; border-bottom: 1px solid var(--border-color, #e5e7eb);">
                             <span>🛡️</span> Segurança e Compliance (LGPD)
                         </div>
                         <ul style="margin: 0; padding-left: 1.4rem; font-size: 0.88rem; color: var(--text-secondary, #555); line-height: 1.8;">
-                            <li>Mascaramento obrigatório de e-mails (<code>a***@gmail.com</code>) na visualização de tickets encerrados.</li>
+                            <li>Mascaramento obrigatório de e-mails (<code>a***@gmail.com</code>) na visualização de demandas encerradas.</li>
                             <li>CSRF obrigatório em todos os Payloads de mutação via macros (<code>AuthMiddleware::verificarCSRF()</code>).</li>
                         </ul>
                     </div>
 
                     <!-- BI -->
                     <div style="margin-bottom: 1.5rem;">
-                        <div style="font-size: 0.9rem; font-weight: 700; color: var(--text-primary, #1e3a8a); margin-bottom: 0.8rem; display: flex; align-items: center; gap: 0.5rem; padding-bottom: 0.5rem; border-bottom: 1px solid var(--border-color, #e5e7eb);">
+                        <div style="font-size: 0.9rem; font-weight: 700; color: var(--text-primary, #004373); margin-bottom: 0.8rem; display: flex; align-items: center; gap: 0.5rem; padding-bottom: 0.5rem; border-bottom: 1px solid var(--border-color, #e5e7eb);">
                             <span>📈</span> Business Intelligence — Dashboard FCR e Otimizações
                         </div>
                         <ul style="margin: 0; padding-left: 1.4rem; font-size: 0.88rem; color: var(--text-secondary, #555); line-height: 1.8;">
-                            <li>Widget de <strong>First Contact Resolution (FCR)</strong>: % de tickets resolvidos no primeiro contato.</li>
+                            <li>Widget de <strong>First Contact Resolution (FCR)</strong>: % de demandas resolvidas no primeiro contato.</li>
                             <li>Cache HTTP dinâmico no <code>dashboard.php</code> (60s) — reduz em ~90% as queries simultâneas de resumo.</li>
                             <li>Migration v8 com indexação agressiva em <code>tickets</code>, <code>comentarios</code>, <code>historico</code> e <code>notificacoes</code>.</li>
                         </ul>
@@ -6036,7 +7154,7 @@ function mostrarSobre() {
 
                     <!-- Login e header -->
                     <div style="margin-bottom: 1.5rem;">
-                        <div style="font-size: 0.9rem; font-weight: 700; color: var(--text-primary, #1e3a8a); margin-bottom: 0.8rem; display: flex; align-items: center; gap: 0.5rem; padding-bottom: 0.5rem; border-bottom: 1px solid var(--border-color, #e5e7eb);">
+                        <div style="font-size: 0.9rem; font-weight: 700; color: var(--text-primary, #004373); margin-bottom: 0.8rem; display: flex; align-items: center; gap: 0.5rem; padding-bottom: 0.5rem; border-bottom: 1px solid var(--border-color, #e5e7eb);">
                             <span>🔐</span> Login — Redesign Completo e Melhorias de Segurança
                         </div>
                         <ul style="margin: 0; padding-left: 1.4rem; font-size: 0.88rem; color: var(--text-secondary, #555); line-height: 1.8;">
@@ -6049,16 +7167,16 @@ function mostrarSobre() {
 
                     <!-- E-mail -->
                     <div style="margin-bottom: 0;">
-                        <div style="font-size: 0.9rem; font-weight: 700; color: var(--text-primary, #1e3a8a); margin-bottom: 0.8rem; display: flex; align-items: center; gap: 0.5rem; padding-bottom: 0.5rem; border-bottom: 1px solid var(--border-color, #e5e7eb);">
-                            <span>📧</span> Sistema de E-mail e Tickets por E-mail
+                        <div style="font-size: 0.9rem; font-weight: 700; color: var(--text-primary, #004373); margin-bottom: 0.8rem; display: flex; align-items: center; gap: 0.5rem; padding-bottom: 0.5rem; border-bottom: 1px solid var(--border-color, #e5e7eb);">
+                            <span>📧</span> Sistema de E-mail e Demandas por E-mail
                         </div>
                         <ul style="margin: 0; padding-left: 1.4rem; font-size: 0.88rem; color: var(--text-secondary, #555); line-height: 1.8;">
                             <li>Estratégia IMAP alterada para <code>SINCE 3 days ago</code> — captura e-mails lidos em outros clientes.</li>
-                            <li>Anti-duplicidade de tickets (10 min) e comentários (5 min) via e-mail e interface.</li>
+                            <li>Anti-duplicidade de demandas (10 min) e comentários (5 min) via e-mail e interface.</li>
                             <li>Blacklist de remetentes internos (<code>suporte@crprs.org.br</code>) para evitar loops.</li>
                             <li>Log completo de envios na tabela <code>email_logs</code> com filtros, paginação e estatísticas de taxa de sucesso.</li>
                             <li>Alerta visual pulsante 🔴 no botão Configurações quando há falhas de e-mail nas últimas 24h.</li>
-                            <li>Notificação entre agentes: comentário em ticket de outro agente dispara e-mail + muda status para "Nova Resposta".</li>
+                            <li>Notificação entre agentes: comentário em demanda de outro agente dispara e-mail + muda status para "Nova Resposta".</li>
                         </ul>
                     </div>
 
@@ -6067,7 +7185,7 @@ function mostrarSobre() {
 
             <!-- Rodapé -->
             <div style="text-align: center; padding: 1.5rem; font-size: 0.82rem; color: var(--text-secondary, #888); border-top: 1px solid var(--border-color, #e5e7eb); margin-top: 0.5rem;">
-                CRPDESK v3.0 &mdash; Desenvolvido para o Conselho Regional de Psicologia do Rio Grande do Sul (CRPRS)<br>
+                Conecta CRPRS v3.0 &mdash; Desenvolvido para o Conselho Regional de Psicologia do Rio Grande do Sul (CRPRS)<br>
                 <span style="opacity: 0.7;">PHP 8.2 · MySQL · Vanilla JS · Alpine.js · Quill.js · Chart.js</span>
             </div>
 
@@ -6094,7 +7212,7 @@ function mostrarAjuda() {
 function mostrarSLA() {
     document.querySelectorAll('.btn-ajuda').forEach(btn => btn.classList.remove('active'));
     const _bbtn_sla = document.getElementById('btn-sla'); if (_bbtn_sla) _bbtn_sla.classList.add('active');
-    localStorage.setItem('subSecaoAtiva', 'sla');
+    localStorage.setItem('cd_subSecaoAtiva', 'sla');
 
     const content = document.getElementById('ajuda-content');
     content.style.animation = 'none';
@@ -6104,17 +7222,17 @@ function mostrarSLA() {
         content.innerHTML = `
         <div class="ajuda-card">
             <h3>⏰ SLA - Acordo de Nível de Serviço</h3>
-            <p>O SLA (Service Level Agreement) define os <strong>tempos máximos</strong> para resposta e resolução de tickets baseado na prioridade. Os prazos são contados em <strong>horas úteis</strong> (Segunda a Sexta, 8h às 17h).</p>
+            <p>O SLA (Service Level Agreement) define os <strong>tempos máximos</strong> para resposta e resolução de demandas baseado na prioridade. Os prazos são contados em <strong>horas úteis</strong> (Segunda a Sexta, 8h às 17h).</p>
             
             <h4>📊 Como Funciona o SLA</h4>
-            <p>O sistema monitora automaticamente dois tipos de SLA para cada ticket:</p>
+            <p>O sistema monitora automaticamente dois tipos de SLA para cada demanda:</p>
             <ul>
                 <li><strong>SLA de 1ª Resposta:</strong> Tempo máximo até o primeiro atendimento do agente</li>
                 <li><strong>SLA de Resolução:</strong> Tempo máximo até a resolução completa do problema</li>
             </ul>
             
             <h4>🚦 Indicadores Visuais</h4>
-            <p>Os tickets exibem ícones de alerta conforme o prazo se aproxima:</p>
+            <p>As demandas exibem ícones de alerta conforme o prazo se aproxima:</p>
             <ul>
                 <li><strong>🟢 0-50% do prazo:</strong> Sem ícone - Tudo ok</li>
                 <li><strong>🟡 50-79% do prazo:</strong> <img src="images/icone_atencao_amarelo.png" style="width: 16px; height: 16px; vertical-align: middle;"> Amarelo - Atenção, prazo se aproximando</li>
@@ -6166,7 +7284,7 @@ function mostrarSLA() {
             <div id="horarios-dinamicos">Carregando horários...</div>
             
             <h4>⏸️ Pausa Automática do SLA</h4>
-            <p>O SLA é <strong>pausado automaticamente</strong> quando o ticket está nos seguintes status:</p>
+            <p>O SLA é <strong>pausado automaticamente</strong> quando a demanda está nos seguintes status:</p>
             <ul>
                 <li>⏳ <strong>Aguardando:</strong> Em espera por motivo não especificado</li>
                 <li>⏳ <strong>Aguardando resposta:</strong> Aguardando informações do solicitante</li>
@@ -6175,23 +7293,23 @@ function mostrarSLA() {
                 <li>📅 <strong>Aguardando data:</strong> Aguardando data agendada para retomar o atendimento</li>
                 <li>✅ <strong>Resolvido:</strong> Aguardando confirmação do cliente para encerrar</li>
             </ul>
-            <p><em>Quando o ticket retorna ao atendimento, o SLA é retomado automaticamente, descontando o tempo pausado.</em></p>
+            <p><em>Quando a demanda retorna ao atendimento, o SLA é retomado automaticamente, descontando o tempo pausado.</em></p>
             
-            <h4>📊 Contabilização de Tickets</h4>
+            <h4>📊 Contabilização de Demandas</h4>
             <ul>
-                <li>✅ <strong>Tickets Encerrados:</strong> Contabilizados nas estatísticas e relatórios</li>
-                <li>❌ <strong>Tickets Cancelados:</strong> NÃO são contabilizados nas métricas de desempenho</li>
+                <li>✅ <strong>Demandas Encerradas:</strong> Contabilizadas nas estatísticas e relatórios</li>
+                <li>❌ <strong>Demandas Canceladas:</strong> NÃO são contabilizadas nas métricas de desempenho</li>
             </ul>
-            <p><em>Tickets cancelados são aqueles abertos por engano ou cuja solicitação foi retirada pelo solicitante.</em></p>
+            <p><em>Demandas canceladas são aquelas abertas por engano ou cuja solicitação foi retirada pelo solicitante.</em></p>
             
             <h4>💡 Dicas para Cumprir o SLA</h4>
             <ul>
-                <li>Atribua a prioridade correta ao criar o ticket</li>
-                <li>Responda rapidamente aos tickets urgentes e de alta prioridade</li>
+                <li>Atribua a prioridade correta ao criar a demanda</li>
+                <li>Responda rapidamente às demandas urgentes e de alta prioridade</li>
                 <li>Use os status de "aguardando" quando depender de terceiros para pausar o SLA</li>
                 <li>Mantenha o solicitante informado sobre o andamento</li>
                 <li>Documente as soluções para consultas futuras</li>
-                <li>Cancele apenas tickets abertos por engano (não contam nas estatísticas)</li>
+                <li>Cancele apenas demandas abertas por engano (não contam nas estatísticas)</li>
             </ul>
         </div>
     `;
@@ -6200,7 +7318,7 @@ function mostrarSLA() {
 
 function carregarHorariosDinamicos() {
     const xhr1 = new XMLHttpRequest();
-    xhr1.open('GET', '/crpdesk/api/controllers/horarios-sla.php', true);
+    xhr1.open('GET', window.APP_CONFIG.apiBase + 'horarios-sla.php', true);
     setSecurityHeaders(xhr1);
 
     xhr1.onload = function () {
@@ -6208,7 +7326,7 @@ function carregarHorariosDinamicos() {
             const horarios = JSON.parse(xhr1.responseText);
 
             const xhr2 = new XMLHttpRequest();
-            xhr2.open('GET', '/crpdesk/api/controllers/horarios-sla.php?feriados=1', true);
+            xhr2.open('GET', window.APP_CONFIG.apiBase + 'horarios-sla.php?feriados=1', true);
             setSecurityHeaders(xhr2);
 
             xhr2.onload = function () {
@@ -6263,7 +7381,7 @@ function mostrarHorariosDinamicos(horarios, feriados) {
 function mostrarStatusGuia() {
     document.querySelectorAll('.btn-ajuda').forEach(btn => btn.classList.remove('active'));
     const _bbtn_status = document.getElementById('btn-status'); if (_bbtn_status) _bbtn_status.classList.add('active');
-    localStorage.setItem('subSecaoAtiva', 'status');
+    localStorage.setItem('cd_subSecaoAtiva', 'status');
 
     const content = document.getElementById('ajuda-content');
     content.style.animation = 'none';
@@ -6271,14 +7389,14 @@ function mostrarStatusGuia() {
         content.style.animation = '';
         content.innerHTML = `
         <div class="ajuda-card">
-            <h3>📊 Status dos Tickets</h3>
-            <p>Cada ticket passa por diferentes status durante seu ciclo de vida:</p>
+            <h3>📊 Status das Demandas</h3>
+            <p>Cada demanda passa por diferentes status durante seu ciclo de vida:</p>
 
             <div class="status-item">
                 <span class="status-badge" style="background:#fff3e0;color:#e65100;">🆕 Novo</span>
                 <div>
-                    <strong>Ticket recém-criado</strong><br>
-                    O ticket foi criado (via sistema ou e-mail), mas ainda não foi atribuído nem visualizado por um agente.
+                    <strong>Demanda recém-criada</strong><br>
+                    A demanda foi criada (via sistema ou e-mail), mas ainda não foi atribuída nem visualizada por um agente.
                 </div>
             </div>
 
@@ -6286,7 +7404,7 @@ function mostrarStatusGuia() {
                 <span class="status-badge" style="background:#e3f2fd;color:#0277bd;">🔧 Em atendimento</span>
                 <div>
                     <strong>Agente trabalhando ativamente</strong><br>
-                    O ticket está sendo analisado ou trabalhado por um agente do helpdesk.
+                    A demanda está sendo analisada ou trabalhada por um agente responsável.
                 </div>
             </div>
 
@@ -6294,7 +7412,7 @@ function mostrarStatusGuia() {
                 <span class="status-badge" style="background:#fff8e1;color:#f57f17;">⏳ Aguardando</span>
                 <div>
                     <strong>Em espera</strong><br>
-                    O ticket está em espera por algum motivo não especificado.
+                    A demanda está em espera por algum motivo não especificado.
                     <br><em style="color:#e6a817;">⏸️ SLA pausado neste status</em>
                 </div>
             </div>
@@ -6339,7 +7457,7 @@ function mostrarStatusGuia() {
                 <span class="status-badge" style="background:#e3f2fd;color:#1565c0;">💬 Nova Resposta</span>
                 <div>
                     <strong>Solicitante respondeu</strong><br>
-                    O solicitante enviou uma nova resposta ou comentário. O ticket aguarda retomada do atendimento pelo agente.
+                    O solicitante enviou uma nova resposta ou comentário. A demanda aguarda retomada do atendimento pelo agente.
                 </div>
             </div>
 
@@ -6354,7 +7472,7 @@ function mostrarStatusGuia() {
             <div class="status-item">
                 <span class="status-badge" style="background:#f5f5f5;color:#424242;">🏁 Encerrado</span>
                 <div>
-                    <strong>Ticket finalizado</strong><br>
+                    <strong>Demanda finalizada</strong><br>
                     O problema foi solucionado e o atendimento foi oficialmente concluído.
                 </div>
             </div>
@@ -6362,16 +7480,16 @@ function mostrarStatusGuia() {
             <div class="status-item">
                 <span class="status-badge" style="background:#ffebee;color:#c62828;">❌ Cancelado</span>
                 <div>
-                    <strong>Ticket cancelado</strong><br>
-                    O ticket foi aberto por engano ou a solicitação foi retirada pelo solicitante. <strong>Não é contabilizado</strong> nas métricas de desempenho.
+                    <strong>Demanda cancelada</strong><br>
+                    A demanda foi aberta por engano ou a solicitação foi retirada pelo solicitante. <strong>Não é contabilizada</strong> nas métricas de desempenho.
                 </div>
             </div>
 
             <div class="status-item">
                 <span class="status-badge" style="background:#fce4ec;color:#880e4f;">🔄 Reaberto</span>
                 <div>
-                    <strong>Ticket reaberto</strong><br>
-                    Quando um ticket já encerrado ou resolvido volta a apresentar problemas e precisa ser tratado novamente.
+                    <strong>Demanda reaberta</strong><br>
+                    Quando uma demanda já encerrada ou resolvida volta a apresentar problemas e precisa ser tratada novamente.
                 </div>
             </div>
 
@@ -6390,7 +7508,7 @@ function mostrarStatusGuia() {
 function mostrarPrioridadeGuia() {
     document.querySelectorAll('.btn-ajuda').forEach(btn => btn.classList.remove('active'));
     const _bbtn_prioridade = document.getElementById('btn-prioridade'); if (_bbtn_prioridade) _bbtn_prioridade.classList.add('active');
-    localStorage.setItem('subSecaoAtiva', 'prioridade');
+    localStorage.setItem('cd_subSecaoAtiva', 'prioridade');
 
     const content = document.getElementById('ajuda-content');
     content.style.animation = 'none';
@@ -6398,8 +7516,8 @@ function mostrarPrioridadeGuia() {
         content.style.animation = '';
         content.innerHTML = `
         <div class="ajuda-card">
-            <h3>🔥 Prioridades dos Tickets</h3>
-            <p>A prioridade determina a urgência e o SLA do ticket:</p>
+            <h3>🔥 Prioridades das Demandas</h3>
+            <p>A prioridade determina a urgência e o SLA da demanda:</p>
             
             <div class="prioridade-item">
                 <span class="status prioridade urgente">Urgente</span>
@@ -6451,7 +7569,7 @@ function mostrarPrioridadeGuia() {
 function mostrarAtalhosGuia() {
     document.querySelectorAll('.btn-ajuda').forEach(btn => btn.classList.remove('active'));
     const _bbtn_atalhos = document.getElementById('btn-atalhos'); if (_bbtn_atalhos) _bbtn_atalhos.classList.add('active');
-    localStorage.setItem('subSecaoAtiva', 'atalhos');
+    localStorage.setItem('cd_subSecaoAtiva', 'atalhos');
 
     const content = document.getElementById('ajuda-content');
     content.style.animation = 'none';
@@ -6463,12 +7581,12 @@ function mostrarAtalhosGuia() {
             <p>Use estes atalhos para navegar mais rapidamente pelo sistema:</p>
             
             <div class="atalho-item">
-                <span>Criar novo ticket</span>
+                <span>Criar nova demanda</span>
                 <span class="atalho-tecla">Alt + N</span>
             </div>
             
             <div class="atalho-item">
-                <span>Ir para lista de tickets</span>
+                <span>Ir para lista de demandas</span>
                 <span class="atalho-tecla">Alt + T</span>
             </div>
             
@@ -6478,7 +7596,7 @@ function mostrarAtalhosGuia() {
             </div>
             
             <div class="atalho-item">
-                <span>Ver tickets fechados</span>
+                <span>Ver demandas fechadas</span>
                 <span class="atalho-tecla">Alt + F</span>
             </div>
             
@@ -6491,8 +7609,8 @@ function mostrarAtalhosGuia() {
             <ul>
                 <li>Use <strong>Tab</strong> para navegar entre campos nos formulários</li>
                 <li>Pressione <strong>Enter</strong> para confirmar ações em modals</li>
-                <li>Use as <strong>setas</strong> para navegar nas listas de categorias</li>
-                <li>Digite <strong>*palavra*</strong> para preservar formatação em categorias</li>
+                <li>Use as <strong>setas</strong> para navegar nas listas de subcategorias</li>
+                <li>Digite <strong>*palavra*</strong> para preservar formatação em subcategorias</li>
             </ul>
         </div>
     `;
@@ -6503,7 +7621,7 @@ function mostrarAtalhosGuia() {
 function mostrarDicaAtalhos() {
     const dica = document.createElement('div');
     dica.className = 'atalhos-info';
-    dica.innerHTML = 'Alt+N: Novo | Alt+T: Tickets | Alt+D: Dashboard | Alt+F: Fechados';
+    dica.innerHTML = 'Alt+N: Novo | Alt+T: Demandas | Alt+D: Dashboard | Alt+F: Fechados';
     document.body.appendChild(dica);
 
     setTimeout(() => dica.classList.add('show'), 1000);
@@ -6513,8 +7631,8 @@ function mostrarDicaAtalhos() {
 
 // Função para ir para lista de tickets
 function irParaTickets() {
-    localStorage.removeItem('ticketAtivo');
-    localStorage.removeItem('secaoAtiva');
+    localStorage.removeItem('cd_ticketAtivo');
+    localStorage.removeItem('cd_secaoAtiva');
     mostrarSecao('tickets');
     salvarSecaoAtiva('tickets');
     carregarTickets();
@@ -6534,7 +7652,7 @@ function mostrarDicas() {
 
     // Verificar se deve mostrar checkbox
     const checkbox = document.getElementById('nao-mostrar-dicas');
-    const naoMostrar = localStorage.getItem('naoMostrarDicas') === 'true';
+    const naoMostrar = localStorage.getItem('cd_naoMostrarDicas') === 'true';
     checkbox.checked = naoMostrar;
 }
 
@@ -6547,18 +7665,18 @@ function fecharModalDicas() {
 // Toggle para não mostrar dicas na inicialização
 function toggleDicasIniciais() {
     const checkbox = document.getElementById('nao-mostrar-dicas');
-    localStorage.setItem('naoMostrarDicas', checkbox.checked);
+    localStorage.setItem('cd_naoMostrarDicas', checkbox.checked);
 }
 
 // Mostrar dicas automaticamente na primeira visita
 function verificarPrimeiraVisita() {
-    const naoMostrar = localStorage.getItem('naoMostrarDicas') === 'true';
-    const jaVisitou = localStorage.getItem('jaVisitou') === 'true';
+    const naoMostrar = localStorage.getItem('cd_naoMostrarDicas') === 'true';
+    const jaVisitou = localStorage.getItem('cd_jaVisitou') === 'true';
 
     if (!naoMostrar && !jaVisitou) {
         setTimeout(() => {
             mostrarDicas();
-            localStorage.setItem('jaVisitou', 'true');
+            localStorage.setItem('cd_jaVisitou', 'true');
         }, 2000); // Mostrar após 2 segundos
     }
 }
@@ -6573,7 +7691,7 @@ function desativarUsuario(usuarioId) {
             if (!confirmado) return;
 
             const xhr = new XMLHttpRequest();
-            xhr.open('PUT', `/crpdesk/api/controllers/usuarios.php/${usuarioId}`, true);
+            xhr.open('PUT', `${window.APP_CONFIG.apiBase}usuarios.php/${usuarioId}`, true);
             xhr.setRequestHeader('Content-Type', 'application/json');
             setSecurityHeaders(xhr);
 
@@ -6594,7 +7712,7 @@ function desativarUsuario(usuarioId) {
 // Ativar usuário
 function ativarUsuario(usuarioId) {
     const xhr = new XMLHttpRequest();
-    xhr.open('PUT', `/crpdesk/api/controllers/usuarios.php/${usuarioId}`, true);
+    xhr.open('PUT', `${window.APP_CONFIG.apiBase}usuarios.php/${usuarioId}`, true);
     xhr.setRequestHeader('Content-Type', 'application/json');
     setSecurityHeaders(xhr);
 
@@ -6613,20 +7731,20 @@ function ativarUsuario(usuarioId) {
 
 // Validações antes de adicionar comentário
 function validarAntesComentario(ticketId) {
-    const ticketAtual = JSON.parse(localStorage.getItem('ticketAtual') || '{}');
-    const usuario = JSON.parse(localStorage.getItem('usuario'));
+    const ticketAtual = JSON.parse(localStorage.getItem('cd_ticketAtual') || '{}');
+    const usuario = JSON.parse(localStorage.getItem('cd_usuario'));
 
-    // Se for agente ou admin
-    if (usuario.tipo === 'agente' || usuario.tipo === 'admin') {
+    // Se for funcionário interno (usuario/supervisor/admin)
+    if (['usuario', 'supervisor', 'admin'].includes(usuario.tipo)) {
         // Verificar se ticket tem responsável
         if (!ticketAtual.agente_id) {
-            mostrarAlert('Atenção', 'Este ticket não possui responsável. Atribua o ticket antes de adicionar comentários.');
+            mostrarAlert('Atenção', 'Esta demanda não possui responsável. Atribua a demanda antes de adicionar comentários.');
             return false;
         }
 
         // Verificar se ticket tem categoria
         if (!ticketAtual.categoria_id) {
-            mostrarAlert('Atenção', 'Este ticket não possui categoria. Defina uma categoria antes de adicionar comentários.');
+            mostrarAlert('Atenção', 'Esta demanda não possui subcategoria. Defina uma subcategoria antes de adicionar comentários.');
             return false;
         }
     }
@@ -6636,17 +7754,17 @@ function validarAntesComentario(ticketId) {
 
 // Validações antes de fechar ticket
 function validarAntesFechamento(ticketId) {
-    const ticketAtual = JSON.parse(localStorage.getItem('ticketAtual') || '{}');
+    const ticketAtual = JSON.parse(localStorage.getItem('cd_ticketAtual') || '{}');
 
     // Verificar se ticket tem responsável
     if (!ticketAtual.agente_id) {
-        mostrarAlert('Atenção', 'Este ticket não possui responsável. Atribua o ticket antes de fechá-lo.');
+        mostrarAlert('Atenção', 'Esta demanda não possui responsável. Atribua a demanda antes de fechá-la.');
         return false;
     }
 
     // Verificar se ticket tem categoria
     if (!ticketAtual.categoria_id) {
-        mostrarAlert('Atenção', 'Este ticket não possui categoria. Defina uma categoria antes de fechá-lo.');
+        mostrarAlert('Atenção', 'Esta demanda não possui subcategoria. Defina uma subcategoria antes de fechá-la.');
         return false;
     }
 
@@ -6656,14 +7774,14 @@ function validarAntesFechamento(ticketId) {
 function mostrarAuditoria() {
     document.querySelectorAll('.btn-config').forEach(btn => btn.classList.remove('active')); // nav
     const _bbtn_auditoria = document.getElementById('btn-auditoria'); if (_bbtn_auditoria) _bbtn_auditoria.classList.add('active');
-    localStorage.setItem('subSecaoAtiva', 'auditoria');
+    localStorage.setItem('cd_subSecaoAtiva', 'auditoria');
     const configTitle = document.getElementById('config-title'); if (configTitle) configTitle.textContent = String.fromCodePoint(0x1F4CB) + ' Auditoria';
 
     const content = document.getElementById('config-content');
     content.innerHTML = `
         <div class="auditoria-tabs">
             <button class="tab-btn active" onclick="carregarAuditoriaGeral()">📋 Geral</button>
-            <button class="tab-btn" onclick="carregarAuditoriaTickets()">🎫 Tickets</button>
+            <button class="tab-btn" onclick="carregarAuditoriaTickets()">🎫 Demandas</button>
             <button class="tab-btn" onclick="carregarAuditoriaLogin()">🔐 Login</button>
             <button class="tab-btn" onclick="carregarEstatisticasAudit()">📊 Estatísticas</button>
             <button class="tab-btn" onclick="carregarLogEmails()">📧 Envio de E-mails</button>
@@ -6706,7 +7824,7 @@ function mostrarAuditoria() {
 // Carregar registros de auditoria
 function carregarAuditoria() {
     const xhr = new XMLHttpRequest();
-    xhr.open('GET', '/crpdesk/api/controllers/auditoria.php', true);
+    xhr.open('GET', window.APP_CONFIG.apiBase + 'auditoria.php', true);
     setSecurityHeaders(xhr);
 
     xhr.onload = function () {
@@ -6757,7 +7875,7 @@ function carregarLogEmails(pagina = 1) {
     content.innerHTML = '<p>⏳ Carregando log de e-mails...</p>';
 
     const xhr = new XMLHttpRequest();
-    xhr.open('GET', `/crpdesk/api/controllers/email-logs.php?${params}`, true);
+    xhr.open('GET', `${window.APP_CONFIG.apiBase}email-logs.php?${params}`, true);
     setSecurityHeaders(xhr);
 
     xhr.onload = function () {
@@ -6830,8 +7948,8 @@ function mostrarLogEmails(dados, paginaAtual = 1) {
                 <label for="email-log-tipo" style="font-size:13px; font-weight:600; white-space:nowrap;">Tipo:</label>
                 <select id="email-log-tipo" style="${selectStyle}">
                     <option value="">Todos</option>
-                    <option value="novo_ticket">📩 Novo Ticket (solicitante)</option>
-                    <option value="notif_agente">👥 Aviso Agente (novo ticket/comentário)</option>
+                    <option value="novo_ticket">📩 Nova Demanda (solicitante)</option>
+                    <option value="notif_agente">👥 Aviso Agente (nova demanda/comentário)</option>
                     <option value="primeira_resposta">📧 Primeira Resposta (automática)</option>
                     <option value="resposta">✉️ Resposta do Suporte</option>
                     <option value="comentario">💬 Comentário (solicitante)</option>
@@ -6886,7 +8004,7 @@ function mostrarLogEmails(dados, paginaAtual = 1) {
         tabelaHtml = `<p style="color:${corTextoSub}; text-align:center; padding:30px;">Nenhum e-mail registrado no período.</p>`;
     } else {
         const tipoLabels = {
-            novo_ticket:       '📩 Novo Ticket',
+            novo_ticket:       '📩 Nova Demanda',
             notif_agente:      '👥 Aviso Agente',
             primeira_resposta: '📧 Primeira Resposta',
             resposta:          '✉️ Resposta do Suporte',
@@ -6913,7 +8031,7 @@ function mostrarLogEmails(dados, paginaAtual = 1) {
                         <th style="padding:10px 12px; text-align:left;">Destinatário</th>
                         <th style="padding:10px 12px; text-align:left;">Assunto</th>
                         <th style="padding:10px 12px; text-align:center;">Tipo</th>
-                        <th style="padding:10px 12px; text-align:center;">Ticket</th>
+                        <th style="padding:10px 12px; text-align:center;">Demanda</th>
                         <th style="padding:10px 12px; text-align:center;">Status</th>
                     </tr>
                 </thead>
@@ -6994,13 +8112,16 @@ function mostrarListaAuditoria(registros) {
 
     function formatarAcao(acao) {
         const acoes = {
-            'excluir_ticket': '🗑️ Exclusão de Ticket',
+            'excluir_ticket': '🗑️ Exclusão de Demanda',
             'criar_usuario': '➕ Criação de Usuário',
             'atualizar_usuario': '✏️ Atualização de Usuário',
             'excluir_usuario': '🗑️ Exclusão de Usuário',
-            'criar_categoria': '➕ Criação de Categoria',
-            'atualizar_categoria': '✏️ Atualização de Categoria',
-            'excluir_categoria': '🗑️ Exclusão de Categoria'
+            'criar_categoria': '➕ Criação de Subcategoria',
+            'atualizar_categoria': '✏️ Atualização de Subcategoria',
+            'excluir_categoria': '🗑️ Exclusão de Subcategoria',
+            'criar_macrocategoria': '➕ Criação de Categoria',
+            'atualizar_macrocategoria': '✏️ Atualização de Categoria',
+            'excluir_macrocategoria': '🗑️ Exclusão de Categoria'
         };
         return acoes[acao] || acao;
     }
@@ -7012,7 +8133,7 @@ function mostrarListaAuditoria(registros) {
 
         let detalhes = '';
         if (registro.acao.includes('ticket')) {
-            detalhes = `Ticket #${String(registro.registro_id).padStart(5, '0')} - ${dados.titulo || 'N/A'}`;
+            detalhes = `Demanda #${String(registro.registro_id).padStart(5, '0')} - ${dados.titulo || 'N/A'}`;
             // Se for exclusão de ticket, adicionar dados do solicitante
             if (registro.acao === 'excluir_ticket') {
                 const solicitanteNome = dados.solicitante_nome || dados.usuario_nome || 'N/A';
@@ -7055,13 +8176,16 @@ function mostrarListaAuditoria(registros) {
                     <label>Ação:</label>
                     <select id="filtro-acao">
                         <option value="">Todas</option>
-                        <option value="excluir_ticket" ${acaoAtual === 'excluir_ticket' ? 'selected' : ''}>Exclusão de Tickets</option>
+                        <option value="excluir_ticket" ${acaoAtual === 'excluir_ticket' ? 'selected' : ''}>Exclusão de Demandas</option>
                         <option value="criar_usuario" ${acaoAtual === 'criar_usuario' ? 'selected' : ''}>Criação de Usuários</option>
                         <option value="atualizar_usuario" ${acaoAtual === 'atualizar_usuario' ? 'selected' : ''}>Atualização de Usuários</option>
                         <option value="excluir_usuario" ${acaoAtual === 'excluir_usuario' ? 'selected' : ''}>Exclusão de Usuários</option>
-                        <option value="criar_categoria" ${acaoAtual === 'criar_categoria' ? 'selected' : ''}>Criação de Categorias</option>
-                        <option value="atualizar_categoria" ${acaoAtual === 'atualizar_categoria' ? 'selected' : ''}>Atualização de Categorias</option>
-                        <option value="excluir_categoria" ${acaoAtual === 'excluir_categoria' ? 'selected' : ''}>Exclusão de Categorias</option>
+                        <option value="criar_categoria" ${acaoAtual === 'criar_categoria' ? 'selected' : ''}>Criação de Subcategorias</option>
+                        <option value="atualizar_categoria" ${acaoAtual === 'atualizar_categoria' ? 'selected' : ''}>Atualização de Subcategorias</option>
+                        <option value="excluir_categoria" ${acaoAtual === 'excluir_categoria' ? 'selected' : ''}>Exclusão de Subcategorias</option>
+                        <option value="criar_macrocategoria" ${acaoAtual === 'criar_macrocategoria' ? 'selected' : ''}>Criação de Categorias</option>
+                        <option value="atualizar_macrocategoria" ${acaoAtual === 'atualizar_macrocategoria' ? 'selected' : ''}>Atualização de Categorias</option>
+                        <option value="excluir_macrocategoria" ${acaoAtual === 'excluir_macrocategoria' ? 'selected' : ''}>Exclusão de Categorias</option>
                     </select>
                 </div>
             </div>
@@ -7098,7 +8222,7 @@ function filtrarAuditoria() {
     if (dataFim) params.append('data_fim', dataFim);
 
     const xhr = new XMLHttpRequest();
-    xhr.open('GET', `/crpdesk/api/controllers/auditoria.php?${params}`, true);
+    xhr.open('GET', `${window.APP_CONFIG.apiBase}auditoria.php?${params}`, true);
     setSecurityHeaders(xhr);
 
     xhr.onload = function () {
@@ -7125,7 +8249,7 @@ function limparFiltrosAuditoria() {
 
     const tabAtiva = document.querySelector('.tab-btn.active');
     if (tabAtiva.textContent.includes('Geral')) carregarAuditoriaGeral();
-    else if (tabAtiva.textContent.includes('Tickets')) carregarAuditoriaTickets();
+    else if (tabAtiva.textContent.includes('Demandas')) carregarAuditoriaTickets();
     else if (tabAtiva.textContent.includes('Login')) carregarAuditoriaLogin();
 }
 
@@ -7134,14 +8258,14 @@ let todosUsuariosAudit = [];
 
 function carregarUsuariosFiltroAudit() {
     const xhr = new XMLHttpRequest();
-    xhr.open('GET', '/crpdesk/api/controllers/usuarios.php', true);
+    xhr.open('GET', window.APP_CONFIG.apiBase + 'usuarios.php', true);
     setSecurityHeaders(xhr);
 
     xhr.onload = function () {
         if (xhr.status === 200) {
             const usuarios = JSON.parse(xhr.responseText);
-            // Filtrar apenas agentes e admins (ativos e inativos)
-            todosUsuariosAudit = usuarios.filter(u => u.tipo === 'agente' || u.tipo === 'admin');
+            // Filtrar apenas funcionários internos (ativos e inativos)
+            todosUsuariosAudit = usuarios.filter(u => ['usuario', 'supervisor', 'admin'].includes(u.tipo));
             configurarBuscaUsuarioAudit();
         }
     };
@@ -7220,7 +8344,7 @@ function renderizarUsuariosAudit(usuarios) {
 function aplicarFiltrosAuditoria() {
     const tabAtiva = document.querySelector('.tab-btn.active');
     if (tabAtiva.textContent.includes('Geral')) carregarAuditoriaGeral();
-    else if (tabAtiva.textContent.includes('Tickets')) carregarAuditoriaTickets();
+    else if (tabAtiva.textContent.includes('Demandas')) carregarAuditoriaTickets();
     else if (tabAtiva.textContent.includes('Login')) carregarAuditoriaLogin();
     else if (tabAtiva.textContent.includes('E-mails')) carregarLogEmails();
 }
@@ -7246,7 +8370,7 @@ function carregarAuditoriaGeral(pagina = 1) {
     if (usuarioId) params.append('usuario_id', usuarioId);
 
     const xhr = new XMLHttpRequest();
-    xhr.open('GET', `/crpdesk/api/controllers/auditoria-avancada.php?${params}`, true);
+    xhr.open('GET', `${window.APP_CONFIG.apiBase}auditoria-avancada.php?${params}`, true);
     setSecurityHeaders(xhr);
 
     xhr.onload = function () {
@@ -7312,7 +8436,7 @@ function carregarAuditoriaTickets(pagina = 1) {
     if (usuarioId) params.append('usuario_id', usuarioId);
 
     const xhr = new XMLHttpRequest();
-    xhr.open('GET', `/crpdesk/api/controllers/auditoria-avancada.php?${params}`, true);
+    xhr.open('GET', `${window.APP_CONFIG.apiBase}auditoria-avancada.php?${params}`, true);
     setSecurityHeaders(xhr);
 
     xhr.onload = function () {
@@ -7330,7 +8454,7 @@ function mostrarRegistrosTicketsAudit(registros) {
     const content = document.getElementById('auditoria-content');
 
     if (registros.length === 0) {
-        content.innerHTML = '<p>Nenhuma alteração de ticket encontrada.</p>';
+        content.innerHTML = '<p>Nenhuma alteração de demanda encontrada.</p>';
         return;
     }
 
@@ -7340,12 +8464,12 @@ function mostrarRegistrosTicketsAudit(registros) {
         html += `
             <div class="auditoria-card">
                 <div class="auditoria-header">
-                    <span class="auditoria-acao">Ticket #${String(reg.ticket_id).padStart(5, '0')} - ${reg.campo}</span>
+                    <span class="auditoria-acao">Demanda #${String(reg.ticket_id).padStart(5, '0')} - ${reg.campo}</span>
                     <span class="auditoria-data">${new Date(reg.criado_em).toLocaleString('pt-BR')}</span>
                 </div>
                 <div class="auditoria-body">
                     <div><strong>Usuário:</strong> ${reg.usuario_nome}</div>
-                    <div><strong>Ticket:</strong> ${reg.ticket_titulo || 'N/A'}</div>
+                    <div><strong>Demanda:</strong> ${reg.ticket_titulo || 'N/A'}</div>
                     <div class="auditoria-diff">
                         <div><strong>De:</strong> ${reg.valor_anterior || 'N/A'}</div>
                         <div><strong>Para:</strong> ${reg.valor_novo || 'N/A'}</div>
@@ -7381,7 +8505,7 @@ function carregarAuditoriaLogin(pagina = 1) {
     if (usuarioId) params.append('usuario_id', usuarioId);
 
     const xhr = new XMLHttpRequest();
-    xhr.open('GET', `/crpdesk/api/controllers/auditoria-avancada.php?${params}`, true);
+    xhr.open('GET', `${window.APP_CONFIG.apiBase}auditoria-avancada.php?${params}`, true);
     setSecurityHeaders(xhr);
 
     xhr.onload = function () {
@@ -7439,7 +8563,7 @@ function carregarEstatisticasAudit() {
     if (filtroSuperior) filtroSuperior.style.display = '';
 
     const xhr = new XMLHttpRequest();
-    xhr.open('GET', '/crpdesk/api/controllers/auditoria-avancada.php?tipo=estatisticas', true);
+    xhr.open('GET', window.APP_CONFIG.apiBase + 'auditoria-avancada.php?tipo=estatisticas', true);
     setSecurityHeaders(xhr);
 
     xhr.onload = function () {
@@ -7494,7 +8618,7 @@ function mostrarEstatisticasAudit(dados) {
             </div>
             
             <div class="estatistica-card">
-                <h3>🎫 Alterações de Tickets por Campo</h3>
+                <h3>🎫 Alterações de Demandas por Campo</h3>
                 <div class="estatistica-lista">
                     ${dados.alteracoes_por_campo.map(item => `
                         <div class="estatistica-item">
@@ -7514,13 +8638,16 @@ function mostrarEstatisticasAudit(dados) {
 // Funções auxiliares
 function formatarAcaoAuditoria(acao) {
     const acoes = {
-        'excluir_ticket': '🗑️ Exclusão de Ticket',
+        'excluir_ticket': '🗑️ Exclusão de Demanda',
         'criar_usuario': '➕ Criação de Usuário',
         'atualizar_usuario': '✏️ Atualização de Usuário',
         'excluir_usuario': '🗑️ Exclusão de Usuário',
-        'criar_categoria': '➕ Criação de Categoria',
-        'atualizar_categoria': '✏️ Atualização de Categoria',
-        'excluir_categoria': '🗑️ Exclusão de Categoria'
+        'criar_categoria': '➕ Criação de Subcategoria',
+        'atualizar_categoria': '✏️ Atualização de Subcategoria',
+        'excluir_categoria': '🗑️ Exclusão de Subcategoria',
+        'criar_macrocategoria': '➕ Criação de Categoria',
+        'atualizar_macrocategoria': '✏️ Atualização de Categoria',
+        'excluir_macrocategoria': '🗑️ Exclusão de Categoria'
     };
     return acoes[acao] || acao;
 }
@@ -7571,10 +8698,10 @@ function mostrarPaginacaoAudit(paginaAtual, totalPaginas, funcao) {
 function exportarAuditoria() {
     const tabAtiva = document.querySelector('.tab-btn.active');
     const tipo = tabAtiva.textContent.includes('Geral') ? 'geral' :
-        tabAtiva.textContent.includes('Tickets') ? 'tickets' : 'login';
+        tabAtiva.textContent.includes('Demandas') ? 'tickets' : 'login';
 
     const xhr = new XMLHttpRequest();
-    xhr.open('POST', `/crpdesk/api/controllers/auditoria-avancada.php?exportar=1&tipo=${tipo}`, true);
+    xhr.open('POST', `${window.APP_CONFIG.apiBase}auditoria-avancada.php?exportar=1&tipo=${tipo}`, true);
     setSecurityHeaders(xhr);
 
     xhr.onload = function () {
@@ -7633,7 +8760,7 @@ function exportarAuditoriaPDF() {
 <html lang="pt-BR">
 <head>
     <meta charset="UTF-8">
-    <title>Auditoria CRPDESK — ${tituloTab}</title>
+    <title>Auditoria Conecta CRPRS — ${tituloTab}</title>
     <style>
         @page { size: A4 portrait; margin: 14mm 12mm 16mm 12mm; }
 
@@ -7653,13 +8780,13 @@ function exportarAuditoriaPDF() {
             justify-content: space-between;
             align-items: flex-end;
             padding-bottom: 8px;
-            border-bottom: 3px solid #1e3a8a;
+            border-bottom: 3px solid #004373;
             margin-bottom: 14px;
         }
         .cabecalho-pdf .logo-bloco { display: flex; flex-direction: column; gap: 2px; }
         .cabecalho-pdf .titulo-principal {
             font-size: 17px; font-weight: 800;
-            color: #1e3a8a; letter-spacing: -0.3px;
+            color: #004373; letter-spacing: -0.3px;
         }
         .cabecalho-pdf .titulo-secao {
             font-size: 11px; font-weight: 600; color: #444; margin-top: 1px;
@@ -7682,7 +8809,7 @@ function exportarAuditoriaPDF() {
             margin-bottom: 14px;
             table-layout: fixed;
         }
-        thead tr { background: #1e3a8a !important; color: #fff !important; }
+        thead tr { background: #004373 !important; color: #fff !important; }
         th {
             padding: 6px 7px;
             text-align: left;
@@ -7725,7 +8852,7 @@ function exportarAuditoriaPDF() {
             border-radius: 5px;
             padding: 8px 10px;
             margin-bottom: 8px;
-            border-left: 3px solid #1e3a8a;
+            border-left: 3px solid #004373;
             border: 1px solid #e0e0e0;
             page-break-inside: avoid;
         }
@@ -7793,7 +8920,7 @@ function exportarAuditoriaPDF() {
 <body>
     <div class="cabecalho-pdf">
         <div class="logo-bloco">
-            <div class="titulo-principal">Auditoria CRPDESK</div>
+            <div class="titulo-principal">Auditoria Conecta CRPRS</div>
             <div class="titulo-secao">Relatório: ${tituloTab}</div>
             <div class="subtitulo">Conselho Regional de Psicologia do Rio Grande do Sul</div>
         </div>
@@ -7805,7 +8932,7 @@ function exportarAuditoriaPDF() {
     ${clone.innerHTML}
 
     <div class="rodape-pdf">
-        <span>Auditoria CRPDESK — CRPRS</span>
+        <span>Auditoria Conecta CRPRS</span>
         <span>${dataAtual}</span>
     </div>
 
@@ -7826,7 +8953,7 @@ function exportarLogEmailsCSV() {
     if (tipo)   params.append('tipo', tipo);
 
     const xhr = new XMLHttpRequest();
-    xhr.open('GET', `/crpdesk/api/controllers/email-logs.php?${params}`, true);
+    xhr.open('GET', `${window.APP_CONFIG.apiBase}email-logs.php?${params}`, true);
     setSecurityHeaders(xhr);
 
     xhr.onload = function () {
@@ -7842,7 +8969,7 @@ function exportarLogEmailsCSV() {
 
                 // Colunas do CSV
                 const colunas = ['id', 'destinatario', 'assunto', 'tipo', 'ticket_id', 'status', 'erro', 'enviado_em'];
-                const cabecalho = ['ID', 'Destinatário', 'Assunto', 'Tipo', 'Ticket', 'Status', 'Erro', 'Data/Hora'];
+                const cabecalho = ['ID', 'Destinatário', 'Assunto', 'Tipo', 'Demanda', 'Status', 'Erro', 'Data/Hora'];
 
                 let csv = cabecalho.join(',') + '\n';
                 logs.forEach(log => {
@@ -7911,7 +9038,9 @@ function toggleFormUsuario() {
         setTimeout(() => form.style.display = 'none', 300);
     } else {
         form.style.display = 'block';
-        setTimeout(() => form.style.maxHeight = '500px', 10);
+        // Altura dinâmica: usa o tamanho real do conteúdo em vez de um valor fixo,
+        // para não cortar botões quando o formulário cresce (ex: novos campos).
+        setTimeout(() => form.style.maxHeight = form.scrollHeight + 'px', 10);
     }
 }
 
@@ -7925,7 +9054,7 @@ function toggleFormCategoria() {
         setTimeout(() => form.style.display = 'none', 300);
     } else {
         form.style.display = 'block';
-        setTimeout(() => form.style.maxHeight = '500px', 10);
+        setTimeout(() => form.style.maxHeight = form.scrollHeight + 'px', 10);
     }
 }
 
@@ -7934,104 +9063,104 @@ function toggleFormCategoria() {
 function mostrarInfoGrafico(tipo) {
     const infos = {
         'total': {
-            titulo: '🎫 Total de Tickets',
-            descricao: 'Mostra o número total de tickets registrados no sistema.',
+            titulo: '🎫 Total de Demandas',
+            descricao: 'Mostra o número total de demandas registradas no sistema.',
             analise: 'Use para acompanhar o volume geral de demandas. Um aumento pode indicar necessidade de mais recursos ou problemas recorrentes.'
         },
         'encerrados': {
-            titulo: '✅ Tickets Encerrados',
-            descricao: 'Total de tickets com status "encerrado".',
-            analise: 'Indica o volume de tickets finalizados. Use para acompanhar a produtividade da equipe ao longo do tempo.'
+            titulo: '✅ Demandas Encerradas',
+            descricao: 'Total de demandas com status "encerrado".',
+            analise: 'Indica o volume de demandas finalizadas. Use para acompanhar a produtividade da equipe ao longo do tempo.'
         },
         'ativos': {
-            titulo: '🔄 Tickets Ativos',
-            descricao: 'Total de tickets em andamento (todos os status exceto encerrado).',
+            titulo: '🔄 Demandas Ativas',
+            descricao: 'Total de demandas em andamento (todos os status exceto encerrado).',
             analise: 'Mostra a carga de trabalho atual da equipe. Valores altos podem indicar sobrecarga ou necessidade de mais recursos.'
         },
         'tempo-total': {
             titulo: '⏱️ Tempo Médio Total',
-            descricao: 'Tempo médio desde a abertura até o fechamento dos tickets.',
-            analise: 'Indica a eficiência geral do atendimento. Valores altos podem indicar gargalos no processo ou tickets complexos.'
+            descricao: 'Tempo médio desde a abertura até o fechamento das demandas.',
+            analise: 'Indica a eficiência geral do atendimento. Valores altos podem indicar gargalos no processo ou demandas complexas.'
         },
         'primeiro-atendimento': {
             titulo: '⚡ Tempo Médio 1º Atendimento',
-            descricao: 'Tempo médio até a primeira resposta do agente ao ticket.',
+            descricao: 'Tempo médio até a primeira resposta do agente à demanda.',
             analise: 'Métrica crítica de SLA. Valores altos indicam demora na resposta inicial, afetando a satisfação do usuário.'
         },
         'taxa-conclusao': {
             titulo: '✅ Taxa de Conclusão',
-            descricao: 'Percentual de tickets concluídos em relação ao total.',
-            analise: 'Indica a efetividade da equipe em resolver demandas. Valores baixos podem indicar tickets abandonados ou mal gerenciados.'
+            descricao: 'Percentual de demandas concluídas em relação ao total.',
+            analise: 'Indica a efetividade da equipe em resolver demandas. Valores baixos podem indicar demandas abandonadas ou mal gerenciadas.'
         },
         'fcr': {
             titulo: '🚀 FCR (First Contact Resolution)',
-            descricao: 'Taxa de chamados resolvidos logo no primeiro contato/resposta, sem precisarem de interações adicionais ou vaivém com o solicitante.',
+            descricao: 'Taxa de demandas resolvidas logo no primeiro contato/resposta, sem precisarem de interações adicionais ou vaivém com o solicitante.',
             analise: 'A principal métrica de eficiência do Suporte. Valores altos significam que a equipe é altamente assertiva e tem forte domínio sobre os problemas dos usuários logo de primeira.'
         },
         'status': {
-            titulo: '📊 Tickets por Status',
-            descricao: 'Distribuição dos tickets pelos diferentes status do sistema.',
-            analise: 'Identifique gargalos: muitos tickets "Abertos" indicam falta de atribuição, muitos "Aguardando" podem indicar dependências externas.'
+            titulo: '📊 Demandas por Status',
+            descricao: 'Distribuição das demandas pelos diferentes status do sistema.',
+            analise: 'Identifique gargalos: muitas demandas "Abertas" indicam falta de atribuição, muitas "Aguardando" podem indicar dependências externas.'
         },
         'prioridade': {
-            titulo: '🔥 Tickets por Prioridade',
-            descricao: 'Distribuição dos tickets por nível de prioridade (Urgente, Alta, Normal, Baixa).',
-            analise: 'Verifique se há excesso de tickets urgentes (pode indicar problemas sistêmicos) ou se as prioridades estão bem distribuídas.'
+            titulo: '🔥 Demandas por Prioridade',
+            descricao: 'Distribuição das demandas por nível de prioridade (Urgente, Alta, Normal, Baixa).',
+            analise: 'Verifique se há excesso de demandas urgentes (pode indicar problemas sistêmicos) ou se as prioridades estão bem distribuídas.'
         },
         'evolucao': {
             titulo: '📈 Evolução Mensal',
-            descricao: 'Gráfico de linha mostrando a quantidade de tickets criados por mês nos últimos 12 meses.',
+            descricao: 'Gráfico de linha mostrando a quantidade de demandas criadas por mês nos últimos 12 meses.',
             analise: 'Identifique tendências: crescimento constante, sazonalidade ou picos específicos que requerem atenção.'
         },
         'agente': {
             titulo: '🥧 Distribuição por Agente',
-            descricao: 'Gráfico de pizza mostrando a distribuição de tickets entre os agentes.',
+            descricao: 'Gráfico de pizza mostrando a distribuição de demandas entre os agentes.',
             analise: 'Verifique o balanceamento da carga de trabalho. Desbalanceamento pode indicar necessidade de redistribuição ou treinamento.'
         },
         'resolucao': {
             titulo: '📊 Taxa de Resolução',
-            descricao: 'Comparação entre tickets abertos e fechados.',
+            descricao: 'Comparação entre demandas abertas e fechadas.',
             analise: 'Se há mais abertos que fechados, a equipe pode estar sobrecarregada ou há problemas de eficiência.'
         },
         'dia-semana': {
-            titulo: '📅 Tickets por Dia da Semana',
-            descricao: 'Distribuição de tickets criados por dia da semana (Domingo a Sábado).',
+            titulo: '📅 Demandas por Dia da Semana',
+            descricao: 'Distribuição de demandas criadas por dia da semana (Domingo a Sábado).',
             analise: 'Identifique padrões: dias com mais demanda podem requerer mais agentes disponíveis ou plantões.'
         },
         'status-agente': {
             titulo: '📊 Status por Agente',
-            descricao: 'Gráfico de barras empilhadas mostrando a distribuição de status dos tickets por agente.',
-            analise: 'Compare o desempenho dos agentes: quem tem mais tickets resolvidos, quem tem mais pendentes, etc.'
+            descricao: 'Gráfico de barras empilhadas mostrando a distribuição de status das demandas por agente.',
+            analise: 'Compare o desempenho dos agentes: quem tem mais demandas resolvidas, quem tem mais pendentes, etc.'
         },
         'sla-vencido': {
             titulo: 'SLA Vencido',
-            descricao: 'Quantidade de tickets ativos cujo prazo de SLA j\u00e1 foi ultrapassado.',
-            analise: 'Valores altos indicam que a equipe n\u00e3o est\u00e1 conseguindo atender dentro dos prazos acordados. Priorize esses tickets imediatamente e avalie se os prazos de SLA est\u00e3o adequados ao volume de demanda.'
+            descricao: 'Quantidade de demandas ativas cujo prazo de SLA j\u00e1 foi ultrapassado.',
+            analise: 'Valores altos indicam que a equipe n\u00e3o est\u00e1 conseguindo atender dentro dos prazos acordados. Priorize essas demandas imediatamente e avalie se os prazos de SLA est\u00e3o adequados ao volume de demanda.'
         },
         'origem-externa': {
             titulo: 'Via Canal Externo',
-            descricao: 'Tickets criados automaticamente por integra\u00e7\u00e3o com canais externos, como e-mail recebido na caixa de suporte.',
+            descricao: 'Demandas criadas automaticamente por integra\u00e7\u00e3o com canais externos, como e-mail recebido na caixa de suporte.',
             analise: 'Indica o volume de demandas que chegam por canais autom\u00e1ticos. Um volume alto pode justificar regras de triagem autom\u00e1tica ou templates de resposta r\u00e1pida.'
         },
         'diarios-30d': {
             titulo: 'Evolu\u00e7\u00e3o Di\u00e1ria \u2014 \u00daltimos 30 Dias',
-            descricao: 'Gr\u00e1fico de linha mostrando a quantidade de tickets criados por dia nos \u00faltimos 30 dias. O ponto verde marca o dia de maior volume.',
+            descricao: 'Gr\u00e1fico de linha mostrando a quantidade de demandas criadas por dia nos \u00faltimos 30 dias. O ponto verde marca o dia de maior volume.',
             analise: 'Identifique picos de demanda recentes. Picos isolados podem indicar incidentes pontuais; picos recorrentes em dias espec\u00edficos sugerem padr\u00f5es que podem ser antecipados.'
         },
         'status-mensal': {
             titulo: 'Status por M\u00eas',
-            descricao: 'Barras empilhadas mostrando a distribui\u00e7\u00e3o de tickets por status em cada m\u00eas do ano atual.',
-            analise: 'Acompanhe a evolu\u00e7\u00e3o da equipe ao longo do ano. Um aumento na fatia de tickets encerrados ao longo dos meses indica melhora na efici\u00eancia. Meses com muitos tickets em aberto merecem aten\u00e7\u00e3o.'
+            descricao: 'Barras empilhadas mostrando a distribui\u00e7\u00e3o de demandas por status em cada m\u00eas do ano atual.',
+            analise: 'Acompanhe a evolu\u00e7\u00e3o da equipe ao longo do ano. Um aumento na fatia de demandas encerradas ao longo dos meses indica melhora na efici\u00eancia. Meses com muitas demandas em aberto merecem aten\u00e7\u00e3o.'
         },
         'heatmap': {
             titulo: 'Heatmap: Dia x Hora',
-            descricao: 'Mapa de calor cruzando dia da semana com hora do dia, mostrando em quais momentos h\u00e1 maior concentra\u00e7\u00e3o de abertura de tickets.',
+            descricao: 'Mapa de calor cruzando dia da semana com hora do dia, mostrando em quais momentos h\u00e1 maior concentra\u00e7\u00e3o de abertura de demandas.',
             analise: 'Use para dimensionar a equipe: hor\u00e1rios com c\u00e9lulas mais intensas (ciano) s\u00e3o os de maior demanda. Garanta que haja agentes dispon\u00edveis nesses per\u00edodos.'
         },
         'funil': {
             titulo: '🔄 Funil de Conversão',
-            descricao: 'Visualiza a progressão dos tickets através dos status: Aberto → Em Atendimento → Resolvido → Encerrado.',
-            analise: 'Identifique gargalos: onde os tickets ficam acumulados? Muitos "Abertos" indica falta de atribuição, muitos "Em Atendimento" pode indicar complexidade ou falta de recursos.'
+            descricao: 'Visualiza a progressão das demandas através dos status: Aberto → Em Atendimento → Resolvido → Encerrado.',
+            analise: 'Identifique gargalos: onde as demandas ficam acumuladas? Muitas "Abertas" indica falta de atribuição, muitas "Em Atendimento" pode indicar complexidade ou falta de recursos.'
         }
     };
 
@@ -8067,7 +9196,7 @@ function mostrarInfoGrafico(tipo) {
 function mostrarPersonalizacao() {
     document.querySelectorAll('.btn-config').forEach(btn => btn.classList.remove('active')); // nav
     const _bbtn_personalizacao = document.getElementById('btn-personalizacao'); if (_bbtn_personalizacao) _bbtn_personalizacao.classList.add('active');
-    localStorage.setItem('subSecaoAtiva', 'personalizacao');
+    localStorage.setItem('cd_subSecaoAtiva', 'personalizacao');
     const configTitle = document.getElementById('config-title'); if (configTitle) configTitle.textContent = String.fromCodePoint(0x1F3A8) + ' Personaliza\u00e7\u00e3o';
 
     const content = document.getElementById('config-content');
@@ -8084,7 +9213,7 @@ function mostrarPersonalizacao() {
                     <h4>T&iacute;tulo do Sistema</h4>
                     <div class="form-group">
                         <label for="titulo-header-input" style="font-size:0.8rem;color:#888;">T&iacute;tulo (m&aacute;x. 20 caracteres):</label>
-                        <input type="text" id="titulo-header-input" maxlength="20" placeholder="Helpdesk CRPRS">
+                        <input type="text" id="titulo-header-input" maxlength="20" placeholder="Conecta CRPRS">
                     </div>
                     <button class="btn-primary" onclick="salvarTituloHeader()">Salvar T&iacute;tulo</button>
                 </div>
@@ -8102,13 +9231,13 @@ function mostrarPersonalizacao() {
             </div>
         `;
 
-        fetch('/crpdesk/frontend/config.json')
+        fetch('/conecta/frontend/config.json')
             .then(r => r.json())
             .then(config => {
-                document.getElementById('titulo-header-input').value = config.titulo || 'Helpdesk CRPRS';
+                document.getElementById('titulo-header-input').value = config.titulo || 'Conecta CRPRS';
             })
             .catch(() => {
-                document.getElementById('titulo-header-input').value = 'Helpdesk CRPRS';
+                document.getElementById('titulo-header-input').value = 'Conecta CRPRS';
             });
     }, 10);
 }
@@ -8127,7 +9256,7 @@ function uploadLogoHeader() {
     mostrarLoader();
 
     const xhr = new XMLHttpRequest();
-    xhr.open('POST', '/crpdesk/api/controllers/personalizacao.php', true);
+    xhr.open('POST', window.APP_CONFIG.apiBase + 'personalizacao.php', true);
     setSecurityHeaders(xhr);
 
     xhr.onload = function () {
@@ -8158,7 +9287,7 @@ function uploadLogoLogin() {
     mostrarLoader();
 
     const xhr = new XMLHttpRequest();
-    xhr.open('POST', '/crpdesk/api/controllers/personalizacao.php', true);
+    xhr.open('POST', window.APP_CONFIG.apiBase + 'personalizacao.php', true);
     setSecurityHeaders(xhr);
 
     xhr.onload = function () {
@@ -8190,7 +9319,7 @@ function salvarTituloHeader() {
     mostrarLoader();
 
     const xhr = new XMLHttpRequest();
-    xhr.open('POST', '/crpdesk/api/controllers/personalizacao.php', true);
+    xhr.open('POST', window.APP_CONFIG.apiBase + 'personalizacao.php', true);
     xhr.setRequestHeader('Content-Type', 'application/json');
     setSecurityHeaders(xhr);
 
@@ -8220,7 +9349,7 @@ function mostrarDicasAjuda() { mostrarDicas(); }
 function mostrarModoEscuro() {
     document.querySelectorAll('.btn-config').forEach(btn => btn.classList.remove('active')); // nav
     document.getElementById('btn-modo-escuro-config').classList.add('active');
-    localStorage.setItem('subSecaoAtiva', 'modo-escuro');
+    localStorage.setItem('cd_subSecaoAtiva', 'modo-escuro');
 
     const content = document.getElementById('config-content');
     const isDark = document.body.classList.contains('modo-escuro');
@@ -8250,7 +9379,7 @@ function mostrarModoEscuro() {
 function mostrarConfigEmail() {
     document.querySelectorAll('.btn-config').forEach(btn => btn.classList.remove('active')); // nav
     const _bbtn_config_email = document.getElementById('btn-config-email'); if (_bbtn_config_email) _bbtn_config_email.classList.add('active');
-    localStorage.setItem('subSecaoAtiva', 'config-email');
+    localStorage.setItem('cd_subSecaoAtiva', 'config-email');
     const configTitle = document.getElementById('config-title'); if (configTitle) configTitle.textContent = String.fromCodePoint(0x1F4E7) + ' Configurar Email';
 
     const content = document.getElementById('config-content');
@@ -8327,7 +9456,7 @@ function mostrarConfigEmail() {
 
 function carregarConfigEmail() {
     const xhr = new XMLHttpRequest();
-    xhr.open('GET', '/crpdesk/api/controllers/config-email.php', true);
+    xhr.open('GET', window.APP_CONFIG.apiBase + 'config-email.php', true);
     setSecurityHeaders(xhr);
 
     xhr.onload = function () {
@@ -8364,7 +9493,7 @@ function salvarConfigEmail(event) {
     };
 
     const xhr = new XMLHttpRequest();
-    xhr.open('PUT', '/crpdesk/api/controllers/config-email.php', true);
+    xhr.open('PUT', window.APP_CONFIG.apiBase + 'config-email.php', true);
     xhr.setRequestHeader('Content-Type', 'application/json');
     setSecurityHeaders(xhr);
 
@@ -8396,7 +9525,7 @@ function testarConexaoEmail() {
     mostrarLoader();
 
     const xhr = new XMLHttpRequest();
-    xhr.open('POST', '/crpdesk/api/controllers/testar-email.php', true);
+    xhr.open('POST', window.APP_CONFIG.apiBase + 'testar-email.php', true);
     xhr.setRequestHeader('Content-Type', 'application/json');
     setSecurityHeaders(xhr);
 
@@ -8456,10 +9585,10 @@ function enviarEFecharTicket(ticketId) {
     }
     const comentario = document.getElementById('novo-comentario').value.trim();
     if (!comentario || comentario.replace(/<[^>]*>/g, '').trim().length < 3) {
-        mostrarAlert('Atenção', 'Por favor, adicione um comentário antes de fechar o ticket.');
+        mostrarAlert('Atenção', 'Por favor, adicione um comentário antes de fechar a demanda.');
         return;
     }
-    mostrarConfirm('Enviar e Fechar Ticket', 'Deseja adicionar o comentário e encerrar este ticket?', function (confirmado) {
+    mostrarConfirm('Enviar e Fechar Demanda', 'Deseja adicionar o comentário e encerrar esta demanda?', function (confirmado) {
         if (!confirmado) return;
         mostrarLoader();
         const formData = new FormData();
@@ -8478,14 +9607,14 @@ function enviarEFecharTicket(ticketId) {
             });
         }
         const xhr = new XMLHttpRequest();
-        xhr.open('POST', '/crpdesk/api/controllers/comentarios.php', true);
+        xhr.open('POST', window.APP_CONFIG.apiBase + 'comentarios.php', true);
         setSecurityHeaders(xhr);
         xhr.onload = function () {
             if (xhr.status === 200) {
-                const usuarioLogado = JSON.parse(localStorage.getItem('usuario'));
+                const usuarioLogado = JSON.parse(localStorage.getItem('cd_usuario'));
                 executarAlteracaoStatus(ticketId, 'encerrado', function () {
                     ocultarLoader();
-                    mostrarToast('Sucesso', 'Comentário adicionado e ticket encerrado!', 'success');
+                    mostrarToast('Sucesso', 'Comentário adicionado e demanda encerrada!', 'success');
                     setTimeout(() => {
                         if (secaoOrigem === 'fechados') {
                             mostrarTicketsFechados();

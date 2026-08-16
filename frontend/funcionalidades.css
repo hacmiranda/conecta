@@ -172,7 +172,7 @@ body.modo-escuro {
 }
 
 .modo-escuro .tickets-tabela th {
-    background: linear-gradient(135deg, #1e3a8a 0%, #1a3a7a 100%);
+    background: linear-gradient(135deg, #004373 0%, #002d4d 100%);
     color: #e2e8f0;
     border-color: #2d5aa0;
 }

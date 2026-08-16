@@ -1,6 +1,6 @@
 <?php
 /**
- * Configuração de Ambiente — CRPDESK
+ * Configuração de Ambiente — Conecta CRPRS
  * Detecta automaticamente localhost ou produção.
  * Credenciais sensíveis são carregadas exclusivamente do arquivo .env.
  */
@@ -85,13 +85,21 @@ class Environment {
             'imap_port'      => 993,
             'smtp_host'      => 'email-ssl.com.br',
             'smtp_port'      => 465,
-            'from_name'      => 'Helpdesk CRPRS [DEV]',
+            'from_name'      => 'Conecta CRPRS [DEV]',
             'from_email'     => 'suporte@crprs.org.br',
 
             // Caminhos
-            'base_url'       => 'http://localhost/crpdesk',
-            'upload_path'    => 'C:/xampp/htdocs/crpdesk/backend/anexos/',
-            'log_path'       => 'C:/xampp/htdocs/crpdesk/backend/logs/',
+            // upload_path/log_path usam __DIR__ (igual à produção) para não quebrar
+            // se a pasta raiz do projeto for renomeada — só base_url e cors_allowed_origins
+            // (que são URLs, não caminhos de disco) precisam do nome da pasta.
+            'base_url'       => 'http://localhost/conecta',
+            'upload_path'    => __DIR__ . '/../../backend/anexos/',
+            'log_path'       => __DIR__ . '/../../backend/logs/',
+
+            // Módulo/Embedding — origens CORS e chave de validação do token SSO
+            // (sobrescrever via CORS_ALLOWED_ORIGINS_LOCAL / SSO_SHARED_SECRET_LOCAL no .env)
+            'cors_allowed_origins' => 'http://localhost,http://localhost/conecta,http://127.0.0.1,http://127.0.0.1/conecta',
+            'sso_shared_secret'    => '',
 
             // Debug habilitado apenas em desenvolvimento
             'debug'          => true,
@@ -116,13 +124,18 @@ class Environment {
             'imap_port'      => 993,
             'smtp_host'      => 'email-ssl.com.br',
             'smtp_port'      => 465,
-            'from_name'      => 'Helpdesk CRPRS',
+            'from_name'      => 'Conecta CRPRS',
             'from_email'     => 'suporte@crprs.org.br',
 
             // Caminhos
             'base_url'       => 'https://crp07.org.br/crpdesk',
             'upload_path'    => __DIR__ . '/../../backend/anexos/',
             'log_path'       => __DIR__ . '/../../backend/logs/',
+
+            // Módulo/Embedding — origens CORS e chave de validação do token SSO
+            // (sobrescrever via CORS_ALLOWED_ORIGINS_PROD / SSO_SHARED_SECRET_PROD no .env)
+            'cors_allowed_origins' => 'https://crp07.org.br,https://www.crp07.org.br',
+            'sso_shared_secret'    => '',
 
             // Debug desabilitado em produção
             'debug'          => false,

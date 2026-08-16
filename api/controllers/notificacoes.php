@@ -59,7 +59,7 @@ if ($method === 'GET') {
     // Vamos processar a criação de Notificação via requisição interna se precisar, mas
     // o ticket e comentario podem inserir diretamente.
     http_response_code(403);
-    echo json_encode(['error' => 'Notificações devem ser criadas via triggers de Tickets ou Comentários internamente']);
+    echo json_encode(['error' => 'Notificações devem ser criadas via triggers de Demandas ou Comentários internamente']);
 } else {
     http_response_code(405);
     echo json_encode(['error' => 'Método não permitido']);

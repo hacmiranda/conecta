@@ -1,4 +1,4 @@
-// Sistema de Status e SLA - Helpdesk CRPRS
+// Sistema de Status e SLA - Conecta CRPRS
 
 // Configurações de status baseadas no banco de dados
 const STATUS_CONFIG = {
@@ -6,21 +6,21 @@ const STATUS_CONFIG = {
         nome: 'Aberto',
         cor: '#f79226',
         icone: '🆕',
-        descricao: 'O ticket foi criado, mas ainda não começou a ser tratado',
+        descricao: 'A demanda foi criada, mas ainda não começou a ser tratada',
         congela_sla: false
     },
     'em_atendimento': {
         nome: 'Em atendimento',
         cor: '#17a2b8',
         icone: '🔧',
-        descricao: 'O ticket está sendo analisado ou trabalhado por um atendente do helpdesk',
+        descricao: 'A demanda está sendo analisada ou trabalhada por um atendente responsável',
         congela_sla: false
     },
     'aguardando': {
         nome: 'Aguardando',
         cor: '#ffc107',
         icone: '⏳',
-        descricao: 'Ticket na fila ou aguardando ações gerais (SLA pausado)',
+        descricao: 'Demanda na fila ou aguardando ações gerais (SLA pausado)',
         congela_sla: true
     },
     'aguardando_resposta': {
@@ -62,21 +62,21 @@ const STATUS_CONFIG = {
         nome: 'Cancelado',
         cor: '#dc3545',
         icone: '❌',
-        descricao: 'O ticket foi aberto por engano, ou a solicitação foi retirada pelo solicitante',
+        descricao: 'A demanda foi aberta por engano, ou a solicitação foi retirada pelo solicitante',
         congela_sla: false
     },
     'reaberto': {
         nome: 'Reaberto',
         cor: '#e83e8c',
         icone: '🔄',
-        descricao: 'Quando um ticket já encerrado ou resolvido volta a apresentar problemas e precisa ser tratado novamente',
+        descricao: 'Quando uma demanda já encerrada ou resolvida volta a apresentar problemas e precisa ser tratada novamente',
         congela_sla: false
     },
     'nova_resposta': {
         nome: 'Nova Resposta',
         cor: '#17a2b8',
         icone: '💬',
-        descricao: 'O solicitante respondeu ao ticket. Requer atenção do agente.',
+        descricao: 'O solicitante respondeu à demanda. Requer atenção do agente.',
         congela_sla: false
     },
     // Mapeamento de status antigos para novos (compatibilidade)
@@ -84,7 +84,7 @@ const STATUS_CONFIG = {
         nome: 'Em atendimento',
         cor: '#17a2b8',
         icone: '🔧',
-        descricao: 'O ticket está sendo analisado ou trabalhado por um atendente do helpdesk',
+        descricao: 'A demanda está sendo analisada ou trabalhada por um atendente responsável',
         congela_sla: false
     },
     'espera': {
@@ -105,14 +105,14 @@ const STATUS_CONFIG = {
         nome: 'Novo',
         cor: '#f79226',
         icone: '🆕',
-        descricao: 'O ticket foi criado, mas ainda não começou a ser tratado',
+        descricao: 'A demanda foi criada, mas ainda não começou a ser tratada',
         congela_sla: false
     },
     'atendimento': {
         nome: 'Em atendimento',
         cor: '#17a2b8',
         icone: '🔧',
-        descricao: 'O ticket está sendo analisado ou trabalhado por um atendente do helpdesk',
+        descricao: 'A demanda está sendo analisada ou trabalhada por um atendente responsável',
         congela_sla: false
     },
     'aguardando_data': {
@@ -196,14 +196,14 @@ let FERIADOS_CONFIGURADOS = [];
 function carregarHorariosConfigurados() {
     return new Promise((resolve, reject) => {
         const xhr1 = new XMLHttpRequest();
-        xhr1.open('GET', '/crpdesk/api/controllers/horarios-sla.php', true);
+        xhr1.open('GET', window.APP_CONFIG.apiBase + 'horarios-sla.php', true);
 
         xhr1.onload = function () {
             if (xhr1.status === 200) {
                 HORARIOS_CONFIGURADOS = JSON.parse(xhr1.responseText);
 
                 const xhr2 = new XMLHttpRequest();
-                xhr2.open('GET', '/crpdesk/api/controllers/horarios-sla.php?feriados=1', true);
+                xhr2.open('GET', window.APP_CONFIG.apiBase + 'horarios-sla.php?feriados=1', true);
 
                 xhr2.onload = function () {
                     if (xhr2.status === 200) {
@@ -364,10 +364,11 @@ function calcularSegundosUteisOtimizado(dataInicio, dataFim) {
 }
 
 // Carregar status disponíveis
-function carregarStatusDisponiveis() {
+function carregarStatusDisponiveis(setorId) {
     return new Promise((resolve, reject) => {
         const xhr = new XMLHttpRequest();
-        xhr.open('GET', '/crpdesk/api/controllers/ticket-status.php', true);
+        const filtro = setorId ? `?setor_id=${setorId}` : '';
+        xhr.open('GET', window.APP_CONFIG.apiBase + 'ticket-status.php' + filtro, true);
 
         xhr.onload = function () {
             if (xhr.status === 200) {
@@ -387,10 +388,11 @@ function carregarStatusDisponiveis() {
 }
 
 // Carregar prioridades disponíveis
-function carregarPrioridadesDisponiveis() {
+function carregarPrioridadesDisponiveis(setorId) {
     return new Promise((resolve, reject) => {
         const xhr = new XMLHttpRequest();
-        xhr.open('GET', '/crpdesk/api/controllers/prioridades.php', true);
+        const filtro = setorId ? `?setor_id=${setorId}` : '';
+        xhr.open('GET', window.APP_CONFIG.apiBase + 'prioridades.php' + filtro, true);
 
         xhr.onload = function () {
             if (xhr.status === 200) {
@@ -409,10 +411,10 @@ function carregarPrioridadesDisponiveis() {
     });
 }
 
-// Alterar status do ticket com novo sistema
-function alterarStatusNovo(ticketId) {
+// Alterar status da demanda com novo sistema
+function alterarStatusNovo(ticketId, setorId) {
     // Tentar carregar do banco primeiro, fallback para manual se falhar
-    carregarStatusDisponiveis().then(statusList => {
+    carregarStatusDisponiveis(setorId).then(statusList => {
         const opcoes = statusList.map(item => ({
             id: item.nome,
             nome: `${STATUS_CONFIG[item.nome]?.icone || ''} ${formatarNomeStatus(item.nome)}`,
@@ -421,7 +423,7 @@ function alterarStatusNovo(ticketId) {
 
         mostrarSelectComDescricao(
             'Alterar Status',
-            'Selecione o novo status do ticket:',
+            'Selecione o novo status da demanda:',
             opcoes,
             function (statusEscolhido) {
                 if (statusEscolhido) {
@@ -452,7 +454,7 @@ function alterarStatusNovo(ticketId) {
 
         mostrarSelectComDescricao(
             'Alterar Status',
-            'Selecione o novo status do ticket:',
+            'Selecione o novo status da demanda:',
             opcoes,
             function (statusEscolhido) {
                 if (statusEscolhido) {
@@ -466,7 +468,7 @@ function alterarStatusNovo(ticketId) {
 // Executar alteração de status com novo sistema
 function executarAlteracaoStatusNovo(ticketId, novoStatus, observacoes = null) {
     const xhr = new XMLHttpRequest();
-    xhr.open('PUT', `/crpdesk/api/controllers/tickets.php?id=${ticketId}`, true);
+    xhr.open('PUT', `${window.APP_CONFIG.apiBase}tickets.php?id=${ticketId}`, true);
     xhr.setRequestHeader('Content-Type', 'application/json');
     setSecurityHeaders(xhr);
 
@@ -479,7 +481,7 @@ function executarAlteracaoStatusNovo(ticketId, novoStatus, observacoes = null) {
             carregarTickets();
 
             // Se estiver na página de detalhes, recarregar detalhes
-            const ticketAtivo = localStorage.getItem('ticketAtivo');
+            const ticketAtivo = localStorage.getItem('cd_ticketAtivo');
             if (ticketAtivo && parseInt(ticketAtivo) === ticketId) {
                 setTimeout(() => verDetalhes(ticketId), 300);
             }
@@ -512,7 +514,7 @@ function alterarPrioridadeNova(ticketId) {
 
         mostrarSelectComDescricao(
             'Alterar Prioridade',
-            'Selecione a nova prioridade do ticket:',
+            'Selecione a nova prioridade da demanda:',
             opcoes,
             function (prioridadeEscolhida) {
                 if (prioridadeEscolhida) {
@@ -528,7 +530,7 @@ function alterarPrioridadeNova(ticketId) {
 // Executar alteração de prioridade
 function executarAlteracaoPrioridadeNova(ticketId, novaPrioridade) {
     const xhr = new XMLHttpRequest();
-    xhr.open('PUT', `/crpdesk/api/controllers/tickets.php?id=${ticketId}`, true);
+    xhr.open('PUT', `${window.APP_CONFIG.apiBase}tickets.php?id=${ticketId}`, true);
     xhr.setRequestHeader('Content-Type', 'application/json');
     setSecurityHeaders(xhr);
 
@@ -541,7 +543,7 @@ function executarAlteracaoPrioridadeNova(ticketId, novaPrioridade) {
             carregarTickets();
 
             // Se estiver na página de detalhes, recarregar detalhes
-            const ticketAtivo = localStorage.getItem('ticketAtivo');
+            const ticketAtivo = localStorage.getItem('cd_ticketAtivo');
             if (ticketAtivo && parseInt(ticketAtivo) === ticketId) {
                 setTimeout(() => verDetalhes(ticketId), 300);
             }
