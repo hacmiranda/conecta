@@ -1,0 +1,359 @@
+/* ===== Sidebar de navegação — mesmo padrão visual da sidebar do sistema de eventos:
+   paleta "cobalt", fonte Inter, animações e acordeão de expansão de menus. ===== */
+
+.app-shell {
+    display: flex;
+    min-height: 100vh;
+    align-items: flex-start;
+}
+
+.sidebar {
+    width: 260px;
+    flex-shrink: 0;
+    height: 100vh;
+    position: sticky;
+    top: 0;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+    padding: 1.5rem 1rem;
+    background: linear-gradient(180deg, #003a63 0%, #004373 50%, #002d4d 100%);
+    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+    transition: background 0.3s ease;
+    z-index: 1000;
+    scrollbar-width: thin;
+    scrollbar-color: rgba(255, 255, 255, 0.3) transparent;
+}
+
+.sidebar::-webkit-scrollbar { width: 8px; }
+.sidebar::-webkit-scrollbar-track { background: transparent; }
+.sidebar::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.3); border-radius: 0.375rem; }
+.sidebar::-webkit-scrollbar-thumb:hover { background: rgba(255, 255, 255, 0.45); }
+
+.modo-escuro .sidebar {
+    background: linear-gradient(180deg, #001830 0%, #002040 100%);
+}
+
+.app-main {
+    flex: 1;
+    min-width: 0;
+}
+
+/* Neutraliza o espaçamento antigo pensado para o header fixo (inclusive em telas pequenas,
+   onde responsive.css ainda soma margin-top ao <main> assumindo um header alto e quebrado em linhas) */
+.app-main main.container {
+    padding-top: 1.5rem;
+    margin-top: 0;
+}
+
+/* --- Logo --- */
+.sidebar .sidebar-logo {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.75rem 1rem;
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 0.75rem;
+    border: 1px solid rgba(255, 255, 255, 0.15);
+}
+
+.sidebar .sidebar-logo .logo-img {
+    height: 36px;
+    width: 36px;
+    object-fit: contain;
+    margin-right: 0;
+    flex-shrink: 0;
+}
+
+.sidebar .sidebar-logo h1 {
+    color: #ffffff;
+    margin: 0;
+    font-family: 'Inter', sans-serif;
+    font-size: 0.9375rem;
+    font-weight: 700;
+    line-height: 1.2;
+}
+
+/* --- Avatar do usuário: cartão no topo da sidebar --- */
+.sidebar .header-avatar-wrapper {
+    position: relative;
+    display: flex;
+    width: 100%;
+    margin-left: 0;
+    padding-left: 0;
+    border-left: none;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.12);
+    padding-bottom: 1.25rem;
+}
+
+.sidebar .header-avatar-btn {
+    display: flex;
+    align-items: center;
+    gap: 0.65rem;
+    width: 100%;
+    padding: 0.4rem;
+    border-radius: 0.75rem;
+    font-family: 'Inter', sans-serif;
+}
+
+.sidebar .header-avatar-info {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    overflow: hidden;
+}
+
+.sidebar .header-avatar-nome,
+.sidebar .header-avatar-cargo {
+    max-width: 140px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.sidebar .header-avatar-dropdown {
+    left: 0;
+    right: auto;
+    top: calc(100% + 6px);
+}
+
+/* --- Navegação principal --- */
+.sidebar-nav {
+    flex: 1;
+    min-height: 0;
+    width: 100%;
+    padding-top: 1rem;
+    border-top: 1px solid rgba(255, 255, 255, 0.12);
+}
+
+.sidebar-nav ul {
+    list-style: none;
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+    margin: 0;
+    padding: 0;
+}
+
+.sidebar-nav .nav-dropdown-wrapper {
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+}
+
+/* Foco de teclado: o outline padrão do app some sobre o fundo azul-escuro da sidebar —
+   sobrepõe com um contorno claro visível, igual ao sistema de eventos. */
+.sidebar-nav .btn-nav:focus-visible,
+.sidebar .header-avatar-btn:focus-visible {
+    outline: 2px solid #ffffff;
+    outline-offset: 2px;
+}
+
+.sidebar-nav .btn-nav {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    width: 100%;
+    margin-right: 0;
+    padding: 0.75rem 1rem;
+    border-radius: 0.5rem;
+    background: none;
+    border: none;
+    border-left: 4px solid transparent;
+    text-align: left;
+    color: #dbeafe;
+    font-family: 'Inter', sans-serif;
+    font-size: 0.9375rem;
+    font-weight: 500;
+    transition: background 0.15s, color 0.15s, border-color 0.15s;
+}
+
+.sidebar-nav .btn-nav:hover {
+    background: rgba(255, 255, 255, 0.1);
+    color: #ffffff;
+    border-left-color: rgba(255, 255, 255, 0.5);
+    transform: none;
+}
+
+.sidebar-nav .btn-nav.active {
+    background: rgba(255, 255, 255, 0.15);
+    color: #ffffff;
+    border-left-color: #ffffff;
+    font-weight: 500;
+}
+
+.sidebar-nav .nav-icon {
+    font-size: 1.25rem;
+    flex-shrink: 0;
+    transition: transform 0.2s;
+}
+
+.sidebar-nav .btn-nav:hover .nav-icon {
+    transform: scale(1.1);
+}
+
+.sidebar-nav .nav-label {
+    flex: 1 1 auto;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+/* --- Grupos de menu (acordeão): Ajuda e Configurações --- */
+.sidebar-nav .nav-group-toggle {
+    font-weight: 600;
+    font-size: 0.875rem;
+    cursor: pointer;
+}
+
+.sidebar-nav .nav-group-toggle[aria-expanded="true"],
+.sidebar-nav .nav-group-toggle.active {
+    background: rgba(255, 255, 255, 0.1);
+    color: #ffffff;
+    border-left-color: rgba(255, 255, 255, 0.5);
+}
+
+.sidebar-nav .nav-group-caret {
+    flex-shrink: 0;
+    font-size: 1.25rem;
+    transition: transform 0.2s ease;
+}
+
+.sidebar-nav .nav-group-toggle[aria-expanded="true"] .nav-group-caret {
+    transform: rotate(180deg);
+}
+
+/* O dropdown de Ajuda/Configurações deixa de ser um flyout flutuante e passa a expandir
+   embutido na própria coluna da sidebar, empurrando os itens abaixo — igual ao acordeão
+   do sistema de eventos (.nav-submenu). */
+.sidebar-nav .nav-dropdown-wrapper .nav-dropdown {
+    position: static;
+    opacity: 1;
+    visibility: visible;
+    transform: none;
+    box-shadow: none;
+    background: none;
+    border-radius: 0;
+    min-width: 0;
+    width: 100%;
+    overflow: hidden;
+    max-height: 0;
+    transition: max-height 0.25s ease;
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+    padding: 0;
+    margin-top: 0;
+}
+
+.sidebar-nav .nav-dropdown-wrapper .nav-dropdown.open {
+    max-height: 600px;
+    margin-top: 0.25rem;
+}
+
+.sidebar-nav .nav-dropdown-item {
+    display: flex;
+    align-items: center;
+    width: 100%;
+    padding: 0.625rem 1rem 0.625rem 2.25rem;
+    border-radius: 0.5rem;
+    color: #dbeafe;
+    font-family: 'Inter', sans-serif;
+    font-size: 0.875rem;
+    background: none;
+    white-space: normal;
+}
+
+.sidebar-nav .nav-dropdown-item:hover {
+    background: rgba(255, 255, 255, 0.1);
+    color: #ffffff;
+}
+
+/* --- Notificações: continua um flyout (painel rico, não um item de lista).
+   position:fixed (em vez de absolute) porque a sidebar tem overflow-y:auto — um
+   flyout absoluto seria recortado nas bordas da sidebar em vez de flutuar sobre o
+   conteúdo principal. A posição (top/left) é calculada em JS a partir do botão
+   quando o menu abre (ver toggleNavDropdown em index.html). */
+#nav-notificacoes-wrapper .nav-dropdown {
+    position: fixed;
+    width: 320px;
+    max-height: 400px;
+    opacity: 0;
+    visibility: hidden;
+    transform: scale(0.95) translateY(-10px);
+    background: white;
+    border-radius: 10px;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.18);
+    transition: opacity 0.2s ease, visibility 0.2s ease, transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    z-index: 2000;
+}
+
+#nav-notificacoes-wrapper .nav-dropdown.open {
+    opacity: 1;
+    visibility: visible;
+    transform: scale(1) translateY(0);
+    max-height: 400px;
+}
+
+.badge-notificacoes {
+    background: var(--vermelho, #a8231e);
+    color: white;
+    border-radius: 12px;
+    font-size: 0.78rem;
+    min-width: 20px;
+    height: 20px;
+    padding: 0 5px;
+    display: inline-flex;
+    justify-content: center;
+    align-items: center;
+    font-weight: bold;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+    line-height: 1;
+}
+
+/* ===== Mobile: sidebar vira uma barra horizontal no topo, sem posição fixa ===== */
+@media (max-width: 900px) {
+    .app-shell {
+        flex-direction: column;
+    }
+
+    .sidebar {
+        width: 100%;
+        height: auto;
+        position: relative;
+        flex-direction: row;
+        align-items: center;
+        flex-wrap: wrap;
+    }
+
+    .sidebar .sidebar-logo,
+    .sidebar .header-avatar-wrapper {
+        border-bottom: none;
+        padding-bottom: 0.5rem;
+    }
+
+    .sidebar-nav {
+        width: 100%;
+        border-top: none;
+        padding-top: 0.5rem;
+    }
+
+    .sidebar-nav ul {
+        flex-direction: row;
+        flex-wrap: wrap;
+    }
+
+    .sidebar-nav .nav-dropdown-wrapper {
+        width: auto;
+    }
+
+    .sidebar-nav .btn-nav {
+        width: auto;
+    }
+
+    .sidebar-nav .nav-dropdown-wrapper .nav-dropdown.open {
+        max-height: 600px;
+    }
+}

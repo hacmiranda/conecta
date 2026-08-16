@@ -1,27 +1,31 @@
 <?php
 header('Content-Type: application/json');
-header('Access-Control-Allow-Origin: *');
-header('Access-Control-Allow-Methods: POST, OPTIONS');
-header('Access-Control-Allow-Headers: Content-Type, Authorization, X-CSRF-Token');
+
+require_once __DIR__ . '/../config/database.php';
+require_once __DIR__ . '/../middleware/auth.php';
+
+AuthMiddleware::configurarCORS(['POST']);
 
 if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
     exit(0);
 }
-
-require_once __DIR__ . '/../config/database.php';
 
 $database = new Database();
 $db = $database->getConnection();
 
 // POST - Mesclar tickets
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    $user = AuthMiddleware::verificarAuth();
+    AuthMiddleware::verificarSupervisor($user);
+    AuthMiddleware::verificarCSRF();
+
     $input = json_decode(file_get_contents('php://input'), true);
     $ticket_principal = $input['ticket_principal'] ?? null;
     $tickets_secundarios = $input['tickets_secundarios'] ?? [];
     
     if (!$ticket_principal || empty($tickets_secundarios)) {
         http_response_code(400);
-        echo json_encode(['error' => 'Ticket principal e tickets secundários são obrigatórios']);
+        echo json_encode(['error' => 'Demanda principal e demandas secundárias são obrigatórias']);
         exit;
     }
     
@@ -83,25 +87,27 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             return str_pad($id, 5, '0', STR_PAD_LEFT);
         }, $tickets_secundarios));
         
-        $query = "INSERT INTO historico (ticket_id, usuario_id, acao, valor_anterior, valor_novo) VALUES (:ticket_id, 1, 'merge', '', :valor_novo)";
+        $query = "INSERT INTO historico (ticket_id, usuario_id, acao, valor_anterior, valor_novo) VALUES (:ticket_id, :usuario_id, 'merge', '', :valor_novo)";
         $stmt = $db->prepare($query);
         $stmt->bindParam(':ticket_id', $ticket_principal);
+        $stmt->bindParam(':usuario_id', $user['id']);
         $stmt->bindParam(':valor_novo', $tickets_ids);
         $stmt->execute();
-        
+
         // Adicionar comentário detalhado de merge no ticket principal
-        $comentario_merge = "🔗 **MESCLAGEM DE TICKETS**\n\n";
-        $comentario_merge .= "Tickets mesclados: #" . $tickets_ids . "\n\n";
+        $comentario_merge = "🔗 **MESCLAGEM DE DEMANDAS**\n\n";
+        $comentario_merge .= "Demandas mescladas: #" . $tickets_ids . "\n\n";
         foreach ($tickets_secundarios_info as $info) {
             $ticket_num = str_pad($info['id'], 5, '0', STR_PAD_LEFT);
-            $comentario_merge .= "**Ticket #" . $ticket_num . "**\n";
+            $comentario_merge .= "**Demanda #" . $ticket_num . "**\n";
             $comentario_merge .= "Assunto: " . $info['titulo'] . "\n";
             $comentario_merge .= "Descrição: " . $info['descricao'] . "\n\n";
         }
-        
-        $query = "INSERT INTO comentarios (ticket_id, usuario_id, comentario) VALUES (:ticket_id, 1, :comentario)";
+
+        $query = "INSERT INTO comentarios (ticket_id, usuario_id, comentario) VALUES (:ticket_id, :usuario_id, :comentario)";
         $stmt = $db->prepare($query);
         $stmt->bindParam(':ticket_id', $ticket_principal);
+        $stmt->bindParam(':usuario_id', $user['id']);
         $stmt->bindParam(':comentario', $comentario_merge);
         $stmt->execute();
         
@@ -119,28 +125,31 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
             
             // Fechar ticket com status 'encerrado'
-            $query = "UPDATE tickets SET status = 'encerrado', fechado_em = NOW(), fechado_por = 1 WHERE id = :id";
+            $query = "UPDATE tickets SET status = 'encerrado', fechado_em = NOW(), fechado_por = :fechado_por WHERE id = :id";
             $stmt = $db->prepare($query);
+            $stmt->bindParam(':fechado_por', $user['id']);
             $stmt->bindParam(':id', $ticket_id);
             $stmt->execute();
-            
+
             // Adicionar ao histórico do ticket secundário
-            $query = "INSERT INTO historico (ticket_id, usuario_id, acao, valor_anterior, valor_novo) VALUES (:ticket_id, 1, 'merge', '', :valor_novo)";
+            $query = "INSERT INTO historico (ticket_id, usuario_id, acao, valor_anterior, valor_novo) VALUES (:ticket_id, :usuario_id, 'merge', '', :valor_novo)";
             $stmt = $db->prepare($query);
             $stmt->bindParam(':ticket_id', $ticket_id);
+            $stmt->bindParam(':usuario_id', $user['id']);
             $principal_formatted = str_pad($ticket_principal, 5, '0', STR_PAD_LEFT);
             $stmt->bindParam(':valor_novo', $principal_formatted);
             $stmt->execute();
-            
+
             // Adicionar comentário detalhado nos tickets fechados
             $ticket_num = str_pad($ticket_id, 5, '0', STR_PAD_LEFT);
             $principal_num = str_pad($ticket_principal, 5, '0', STR_PAD_LEFT);
             $comentario_fechado = "🔗 **TICKET MESCLADO**\n\n";
             $comentario_fechado .= "Este ticket foi mesclado ao ticket principal #" . $principal_num;
-            
-            $query = "INSERT INTO comentarios (ticket_id, usuario_id, comentario) VALUES (:ticket_id, 1, :comentario)";
+
+            $query = "INSERT INTO comentarios (ticket_id, usuario_id, comentario) VALUES (:ticket_id, :usuario_id, :comentario)";
             $stmt = $db->prepare($query);
             $stmt->bindParam(':ticket_id', $ticket_id);
+            $stmt->bindParam(':usuario_id', $user['id']);
             $stmt->bindParam(':comentario', $comentario_fechado);
             $stmt->execute();
         }
@@ -149,7 +158,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         
         echo json_encode([
             'success' => true,
-            'message' => 'Tickets mesclados com sucesso',
+            'message' => 'Demandas mescladas com sucesso',
             'ticket_principal' => $ticket_principal,
             'tickets_mesclados' => count($tickets_secundarios)
         ]);
@@ -159,7 +168,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $db->rollback();
         }
         http_response_code(500);
-        echo json_encode(['error' => 'Erro ao mesclar tickets: ' . $e->getMessage()]);
+        echo json_encode(['error' => 'Erro ao mesclar demandas: ' . $e->getMessage()]);
     }
 }
 ?>

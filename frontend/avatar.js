@@ -20,7 +20,7 @@ document.addEventListener('DOMContentLoaded', function() {
  * Abrir modal de avatar (wrapper)
  */
 function abrirModalAvatar() {
-    const usuario = JSON.parse(localStorage.getItem('usuario'));
+    const usuario = JSON.parse(localStorage.getItem('cd_usuario'));
     if (usuario) {
         openAvatarModal(usuario.id, usuario.nome);
     }
@@ -138,7 +138,7 @@ function cropAndSave() {
         
         // Enviar via AJAX
         const xhr = new XMLHttpRequest();
-        xhr.open('POST', '/crpdesk/api/controllers/avatar.php', true);
+        xhr.open('POST', window.APP_CONFIG.apiBase + 'avatar.php', true);
         setSecurityHeaders(xhr);
         
         xhr.onload = function() {
@@ -147,9 +147,9 @@ function cropAndSave() {
                 const response = JSON.parse(xhr.responseText);
                 if (response.success) {
                     // Atualizar localStorage com novo avatar
-                    const usuario = JSON.parse(localStorage.getItem('usuario'));
+                    const usuario = JSON.parse(localStorage.getItem('cd_usuario'));
                     usuario.avatar = response.avatar;
-                    localStorage.setItem('usuario', JSON.stringify(usuario));
+                    localStorage.setItem('cd_usuario', JSON.stringify(usuario));
                     mostrarToast('Avatar atualizado com sucesso!', 'success');
                     setTimeout(() => location.reload(), 1000);
                 } else {
@@ -175,10 +175,10 @@ function cropAndSave() {
  * Atualizar exibição do avatar no header
  */
 function atualizarAvatarHeader() {
-    const usuario = JSON.parse(localStorage.getItem('usuario'));
+    const usuario = JSON.parse(localStorage.getItem('cd_usuario'));
     if (!usuario || !usuario.avatar) return;
     
-    const avatarUrl = `/crpdesk/backend/uploads/avatars/${usuario.avatar}`;
+    const avatarUrl = `/conecta/backend/uploads/avatars/${usuario.avatar}`;
     
     ['header-avatar-circle', 'header-avatar-circle-sm'].forEach(id => {
         const el = document.getElementById(id);

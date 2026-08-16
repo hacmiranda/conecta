@@ -4,7 +4,7 @@
 let _notificacoesInterval = null;
 
 function inciarNotificacoes() {
-    const token = localStorage.getItem('token');
+    const token = localStorage.getItem('cd_token');
     if (!token) return;
 
     // Cancela polling anterior se existir
@@ -20,18 +20,18 @@ function inciarNotificacoes() {
 }
 
 function _buscarNotificacoes() {
-    const token = localStorage.getItem('token');
+    const token = localStorage.getItem('cd_token');
     if (!token) return;
 
     const xhr = new XMLHttpRequest();
-    xhr.open('GET', '/crpdesk/api/controllers/notificacoes.php', true);
+    xhr.open('GET', window.APP_CONFIG.apiBase + 'notificacoes.php', true);
     setSecurityHeaders(xhr);
 
     xhr.onload = function () {
         if (xhr.status === 200) {
             try {
                 const data = JSON.parse(xhr.responseText);
-                const usuario = JSON.parse(localStorage.getItem('usuario') || '{}');
+                const usuario = JSON.parse(localStorage.getItem('cd_usuario') || '{}');
 
                 // Para agentes e admins, incluir alertas de falha de e-mail no sino
                 if (['agente', 'admin'].includes(usuario.tipo)) {
@@ -59,7 +59,7 @@ function _buscarNotificacoes() {
 // Lê o estado de dispensa do alerta de falha de e-mail salvo no localStorage
 function _getEmailFalhaDispensa() {
     try {
-        return JSON.parse(localStorage.getItem('email_falha_dispensada') || '{}');
+        return JSON.parse(localStorage.getItem('cd_email_falha_dispensada') || '{}');
     } catch (e) {
         return {};
     }
@@ -68,7 +68,7 @@ function _getEmailFalhaDispensa() {
 // Consulta email-alert.php e injeta alerta de falhas no topo da lista de notificações
 function _mesclarAlertaEmail(notificacoes, naoLidas) {
     const xhr = new XMLHttpRequest();
-    xhr.open('GET', '/crpdesk/api/controllers/email-alert.php', true);
+    xhr.open('GET', window.APP_CONFIG.apiBase + 'email-alert.php', true);
     setSecurityHeaders(xhr);
 
     xhr.onload = function () {
@@ -124,7 +124,7 @@ function _mesclarAlertaEmail(notificacoes, naoLidas) {
 function _marcarEmailFalhaLida(ultimaFalha) {
     const dispensada = _getEmailFalhaDispensa();
     dispensada.lida = ultimaFalha;
-    localStorage.setItem('email_falha_dispensada', JSON.stringify(dispensada));
+    localStorage.setItem('cd_email_falha_dispensada', JSON.stringify(dispensada));
     _buscarNotificacoes();
 }
 
@@ -133,7 +133,7 @@ function _excluirEmailFalha(ultimaFalha) {
     const dispensada = _getEmailFalhaDispensa();
     dispensada.excluida = ultimaFalha;
     dispensada.lida = ultimaFalha; // também marca como lida
-    localStorage.setItem('email_falha_dispensada', JSON.stringify(dispensada));
+    localStorage.setItem('cd_email_falha_dispensada', JSON.stringify(dispensada));
     _buscarNotificacoes();
 }
 
@@ -216,7 +216,7 @@ function renderizarNotificacoes(notificacoes) {
 
 function marcarNotificacaoLida(id) {
     const xhr = new XMLHttpRequest();
-    xhr.open('PUT', '/crpdesk/api/controllers/notificacoes.php?id=' + id, true);
+    xhr.open('PUT', window.APP_CONFIG.apiBase + 'notificacoes.php?id=' + id, true);
     setSecurityHeaders(xhr);
 
     xhr.onload = function () {
@@ -229,7 +229,7 @@ function marcarNotificacaoLida(id) {
 
 function marcarTodasComoLidas() {
     const xhr = new XMLHttpRequest();
-    xhr.open('PUT', '/crpdesk/api/controllers/notificacoes.php', true);
+    xhr.open('PUT', window.APP_CONFIG.apiBase + 'notificacoes.php', true);
     setSecurityHeaders(xhr);
 
     xhr.onload = function () {
@@ -256,7 +256,7 @@ function abrirDetalhesNotificacao(notifId, ticketId) {
 
 function excluirTodasNotificacoes() {
     const xhr = new XMLHttpRequest();
-    xhr.open('DELETE', '/crpdesk/api/controllers/notificacoes.php', true);
+    xhr.open('DELETE', window.APP_CONFIG.apiBase + 'notificacoes.php', true);
     setSecurityHeaders(xhr);
 
     xhr.onload = function () {
@@ -276,7 +276,7 @@ function excluirTodasNotificacoes() {
 document.addEventListener('DOMContentLoaded', () => {
     // Espera 2 segundos para dar tempo do login carregar o token
     setTimeout(() => {
-        if (localStorage.getItem('token')) {
+        if (localStorage.getItem('cd_token')) {
             inciarNotificacoes();
         }
     }, 2000);

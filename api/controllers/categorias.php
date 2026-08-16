@@ -1,46 +1,57 @@
 <?php
 header('Content-Type: application/json');
-header('Access-Control-Allow-Origin: *');
-header('Access-Control-Allow-Methods: GET, POST, PUT, DELETE, OPTIONS');
-header('Access-Control-Allow-Headers: Content-Type, Authorization, X-CSRF-Token');
-
-if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
-    exit(0);
-}
 
 require_once __DIR__ . '/../config/database.php';
 require_once __DIR__ . '/../middleware/auth.php';
 require_once __DIR__ . '/../services/auditoria-service.php';
 
+AuthMiddleware::configurarCORS(['GET', 'POST', 'PUT', 'DELETE']);
+
+if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
+    exit(0);
+}
+
 $database = new Database();
 $db = $database->getConnection();
 
-// GET - Listar categorias
+// GET - Listar categorias (opcionalmente só as ativas de um setor, via ?setor_id=)
 if ($_SERVER['REQUEST_METHOD'] === 'GET') {
     try {
-        $query = "SELECT c.*, m.nome as macrocategoria_nome 
-                  FROM categorias c 
-                  LEFT JOIN macrocategorias m ON c.macrocategoria_id = m.id 
-                  ORDER BY m.nome, c.nome";
-        
-        $stmt = $db->prepare($query);
+        $setor_id = isset($_GET['setor_id']) && $_GET['setor_id'] !== '' ? (int) $_GET['setor_id'] : null;
+
+        if ($setor_id) {
+            $query = "SELECT c.*, m.nome as macrocategoria_nome
+                      FROM categorias c
+                      LEFT JOIN macrocategorias m ON c.macrocategoria_id = m.id
+                      INNER JOIN setor_categorias sc ON sc.categoria_id = c.id AND sc.setor_id = :setor_id AND sc.ativo = 1
+                      ORDER BY sc.ordem, c.nome";
+            $stmt = $db->prepare($query);
+            $stmt->bindParam(':setor_id', $setor_id, PDO::PARAM_INT);
+        } else {
+            $query = "SELECT c.*, m.nome as macrocategoria_nome
+                      FROM categorias c
+                      LEFT JOIN macrocategorias m ON c.macrocategoria_id = m.id
+                      ORDER BY m.nome, c.nome";
+            $stmt = $db->prepare($query);
+        }
+
         $stmt->execute();
         $categorias = $stmt->fetchAll();
-        
+
         echo json_encode($categorias);
-        
+
     } catch (Exception $e) {
         http_response_code(500);
-        echo json_encode(['error' => 'Erro ao buscar categorias']);
+        echo json_encode(['error' => 'Erro ao buscar subcategorias']);
     }
 }
 
 // POST - Criar categoria
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    // $user = AuthMiddleware::verificarAuth();
-    // AuthMiddleware::verificarAdmin($user);
-    // AuthMiddleware::verificarCSRF();
-    
+    $user = AuthMiddleware::verificarAuth();
+    AuthMiddleware::verificarSupervisor($user);
+    AuthMiddleware::verificarCSRF();
+
     $input = json_decode(file_get_contents('php://input'), true);
     $nome = $input['nome'] ?? '';
     $macrocategoria_id = $input['macrocategoria_id'] ?? null;
@@ -60,7 +71,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         
         if ($check_stmt->fetch()) {
             http_response_code(400);
-            echo json_encode(['error' => 'Categoria já existe']);
+            echo json_encode(['error' => 'Subcategoria já existe']);
             exit;
         }
         
@@ -71,10 +82,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $stmt->execute();
         
         $categoria_id = $db->lastInsertId();
-        
+
+        // Nova subcategoria começa ativa em todos os setores (mesmo comportamento de hoje: catálogo 100% compartilhado)
+        $db->prepare("INSERT INTO setor_categorias (setor_id, categoria_id, ativo, ordem) SELECT id, ?, 1, ? FROM setores")->execute([$categoria_id, $categoria_id]);
+
         // Registrar auditoria
         $auditoria = new AuditoriaService($db);
-        $auditoria->registrar(1, 'criar_categoria', 'categorias', $categoria_id, null, json_encode(['nome' => $nome, 'macrocategoria_id' => $macrocategoria_id]));
+        $auditoria->registrar($user['id'], 'criar_categoria', 'categorias', $categoria_id, null, json_encode(['nome' => $nome, 'macrocategoria_id' => $macrocategoria_id]));
         
         // Buscar categoria criada
         $select_query = "SELECT c.*, m.nome as macrocategoria_nome 
@@ -90,16 +104,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         
     } catch (Exception $e) {
         http_response_code(500);
-        echo json_encode(['error' => 'Erro ao criar categoria']);
+        echo json_encode(['error' => 'Erro ao criar subcategoria']);
     }
 }
 
 // PUT - Atualizar categoria
 if ($_SERVER['REQUEST_METHOD'] === 'PUT') {
-    // $user = AuthMiddleware::verificarAuth();
-    // AuthMiddleware::verificarAdmin($user);
-    // AuthMiddleware::verificarCSRF();
-    
+    $user = AuthMiddleware::verificarAuth();
+    AuthMiddleware::verificarSupervisor($user);
+    AuthMiddleware::verificarCSRF();
+
     $path = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH);
     $path_parts = explode('/', $path);
     $categoria_id = end($path_parts);
@@ -124,22 +138,22 @@ if ($_SERVER['REQUEST_METHOD'] === 'PUT') {
         
         // Registrar auditoria
         $auditoria = new AuditoriaService($db);
-        $auditoria->registrar(1, 'atualizar_categoria', 'categorias', $categoria_id, null, json_encode(['nome' => $nome, 'macrocategoria_id' => $macrocategoria_id]));
+        $auditoria->registrar($user['id'], 'atualizar_categoria', 'categorias', $categoria_id, null, json_encode(['nome' => $nome, 'macrocategoria_id' => $macrocategoria_id]));
         
         echo json_encode(['success' => true]);
         
     } catch (Exception $e) {
         http_response_code(500);
-        echo json_encode(['error' => 'Erro ao atualizar categoria']);
+        echo json_encode(['error' => 'Erro ao atualizar subcategoria']);
     }
 }
 
 // DELETE - Excluir categoria
 if ($_SERVER['REQUEST_METHOD'] === 'DELETE') {
-    // $user = AuthMiddleware::verificarAuth();
-    // AuthMiddleware::verificarAdmin($user);
-    // AuthMiddleware::verificarCSRF();
-    
+    $user = AuthMiddleware::verificarAuth();
+    AuthMiddleware::verificarSupervisor($user);
+    AuthMiddleware::verificarCSRF();
+
     $path = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH);
     $path_parts = explode('/', $path);
     $categoria_id = end($path_parts);
@@ -154,7 +168,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'DELETE') {
         
         if ($result['total'] > 0) {
             http_response_code(400);
-            echo json_encode(['error' => 'Categoria não pode ser excluída pois está sendo usada em tickets']);
+            echo json_encode(['error' => 'Subcategoria não pode ser excluída pois está sendo usada em demandas']);
             exit;
         }
         
@@ -173,14 +187,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'DELETE') {
         // Registrar auditoria
         if ($categoria_data) {
             $auditoria = new AuditoriaService($db);
-            $auditoria->registrar(1, 'excluir_categoria', 'categorias', $categoria_id, json_encode($categoria_data), null);
+            $auditoria->registrar($user['id'], 'excluir_categoria', 'categorias', $categoria_id, json_encode($categoria_data), null);
         }
         
         echo json_encode(['success' => true]);
         
     } catch (Exception $e) {
         http_response_code(500);
-        echo json_encode(['error' => 'Erro ao excluir categoria']);
+        echo json_encode(['error' => 'Erro ao excluir subcategoria']);
     }
 }
 ?>

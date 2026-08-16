@@ -1,6 +1,6 @@
 <?php
 // Script para testar a integração construída
-$url = 'http://localhost/crpdesk/api/controllers/integracoes/abrir_chamado.php';
+$url = 'http://localhost/conecta/api/controllers/integracoes/abrir_chamado.php';
 $api_key = 'crpdesk_integracao_secreta_2026';
 
 // Simular payload vindo da Ouvidoria

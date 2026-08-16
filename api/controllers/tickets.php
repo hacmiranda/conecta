@@ -1,25 +1,46 @@
 <?php
 header('Content-Type: application/json');
-header('Access-Control-Allow-Origin: *');
-header('Access-Control-Allow-Methods: GET, POST, PUT, DELETE, OPTIONS');
-header('Access-Control-Allow-Headers: Content-Type, Authorization, X-CSRF-Token');
-
-if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
-    exit(0);
-}
 
 require_once __DIR__ . '/../config/database.php';
 require_once __DIR__ . '/../middleware/auth.php';
 require_once __DIR__ . '/../services/auditoria-service.php';
 require_once __DIR__ . '/../services/sla-service.php';
 
+AuthMiddleware::configurarCORS(['GET', 'POST', 'PUT', 'DELETE']);
+
+if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
+    exit(0);
+}
+
 $database = new Database();
 $db = $database->getConnection();
 
+/**
+ * Verifica se o usuário logado pode visualizar a demanda informada.
+ * admin: sempre; supervisor: demandas do próprio setor; usuario: demandas
+ * atribuídas a si ou abertas por si; cliente: apenas as próprias demandas.
+ */
+function usuarioPodeVerTicket(array $user, array $ticket): bool {
+    $tipo = $user['tipo'] ?? '';
+    if ($tipo === 'admin') {
+        return true;
+    }
+    if ($tipo === 'supervisor') {
+        return AuthMiddleware::mesmoSetor($user, isset($ticket['setor_id']) ? (int) $ticket['setor_id'] : null);
+    }
+    if ($tipo === 'usuario') {
+        return (int) ($ticket['agente_id'] ?? 0) === (int) $user['id']
+            || (int) ($ticket['usuario_id'] ?? 0) === (int) $user['id'];
+    }
+    // cliente
+    return (int) ($ticket['usuario_id'] ?? 0) === (int) $user['id'];
+}
+
 // GET - Listar tickets ou buscar ticket específico
 if ($_SERVER['REQUEST_METHOD'] === 'GET') {
+    $user = AuthMiddleware::verificarAuth();
     $ticket_id = $_GET['id'] ?? null;
-    
+
     try {
         if ($ticket_id) {
             // Buscar ticket específico
@@ -44,10 +65,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
             
             if (!$ticket) {
                 http_response_code(404);
-                echo json_encode(['error' => 'Ticket não encontrado']);
+                echo json_encode(['error' => 'Demanda não encontrada']);
                 exit;
             }
-            
+
+            if (!usuarioPodeVerTicket($user, $ticket)) {
+                http_response_code(403);
+                echo json_encode(['error' => 'Acesso não autorizado a esta demanda']);
+                exit;
+            }
+
             // Buscar comentários
             $comentarios_query = "SELECT c.*, u.nome as autor_nome, 'comentario' as tipo
                                  FROM comentarios c 
@@ -111,6 +138,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
         } else {
             // Listar todos os tickets
             // Criar tabela se não existir
+            $usuario_logado_id = $user['id'];
+
             $create_table = "CREATE TABLE IF NOT EXISTS comentarios_nao_lidos (
                 id INT AUTO_INCREMENT PRIMARY KEY,
                 ticket_id INT NOT NULL,
@@ -136,12 +165,52 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
                       LEFT JOIN usuarios u ON t.usuario_id = u.id 
                       LEFT JOIN usuarios a ON t.agente_id = a.id 
                       LEFT JOIN categorias c ON t.categoria_id = c.id 
-                      LEFT JOIN comentarios_nao_lidos cnl ON t.id = cnl.ticket_id AND cnl.usuario_id = :usuario_id
-                      ORDER BY t.criado_em DESC";
-            
+                      LEFT JOIN comentarios_nao_lidos cnl ON t.id = cnl.ticket_id AND cnl.usuario_id = :usuario_id";
+
+            $params = [':usuario_id' => $usuario_logado_id];
+            $tipo_logado = $user['tipo'] ?? '';
+            $modoArquivo = isset($_GET['arquivo']);
+
+            if ($tipo_logado === 'supervisor') {
+                if ($modoArquivo) {
+                    // Arquivo do supervisor: demandas encerradas do setor + demandas que já passaram
+                    // pelo setor e saíram (transferidas), mesmo que o setor_id atual seja outro
+                    $query .= " WHERE (t.setor_id = :setor_id OR t.id IN (
+                                    SELECT ticket_id FROM ticket_setor_log
+                                    WHERE setor_id = :setor_id_log AND saiu_em IS NOT NULL
+                                ))";
+                    $params[':setor_id'] = $user['setor_id'] ?? 0;
+                    $params[':setor_id_log'] = $user['setor_id'] ?? 0;
+                } else {
+                    $query .= " WHERE t.setor_id = :setor_id";
+                    $params[':setor_id'] = $user['setor_id'] ?? 0;
+                }
+            } elseif ($tipo_logado === 'usuario') {
+                if ($modoArquivo) {
+                    // Arquivo do usuário: além do que é seu hoje, inclui demandas que ele já
+                    // atendeu no passado e foram repassadas/devolvidas (ticket_agente_log fechado)
+                    $query .= " WHERE (t.agente_id = :self_id OR t.usuario_id = :self_id2 OR t.id IN (
+                                    SELECT ticket_id FROM ticket_agente_log
+                                    WHERE usuario_id = :self_id3 AND saiu_em IS NOT NULL
+                                ))";
+                    $params[':self_id'] = $usuario_logado_id;
+                    $params[':self_id2'] = $usuario_logado_id;
+                    $params[':self_id3'] = $usuario_logado_id;
+                } else {
+                    $query .= " WHERE (t.agente_id = :self_id OR t.usuario_id = :self_id2)";
+                    $params[':self_id'] = $usuario_logado_id;
+                    $params[':self_id2'] = $usuario_logado_id;
+                }
+            } elseif ($tipo_logado === 'cliente') {
+                $query .= " WHERE t.usuario_id = :self_id";
+                $params[':self_id'] = $usuario_logado_id;
+            }
+            // admin: sem filtro, enxerga tudo
+
+            $query .= " ORDER BY t.criado_em DESC";
+
             $stmt = $db->prepare($query);
-            $stmt->bindParam(':usuario_id', $usuario_logado_id);
-            $stmt->execute();
+            $stmt->execute($params);
             $tickets = $stmt->fetchAll();
             
             echo json_encode($tickets);
@@ -149,7 +218,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
         
     } catch (Exception $e) {
         http_response_code(500);
-        echo json_encode(['error' => 'Erro ao buscar tickets: ' . $e->getMessage()]);
+        echo json_encode(['error' => 'Erro ao buscar demandas: ' . $e->getMessage()]);
     }
 }
 
@@ -207,9 +276,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
         
         error_log("[DEBUG] Prioridade final: $prioridade");
-        
-        $query = "INSERT INTO tickets (titulo, descricao, usuario_id, email_solicitante, prioridade, categoria_id, status) VALUES (:titulo, :descricao, :usuario_id, :email_solicitante, :prioridade, :categoria_id, 'novo')";
-        
+
+        // Determinar setor de destino: quem cria já vinculado a um setor (usuario/supervisor)
+        // abre a demanda direto no próprio setor; sem setor (cliente/admin), a demanda cai no
+        // setor "Geral" para triagem — de lá, um supervisor a transfere para o setor correto.
+        $setor_id = !empty($user['setor_id']) ? (int) $user['setor_id'] : null;
+        if ($setor_id === null) {
+            $setor_stmt = $db->prepare("SELECT id FROM setores WHERE nome = 'Geral' AND ativo = 1 LIMIT 1");
+            $setor_stmt->execute();
+            $setor_id = $setor_stmt->fetchColumn() ?: null;
+        }
+
+        $query = "INSERT INTO tickets (titulo, descricao, usuario_id, email_solicitante, prioridade, categoria_id, setor_id, status) VALUES (:titulo, :descricao, :usuario_id, :email_solicitante, :prioridade, :categoria_id, :setor_id, 'novo')";
+
         $stmt = $db->prepare($query);
         $stmt->bindParam(':titulo', $titulo);
         $stmt->bindParam(':descricao', $descricao);
@@ -217,14 +296,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $stmt->bindParam(':email_solicitante', $email_solicitante);
         $stmt->bindParam(':prioridade', $prioridade);
         $stmt->bindParam(':categoria_id', $categoria_id);
+        $stmt->bindParam(':setor_id', $setor_id);
         $stmt->execute();
-        
+
         // Criar registro de SLA
         $ticket_id = $db->lastInsertId();
         $sla_query = "INSERT INTO ticket_sla (ticket_id) VALUES (?)";
         $sla_stmt = $db->prepare($sla_query);
         $sla_stmt->execute([$ticket_id]);
-        
+
+        if ($setor_id) {
+            $setor_log_stmt = $db->prepare("INSERT INTO ticket_setor_log (ticket_id, setor_id) VALUES (:ticket_id, :setor_id)");
+            $setor_log_stmt->execute([':ticket_id' => $ticket_id, ':setor_id' => $setor_id]);
+        }
+
         error_log("[DEBUG] Ticket criado com ID: $ticket_id");
         
         // Processar anexos se houver
@@ -299,7 +384,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $emailSender->notificarAgentesNovoTicket($ticket_id);
             
             // Push Notification para agentes
-            $agentes_query = "SELECT id FROM usuarios WHERE tipo IN ('agente', 'admin') AND ativo = 1";
+            $agentes_query = "SELECT id FROM usuarios WHERE tipo IN ('usuario', 'supervisor', 'admin') AND ativo = 1";
             $agentes_stmt = $db->query($agentes_query);
             $agentes = $agentes_stmt->fetchAll(PDO::FETCH_COLUMN);
 
@@ -333,7 +418,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     } catch (Exception $e) {
         error_log("[ERROR] Erro ao criar ticket: " . $e->getMessage());
         http_response_code(500);
-        echo json_encode(['error' => 'Erro ao criar ticket: ' . $e->getMessage()]);
+        echo json_encode(['error' => 'Erro ao criar demanda: ' . $e->getMessage()]);
     }
 }
 
@@ -356,7 +441,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'PUT') {
     
     if (!$ticket_id) {
         http_response_code(400);
-        echo json_encode(['error' => 'ID do ticket é obrigatório']);
+        echo json_encode(['error' => 'ID da demanda é obrigatório']);
         exit;
     }
     
@@ -383,7 +468,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'PUT') {
         if (!$current_data) {
             error_log("[ATRIBUICAO ERRO] Ticket $ticket_id não encontrado");
             http_response_code(404);
-            echo json_encode(['error' => 'Ticket não encontrado']);
+            echo json_encode(['error' => 'Demanda não encontrada']);
             exit;
         }
         
@@ -440,7 +525,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'PUT') {
             error_log("[ATRIBUICAO] Atribuindo agente ID: {$input['agente_id']}");
             $updates[] = 'agente_id = :agente_id';
             $params[':agente_id'] = $input['agente_id'];
-            
+            $updates[] = 'atribuido_em = ' . ($input['agente_id'] ? 'NOW()' : 'NULL');
+
             // Se está atribuindo agente e ticket está em 'novo', mudar para 'em_atendimento'
             if ($input['agente_id'] && $current_data['status'] === 'novo') {
                 error_log("[ATRIBUICAO] Mudando status de 'novo' para 'em_atendimento'");
@@ -571,7 +657,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'PUT') {
                 
                 if (isset($input['categoria_id']) && $input['categoria_id'] != $current_data['categoria_id']) {
                     // Buscar nomes das categorias
-                    $cat_ant_nome = 'Sem categoria';
+                    $cat_ant_nome = 'Sem subcategoria';
                     if ($current_data['categoria_id']) {
                         $cat_query = "SELECT nome FROM categorias WHERE id = ?";
                         $cat_stmt = $db->prepare($cat_query);
@@ -619,14 +705,24 @@ if ($_SERVER['REQUEST_METHOD'] === 'PUT') {
                     }
                     
                     $era_sem_atribuicao = empty($current_data['agente_id']);
-                    
+
                     $hist_query = "INSERT INTO ticket_historico (ticket_id, usuario_id, acao, valor_anterior, valor_novo) VALUES (?, ?, 'atribuicao', ?, ?)";
                     $hist_stmt = $db->prepare($hist_query);
                     $hist_stmt->execute([$ticket_id, $usuario_id, $agente_ant_nome, $agente_novo_nome]);
                     error_log("[HISTORICO] Atribuição alterada: {$agente_ant_nome} -> {$agente_novo_nome}");
-                    
+
                     // Auditoria
                     $auditoria->registrarTicket($ticket_id, $usuario_id, 'agente', $agente_ant_nome, $agente_novo_nome);
+
+                    // Histórico de responsáveis: fecha a janela do agente anterior e abre a do novo
+                    if ($current_data['agente_id']) {
+                        $db->prepare("UPDATE ticket_agente_log SET saiu_em = NOW() WHERE ticket_id = ? AND usuario_id = ? AND saiu_em IS NULL")
+                           ->execute([$ticket_id, $current_data['agente_id']]);
+                    }
+                    if ($input['agente_id']) {
+                        $db->prepare("INSERT INTO ticket_agente_log (ticket_id, usuario_id) VALUES (?, ?)")
+                           ->execute([$ticket_id, $input['agente_id']]);
+                    }
                     
                     // Notificar atribuição
                     try {
@@ -682,7 +778,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'PUT') {
         error_log("[ATRIBUICAO ERRO] Stack trace: " . $e->getTraceAsString());
         http_response_code(500);
         echo json_encode([
-            'error' => 'Erro ao atualizar ticket',
+            'error' => 'Erro ao atualizar demanda',
             'details' => $e->getMessage(),
             'line' => $e->getLine()
         ]);
@@ -693,7 +789,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'PUT') {
 if ($_SERVER['REQUEST_METHOD'] === 'DELETE') {
     try {
         $user = AuthMiddleware::verificarAuth();
-        // AuthMiddleware::verificarAdmin($user); // Apenas admin pode excluir
+        AuthMiddleware::verificarAdmin($user); // Apenas admin pode excluir
         AuthMiddleware::verificarCSRF();
     } catch (Exception $e) {
         http_response_code(401);
@@ -705,7 +801,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'DELETE') {
     
     if (!$ticket_id) {
         http_response_code(400);
-        echo json_encode(['error' => 'ID do ticket é obrigatório']);
+        echo json_encode(['error' => 'ID da demanda é obrigatório']);
         exit;
     }
     
@@ -723,7 +819,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'DELETE') {
         
         if (!$ticket_data) {
             http_response_code(404);
-            echo json_encode(['error' => 'Ticket não encontrado']);
+            echo json_encode(['error' => 'Demanda não encontrada']);
             exit;
         }
         
@@ -741,7 +837,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'DELETE') {
         
     } catch (Exception $e) {
         http_response_code(500);
-        echo json_encode(['error' => 'Erro ao excluir ticket: ' . $e->getMessage()]);
+        echo json_encode(['error' => 'Erro ao excluir demanda: ' . $e->getMessage()]);
     }
 }
 ?>

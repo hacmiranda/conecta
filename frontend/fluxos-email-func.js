@@ -1,7 +1,7 @@
 function mostrarFluxosEmail() {
     document.querySelectorAll('.btn-ajuda').forEach(btn => btn.classList.remove('active'));
     const _bbtn_fe = document.getElementById('btn-fluxos-email'); if (_bbtn_fe) _bbtn_fe.classList.add('active');
-    localStorage.setItem('subSecaoAtiva', 'fluxos-email');
+    localStorage.setItem('cd_subSecaoAtiva', 'fluxos-email');
     
     const content = document.getElementById('ajuda-content');
     content.innerHTML = `
@@ -18,7 +18,7 @@ function mostrarFluxosEmail() {
                 <div class="email-card">
                     <div class="email-card-header" style="background: #506C7E;">
                         <span class="email-icon">🎫</span>
-                        <h4>1. Novo Ticket Criado</h4>
+                        <h4>1. Nova Demanda Criada</h4>
                     </div>
                     <div class="email-card-body">
                         <div class="email-badge" style="background: #e3f2fd; color: #1976d2; margin-bottom: 1rem;">📧 Envio 1 de 2</div>
@@ -28,11 +28,11 @@ function mostrarFluxosEmail() {
                         </div>
                         <div class="email-item">
                             <div class="email-label">Assunto:</div>
-                            <div class="email-value">🎫 [#00123] Ticket criado - [Título]</div>
+                            <div class="email-value">🎫 [#00123] Demanda criada - [Título]</div>
                         </div>
                         <div class="email-item">
                             <div class="email-label">Quando:</div>
-                            <div class="email-value">Ticket criado via interface</div>
+                            <div class="email-value">Demanda criada via interface</div>
                         </div>
                         <div class="email-divider" style="background: linear-gradient(to right, #1976d2, transparent); height: 2px;"></div>
                         <div class="email-badge" style="background: #e3f2fd; color: #1976d2; margin-bottom: 1rem;">📧 Envio 2 de 2</div>
@@ -42,7 +42,7 @@ function mostrarFluxosEmail() {
                         </div>
                         <div class="email-item">
                             <div class="email-label">Assunto:</div>
-                            <div class="email-value">🎫 [NOVO TICKET] #00123 - [Título]</div>
+                            <div class="email-value">🎫 [NOVA DEMANDA] #00123 - [Título]</div>
                         </div>
                     </div>
                 </div>
@@ -55,7 +55,7 @@ function mostrarFluxosEmail() {
                     <div class="email-card-body">
                         <div class="email-item">
                             <div class="email-label">Para:</div>
-                            <div class="email-value">Solicitante do ticket</div>
+                            <div class="email-value">Solicitante da demanda</div>
                         </div>
                         <div class="email-item">
                             <div class="email-label">Assunto:</div>
@@ -81,8 +81,8 @@ function mostrarFluxosEmail() {
                         <div class="email-item">
                             <div class="email-label">Para:</div>
                             <div class="email-value">
-                                <div>• Se ticket TEM responsável: apenas o agente responsável</div>
-                                <div>• Se ticket SEM responsável: todos agentes/administradores</div>
+                                <div>• Se a demanda TEM responsável: apenas o agente responsável</div>
+                                <div>• Se a demanda SEM responsável: todos agentes/administradores</div>
                             </div>
                         </div>
                         <div class="email-item">
@@ -105,7 +105,7 @@ function mostrarFluxosEmail() {
                 <div class="email-card">
                     <div class="email-card-header" style="background: #506C7E;">
                         <span class="email-icon">👤</span>
-                        <h4>4. Ticket Atribuído</h4>
+                        <h4>4. Demanda Atribuída</h4>
                     </div>
                     <div class="email-card-body">
                         <div class="email-item">
@@ -114,7 +114,7 @@ function mostrarFluxosEmail() {
                         </div>
                         <div class="email-item">
                             <div class="email-label">Assunto:</div>
-                            <div class="email-value">👤 Ticket #00123 atribuído para você</div>
+                            <div class="email-value">👤 Demanda #00123 atribuída para você</div>
                         </div>
                         <div class="email-divider" style="background: linear-gradient(to right, #1976d2, transparent); height: 2px;"></div>
                         <div class="email-badge" style="background: #fff3cd; color: #f57c00; margin-bottom: 1rem;">⭐ Email adicional ao solicitante</div>
@@ -128,7 +128,7 @@ function mostrarFluxosEmail() {
                         </div>
                         <div class="email-item">
                             <div class="email-label">Quando:</div>
-                            <div class="email-value">Ticket SEM atribuição é atribuído pela primeira vez</div>
+                            <div class="email-value">Demanda SEM atribuição é atribuída pela primeira vez</div>
                         </div>
                         <div class="email-badge">⏰ Registra primeira resposta para cálculo de SLA</div>
                     </div>
@@ -137,16 +137,16 @@ function mostrarFluxosEmail() {
                 <div class="email-card">
                     <div class="email-card-header" style="background: #506C7E;">
                         <span class="email-icon">✅</span>
-                        <h4>5. Ticket Fechado</h4>
+                        <h4>5. Demanda Fechada</h4>
                     </div>
                     <div class="email-card-body">
                         <div class="email-item">
                             <div class="email-label">Para:</div>
-                            <div class="email-value">Solicitante (se ticket criado por email)</div>
+                            <div class="email-value">Solicitante (se demanda criado por email)</div>
                         </div>
                         <div class="email-item">
                             <div class="email-label">Assunto:</div>
-                            <div class="email-value">✅ [#00123] Ticket fechado - [Título]</div>
+                            <div class="email-value">✅ [#00123] Demanda fechada - [Título]</div>
                         </div>
                         <div class="email-divider" style="background: linear-gradient(to right, #1976d2, transparent); height: 2px;"></div>
                         <div class="email-badge" style="background: #ffebee; color: #c62828; margin-bottom: 1rem;">📧 Email adicional (condicional)</div>
@@ -156,7 +156,7 @@ function mostrarFluxosEmail() {
                         </div>
                         <div class="email-item">
                             <div class="email-label">Assunto:</div>
-                            <div class="email-value">🔒 Ticket #00123 foi fechado</div>
+                            <div class="email-value">🔒 Demanda #00123 foi fechada</div>
                         </div>
                     </div>
                 </div>
@@ -164,7 +164,7 @@ function mostrarFluxosEmail() {
                 <div class="email-card">
                     <div class="email-card-header" style="background: #506C7E;">
                         <span class="email-icon">🔄</span>
-                        <h4>6. Ticket Reaberto</h4>
+                        <h4>6. Demanda Reaberta</h4>
                     </div>
                     <div class="email-card-body">
                         <div class="email-item">
@@ -173,13 +173,13 @@ function mostrarFluxosEmail() {
                         </div>
                         <div class="email-item">
                             <div class="email-label">Assunto:</div>
-                            <div class="email-value">🔄 Ticket #00123 foi reaberto</div>
+                            <div class="email-value">🔄 Demanda #00123 foi reaberta</div>
                         </div>
                         <div class="email-item">
                             <div class="email-label">Quando:</div>
                             <div class="email-value">
-                                <div>• Email recebido com número de ticket fechado</div>
-                                <div>• Ticket reaberto manualmente</div>
+                                <div>• Email recebido com número de demanda fechada</div>
+                                <div>• Demanda reaberta manualmente</div>
                             </div>
                         </div>
                     </div>
@@ -211,7 +211,7 @@ function mostrarFluxosEmail() {
                 <div style="display: grid; gap: 0.75rem;">
                     <div class="template-box" style="background: white; padding: 1rem; border-radius: 8px; border-left: 3px solid #28a745;">
                         <div style="font-weight: 600; color: #495057; margin-bottom: 0.25rem;">email-template.html</div>
-                        <div style="color: #6c757d; font-size: 0.85rem; margin-bottom: 0.25rem;">Confirmação de criação de ticket</div>
+                        <div style="color: #6c757d; font-size: 0.85rem; margin-bottom: 0.25rem;">Confirmação de criação de demanda</div>
                         <div style="color: #868e96; font-size: 0.8rem; font-family: monospace;">📁 backend/email-template.html</div>
                     </div>
                     <div class="template-box" style="background: white; padding: 1rem; border-radius: 8px; border-left: 3px solid #007bff;">
@@ -231,12 +231,12 @@ function mostrarFluxosEmail() {
                     </div>
                     <div class="template-box" style="background: white; padding: 1rem; border-radius: 8px; border-left: 3px solid #dc3545;">
                         <div style="font-weight: 600; color: #495057; margin-bottom: 0.25rem;">email-template-fechamento.html</div>
-                        <div style="color: #6c757d; font-size: 0.85rem; margin-bottom: 0.25rem;">Notificação de ticket fechado</div>
+                        <div style="color: #6c757d; font-size: 0.85rem; margin-bottom: 0.25rem;">Notificação de demanda fechada</div>
                         <div style="color: #868e96; font-size: 0.8rem; font-family: monospace;">📁 backend/email-template-fechamento.html</div>
                     </div>
                     <div class="template-box" style="background: white; padding: 1rem; border-radius: 8px; border-left: 3px solid #fd7e14;">
                         <div style="font-weight: 600; color: #495057; margin-bottom: 0.25rem;">email-template-primeira-resposta.html</div>
-                        <div style="color: #6c757d; font-size: 0.85rem; margin-bottom: 0.25rem;">Primeira atribuição de ticket ao solicitante</div>
+                        <div style="color: #6c757d; font-size: 0.85rem; margin-bottom: 0.25rem;">Primeira atribuição da demanda ao solicitante</div>
                         <div style="color: #868e96; font-size: 0.8rem; font-family: monospace;">📁 backend/email-template-primeira-resposta.html</div>
                     </div>
                 </div>
@@ -248,10 +248,10 @@ function mostrarFluxosEmail() {
                         <span style="font-size: 1.5rem;">🔔</span>
                         Indicadores Visuais
                     </h4>
-                    <p><strong>Comentários não lidos:</strong> Ícone 💬 aparece na lista de tickets</p>
+                    <p><strong>Comentários não lidos:</strong> Ícone 💬 aparece na lista de demandas</p>
                     <div class="info-inner-box" style="margin-top: 1rem; padding: 0.75rem; background: white; border-radius: 6px;">
-                        <div style="margin-bottom: 0.5rem;">• Ticket COM responsável → apenas ele vê</div>
-                        <div style="margin-bottom: 0.5rem;">• Ticket SEM responsável → todos agentes veem</div>
+                        <div style="margin-bottom: 0.5rem;">• Demanda COM responsável → apenas ele vê</div>
+                        <div style="margin-bottom: 0.5rem;">• Demanda SEM responsável → todos agentes veem</div>
                         <div>• Remove ao visualizar detalhes</div>
                     </div>
                 </div>

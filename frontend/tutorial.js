@@ -2,71 +2,71 @@
 const tutorialSteps = [
     {
         target: 'body',
-        title: '👋 Bem-vindo ao DESKCRP!',
+        title: '👋 Bem-vindo ao Conecta CRPRS!',
         description: 'Olá! Este é um tutorial rápido para ajudá-lo a conhecer as principais funcionalidades do sistema. Você pode pular a qualquer momento ou seguir os passos para aprender.',
         position: 'center',
         isWelcome: true
     },
     {
         target: '.btn-nav:nth-child(1)',
-        title: '🎫 Lista de Tickets',
-        description: 'Aqui você visualiza todos os tickets abertos. Clique no número do ticket para ver detalhes completos.',
+        title: '🎫 Lista de Demandas',
+        description: 'Aqui você visualiza todas as demandas abertas. Clique no número da demanda para ver detalhes completos.',
         position: 'bottom'
     },
     {
         target: '#btn-nav-arquivo',
         title: '🗂️ Arquivo',
-        description: 'Acesse o histórico de tickets encerrados ou cancelados. Você pode reabrir tickets se necessário.',
+        description: 'Acesse o histórico de demandas encerradas ou canceladas. Você pode reabrir demandas se necessário.',
         position: 'bottom'
     },
     {
         target: '.btn-nav:nth-child(3)',
         title: '📊 Dashboard',
-        description: 'Acompanhe métricas em tempo real: total de tickets, tempo médio de atendimento, gráficos de status e muito mais.',
+        description: 'Acompanhe métricas em tempo real: total de demandas, tempo médio de atendimento, gráficos de status e muito mais.',
         position: 'bottom'
     },
     {
         target: '.btn-nav:nth-child(4)',
         title: '📈 Relatórios',
-        description: 'Gere relatórios personalizados filtrando por período, status, prioridade, categoria ou agente responsável.',
+        description: 'Gere relatórios personalizados filtrando por período, status, prioridade, subcategoria ou agente responsável.',
         position: 'bottom'
     },
     {
         target: '#btn-nav-ajuda',
         title: '❓ Ajuda',
-        description: 'Consulte informações sobre SLA, status dos tickets, prioridades e atalhos de teclado disponíveis.',
+        description: 'Consulte informações sobre SLA, status das demandas, prioridades e atalhos de teclado disponíveis.',
         position: 'bottom'
     },
     {
         target: '#btn-novo-ticket',
-        title: '➕ Criar Novo Ticket',
-        description: 'Clique aqui para abrir um novo chamado. Preencha título, descrição, prioridade, categoria e anexe arquivos se necessário.',
+        title: '➕ Criar Nova Demanda',
+        description: 'Clique aqui para abrir uma nova demanda. Preencha título, descrição, prioridade, subcategoria e anexe arquivos se necessário.',
         position: 'left'
     },
     {
         target: '#btn-merge',
-        title: '🔗 Mesclar Tickets',
-        description: 'Use esta função para unir tickets duplicados ou relacionados em um único ticket principal.',
+        title: '🔗 Mesclar Demandas',
+        description: 'Use esta função para unir demandas duplicadas ou relacionadas em uma única demanda principal.',
         position: 'left'
     },
     {
         target: '.tickets-tabela th:nth-child(1)',
-        title: '🔢 Número do Ticket',
-        description: 'Clique no número do ticket para acessar os detalhes completos, incluindo comentários, histórico de alterações e anexos.',
+        title: '🔢 Número da Demanda',
+        description: 'Clique no número da demanda para acessar os detalhes completos, incluindo comentários, histórico de alterações e anexos.',
         position: 'right',
         arrow: 'down'
     },
     {
         target: '.tickets-tabela th:nth-child(5)',
         title: '👤 Atribuir Responsável',
-        description: 'Clique no nome do responsável (ou "Não atribuído") para atribuir ou alterar o agente responsável pelo ticket.',
+        description: 'Clique no nome do responsável (ou "Não atribuído") para atribuir ou alterar o agente responsável pela demanda.',
         position: 'left',
         arrow: 'down'
     },
     {
         target: '.tickets-tabela th:nth-child(6)',
-        title: '📁 Categorizar Ticket',
-        description: 'Clique na categoria para alterar ou definir a categoria do ticket. Isso ajuda na organização e relatórios.',
+        title: '📁 Categorizar Demanda',
+        description: 'Clique na subcategoria para alterar ou definir a subcategoria da demanda. Isso ajuda na organização e relatórios.',
         position: 'left',
         arrow: 'down'
     },
@@ -80,14 +80,14 @@ const tutorialSteps = [
     {
         target: '.tickets-tabela th:nth-child(8)',
         title: '🔥 Alterar Prioridade',
-        description: 'Clique na prioridade para alterar entre: Baixa, Normal, Alta ou Urgente. Isso afeta o SLA do ticket.',
+        description: 'Clique na prioridade para alterar entre: Baixa, Normal, Alta ou Urgente. Isso afeta o SLA da demanda.',
         position: 'left',
         arrow: 'down'
     },
     {
         target: 'body',
         title: '✅ Tutorial Concluído!',
-        description: 'Parabéns! Você conheceu as principais funcionalidades do DESKCRP. Você pode reabrir este tutorial a qualquer momento acessando o menu <strong>Ajuda > Tutorial Interativo</strong>.',
+        description: 'Parabéns! Você conheceu as principais funcionalidades do Conecta CRPRS. Você pode reabrir este tutorial a qualquer momento acessando o menu <strong>Ajuda > Tutorial Interativo</strong>.',
         position: 'center',
         isFinal: true
     }
@@ -98,7 +98,7 @@ let tutorialActive = false;
 
 function iniciarTutorial() {
     // Verificar se já viu o tutorial
-    const jaViuTutorial = localStorage.getItem('tutorialCompleto');
+    const jaViuTutorial = localStorage.getItem('cd_tutorialCompleto');
     if (jaViuTutorial === 'true') return;
 
     // Ir para lista de tickets abertos
@@ -312,13 +312,13 @@ function proximoPasso() {
 }
 
 function pularTutorial() {
-    localStorage.setItem('tutorialCompleto', 'true');
+    localStorage.setItem('cd_tutorialCompleto', 'true');
     finalizarTutorial();
 }
 
 function finalizarTutorial() {
     tutorialActive = false;
-    localStorage.setItem('tutorialCompleto', 'true');
+    localStorage.setItem('cd_tutorialCompleto', 'true');
 
     // Remover elementos
     const overlay = document.getElementById('tutorial-overlay');
@@ -336,7 +336,7 @@ function finalizarTutorial() {
 
 // Função para reiniciar tutorial (pode ser chamada do menu)
 function reiniciarTutorial() {
-    localStorage.removeItem('tutorialCompleto');
+    localStorage.removeItem('cd_tutorialCompleto');
 
     // Ir para lista de tickets abertos
     mostrarSecao('tickets');
@@ -354,7 +354,7 @@ function reiniciarTutorial() {
 
 // Iniciar tutorial após 2 segundos do carregamento (primeiro login)
 setTimeout(() => {
-    const usuario = JSON.parse(localStorage.getItem('usuario'));
+    const usuario = JSON.parse(localStorage.getItem('cd_usuario'));
     if (usuario && (usuario.tipo === 'agente' || usuario.tipo === 'admin')) {
         iniciarTutorial();
     }

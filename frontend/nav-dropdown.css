@@ -47,7 +47,7 @@
     background: none;
     border: none;
     font-size: 0.88rem;
-    color: #1e3a8a;
+    color: #004373;
     cursor: pointer;
     font-family: inherit;
     transition: background 0.15s;
@@ -82,7 +82,7 @@
 
 /* Cabeçalho do dropdown de notificações */
 .notif-dropdown-header {
-    background: #1e3a8a;
+    background: #004373;
     color: white;
     border: 1px solid rgba(255, 255, 255, 0.3);
     border-bottom: none;
@@ -110,7 +110,7 @@
 }
 
 .modo-escuro .notif-dropdown-header {
-    background: #1a2a4a;
+    background: #001830;
     color: #e0e0e0;
 }
 

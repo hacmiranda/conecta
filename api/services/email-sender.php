@@ -101,7 +101,7 @@ class EmailSender {
                 $template = str_replace('</body>', $aviso . '</body>', $template);
             }
             
-            $assunto = "🎫 [#" . str_pad($ticket_id, 5, '0', STR_PAD_LEFT) . "] Ticket criado - " . $ticket['titulo'];
+            $assunto = "🎫 [#" . str_pad($ticket_id, 5, '0', STR_PAD_LEFT) . "] Demanda criada - " . $ticket['titulo'];
             
             $resultado = $this->enviarEmail($email_destino, $assunto, $template);
             error_log("[EMAIL-SENDER] Resultado: " . ($resultado ? "SUCESSO" : "FALHA"));
@@ -128,14 +128,14 @@ class EmailSender {
                 return false;
             }
             
-            $query_agentes = "SELECT email FROM usuarios WHERE tipo IN ('agente', 'admin') AND email IS NOT NULL AND ativo = 1";
+            $query_agentes = "SELECT email FROM usuarios WHERE tipo IN ('usuario', 'supervisor', 'admin') AND email IS NOT NULL AND ativo = 1";
             $stmt_agentes = $this->db->prepare($query_agentes);
             $stmt_agentes->execute();
             $agentes = $stmt_agentes->fetchAll();
             
-            $assunto = "🎫 [NOVO TICKET] #" . str_pad($ticket_id, 5, '0', STR_PAD_LEFT) . " - " . $ticket['titulo'];
-            
-            $mensagem = "🎫 NOVO TICKET CRIADO\n\n";
+            $assunto = "🎫 [NOVA DEMANDA] #" . str_pad($ticket_id, 5, '0', STR_PAD_LEFT) . " - " . $ticket['titulo'];
+
+            $mensagem = "🎫 NOVA DEMANDA CRIADA\n\n";
             $mensagem .= "Número: #" . str_pad($ticket_id, 5, '0', STR_PAD_LEFT) . "\n";
             $mensagem .= "Título: " . $ticket['titulo'] . "\n";
             $mensagem .= "Solicitante: " . ($ticket['email_solicitante'] ?: $ticket['usuario_email']) . "\n";
@@ -151,8 +151,8 @@ class EmailSender {
             }
 
             $mensagem .= "Descrição:\n" . $descricao_texto . "\n\n";
-            $mensagem .= "Acesse o sistema para atribuir e responder o ticket.\n\n";
-            $mensagem .= "Atenciosamente,\nSistema Helpdesk CRPRS";
+            $mensagem .= "Acesse o sistema para atribuir e responder a demanda.\n\n";
+            $mensagem .= "Atenciosamente,\nSistema Conecta CRPRS";
 
             $this->mailer->SMTPKeepAlive = true;
             $enviados = 0;
@@ -435,11 +435,11 @@ class EmailSender {
 
             $num_ticket = str_pad($ticket_id, 5, '0', STR_PAD_LEFT);
             $assunto    = "🎫 [#$num_ticket] Novo comentário - " . $dados['titulo'];
-            $mensagem   = "Novo comentário adicionado ao ticket #$num_ticket\n\n";
-            $mensagem  .= "Ticket: " . $dados['titulo'] . "\n";
+            $mensagem   = "Novo comentário adicionado à demanda #$num_ticket\n\n";
+            $mensagem  .= "Demanda: " . $dados['titulo'] . "\n";
             $mensagem  .= "Autor: " . ($dados['comentario_autor'] ?? 'Solicitante') . "\n";
             $mensagem  .= "Data: " . date('d/m/Y H:i') . "\n\n";
-            $mensagem  .= "Acesse o sistema para visualizar o comentário.\n\nAtenciosamente,\nSistema Helpdesk CRPRS";
+            $mensagem  .= "Acesse o sistema para visualizar o comentário.\n\nAtenciosamente,\nSistema Conecta CRPRS";
 
             if ($dados['agente_id']) {
                 // Notificar agente responsável (se não for o próprio autor)
@@ -448,7 +448,7 @@ class EmailSender {
                 }
             } else {
                 // Sem agente: notificar todos os agentes/admins ativos
-                $query_agentes = "SELECT id, email FROM usuarios WHERE tipo IN ('agente', 'admin') AND email IS NOT NULL AND ativo = 1";
+                $query_agentes = "SELECT id, email FROM usuarios WHERE tipo IN ('usuario', 'supervisor', 'admin') AND email IS NOT NULL AND ativo = 1";
                 $stmt_agentes  = $this->db->prepare($query_agentes);
                 $stmt_agentes->execute();
                 $agentes = $stmt_agentes->fetchAll();
@@ -485,8 +485,8 @@ class EmailSender {
             
             $assunto = "🎫 [#" . str_pad($ticket_id, 5, '0', STR_PAD_LEFT) . "] Comentário recebido - " . $ticket['titulo'];
             
-            $mensagem = "Seu comentário foi adicionado ao ticket com sucesso!\n\n";
-            $mensagem .= "Ticket: #" . str_pad($ticket_id, 5, '0', STR_PAD_LEFT) . "\n";
+            $mensagem = "Seu comentário foi adicionado à demanda com sucesso!\n\n";
+            $mensagem .= "Demanda: #" . str_pad($ticket_id, 5, '0', STR_PAD_LEFT) . "\n";
             $mensagem .= "Título: " . $ticket['titulo'] . "\n";
             $mensagem .= "Status: " . ucfirst($ticket['status']) . "\n";
             $mensagem .= "Data: " . date('d/m/Y H:i') . "\n\n";
@@ -503,7 +503,7 @@ class EmailSender {
             }
             
             $mensagem .= "Nossa equipe foi notificada e responderá em breve.\n\n";
-            $mensagem .= "Atenciosamente,\nEquipe CRPRS Helpdesk";
+            $mensagem .= "Atenciosamente,\nEquipe Conecta CRPRS";
             
             // Usar template HTML ao invés de texto
             $template_path = dirname(__DIR__, 2) . '/backend/email-template-comentario.html';
@@ -588,12 +588,12 @@ class EmailSender {
                 $agente = $stmt_agente->fetch();
                 
                 if ($agente && $agente['email']) {
-                    $msg = "🔒 TICKET FECHADO POR OUTRO USUÁRIO\n\n";
-                    $msg .= "Ticket: #" . str_pad($ticket_id, 5, '0', STR_PAD_LEFT) . "\n";
+                    $msg = "🔒 DEMANDA FECHADA POR OUTRO USUÁRIO\n\n";
+                    $msg .= "Demanda: #" . str_pad($ticket_id, 5, '0', STR_PAD_LEFT) . "\n";
                     $msg .= "Título: " . $ticket['titulo'] . "\n";
                     $msg .= "Fechado por: " . ($ticket['fechado_por_nome'] ?: 'Sistema') . "\n";
                     $msg .= "Data: " . date('d/m/Y H:i') . "\n";
-                    $this->enviarEmailTexto($agente['email'], "🔒 Ticket #" . str_pad($ticket_id, 5, '0', STR_PAD_LEFT) . " foi fechado", $msg);
+                    $this->enviarEmailTexto($agente['email'], "🔒 Demanda #" . str_pad($ticket_id, 5, '0', STR_PAD_LEFT) . " foi fechada", $msg);
                 }
             }
             
@@ -622,13 +622,13 @@ class EmailSender {
             
             // Notificar agente responsável
             if ($ticket['agente_email']) {
-                $msg = "🔄 TICKET REABERTO\n\n";
-                $msg .= "Ticket: #" . str_pad($ticket_id, 5, '0', STR_PAD_LEFT) . "\n";
+                $msg = "🔄 DEMANDA REABERTA\n\n";
+                $msg .= "Demanda: #" . str_pad($ticket_id, 5, '0', STR_PAD_LEFT) . "\n";
                 $msg .= "Título: " . $ticket['titulo'] . "\n";
                 $msg .= "Solicitante: " . $ticket['usuario_nome'] . "\n";
                 $msg .= "Data: " . date('d/m/Y H:i') . "\n\n";
                 $msg .= "Acesse o sistema para verificar.\n";
-                $this->enviarEmailTexto($ticket['agente_email'], "🔄 Ticket #" . str_pad($ticket_id, 5, '0', STR_PAD_LEFT) . " foi reaberto", $msg);
+                $this->enviarEmailTexto($ticket['agente_email'], "🔄 Demanda #" . str_pad($ticket_id, 5, '0', STR_PAD_LEFT) . " foi reaberta", $msg);
             }
             
             return true;
@@ -698,14 +698,14 @@ class EmailSender {
             
             // Notificar agente
             if ($agente['email']) {
-                $msg = "👤 TICKET ATRIBUÍDO PARA VOCÊ\n\n";
-                $msg .= "Ticket: #" . str_pad($ticket_id, 5, '0', STR_PAD_LEFT) . "\n";
+                $msg = "👤 DEMANDA ATRIBUÍDA PARA VOCÊ\n\n";
+                $msg .= "Demanda: #" . str_pad($ticket_id, 5, '0', STR_PAD_LEFT) . "\n";
                 $msg .= "Título: " . $ticket['titulo'] . "\n";
                 $msg .= "Atribuído por: " . $atribuido_por_nome . "\n";
                 $msg .= "Data: " . date('d/m/Y H:i') . "\n\n";
-                $msg .= "Acesse o sistema para atender este ticket.\n";
-                
-                $this->enviarEmailTexto($agente['email'], "👤 Ticket #" . str_pad($ticket_id, 5, '0', STR_PAD_LEFT) . " atribuído para você", $msg);
+                $msg .= "Acesse o sistema para atender esta demanda.\n";
+
+                $this->enviarEmailTexto($agente['email'], "👤 Demanda #" . str_pad($ticket_id, 5, '0', STR_PAD_LEFT) . " atribuída para você", $msg);
             }
             
             // Se era sem atribuição, enviar primeira resposta ao solicitante
@@ -804,25 +804,25 @@ class EmailSender {
                 $trecho .= '...';
             }
 
-            $assunto = "💬 Novo comentário no Ticket #{$num_ticket} - {$titulo}";
+            $assunto = "💬 Novo comentário na Demanda #{$num_ticket} - {$titulo}";
 
             $html = "
             <div style='font-family: Arial, sans-serif; color: #333; max-width: 600px; margin: 0 auto;'>
                 <div style='background: #1e3a5f; padding: 20px; border-radius: 8px 8px 0 0;'>
-                    <h2 style='color: #fff; margin: 0; font-size: 18px;'>💬 Novo Comentário no Seu Ticket</h2>
+                    <h2 style='color: #fff; margin: 0; font-size: 18px;'>💬 Novo Comentário na Sua Demanda</h2>
                 </div>
                 <div style='background: #f9f9f9; padding: 24px; border-radius: 0 0 8px 8px; border: 1px solid #e0e0e0;'>
                     <p style='margin: 0 0 12px 0;'>Olá, <strong>{$agente['nome']}</strong>!</p>
                     <p style='margin: 0 0 16px 0;'>
-                        O agente <strong>{$autor_nome}</strong> adicionou um novo comentário no ticket
-                        <strong>#{$num_ticket}</strong> que está atribuído a você.
+                        O agente <strong>{$autor_nome}</strong> adicionou um novo comentário na demanda
+                        <strong>#{$num_ticket}</strong> que está atribuída a você.
                     </p>
                     <div style='background: #fff; border-left: 4px solid #e0a800; padding: 14px 18px; border-radius: 4px; margin-bottom: 20px;'>
-                        <p style='margin: 0 0 6px 0; font-size: 13px; color: #888;'>Ticket: <strong>#{$num_ticket}</strong> — {$titulo}</p>
+                        <p style='margin: 0 0 6px 0; font-size: 13px; color: #888;'>Demanda: <strong>#{$num_ticket}</strong> — {$titulo}</p>
                         <p style='margin: 0; font-size: 14px; color: #333;'>{$trecho}</p>
                     </div>
                     <p style='margin: 0 0 20px 0; font-size: 13px; color: #555;'>
-                        O status do ticket foi atualizado para <strong>\"Nova Resposta\"</strong>.
+                        O status da demanda foi atualizado para <strong>\"Nova Resposta\"</strong>.
                         Acesse o sistema para verificar e responder.
                     </p>
                     " . $this->getAssinatura() . "

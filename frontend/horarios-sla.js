@@ -3,7 +3,7 @@
 function mostrarHorariosSLA() {
     document.querySelectorAll('.btn-config').forEach(btn => btn.classList.remove('active'));
     const _bhor = document.getElementById('btn-horarios-sla'); if(_bhor) _bhor.classList.add('active');
-    localStorage.setItem('subSecaoAtiva', 'horarios-sla');
+    localStorage.setItem('cd_subSecaoAtiva', 'horarios-sla');
     const configTitle = document.getElementById('config-title'); if (configTitle) configTitle.textContent = String.fromCodePoint(0x23F0) + ' Hor\u00e1rios e Feriados';
     
     const content = document.getElementById('config-content');
@@ -16,7 +16,7 @@ function mostrarHorariosSLA() {
 
 function carregarHorariosSLA() {
     const xhr = new XMLHttpRequest();
-    xhr.open('GET', '/crpdesk/api/controllers/horarios-sla.php', true);
+    xhr.open('GET', window.APP_CONFIG.apiBase + 'horarios-sla.php', true);
     setSecurityHeaders(xhr);
     
     xhr.onload = function() {
@@ -33,7 +33,7 @@ function carregarHorariosSLA() {
 
 function carregarFeriados(horarios) {
     const xhr = new XMLHttpRequest();
-    xhr.open('GET', '/crpdesk/api/controllers/horarios-sla.php?feriados=1', true);
+    xhr.open('GET', window.APP_CONFIG.apiBase + 'horarios-sla.php?feriados=1', true);
     setSecurityHeaders(xhr);
     
     xhr.onload = function() {
@@ -176,7 +176,7 @@ function salvarHorario(dia) {
     const fim = document.getElementById(`fim-${dia}`).value + ':00';
     
     const xhr = new XMLHttpRequest();
-    xhr.open('PUT', '/crpdesk/api/controllers/horarios-sla.php', true);
+    xhr.open('PUT', window.APP_CONFIG.apiBase + 'horarios-sla.php', true);
     xhr.setRequestHeader('Content-Type', 'application/json');
     setSecurityHeaders(xhr);
     
@@ -218,7 +218,7 @@ function salvarFeriado() {
     }
     
     const xhr = new XMLHttpRequest();
-    xhr.open('POST', '/crpdesk/api/controllers/horarios-sla.php', true);
+    xhr.open('POST', window.APP_CONFIG.apiBase + 'horarios-sla.php', true);
     xhr.setRequestHeader('Content-Type', 'application/json');
     setSecurityHeaders(xhr);
     
@@ -247,7 +247,7 @@ function excluirFeriado(id) {
             if (!confirmado) return;
             
             const xhr = new XMLHttpRequest();
-            xhr.open('DELETE', `/crpdesk/api/controllers/horarios-sla.php?id=${id}`, true);
+            xhr.open('DELETE', `${window.APP_CONFIG.apiBase}horarios-sla.php?id=${id}`, true);
             setSecurityHeaders(xhr);
             
             xhr.onload = function() {

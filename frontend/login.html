@@ -5,13 +5,18 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="description"
-        content="Login seguro do sistema de Helpdesk do Conselho Regional de Psicologia do Rio Grande do Sul.">
-    <meta property="og:title" content="Login - Helpdesk CRPRS">
+        content="Login seguro do Conecta CRPRS, sistema de gestão de demandas do Conselho Regional de Psicologia do Rio Grande do Sul.">
+    <meta property="og:title" content="Login - Conecta CRPRS">
     <meta property="og:description"
-        content="Login seguro do sistema de Helpdesk do Conselho Regional de Psicologia do Rio Grande do Sul.">
+        content="Login seguro do Conecta CRPRS, sistema de gestão de demandas do Conselho Regional de Psicologia do Rio Grande do Sul.">
     <meta property="og:type" content="website">
-    <title>Login - Helpdesk CRPRS</title>
+    <title>Login - Conecta CRPRS</title>
     <link rel="icon" type="image/png" href="images/logo_vazado.png">
+    <!-- Configuração de deploy (base da API) -->
+    <script src="app-config.js"></script>
+    <!-- Ponte de SSO (ativa somente quando incorporado em <iframe>) -->
+    <link rel="stylesheet" href="sso-bridge.css">
+    <script src="sso-bridge.js"></script>
     <!-- Google Fonts: Inter -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -37,8 +42,8 @@
             --laranja: #f79226;
             --laranja-dark: #d97c15;
             --vermelho: #a8231e;
-            --azul: #1e3a8a;
-            --azul-mid: #1e428a;
+            --azul: #004373;
+            --azul-mid: #004373;
             --azul-light: #3b82f6;
             --azul-pale: #dbeafe;
             --verde: #71aa29;
@@ -48,7 +53,7 @@
             --texto-medio: #374151;
             --texto-claro: #6b7280;
             --borda: #e5e7eb;
-            --shadow-card: 0 20px 60px rgba(30, 58, 138, 0.18), 0 8px 24px rgba(0, 0, 0, 0.12);
+            --shadow-card: 0 20px 60px rgba(0, 67, 115, 0.18), 0 8px 24px rgba(0, 0, 0, 0.12);
             --shadow-input: 0 1px 3px rgba(0, 0, 0, 0.08);
             --radius-card: 20px;
             --radius-input: 10px;
@@ -81,7 +86,7 @@
             inset: 0;
             background: linear-gradient(135deg,
                     rgba(10, 20, 60, 0.82) 0%,
-                    rgba(30, 58, 138, 0.75) 50%,
+                    rgba(0, 67, 115, 0.75) 50%,
                     rgba(15, 25, 70, 0.85) 100%);
             z-index: 0;
         }
@@ -165,7 +170,7 @@
         ============================================ */
         .login-brand {
             flex: 0 0 42%;
-            background: linear-gradient(160deg, #1e3a8a 0%, #1a327a 45%, #0f1f5a 100%);
+            background: linear-gradient(160deg, #004373 0%, #002d4d 45%, #001830 100%);
             display: flex;
             flex-direction: column;
             align-items: center;
@@ -442,7 +447,7 @@
 
         .btn-toggle-pass:hover {
             color: var(--azul);
-            background: rgba(30, 58, 138, 0.07);
+            background: rgba(0, 67, 115, 0.07);
         }
 
         .btn-toggle-pass:focus {
@@ -507,14 +512,14 @@
             align-items: center;
             justify-content: center;
             gap: 0.5rem;
-            box-shadow: 0 4px 16px rgba(30, 58, 138, 0.35);
+            box-shadow: 0 4px 16px rgba(0, 67, 115, 0.35);
             transition: transform var(--transition), box-shadow var(--transition), filter var(--transition);
             margin-top: 0.5rem;
         }
 
         .btn-entrar:hover:not(:disabled) {
             transform: translateY(-2px);
-            box-shadow: 0 8px 24px rgba(30, 58, 138, 0.42);
+            box-shadow: 0 8px 24px rgba(0, 67, 115, 0.42);
             filter: brightness(1.08);
         }
 
@@ -538,9 +543,9 @@
         }
 
         /* ============================================
-           RODAPÉ DO FORM
+           LINK DE PRIVACIDADE DO FORM
         ============================================ */
-        .form-footer {
+        .form-privacy-link {
             margin-top: 1.5rem;
             padding-top: 1.2rem;
             border-top: 1px solid var(--borda);
@@ -550,28 +555,21 @@
             line-height: 1.6;
         }
 
-        .form-footer a {
+        .form-privacy-link a {
             color: inherit;
             text-decoration: none;
             transition: color var(--transition);
         }
 
-        .form-footer a:hover {
+        .form-privacy-link a:hover {
             color: var(--laranja);
             text-decoration: underline;
         }
 
-        .form-footer a:focus {
+        .form-privacy-link a:focus {
             outline: 2px solid var(--laranja);
             outline-offset: 2px;
             border-radius: 3px;
-        }
-
-        .footer-links {
-            display: flex;
-            justify-content: center;
-            gap: 1.2rem;
-            margin-top: 0.4rem;
         }
 
         /* ============================================
@@ -870,143 +868,6 @@
             }
         }
 
-        /* ============================================
-           COOKIE BANNER (reutilizado do sistema)
-        ============================================ */
-        .cookie-banner {
-            position: fixed;
-            bottom: 1rem;
-            left: 50%;
-            transform: translateX(-50%);
-            width: min(560px, calc(100vw - 2rem));
-            background: #1e293b;
-            color: #e2e8f0;
-            border-radius: 12px;
-            padding: 1rem 1.25rem;
-            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
-            z-index: 999;
-            display: none;
-        }
-
-        .cookie-banner.show {
-            display: block;
-        }
-
-        .cookie-content {
-            display: flex;
-            flex-wrap: wrap;
-            align-items: center;
-            gap: 0.75rem;
-        }
-
-        .cookie-text {
-            flex: 1;
-            font-size: 0.82rem;
-            line-height: 1.5;
-        }
-
-        .cookie-actions {
-            display: flex;
-            gap: 0.5rem;
-            flex-wrap: wrap;
-        }
-
-        .btn-small {
-            padding: 0.4rem 0.9rem;
-            border-radius: 6px;
-            font-size: 0.8rem;
-            font-weight: 600;
-            cursor: pointer;
-            border: none;
-            font-family: 'Inter', Arial, sans-serif;
-            transition: filter var(--transition);
-        }
-
-        #btn-accept-all.btn-small {
-            background: var(--laranja);
-            color: white;
-        }
-
-        #btn-reject-all.btn-small,
-        #btn-manage-cookies.btn-small {
-            background: rgba(255, 255, 255, 0.12);
-            color: #e2e8f0;
-        }
-
-        .btn-small:hover {
-            filter: brightness(1.15);
-        }
-
-        .btn-small:focus {
-            outline: 2px solid var(--azul-light);
-            outline-offset: 2px;
-        }
-
-        .cookie-modal-overlay {
-            display: none;
-            position: fixed;
-            inset: 0;
-            background: rgba(0, 0, 0, 0.5);
-            z-index: 1100;
-            justify-content: center;
-            align-items: center;
-        }
-
-        .cookie-modal-overlay.show {
-            display: flex;
-        }
-
-        .cookie-modal-content {
-            background: white;
-            border-radius: 14px;
-            width: min(480px, 92vw);
-            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
-            overflow: hidden;
-        }
-
-        .cookie-modal-header {
-            background: var(--azul);
-            color: white;
-            padding: 1rem 1.25rem;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
-
-        .cookie-modal-header h3 {
-            margin: 0;
-            font-size: 1rem;
-        }
-
-        .close-cookie-modal {
-            background: none;
-            border: none;
-            color: white;
-            font-size: 1.2rem;
-            cursor: pointer;
-            padding: 2px 6px;
-            border-radius: 4px;
-            line-height: 1;
-        }
-
-        .close-cookie-modal:hover {
-            background: rgba(255, 255, 255, 0.2);
-        }
-
-        .close-cookie-modal:focus {
-            outline: 2px solid white;
-            outline-offset: 2px;
-        }
-
-        .cookie-modal-body {
-            padding: 1.25rem 1.5rem;
-        }
-
-        .cookie-modal-body p {
-            font-size: 0.88rem;
-            color: var(--texto-medio);
-        }
-
         .cookie-preference-item {
             display: flex;
             justify-content: space-between;
@@ -1090,7 +951,7 @@
     <div class="login-wrapper" id="login-wrapper">
 
         <!-- ===================== PAINEL ESQUERDO ===================== -->
-        <aside class="login-brand" aria-label="Identidade CRPRS Helpdesk">
+        <aside class="login-brand" aria-label="Identidade Conecta CRPRS">
             <div class="brand-content">
                 <!-- Logo com suporte à animação de bloqueio -->
                 <div class="brand-logo-wrap" id="logo-brand">
@@ -1098,7 +959,7 @@
                         alt="Logo CRPRS - Conselho Regional de Psicologia do Rio Grande do Sul">
                 </div>
 
-                <h2 class="brand-name">Helpdesk <span>CRPRS</span></h2>
+                <h2 class="brand-name">Conecta <span>CRPRS</span></h2>
                 <p class="brand-subtitle">Conselho Regional de Psicologia RS</p>
 
                 <div class="brand-divider" aria-hidden="true"></div>
@@ -1106,7 +967,7 @@
                 <ul class="brand-features" aria-label="Recursos do sistema">
                     <li>
                         <span class="material-symbols-outlined" aria-hidden="true">check_circle</span>
-                        Gestão de Tickets em tempo real
+                        Gestão de Demandas em tempo real
                     </li>
                     <li>
                         <span class="material-symbols-outlined" aria-hidden="true">notifications_active</span>
@@ -1204,14 +1065,10 @@
                 </form>
             </section>
 
-            <!-- Rodapé -->
-            <footer class="form-footer">
-                <p>&copy;2025-2026 Conselho Regional de Psicologia do Rio Grande do Sul (CRPRS) &ndash; Sistema de Helpdesk. Todos os direitos reservados.<br>Setor de Tecnologia da Informação</p>
-                <nav class="footer-links" aria-label="Links legais">
-                    <a href="#" class="trigger-cookie-modal">Cookies 🍪</a>
-                    <a href="politica-privacidade.html">Privacidade</a>
-                </nav>
-            </footer>
+            <!-- Link de privacidade -->
+            <p class="form-privacy-link">
+                <a href="politica-privacidade.html">Política de Privacidade</a>
+            </p>
         </main>
     </div>
 
@@ -1226,74 +1083,6 @@
             </div>
             <div class="modal-footer">
                 <button onclick="fecharModal()" class="btn-primary">OK</button>
-            </div>
-        </div>
-    </div>
-
-    <!-- ======================== COOKIE SYSTEM ======================== -->
-    <div id="cookie-banner" class="cookie-banner" role="region" aria-label="Aviso de cookies">
-        <div class="cookie-content">
-            <div class="cookie-text">
-                <strong>🍪 Valorizamos sua privacidade</strong><br>
-                Utilizamos cookies para melhorar sua experiência. Você pode aceitar todos ou gerenciar suas
-                preferências.
-            </div>
-            <div class="cookie-actions">
-                <button id="btn-manage-cookies" class="btn-small">Gerenciar</button>
-                <button id="btn-reject-all" class="btn-small">Rejeitar</button>
-                <button id="btn-accept-all" class="btn-small">Aceitar Todos</button>
-            </div>
-        </div>
-    </div>
-
-    <div id="cookie-modal" class="cookie-modal-overlay" role="dialog" aria-modal="true"
-        aria-labelledby="cookie-modal-title">
-        <div class="cookie-modal-content">
-            <div class="cookie-modal-header">
-                <h3 id="cookie-modal-title">Preferências de Cookies</h3>
-                <button class="close-cookie-modal" aria-label="Fechar modal de cookies">×</button>
-            </div>
-            <div class="cookie-modal-body">
-                <p style="margin-bottom: 1.25rem;">Gerencie quais cookies deseja permitir. Cookies essenciais não podem
-                    ser desativados.</p>
-
-                <div class="cookie-preference-item">
-                    <div class="preference-info">
-                        <h5>Essenciais (Obrigatório)</h5>
-                        <p>Necessários para o funcionamento básico do sistema (login, sessão).</p>
-                    </div>
-                    <label class="toggle-switch">
-                        <input type="checkbox" checked disabled role="switch" aria-checked="true"
-                            aria-label="Cookies essenciais">
-                        <span class="toggle-slider"></span>
-                    </label>
-                </div>
-
-                <div class="cookie-preference-item">
-                    <div class="preference-info">
-                        <h5>Analíticos</h5>
-                        <p>Nos ajudam a entender como você usa o sistema para melhorá-lo.</p>
-                    </div>
-                    <label class="toggle-switch">
-                        <input type="checkbox" id="check-analytics" role="switch" aria-label="Cookies analíticos">
-                        <span class="toggle-slider"></span>
-                    </label>
-                </div>
-
-                <div class="cookie-preference-item">
-                    <div class="preference-info">
-                        <h5>Marketing</h5>
-                        <p>Usados para fornecer conteúdo mais relevante.</p>
-                    </div>
-                    <label class="toggle-switch">
-                        <input type="checkbox" id="check-marketing" role="switch" aria-label="Cookies de marketing">
-                        <span class="toggle-slider"></span>
-                    </label>
-                </div>
-            </div>
-            <div class="modal-footer" style="padding-top:1.25rem; margin-top:0.5rem; border-top:1px solid #f0f0f0;">
-                <button id="btn-save-preferences" class="btn-primary" style="width:100%; padding:.75rem;">Salvar
-                    Preferências</button>
             </div>
         </div>
     </div>
@@ -1327,7 +1116,7 @@
         verificarBloqueio();
 
         function verificarBloqueio() {
-            const dadosBloqueio = localStorage.getItem('loginBloqueado');
+            const dadosBloqueio = localStorage.getItem('cd_loginBloqueado');
             if (!dadosBloqueio) return;
 
             const dados = JSON.parse(dadosBloqueio);
@@ -1336,7 +1125,7 @@
             ultimaTentativa = dados.ultimaTentativa ? new Date(dados.ultimaTentativa) : null;
 
             if (ultimaTentativa && (new Date() - ultimaTentativa) > TEMPO_RESET_TENTATIVAS) {
-                localStorage.removeItem('loginBloqueado');
+                localStorage.removeItem('cd_loginBloqueado');
                 tentativasLogin = 0;
                 bloqueadoAte = null;
                 ultimaTentativa = null;
@@ -1347,7 +1136,7 @@
                 bloquearFormulario();
                 iniciarTimer();
             } else {
-                localStorage.removeItem('loginBloqueado');
+                localStorage.removeItem('cd_loginBloqueado');
                 tentativasLogin = 0;
                 bloqueadoAte = null;
                 ultimaTentativa = null;
@@ -1427,7 +1216,7 @@
                         avisoDiv.innerHTML = `🔒 Acesso bloqueado por muitas tentativas<br>Tempo restante: ${min}:${seg.toString().padStart(2, '0')}`;
                     }
                 } else {
-                    localStorage.removeItem('loginBloqueado');
+                    localStorage.removeItem('cd_loginBloqueado');
                     tentativasLogin = 0;
                     bloqueadoAte = null;
                     desbloquearFormulario();
@@ -1444,7 +1233,7 @@
 
             if (tentativasLogin >= 5) {
                 bloqueadoAte = new Date(Date.now() + 300000);
-                localStorage.setItem('loginBloqueado', JSON.stringify({
+                localStorage.setItem('cd_loginBloqueado', JSON.stringify({
                     tentativas: tentativasLogin,
                     bloqueadoAte: bloqueadoAte.toISOString(),
                     ultimaTentativa: ultimaTentativa.toISOString()
@@ -1452,7 +1241,7 @@
                 bloquearFormulario();
                 iniciarTimer();
             } else {
-                localStorage.setItem('loginBloqueado', JSON.stringify({
+                localStorage.setItem('cd_loginBloqueado', JSON.stringify({
                     tentativas: tentativasLogin,
                     ultimaTentativa: ultimaTentativa.toISOString()
                 }));
@@ -1477,7 +1266,7 @@
             e.preventDefault();
             const email = document.getElementById('email-recuperar').value;
             const xhr = new XMLHttpRequest();
-            xhr.open('POST', '/crpdesk/api/controllers/recuperar-senha.php', true);
+            xhr.open('POST', window.APP_CONFIG.apiBase + 'recuperar-senha.php', true);
             xhr.setRequestHeader('Content-Type', 'application/json');
             xhr.onload = function () {
                 if (xhr.status === 200) {
@@ -1520,7 +1309,7 @@
             btnEntrar.innerHTML = '<span class="material-symbols-outlined" aria-hidden="true">hourglass_top</span> Entrando...';
 
             const xhr = new XMLHttpRequest();
-            xhr.open('POST', '/crpdesk/api/controllers/auth.php', true);
+            xhr.open('POST', window.APP_CONFIG.apiBase + 'auth.php', true);
             xhr.setRequestHeader('Content-Type', 'application/json');
             xhr.setRequestHeader('X-Requested-With', 'XMLHttpRequest');
 
@@ -1528,12 +1317,12 @@
                 if (xhr.status === 200) {
                     const response = JSON.parse(xhr.responseText);
                     tentativasLogin = 0;
-                    localStorage.removeItem('loginBloqueado');
-                    localStorage.setItem('usuario', JSON.stringify(response.usuario));
-                    localStorage.setItem('token', response.token);
+                    localStorage.removeItem('cd_loginBloqueado');
+                    localStorage.setItem('cd_usuario', JSON.stringify(response.usuario));
+                    localStorage.setItem('cd_token', response.token);
                     // Salva o token CSRF dinâmico retornado pelo servidor
                     if (response.csrf_token) {
-                        localStorage.setItem('csrf_token', response.csrf_token);
+                        localStorage.setItem('cd_csrf_token', response.csrf_token);
                     }
                     document.getElementById('login-wrapper').classList.add('saindo');
                     setTimeout(() => { window.location.href = './index.html'; }, 400);
@@ -1610,9 +1399,6 @@
             }
         });
     </script>
-
-    <!-- Script Cookies -->
-    <script src="cookie-manager.js"></script>
 </body>
 
 </html>

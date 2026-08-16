@@ -7,7 +7,9 @@ class EmailService {
     private $username;
     private $password;
     private $db;
-    
+    private $setorAtualId = null; // setor da caixa sendo processada no momento (null = caixa legada global)
+    private $caixaEmailAtualId = null; // id em setor_emails da caixa sendo processada (null = caixa legada global)
+
     public function __construct($db) {
         $this->host = EmailConfig::get('IMAP_HOST');
         $this->port = EmailConfig::get('IMAP_PORT');
@@ -15,61 +17,114 @@ class EmailService {
         $this->password = EmailConfig::get('IMAP_PASSWORD');
         $this->db = $db;
     }
-    
+
+    /**
+     * Verifica todas as caixas de e-mail cadastradas por setor (setor_emails, ativo=1).
+     * Se nenhuma estiver cadastrada, cai para a caixa global legada do .env (compatibilidade
+     * com quem ainda não migrou para e-mail por setor).
+     */
     public function verificarEmails() {
+        require_once __DIR__ . '/crypto-service.php';
+
+        $caixas = [];
+        try {
+            $stmt = $this->db->query("SELECT id, setor_id, imap_host, imap_port, imap_user, imap_pass_cifrada FROM setor_emails WHERE ativo = 1");
+            $caixas = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        } catch (Exception $e) {
+            echo "<p style='color: red;'>❌ Erro ao buscar caixas de e-mail por setor: " . $e->getMessage() . "</p>";
+        }
+
+        if (empty($caixas)) {
+            echo "<p>Nenhuma caixa de e-mail por setor cadastrada — usando caixa global legada (.env).</p>";
+            return $this->verificarCaixa($this->host, $this->port, $this->username, $this->password, null, null);
+        }
+
+        $sucessoGeral = true;
+        foreach ($caixas as $caixa) {
+            try {
+                $senha = CryptoService::decrypt($caixa['imap_pass_cifrada']);
+            } catch (Exception $e) {
+                echo "<p style='color: red;'>❌ Não foi possível decifrar a senha da caixa #{$caixa['id']}: " . $e->getMessage() . "</p>";
+                $sucessoGeral = false;
+                continue;
+            }
+
+            echo "<p>=== Verificando caixa do setor #{$caixa['setor_id']} ({$caixa['imap_user']}) ===</p>";
+            $ok = $this->verificarCaixa($caixa['imap_host'], (int) $caixa['imap_port'], $caixa['imap_user'], $senha, (int) $caixa['setor_id'], (int) $caixa['id']);
+            $sucessoGeral = $sucessoGeral && $ok;
+        }
+
+        return $sucessoGeral;
+    }
+
+    /**
+     * Conecta numa caixa IMAP específica e processa os e-mails recentes.
+     * $setorId identifica em qual setor as demandas criadas a partir desta caixa devem nascer
+     * (null = caixa legada global, mantém o comportamento antigo de setor "Geral"/fallback).
+     * $caixaId identifica a linha em setor_emails, para o log de e-mails processados por caixa.
+     */
+    private function verificarCaixa($host, $port, $username, $password, $setorId, $caixaId = null) {
+        $this->setorAtualId = $setorId;
+        $this->caixaEmailAtualId = $caixaId;
         $log_file = dirname(__DIR__, 2) . '/backend/logs/email-cron.log';
-        
+
+        if (!function_exists('imap_open')) {
+            echo "<p style='color: red;'>❌ Extensão PHP IMAP não está habilitada neste servidor.</p>";
+            error_log('[EMAIL-SERVICE] Extensão imap não habilitada.');
+            return false;
+        }
+
         try {
             // Tentar com novalidate-cert primeiro (Locaweb)
-            $mailbox = "{{$this->host}:{$this->port}/imap/ssl/novalidate-cert}INBOX";
+            $mailbox = "{{$host}:{$port}/imap/ssl/novalidate-cert}INBOX";
             echo "<p>Conectando em: $mailbox</p>";
             file_put_contents($log_file, "[" . date('Y-m-d H:i:s') . "] Conectando em: $mailbox\n", FILE_APPEND);
-            
-            $inbox = @imap_open($mailbox, $this->username, $this->password, 0, 3);
-            
+
+            $inbox = @imap_open($mailbox, $username, $password, 0, 3);
+
             if (!$inbox) {
                 // Tentar sem novalidate-cert
-                $mailbox = "{{$this->host}:{$this->port}/imap/ssl}INBOX";
+                $mailbox = "{{$host}:{$port}/imap/ssl}INBOX";
                 echo "<p>Tentando conexão alternativa: $mailbox</p>";
                 file_put_contents($log_file, "[" . date('Y-m-d H:i:s') . "] Tentando conexão alternativa\n", FILE_APPEND);
-                
-                $inbox = @imap_open($mailbox, $this->username, $this->password);
-                
+
+                $inbox = @imap_open($mailbox, $username, $password);
+
                 if (!$inbox) {
                     $erro = imap_last_error();
                     file_put_contents($log_file, "[" . date('Y-m-d H:i:s') . "] ERRO: $erro\n", FILE_APPEND);
                     throw new Exception('Não foi possível conectar ao email: ' . $erro);
                 }
             }
-            
+
             echo "<p>✅ Conectado com sucesso!</p>";
             file_put_contents($log_file, "[" . date('Y-m-d H:i:s') . "] Conectado com sucesso\n", FILE_APPEND);
-            
+
                 // Buscar emails dos últimos 3 dias para garantir que nenhum foi perdido
                 // mesmo se marcado como lido por outro cliente (Outlook/Celular)
                 $data_busca = date('d-M-Y', strtotime('-3 days'));
                 $search_criteria = 'SINCE "' . $data_busca . '"';
-                
+
                 echo "<p>Buscando emails com critério: $search_criteria</p>";
                 file_put_contents($log_file, "[" . date('Y-m-d H:i:s') . "] Buscando emails: $search_criteria\n", FILE_APPEND);
-                
+
                 $emails = imap_search($inbox, $search_criteria, SE_UID);
-                
+
                 echo "<p>Verificando emails recentes...</p>";
-                
+
                 if ($emails) {
                     $count = count($emails);
                     echo "<p>📧 Encontrados $count emails recentes para análise</p>";
                     file_put_contents($log_file, "[" . date('Y-m-d H:i:s') . "] Encontrados $count emails\n", FILE_APPEND);
-                    
+
                     // Ordenar para processar dos mais antigos para os mais novos
                     sort($emails);
-                    
+
                     foreach ($emails as $uid) {
                         $msgno = imap_msgno($inbox, $uid);
                     echo "<p>Processando UID: $uid (MSG: $msgno)...</p>";
                     file_put_contents($log_file, "[" . date('Y-m-d H:i:s') . "] Processando UID: $uid\n", FILE_APPEND);
-                    
+
                     try {
                         $this->processarEmail($inbox, $msgno, $uid);
                     } catch (Exception $e) {
@@ -83,15 +138,15 @@ class EmailService {
                 file_put_contents($log_file, "[" . date('Y-m-d H:i:s') . "] Nenhum email não lido\n", FILE_APPEND);
                 echo "<p>Nenhum email não lido no momento.</p>";
             }
-            
+
             // Verificar total de emails na caixa
             $total_emails = imap_num_msg($inbox);
             echo "<p>Total de emails na caixa: $total_emails</p>";
             file_put_contents($log_file, "[" . date('Y-m-d H:i:s') . "] Total na caixa: $total_emails\n", FILE_APPEND);
-            
+
             imap_close($inbox);
             return true;
-            
+
         } catch (Exception $e) {
             echo "<p style='color: red;'>❌ Erro: " . $e->getMessage() . "</p>";
             error_log('Erro no EmailService: ' . $e->getMessage());
@@ -202,14 +257,15 @@ class EmailService {
     
     private function registrarEmailProcessado($message_id, $remetente, $assunto, $ticket_id, $tipo) {
         try {
-            $query = "INSERT INTO emails_processados (message_id, email_remetente, assunto, ticket_id, tipo) 
-                      VALUES (:message_id, :remetente, :assunto, :ticket_id, :tipo)
+            $query = "INSERT INTO emails_processados (message_id, email_remetente, assunto, ticket_id, setor_email_id, tipo)
+                      VALUES (:message_id, :remetente, :assunto, :ticket_id, :setor_email_id, :tipo)
                       ON DUPLICATE KEY UPDATE tentativas = tentativas + 1";
             $stmt = $this->db->prepare($query);
             $stmt->bindParam(':message_id', $message_id);
             $stmt->bindParam(':remetente', $remetente);
             $stmt->bindParam(':assunto', $assunto);
             $stmt->bindParam(':ticket_id', $ticket_id);
+            $stmt->bindValue(':setor_email_id', $this->caixaEmailAtualId, $this->caixaEmailAtualId === null ? PDO::PARAM_NULL : PDO::PARAM_INT);
             $stmt->bindParam(':tipo', $tipo);
             $stmt->execute();
             echo "<p>📝 Email registrado no histórico</p>";
@@ -263,18 +319,31 @@ class EmailService {
             }
             // --- FIM VERIFICAÇÃO EXTRA DE DUPLICIDADE ---
             
+            // Determinar setor: o da caixa que recebeu o e-mail; caixa legada global cai no setor "Geral"
+            $setor_id = $this->setorAtualId;
+            if (!$setor_id) {
+                $setor_stmt = $this->db->prepare("SELECT id FROM setores WHERE nome = 'Geral' AND ativo = 1 LIMIT 1");
+                $setor_stmt->execute();
+                $setor_id = $setor_stmt->fetchColumn() ?: null;
+            }
+
             // Criar ticket
             echo "<p>Criando ticket no banco...</p>";
-            $query = "INSERT INTO tickets (titulo, descricao, usuario_id, status, prioridade) 
-                     VALUES (:titulo, :descricao, :usuario_id, 'novo', 'normal')";
+            $query = "INSERT INTO tickets (titulo, descricao, usuario_id, status, prioridade, setor_id)
+                     VALUES (:titulo, :descricao, :usuario_id, 'novo', 'normal', :setor_id)";
             $stmt = $this->db->prepare($query);
             $stmt->bindParam(':titulo', $assunto);
             $stmt->bindParam(':descricao', $corpo_limpo);
             $stmt->bindParam(':usuario_id', $usuario_id);
+            $stmt->bindParam(':setor_id', $setor_id);
             $stmt->execute();
-            
+
             $ticket_id = $this->db->lastInsertId();
             echo "<p>✅ Ticket criado com ID: #" . str_pad($ticket_id, 5, '0', STR_PAD_LEFT) . "</p>";
+
+            if ($setor_id) {
+                $this->db->prepare("INSERT INTO ticket_setor_log (ticket_id, setor_id) VALUES (?, ?)")->execute([$ticket_id, $setor_id]);
+            }
             
             // Salvar todos os anexos
             foreach ($resultado_anexos['validos'] as $anexo) {
@@ -754,10 +823,10 @@ class EmailService {
     }
     
     private function enviarConfirmacao($email, $ticket_id, $anexos_rejeitados) {
-        $assunto = "[#" . str_pad($ticket_id, 5, '0', STR_PAD_LEFT) . "] Ticket criado - CRPRS Helpdesk";
-        
-        $mensagem = "Seu ticket foi criado com sucesso!\n\n";
-        $mensagem .= "Número do ticket: #" . str_pad($ticket_id, 5, '0', STR_PAD_LEFT) . "\n\n";
+        $assunto = "[#" . str_pad($ticket_id, 5, '0', STR_PAD_LEFT) . "] Demanda criada - Conecta CRPRS";
+
+        $mensagem = "Sua demanda foi criada com sucesso!\n\n";
+        $mensagem .= "Número da demanda: #" . str_pad($ticket_id, 5, '0', STR_PAD_LEFT) . "\n\n";
         
         if (!empty($anexos_rejeitados)) {
             $mensagem .= "ATENÇÃO: Alguns anexos foram rejeitados:\n\n";
@@ -772,7 +841,7 @@ class EmailService {
         }
         
         $mensagem .= "Para acompanhar o andamento, responda a este email.\n\n";
-        $mensagem .= "Atenciosamente,\nEquipe CRPRS Helpdesk";
+        $mensagem .= "Atenciosamente,\nEquipe Conecta CRPRS";
         
         // Configurar SMTP antes de enviar
         ini_set('SMTP', EmailConfig::SMTP_HOST);

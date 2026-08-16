@@ -5,15 +5,15 @@ error_reporting(0);
 ini_set('display_errors', 0);
 
 header('Content-Type: application/json');
-header('Access-Control-Allow-Origin: *');
-header('Access-Control-Allow-Methods: GET, OPTIONS');
-header('Access-Control-Allow-Headers: Content-Type, Authorization, X-CSRF-Token');
+
+require_once __DIR__ . '/../middleware/auth.php';
+
+AuthMiddleware::configurarCORS(['GET']);
 
 if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') { exit(0); }
 
-require_once __DIR__ . '/../middleware/auth.php';
 $user = AuthMiddleware::verificarAuth();
-if (!in_array($user['tipo'] ?? '', ['agente', 'admin'])) {
+if (!in_array($user['tipo'] ?? '', ['usuario', 'supervisor', 'admin'])) {
     http_response_code(403);
     echo json_encode(['error' => 'Acesso negado']);
     exit;

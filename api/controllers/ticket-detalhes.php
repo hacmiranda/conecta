@@ -1,14 +1,14 @@
 <?php
 header('Content-Type: application/json');
-header('Access-Control-Allow-Origin: *');
-header('Access-Control-Allow-Methods: GET, OPTIONS');
-header('Access-Control-Allow-Headers: Content-Type, Authorization, X-CSRF-Token');
+
+require_once __DIR__ . '/../config/database.php';
+require_once __DIR__ . '/../middleware/auth.php';
+
+AuthMiddleware::configurarCORS(['GET']);
 
 if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
     exit(0);
 }
-
-require_once __DIR__ . '/../config/database.php';
 
 $database = new Database();
 $db = $database->getConnection();
@@ -19,7 +19,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
     
     if (!$ticket_id) {
         http_response_code(400);
-        echo json_encode(['error' => 'ID do ticket é obrigatório']);
+        echo json_encode(['error' => 'ID da demanda é obrigatório']);
         exit;
     }
     
@@ -44,7 +44,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
         
         if (!$ticket) {
             http_response_code(404);
-            echo json_encode(['error' => 'Ticket não encontrado']);
+            echo json_encode(['error' => 'Demanda não encontrada']);
             exit;
         }
         
@@ -91,7 +91,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
         
     } catch (Exception $e) {
         http_response_code(500);
-        echo json_encode(['error' => 'Erro ao buscar detalhes do ticket']);
+        echo json_encode(['error' => 'Erro ao buscar detalhes da demanda']);
     }
 }
 ?>

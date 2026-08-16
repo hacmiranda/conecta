@@ -2,7 +2,7 @@
 
 function carregarLembretes(ticketId) {
     const xhr = new XMLHttpRequest();
-    xhr.open('GET', `/crpdesk/api/controllers/lembretes.php?ticket_id=${ticketId}`, true);
+    xhr.open('GET', `${window.APP_CONFIG.apiBase}lembretes.php?ticket_id=${ticketId}`, true);
     setSecurityHeaders(xhr);
 
     xhr.onload = function () {
@@ -51,7 +51,7 @@ function mostrarLembretes(lembretes) {
 
 function mostrarModalLembrete(ticketId) {
     const xhr = new XMLHttpRequest();
-    xhr.open('GET', '/crpdesk/api/controllers/agentes.php', true);
+    xhr.open('GET', window.APP_CONFIG.apiBase + 'agentes.php', true);
 
     xhr.onload = function () {
         if (xhr.status === 200) {
@@ -135,7 +135,7 @@ function criarLembrete(ticketId, data, hora, descricao, agenteId) {
     mostrarLoader();
 
     const xhr = new XMLHttpRequest();
-    xhr.open('POST', '/crpdesk/api/controllers/lembretes.php', true);
+    xhr.open('POST', window.APP_CONFIG.apiBase + 'lembretes.php', true);
     xhr.setRequestHeader('Content-Type', 'application/json');
     setSecurityHeaders(xhr);
 
@@ -166,13 +166,13 @@ function excluirLembrete(lembreteId) {
             if (!confirmado) return;
 
             const xhr = new XMLHttpRequest();
-            xhr.open('DELETE', `/crpdesk/api/controllers/lembretes.php?id=${lembreteId}`, true);
+            xhr.open('DELETE', `${window.APP_CONFIG.apiBase}lembretes.php?id=${lembreteId}`, true);
             setSecurityHeaders(xhr);
 
             xhr.onload = function () {
                 if (xhr.status === 200) {
                     mostrarToast('Sucesso', 'Lembrete excluído!', 'success');
-                    const ticketId = JSON.parse(localStorage.getItem('ticketAtual')).id;
+                    const ticketId = JSON.parse(localStorage.getItem('cd_ticketAtual')).id;
                     carregarLembretes(ticketId);
                 }
             };

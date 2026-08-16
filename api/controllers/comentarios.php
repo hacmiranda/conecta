@@ -3,9 +3,9 @@ error_reporting(0);
 ini_set('display_errors', 0);
 
 header('Content-Type: application/json');
-header('Access-Control-Allow-Origin: *');
-header('Access-Control-Allow-Methods: POST, PUT, DELETE, OPTIONS');
-header('Access-Control-Allow-Headers: Content-Type, Authorization, X-CSRF-Token');
+
+require_once __DIR__ . '/../middleware/auth.php';
+AuthMiddleware::configurarCORS(['POST', 'PUT', 'DELETE']);
 
 if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
     exit(0);
@@ -29,7 +29,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'PUT' && isset($_GET['marcar_lido'])) {
     
     if (!$ticket_id) {
         http_response_code(400);
-        echo json_encode(['error' => 'ID do ticket é obrigatório']);
+        echo json_encode(['error' => 'ID da demanda é obrigatório']);
         exit;
     }
     
@@ -119,7 +119,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     
     if (!$ticket_id || empty($comentario)) {
         http_response_code(400);
-        echo json_encode(['error' => 'Ticket ID e comentário são obrigatórios']);
+        echo json_encode(['error' => 'ID da demanda e comentário são obrigatórios']);
         exit;
     }
     
@@ -143,7 +143,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $user_stmt->execute([$usuario_id]);
             $user_data = $user_stmt->fetch(PDO::FETCH_ASSOC);
             
-            if ($user_data && in_array($user_data['tipo'], ['agente', 'admin'])) {
+            if ($user_data && in_array($user_data['tipo'], ['usuario', 'supervisor', 'admin'])) {
                 $sla_update = "UPDATE ticket_sla 
                               SET sla_primeira_resposta_cumprido = 1, 
                                   sla_primeira_resposta_cumprido_em = NOW() 
@@ -268,7 +268,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     // Se o autor é agente/admin comentando em ticket de outro agente:
                     // 1. Mudar status para nova_resposta
                     // 2. Enviar e-mail específico ao agente responsável
-                    if (in_array($autor_tipo, ['agente', 'admin'])) {
+                    if (in_array($autor_tipo, ['usuario', 'supervisor', 'admin'])) {
                         // 1. Alterar status para nova_resposta
                         $status_query = "SELECT status FROM tickets WHERE id = ?";
                         $status_stmt = $db->prepare($status_query);
@@ -302,14 +302,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 }
             } else {
                 // Ticket sem responsável: notificar todos os agentes exceto o autor
-                $query_agentes = "SELECT id FROM usuarios WHERE tipo IN ('agente', 'admin') AND id != ?";
+                $query_agentes = "SELECT id FROM usuarios WHERE tipo IN ('usuario', 'supervisor', 'admin') AND id != ?";
                 $stmt_agentes = $db->prepare($query_agentes);
                 $stmt_agentes->execute([$usuario_id]);
                 $agentes_notificar = $stmt_agentes->fetchAll(PDO::FETCH_COLUMN);
             }
             
             // Inserir registro e notificação para cada agente
-            $msg_notificacao = "Novo comentário no ticket (#" . str_pad($ticket_id, 5, '0', STR_PAD_LEFT) . ") adicionado por " . ($autor_nome ?? 'Usuário') . ".";
+            $msg_notificacao = "Novo comentário na demanda (#" . str_pad($ticket_id, 5, '0', STR_PAD_LEFT) . ") adicionado por " . ($autor_nome ?? 'Usuário') . ".";
             $notif_query = "INSERT INTO notificacoes (usuario_id, titulo, mensagem, ticket_id) VALUES (?, 'Novo Comentário', ?, ?)";
             $stmt_notif = $db->prepare($notif_query);
 

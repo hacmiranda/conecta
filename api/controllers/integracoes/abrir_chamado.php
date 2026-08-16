@@ -75,7 +75,7 @@ if ($origem === 'ouvidoria_interna') {
 
 if (empty($titulo) || empty($descricao_raw)) {
     http_response_code(400);
-    echo json_encode(['error' => 'Título e descrição (corpo) do chamado são obrigatórios.']);
+    echo json_encode(['error' => 'Título e descrição (corpo) da demanda são obrigatórios.']);
     exit;
 }
 
@@ -87,7 +87,7 @@ $descricao = preg_replace('/javascript:/i', '#', $descricao);
 // Tag Tática: Identidade Visual da API no Corpo da Descrição
 $descricao_final = "<div style=\"background-color: #f1f5f9; border-left: 4px solid #3b82f6; padding: 12px; margin-bottom: 20px; border-radius: 4px;\">";
 $descricao_final .= "<p style=\"margin: 0; font-size: 13px; color: #475569;\"><strong>🤖 AVISO DE INTEGRAÇÃO M2M</strong><br>";
-$descricao_final .= "Este chamado foi protocolado automaticamente via API (<strong>" . strtoupper(str_replace('_', ' ', $origem)) . "</strong>).<br>";
+$descricao_final .= "Esta demanda foi protocolada automaticamente via API (<strong>" . strtoupper(str_replace('_', ' ', $origem)) . "</strong>).<br>";
 $descricao_final .= "Solicitante Identificado Repasse: <strong>" . htmlspecialchars($nome_solicitante . ' (' . $email_solicitante . ')') . "</strong></p></div>";
 $descricao_final .= $descricao;
 
@@ -210,7 +210,7 @@ try {
     // Notificar Sino dos Agentes Logados no HD
     try {
         $msg_notificacao = "🤖 Novo ticket M2M (#" . str_pad($ticket_id, 5, '0', STR_PAD_LEFT) . ") gerado a partir da: " . strtoupper(str_replace('_', ' ', $origem));
-        $stmt_agentes = $db->prepare("SELECT id FROM usuarios WHERE tipo IN ('agente', 'admin')");
+        $stmt_agentes = $db->prepare("SELECT id FROM usuarios WHERE tipo IN ('usuario', 'supervisor', 'admin')");
         $stmt_agentes->execute();
         $agentes = $stmt_agentes->fetchAll(PDO::FETCH_COLUMN);
         
@@ -228,7 +228,7 @@ try {
         'success' => true, 
         'ticket_id' => $ticket_id, 
         'origem' => $origem,
-        'message' => "Chamado do Satélite inserido limpo na Mesa de TI com identificador: #{$ticket_id}"
+        'message' => "Demanda do Satélite inserida limpa na Mesa de TI com identificador: #{$ticket_id}"
     ]);
     
 } catch (Exception $e) {

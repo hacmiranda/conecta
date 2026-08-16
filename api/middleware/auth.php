@@ -6,15 +6,21 @@ require_once __DIR__ . '/../config/environment.php';
 
 class AuthMiddleware {
 
-    /** Lista de origens permitidas para CORS */
-    private static $origensPermitidas = [
-        'http://localhost',
-        'http://localhost/crpdesk',
-        'http://127.0.0.1',
-        'http://127.0.0.1/crpdesk',
-        'https://crp07.org.br',
-        'https://www.crp07.org.br',
-    ];
+    private static $origensPermitidasCache = null;
+
+    /**
+     * Lista de origens permitidas para CORS.
+     * Configurável via CORS_ALLOWED_ORIGINS_LOCAL/_PROD no .env (lista separada por vírgula),
+     * permitindo adicionar a origem de um painel agregador sem alterar código.
+     * Sem .env, usa o default definido em Environment (localhost()/production()).
+     */
+    private static function origensPermitidas(): array {
+        if (self::$origensPermitidasCache === null) {
+            $config = Environment::get('cors_allowed_origins', '');
+            self::$origensPermitidasCache = array_filter(array_map('trim', explode(',', $config)));
+        }
+        return self::$origensPermitidasCache;
+    }
 
     /**
      * Retorna a chave secreta JWT.
@@ -56,7 +62,7 @@ class AuthMiddleware {
      */
     public static function configurarCORS(array $metodos = ['GET', 'POST', 'OPTIONS']): void {
         $origin = $_SERVER['HTTP_ORIGIN'] ?? '';
-        if (in_array($origin, self::$origensPermitidas, true)) {
+        if (in_array($origin, self::origensPermitidas(), true)) {
             header('Access-Control-Allow-Origin: ' . $origin);
         } else {
             header('Access-Control-Allow-Origin: null');
@@ -121,6 +127,31 @@ class AuthMiddleware {
             echo json_encode(['error' => 'Acesso negado. Apenas administradores.']);
             exit;
         }
+    }
+
+    /**
+     * Verifica se o usuário autenticado é supervisor ou administrador.
+     * Encerra com 403 se não for.
+     */
+    public static function verificarSupervisor(array $user): void {
+        $tipo = $user['tipo'] ?? '';
+        if (!$user || ($tipo !== 'supervisor' && $tipo !== 'admin')) {
+            http_response_code(403);
+            echo json_encode(['error' => 'Acesso negado. Apenas supervisores ou administradores.']);
+            exit;
+        }
+    }
+
+    /**
+     * Verifica se o usuário pertence ao setor informado.
+     * Administrador sempre retorna true (enxerga todos os setores).
+     */
+    public static function mesmoSetor(array $user, ?int $setorId): bool {
+        if (($user['tipo'] ?? '') === 'admin') {
+            return true;
+        }
+        $setorUsuario = $user['setor_id'] ?? null;
+        return $setorUsuario !== null && $setorId !== null && (int) $setorUsuario === (int) $setorId;
     }
 
     /**
@@ -229,15 +260,16 @@ class AuthMiddleware {
     /**
      * Gera um token JWT para o usuário autenticado.
      * Inclui claim 'csrf' para validação stateless (sem sessão PHP).
+     * Sem 'exp': a sessão não expira (firebase/php-jwt só valida expiração quando o claim existe).
      */
     public static function gerarToken(array $user_data): string {
         $payload = [
-            'id'    => $user_data['id'],
-            'email' => $user_data['email'],
-            'tipo'  => $user_data['tipo'],
-            'csrf'  => bin2hex(random_bytes(16)),
-            'iat'   => time(),
-            'exp'   => time() + (8 * 3600),
+            'id'       => $user_data['id'],
+            'email'    => $user_data['email'],
+            'tipo'     => $user_data['tipo'],
+            'setor_id' => $user_data['setor_id'] ?? null,
+            'csrf'     => bin2hex(random_bytes(16)),
+            'iat'      => time(),
         ];
         return JWT::encode($payload, self::getSecretKey(), 'HS256');
     }

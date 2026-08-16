@@ -36,8 +36,8 @@ There is no lint command, test suite, or frontend build process.
 All API requests go through `api/middleware/auth.php` for JWT verification and role-based access control. Controllers live in `api/controllers/*.php`. The frontend is a single-page application in `frontend/index.html` driven by `frontend/script.js`.
 
 ### Authentication
-- JWT tokens stored in `localStorage` (`token`, `usuario`, `token_exp`)
-- 8-hour expiration; client checks every 60s, inactivity logout at 30min
+- JWT tokens stored in `localStorage` (`token`, `usuario`)
+- No expiration: tokens carry no `exp` claim and there is no inactivity auto-logout
 - Three roles: `cliente`, `agente`, `admin`
 - Turnstile CAPTCHA on login (`api/config/turnstile.php`)
 - Every API call requires `Authorization: Bearer <token>` and `X-CSRF-Token` headers

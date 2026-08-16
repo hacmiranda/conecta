@@ -69,10 +69,10 @@
 }
 
 .filtro-pill.ativo {
-    background: #1e3a8a;
+    background: #004373;
     color: #fff;
-    border-color: #1e3a8a;
-    box-shadow: 0 2px 8px rgba(30, 58, 138, 0.3);
+    border-color: #004373;
+    box-shadow: 0 2px 8px rgba(0, 67, 115, 0.3);
 }
 
 .filtro-pill-count {
@@ -92,8 +92,8 @@
 
 /* Pills por status */
 .filtro-pill[data-status="novo"].ativo {
-    background: #1e3a8a;
-    border-color: #1e3a8a;
+    background: #004373;
+    border-color: #004373;
 }
 
 .filtro-pill[data-status="em_atendimento"].ativo {
@@ -199,7 +199,7 @@
 }
 
 .skeleton-tabela th {
-    background: linear-gradient(135deg, #1e3a8a 0%, #1a3a7a 100%);
+    background: linear-gradient(135deg, #004373 0%, #002d4d 100%);
     padding: 0.75rem 1rem;
     height: 38px;
 }
@@ -336,7 +336,7 @@
 }
 
 .tabela-resumo strong {
-    color: #1e3a8a;
+    color: #004373;
 }
 
 .paginacao {
@@ -369,9 +369,9 @@
 }
 
 .btn-paginacao:hover:not(:disabled) {
-    background: #1e3a8a;
+    background: #004373;
     color: white;
-    border-color: #1e3a8a;
+    border-color: #004373;
 }
 
 .btn-paginacao:disabled {
@@ -380,9 +380,9 @@
 }
 
 .btn-paginacao.ativo {
-    background: #1e3a8a;
+    background: #004373;
     color: white;
-    border-color: #1e3a8a;
+    border-color: #004373;
     font-weight: 700;
 }
 
@@ -445,12 +445,12 @@
 }
 
 .modo-escuro .btn-paginacao:hover:not(:disabled) {
-    background: #1e3a8a;
+    background: #004373;
     color: white;
 }
 
 .modo-escuro .btn-paginacao.ativo {
-    background: #1e3a8a;
+    background: #004373;
     color: white;
 }
 
