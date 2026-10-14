@@ -1,11 +1,23 @@
 # Pastas Ignoradas
 /vendor/
 /node_modules/
+**/vendor/
+**/node_modules/
 
 # Ambientes Locais e Segredos
 .env
 api/config/.env
 *.log
+
+# Dados de produção (anexos, avatares e logs reais não devem ir para o git)
+backend/anexos/*
+!backend/anexos/.gitkeep
+backend/uploads/avatars/*
+!backend/uploads/avatars/.gitkeep
+backend/logs/*
+!backend/logs/.gitkeep
+error_log
+*.tmp
 
 # Arquivos do OS
 .DS_Store
