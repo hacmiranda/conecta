@@ -62,8 +62,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $stmt->execute();
         $setor_id = $db->lastInsertId();
 
-        // Novo setor começa com o catálogo global inteiro ativo (categorias, status, prioridades)
-        $db->prepare("INSERT INTO setor_categorias (setor_id, categoria_id, ativo, ordem) SELECT ?, id, 1, id FROM categorias")->execute([$setor_id]);
+        // Novo setor começa com todos os status e prioridades ativos; as categorias são próprias do setor
         $db->prepare("INSERT INTO setor_status (setor_id, status_id, ativo, ordem) SELECT ?, id, 1, ordem FROM ticket_status")->execute([$setor_id]);
         $db->prepare("INSERT INTO setor_prioridades (setor_id, prioridade_id, ativo, ordem) SELECT ?, id, 1, ordem FROM ticket_prioridades")->execute([$setor_id]);
 

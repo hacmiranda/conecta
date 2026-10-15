@@ -282,6 +282,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $setor_id = $setor_stmt->fetchColumn() ?: null;
         }
 
+        // A categoria informada precisa ser do setor em que a demanda nasce (senão fica sem categoria)
+        if (!empty($categoria_id)) {
+            $chk_cat = $db->prepare("SELECT 1 FROM categorias WHERE id = ? AND setor_id = ?");
+            $chk_cat->execute([(int) $categoria_id, (int) $setor_id]);
+            if (!$chk_cat->fetchColumn()) {
+                $categoria_id = null;
+            }
+        } else {
+            $categoria_id = null;
+        }
+
         $query = "INSERT INTO tickets (titulo, descricao, usuario_id, email_solicitante, prioridade, categoria_id, setor_id, status) VALUES (:titulo, :descricao, :usuario_id, :email_solicitante, :prioridade, :categoria_id, :setor_id, 'novo')";
 
         $stmt = $db->prepare($query);
@@ -476,6 +487,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'PUT') {
             if (!$chk->fetchColumn()) {
                 http_response_code(400);
                 echo json_encode(['error' => 'Prioridade inválida']);
+                exit;
+            }
+        }
+
+        // A categoria precisa pertencer ao setor da demanda
+        if (!empty($input['categoria_id'])) {
+            $chk = $db->prepare("SELECT 1 FROM categorias WHERE id = ? AND setor_id = ?");
+            $chk->execute([(int) $input['categoria_id'], (int) $current_data['setor_id']]);
+            if (!$chk->fetchColumn()) {
+                http_response_code(400);
+                echo json_encode(['error' => 'A subcategoria não pertence ao setor da demanda']);
                 exit;
             }
         }
