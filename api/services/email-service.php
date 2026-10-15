@@ -1,4 +1,5 @@
 <?php
+require_once __DIR__ . '/acesso-service.php';
 date_default_timezone_set('America/Sao_Paulo');
 
 class EmailService {
@@ -800,6 +801,14 @@ class EmailService {
             $hist_stmt->bindParam(':usuario_id', $ticket['usuario_id']);
             $hist_stmt->bindParam(':valor_anterior', $ticket['status']);
             $hist_stmt->execute();
+
+            // Reabre as janelas de passagem por setor/responsável (fechadas no encerramento)
+            AcessoService::reabrirJanelasDaDemanda(
+                $this->db,
+                (int) $ticket_id,
+                !empty($ticket['setor_id']) ? (int) $ticket['setor_id'] : null,
+                !empty($ticket['agente_id']) ? (int) $ticket['agente_id'] : null
+            );
             
             echo "<p>✅ Ticket reaberto automaticamente</p>";
             

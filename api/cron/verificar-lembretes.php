@@ -2,6 +2,7 @@
 $base_dir = dirname(__DIR__);
 require_once $base_dir . '/config/database.php';
 require_once $base_dir . '/services/email-sender.php';
+require_once $base_dir . '/services/acesso-service.php';
 
 $database = new Database();
 $db = $database->getConnection();
@@ -9,7 +10,8 @@ $emailSender = new EmailSender($db);
 
 try {
     // Buscar lembretes que devem ser notificados
-    $query = "SELECT l.*, t.titulo as ticket_titulo, t.id as ticket_numero, t.status as ticket_status, 
+    $query = "SELECT l.*, t.titulo as ticket_titulo, t.id as ticket_numero, t.status as ticket_status,
+                     t.setor_id as ticket_setor_id, t.agente_id as ticket_agente_id,
                      u.nome as agente_nome, u.email as agente_email,
                      c.email as autor_email
              FROM lembretes l
@@ -51,11 +53,11 @@ try {
             $notif_stmt->bindParam(':ticket_id', $lembrete['ticket_id']);
             $notif_stmt->execute();
         } else {
-            // "Todos os agentes": Buscar todos os agentes/admins ativos
-            $agentes_query = "SELECT id, email FROM usuarios WHERE tipo IN ('operador', 'gestor', 'admin') AND ativo = 1";
-            $agentes_stmt = $db->prepare($agentes_query);
-            $agentes_stmt->execute();
-            $todosAgentes = $agentes_stmt->fetchAll(PDO::FETCH_ASSOC);
+            // Lembrete geral: o responsável da demanda ou, sem responsável, os gestores do setor
+            $todosAgentes = AcessoService::destinatariosDaDemanda($db, [
+                'agente_id' => $lembrete['ticket_agente_id'],
+                'setor_id'  => $lembrete['ticket_setor_id'],
+            ]);
 
             foreach ($todosAgentes as $ag) {
                 if ($ag['email']) {

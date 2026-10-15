@@ -2,6 +2,7 @@
 date_default_timezone_set('America/Sao_Paulo');
 require_once __DIR__ . '/../config/email-config.php';
 require_once __DIR__ . '/../vendor/autoload.php';
+require_once __DIR__ . '/acesso-service.php';
 
 use PHPMailer\PHPMailer\PHPMailer;
 use PHPMailer\PHPMailer\Exception;
@@ -128,10 +129,12 @@ class EmailSender {
                 return false;
             }
             
-            $query_agentes = "SELECT email FROM usuarios WHERE tipo IN ('operador', 'gestor', 'admin') AND email IS NOT NULL AND ativo = 1";
-            $stmt_agentes = $this->db->prepare($query_agentes);
-            $stmt_agentes->execute();
-            $agentes = $stmt_agentes->fetchAll();
+            // Somente os gestores do setor da demanda (admins se o setor não tiver gestor)
+            $agentes = AcessoService::destinatariosInternosDoSetor(
+                $this->db,
+                !empty($ticket['setor_id']) ? (int) $ticket['setor_id'] : null
+            );
+            $agentes = array_values(array_filter($agentes, function ($a) { return !empty($a['email']); }));
             
             $assunto = "🎫 [NOVA DEMANDA] #" . str_pad($ticket_id, 5, '0', STR_PAD_LEFT) . " - " . $ticket['titulo'];
 
@@ -447,14 +450,18 @@ class EmailSender {
                     $this->enviarEmailTexto($dados['agente_email'], $assunto, $mensagem);
                 }
             } else {
-                // Sem agente: notificar todos os agentes/admins ativos
-                $query_agentes = "SELECT id, email FROM usuarios WHERE tipo IN ('operador', 'gestor', 'admin') AND email IS NOT NULL AND ativo = 1";
-                $stmt_agentes  = $this->db->prepare($query_agentes);
-                $stmt_agentes->execute();
-                $agentes = $stmt_agentes->fetchAll();
+                // Sem responsável: notificar os gestores do setor da demanda (admins se não houver gestor)
+                $stmt_setor = $this->db->prepare("SELECT setor_id FROM tickets WHERE id = ?");
+                $stmt_setor->execute([$ticket_id]);
+                $setor_ticket = $stmt_setor->fetchColumn();
+                $agentes = AcessoService::destinatariosInternosDoSetor(
+                    $this->db,
+                    $setor_ticket ? (int) $setor_ticket : null,
+                    $autor_id ? (int) $autor_id : null
+                );
 
                 foreach ($agentes as $agente) {
-                    if ($agente['id'] != $autor_id) {
+                    if (!empty($agente['email'])) {
                         $this->enviarEmailTexto($agente['email'], $assunto, $mensagem);
                     }
                 }

@@ -1363,6 +1363,7 @@ function alterarCategoria(ticketId) {
 
     const xhr = new XMLHttpRequest();
     xhr.open('GET', window.APP_CONFIG.apiBase + 'categorias.php' + filtroSetor, true);
+    setSecurityHeaders(xhr);
 
     xhr.onload = function () {
         if (xhr.status === 200) {
@@ -3379,6 +3380,7 @@ function carregarCategorias() {
 
     const xhr = new XMLHttpRequest();
     xhr.open('GET', window.APP_CONFIG.apiBase + 'categorias.php' + filtroSetor, true);
+    setSecurityHeaders(xhr);
 
     xhr.onload = function () {
         if (xhr.status === 200) {
@@ -3641,6 +3643,7 @@ function mostrarCategorias() {
 function carregarMacrocategorias() {
     const xhr = new XMLHttpRequest();
     xhr.open('GET', window.APP_CONFIG.apiBase + 'macrocategorias.php', true);
+    setSecurityHeaders(xhr);
 
     xhr.onload = function () {
         if (xhr.status === 200) {
@@ -3672,6 +3675,7 @@ function carregarMacrocategorias() {
 function carregarListaCategorias() {
     const xhr = new XMLHttpRequest();
     xhr.open('GET', window.APP_CONFIG.apiBase + 'categorias.php', true);
+    setSecurityHeaders(xhr);
 
     xhr.onload = function () {
         if (xhr.status === 200) {
@@ -3680,6 +3684,7 @@ function carregarListaCategorias() {
             // Carregar macrocategorias (Categoria) para exibição agrupada
             const xhr2 = new XMLHttpRequest();
             xhr2.open('GET', window.APP_CONFIG.apiBase + 'macrocategorias.php', true);
+            setSecurityHeaders(xhr2);
 
             xhr2.onload = function () {
                 if (xhr2.status === 200) {
@@ -3946,6 +3951,7 @@ function criarCategoria(event) {
     // Verificar se subcategoria já existe
     const xhr1 = new XMLHttpRequest();
     xhr1.open('GET', window.APP_CONFIG.apiBase + 'categorias.php', true);
+    setSecurityHeaders(xhr1);
 
     xhr1.onload = function () {
         if (xhr1.status === 200) {
@@ -4021,6 +4027,7 @@ function editarCategoria(categoriaId) {
     // Buscar dados atuais da subcategoria
     const xhr = new XMLHttpRequest();
     xhr.open('GET', window.APP_CONFIG.apiBase + 'categorias.php', true);
+    setSecurityHeaders(xhr);
 
     xhr.onload = function () {
         if (xhr.status === 200) {
@@ -4043,6 +4050,7 @@ function mostrarFormularioEdicaoCategoria(categoria) {
     // Carregar categorias (macrocategorias)
     const xhr = new XMLHttpRequest();
     xhr.open('GET', window.APP_CONFIG.apiBase + 'macrocategorias.php', true);
+    setSecurityHeaders(xhr);
 
     xhr.onload = function () {
         if (xhr.status === 200) {
@@ -5038,39 +5046,20 @@ function mostrarDashboard() {
 
 // Carregar dados do dashboard
 function carregarDashboard() {
-    // Primeiro inicializar tabelas
-    const xhrInit = new XMLHttpRequest();
-    xhrInit.open('POST', window.APP_CONFIG.apiBase + 'init-tempo.php', true);
-    xhrInit.setRequestHeader('Content-Type', 'application/json');
+    const xhr = new XMLHttpRequest();
+    xhr.open('GET', window.APP_CONFIG.apiBase + 'dashboard.php', true);
+    setSecurityHeaders(xhr);
 
-    xhrInit.onload = function () {
-        // Inicializar histórico
-        const xhrHist = new XMLHttpRequest();
-        xhrHist.open('POST', window.APP_CONFIG.apiBase + 'init-historico.php', true);
-        xhrHist.setRequestHeader('Content-Type', 'application/json');
-
-        xhrHist.onload = function () {
-            // Depois carregar dashboard
-            const xhr = new XMLHttpRequest();
-            xhr.open('GET', window.APP_CONFIG.apiBase + 'dashboard.php', true);
-            setSecurityHeaders(xhr);
-
-            xhr.onload = function () {
-                if (xhr.status === 200) {
-                    const dados = JSON.parse(xhr.responseText);
-                    mostrarDashboardNaTela(dados);
-                } else {
-                    document.getElementById('dashboard-content').innerHTML = '<p>Erro ao carregar dashboard.</p>';
-                }
-            };
-
-            xhr.send();
-        };
-
-        xhrHist.send('{}');
+    xhr.onload = function () {
+        if (xhr.status === 200) {
+            const dados = JSON.parse(xhr.responseText);
+            mostrarDashboardNaTela(dados);
+        } else {
+            document.getElementById('dashboard-content').innerHTML = '<p>Erro ao carregar dashboard.</p>';
+        }
     };
 
-    xhrInit.send('{}');
+    xhr.send();
 }
 
 // Mostrar dashboard na tela
@@ -5620,6 +5609,7 @@ function carregarFiltrosRelatorio() {
     // Carregar categorias
     const xhr1 = new XMLHttpRequest();
     xhr1.open('GET', window.APP_CONFIG.apiBase + 'categorias.php', true);
+    setSecurityHeaders(xhr1);
     xhr1.onload = function () {
         if (xhr1.status === 200) {
             const categorias = JSON.parse(xhr1.responseText);

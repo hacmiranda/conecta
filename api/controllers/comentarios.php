@@ -5,6 +5,7 @@ ini_set('display_errors', 0);
 header('Content-Type: application/json');
 
 require_once __DIR__ . '/../middleware/auth.php';
+require_once __DIR__ . '/../services/acesso-service.php';
 AuthMiddleware::configurarCORS(['POST', 'PUT', 'DELETE']);
 
 if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
@@ -24,14 +25,20 @@ $db = $database->getConnection();
 
 // PUT - Marcar comentários como lidos
 if ($_SERVER['REQUEST_METHOD'] === 'PUT' && isset($_GET['marcar_lido'])) {
+    $user = AuthMiddleware::verificarAuth();
+    AuthMiddleware::verificarCSRF();
+
     $ticket_id = $_GET['ticket_id'] ?? null;
-    $usuario_id = $_GET['usuario_id'] ?? 1; // TODO: Pegar do token JWT
+    // O usuário vem sempre do token; o parâmetro usuario_id da URL é ignorado
+    $usuario_id = (int) $user['id'];
     
     if (!$ticket_id) {
         http_response_code(400);
         echo json_encode(['error' => 'ID da demanda é obrigatório']);
         exit;
     }
+
+    AcessoService::exigirVerTicket($db, $user, $ticket_id);
     
     try {
         $query = "DELETE FROM comentarios_nao_lidos WHERE ticket_id = :ticket_id AND usuario_id = :usuario_id";
@@ -51,18 +58,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'PUT' && isset($_GET['marcar_lido'])) {
 
 // POST - Adicionar comentário
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    // Obter usuário logado do token JWT (com fallback)
-    $usuario_id = null;
-    try {
-        require_once __DIR__ . '/../middleware/auth.php';
-        $user = AuthMiddleware::verificarAuth();
-        $usuario_id = $user['id'];
-        error_log("[COMENTARIOS] Usuário autenticado via JWT: ID {$usuario_id}");
-    } catch (Exception $e) {
-        // Fallback: tentar pegar do POST/input (compatibilidade)
-        error_log("[COMENTARIOS] JWT falhou, usando fallback: " . $e->getMessage());
-        // Será definido abaixo baseado em FormData ou JSON
-    }
+    // Autenticação e CSRF obrigatórios; o autor do comentário é sempre o usuário do token
+    $user = AuthMiddleware::verificarAuth();
+    AuthMiddleware::verificarCSRF();
+    $usuario_id = (int) $user['id'];
     
     // Verificar se é FormData (com anexos) ou JSON
     $isFormData = isset($_POST['ticket_id']);
@@ -70,18 +69,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if ($isFormData) {
         $ticket_id = $_POST['ticket_id'] ?? null;
         $comentario_raw = $_POST['comentario'] ?? '';
-        if ($usuario_id === null) {
-            $usuario_id = $_POST['usuario_id'] ?? 1;
-        }
         $enviar_email = !empty($_POST['enviar_email']) && $_POST['enviar_email'] !== '0';
         $com_copia = $_POST['com_copia'] ?? null;
     } else {
         $input = json_decode(file_get_contents('php://input'), true);
         $ticket_id = $input['ticket_id'] ?? null;
         $comentario_raw = $input['comentario'] ?? '';
-        if ($usuario_id === null) {
-            $usuario_id = $input['usuario_id'] ?? 1;
-        }
         $enviar_email = $input['enviar_email'] ?? false;
         $com_copia = $input['com_copia'] ?? null;
     }
@@ -113,15 +106,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $comentario
     );
     
-    if ($usuario_id !== null) {
-        error_log("[COMENTARIOS] Usando usuario_id final: {$usuario_id}");
-    }
-    
     if (!$ticket_id || empty($comentario)) {
         http_response_code(400);
         echo json_encode(['error' => 'ID da demanda e comentário são obrigatórios']);
         exit;
     }
+
+    // Isolamento: só comenta quem pode ver a demanda (404/403)
+    AcessoService::exigirVerTicket($db, $user, $ticket_id);
     
     try {
         $query = "INSERT INTO comentarios (ticket_id, usuario_id, comentario) 
@@ -301,11 +293,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     // --- FIM NOVA LÓGICA ---
                 }
             } else {
-                // Ticket sem responsável: notificar todos os agentes exceto o autor
-                $query_agentes = "SELECT id FROM usuarios WHERE tipo IN ('operador', 'gestor', 'admin') AND id != ?";
-                $stmt_agentes = $db->prepare($query_agentes);
-                $stmt_agentes->execute([$usuario_id]);
-                $agentes_notificar = $stmt_agentes->fetchAll(PDO::FETCH_COLUMN);
+                // Demanda sem responsável: notificar os gestores do setor (admins se não houver), exceto o autor
+                $stmt_setor = $db->prepare("SELECT setor_id FROM tickets WHERE id = ?");
+                $stmt_setor->execute([$ticket_id]);
+                $setor_demanda = $stmt_setor->fetchColumn();
+                $agentes_notificar = array_column(
+                    AcessoService::destinatariosInternosDoSetor($db, $setor_demanda ? (int) $setor_demanda : null, $usuario_id),
+                    'id'
+                );
             }
             
             // Inserir registro e notificação para cada agente

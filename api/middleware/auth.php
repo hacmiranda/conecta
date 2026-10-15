@@ -109,12 +109,46 @@ class AuthMiddleware {
         try {
             $secret = self::getSecretKey();
             $decoded = JWT::decode($token, new Key($secret, 'HS256'));
-            return (array) $decoded;
+            $payload = (array) $decoded;
         } catch (Exception $e) {
             http_response_code(401);
             echo json_encode(['error' => 'Token inválido ou expirado']);
             exit;
         }
+
+        return self::sincronizarComBanco($payload);
+    }
+
+    /**
+     * O JWT não expira e guarda papel/setor no momento do login. Para que mudança de setor,
+     * de papel ou desativação do usuário valham imediatamente, o estado atual é relido do
+     * banco a cada requisição. Usuário inexistente ou inativo recebe 401.
+     */
+    private static function sincronizarComBanco(array $payload): array {
+        try {
+            require_once __DIR__ . '/../config/database.php';
+            $database = new Database();
+            $db = $database->getConnection();
+            $stmt = $db->prepare("SELECT nome, tipo, setor_id, ativo FROM usuarios WHERE id = ?");
+            $stmt->execute([(int) ($payload['id'] ?? 0)]);
+            $atual = $stmt->fetch(PDO::FETCH_ASSOC);
+        } catch (Exception $e) {
+            error_log('[AUTH] Falha ao sincronizar usuário com o banco: ' . $e->getMessage());
+            http_response_code(500);
+            echo json_encode(['error' => 'Erro interno de autenticação']);
+            exit;
+        }
+
+        if (!$atual || (int) $atual['ativo'] !== 1) {
+            http_response_code(401);
+            echo json_encode(['error' => 'Usuário inativo ou inexistente']);
+            exit;
+        }
+
+        $payload['nome']     = $atual['nome'];
+        $payload['tipo']     = $atual['tipo'];
+        $payload['setor_id'] = $atual['setor_id'] !== null ? (int) $atual['setor_id'] : null;
+        return $payload;
     }
 
     /**

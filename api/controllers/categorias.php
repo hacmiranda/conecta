@@ -16,6 +16,7 @@ $db = $database->getConnection();
 
 // GET - Listar categorias (opcionalmente só as ativas de um setor, via ?setor_id=)
 if ($_SERVER['REQUEST_METHOD'] === 'GET') {
+    AuthMiddleware::verificarAuth(); // catálogo interno: exige login
     try {
         $setor_id = isset($_GET['setor_id']) && $_GET['setor_id'] !== '' ? (int) $_GET['setor_id'] : null;
 

@@ -15,6 +15,7 @@ $db = $database->getConnection();
 
 // GET - Buscar horários úteis
 if ($_SERVER['REQUEST_METHOD'] === 'GET' && !isset($_GET['feriados'])) {
+    AuthMiddleware::verificarAuth(); // catálogo interno: exige login
     try {
         $query = "SELECT * FROM horarios_uteis ORDER BY dia_semana";
         $stmt = $db->prepare($query);
@@ -30,6 +31,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET' && !isset($_GET['feriados'])) {
 
 // GET - Buscar feriados
 if ($_SERVER['REQUEST_METHOD'] === 'GET' && isset($_GET['feriados'])) {
+    AuthMiddleware::verificarAuth(); // catálogo interno: exige login
     try {
         $query = "SELECT * FROM feriados ORDER BY data DESC";
         $stmt = $db->prepare($query);

@@ -3,6 +3,7 @@ header('Content-Type: application/json');
 
 require_once __DIR__ . '/../config/database.php';
 require_once __DIR__ . '/../middleware/auth.php';
+require_once __DIR__ . '/../services/acesso-service.php';
 
 AuthMiddleware::configurarCORS(['GET', 'POST', 'PUT', 'DELETE']);
 
@@ -15,6 +16,7 @@ $db = $database->getConnection();
 
 // GET - Listar status disponíveis (opcionalmente só os ativos de um setor, via ?setor_id=)
 if ($_SERVER['REQUEST_METHOD'] === 'GET') {
+    AuthMiddleware::verificarAuth(); // catálogo interno: exige login
     try {
         $setor_id = isset($_GET['setor_id']) && $_GET['setor_id'] !== '' ? (int) $_GET['setor_id'] : null;
 
@@ -61,6 +63,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'PUT') {
     try {
         $db->beginTransaction();
         
+        // Isolamento: admin, gestor do setor ou operador responsável
+        AcessoService::exigirOperarTicket($db, $user, $ticket_id);
+
+        // O status precisa existir no catálogo
+        $chk = $db->prepare("SELECT 1 FROM ticket_status WHERE nome = ? AND ativo = 1");
+        $chk->execute([$novo_status]);
+        if (!$chk->fetchColumn()) {
+            throw new Exception('Status inválido');
+        }
+
         // Buscar ticket atual
         $query = "SELECT status, prioridade FROM tickets WHERE id = :id";
         $stmt = $db->prepare($query);
@@ -115,16 +127,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'PUT') {
         }
         
         // Verificar e atualizar SLA vencido
-        $this->verificarSLAVencido($db, $ticket_id);
+        verificarSLAVencido($db, $ticket_id);
         
         $db->commit();
         
         echo json_encode(['success' => true, 'message' => 'Status atualizado com sucesso']);
         
     } catch (Exception $e) {
-        $db->rollBack();
+        if ($db->inTransaction()) {
+            $db->rollBack();
+        }
+        error_log('[TICKET-STATUS PUT] Erro: ' . $e->getMessage());
         http_response_code(500);
-        echo json_encode(['error' => 'Erro ao atualizar status: ' . $e->getMessage()]);
+        echo json_encode(['error' => 'Erro ao atualizar status']);
     }
 }
 

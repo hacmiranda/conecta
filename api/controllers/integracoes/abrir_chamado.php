@@ -1,6 +1,6 @@
 <?php
 error_reporting(E_ALL);
-ini_set('display_errors', 1);
+ini_set('display_errors', 0);
 
 header('Content-Type: application/json');
 header('Access-Control-Allow-Origin: *'); // Em produção, restrinja aos IPs da Locaweb
@@ -20,15 +20,24 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
 
 require_once __DIR__ . '/../../config/database.php';
 require_once __DIR__ . '/../../config/environment.php';
+require_once __DIR__ . '/../../services/acesso-service.php';
 
 // Validar API KEY da Transação (Segurança Server-to-Server)
 $headers = getallheaders();
 $api_key = $headers['X-API-KEY'] ?? $headers['x-api-key'] ?? $_SERVER['HTTP_X_API_KEY'] ?? '';
 
-// Chave Mestra da API de Integração (Deve ser definida no .env no futuro)
-$expected_key = Environment::get('integration_api_key', 'crpdesk_integracao_secreta_2026');
+// Chave Mestra da API de Integração: definida exclusivamente no .env (INTEGRATION_API_KEY_LOCAL/_PROD).
+// Sem chave configurada, a integração fica desativada (não existe valor padrão no código).
+$expected_key = (string) Environment::get('integration_api_key', '');
 
-if (empty($api_key) || $api_key !== $expected_key) {
+if ($expected_key === '') {
+    error_log('[M2M Integration] INTEGRATION_API_KEY não configurada no .env; integração desativada.');
+    http_response_code(503);
+    echo json_encode(['error' => 'Integração não configurada.']);
+    exit;
+}
+
+if (empty($api_key) || !hash_equals($expected_key, (string) $api_key)) {
     http_response_code(401);
     echo json_encode(['error' => 'Acesso não autorizado. API KEY ausente ou inválida.']);
     exit;
@@ -128,8 +137,13 @@ try {
         $prioridade = 'normal';
     }
     
+    // 2.1 Setor de entrada: integrações externas caem em "Geral" para triagem
+    $setor_stmt = $db->prepare("SELECT id FROM setores WHERE nome = 'Geral' AND ativo = 1 LIMIT 1");
+    $setor_stmt->execute();
+    $setor_id = $setor_stmt->fetchColumn() ?: null;
+
     // 3. Gerar o Ticket com Status Novo Mapeado para API
-    $query = "INSERT INTO tickets (titulo, descricao, usuario_id, origem_api, email_solicitante, prioridade, categoria_id, status) VALUES (:titulo, :descricao, :usuario_id, :origem_api, :email_solicitante, :prioridade, :categoria_id, 'novo')";
+    $query = "INSERT INTO tickets (titulo, descricao, usuario_id, origem_api, email_solicitante, prioridade, categoria_id, setor_id, status) VALUES (:titulo, :descricao, :usuario_id, :origem_api, :email_solicitante, :prioridade, :categoria_id, :setor_id, 'novo')";
     $stmt = $db->prepare($query);
     $stmt->bindParam(':titulo', $titulo);
     $stmt->bindParam(':descricao', $descricao_final); // Conteúdo carimbado pela Flag
@@ -138,9 +152,15 @@ try {
     $stmt->bindParam(':email_solicitante', $email_solicitante);
     $stmt->bindParam(':prioridade', $prioridade);
     $stmt->bindParam(':categoria_id', $categoria_id);
+    $stmt->bindParam(':setor_id', $setor_id);
     
     $stmt->execute();
     $ticket_id = $db->lastInsertId();
+
+    // Abre a janela de passagem pelo setor (histórico de setores)
+    if ($setor_id) {
+        $db->prepare("INSERT INTO ticket_setor_log (ticket_id, setor_id) VALUES (?, ?)")->execute([$ticket_id, $setor_id]);
+    }
     
     // 4. Carimbar Início de Contador do SLA 
     $sla_query = "INSERT INTO ticket_sla (ticket_id) VALUES (?)";
@@ -210,9 +230,8 @@ try {
     // Notificar Sino dos Agentes Logados no HD
     try {
         $msg_notificacao = "🤖 Novo ticket M2M (#" . str_pad($ticket_id, 5, '0', STR_PAD_LEFT) . ") gerado a partir da: " . strtoupper(str_replace('_', ' ', $origem));
-        $stmt_agentes = $db->prepare("SELECT id FROM usuarios WHERE tipo IN ('operador', 'gestor', 'admin')");
-        $stmt_agentes->execute();
-        $agentes = $stmt_agentes->fetchAll(PDO::FETCH_COLUMN);
+        // Apenas os gestores do setor de entrada (admins se não houver gestor)
+        $agentes = array_column(AcessoService::destinatariosInternosDoSetor($db, $setor_id ? (int) $setor_id : null), 'id');
         
         if (!empty($agentes)) {
             $stmt_notif = $db->prepare("INSERT INTO notificacoes (usuario_id, titulo, mensagem, ticket_id) VALUES (?, '📡 Interceptação API', ?, ?)");
@@ -234,5 +253,5 @@ try {
 } catch (Exception $e) {
     error_log("[M2M Integration FATAL] " . $e->getMessage());
     http_response_code(500);
-    echo json_encode(['error' => 'Erro interno SQL da Infra API.', 'details' => $e->getMessage()]);
+    echo json_encode(['error' => 'Erro interno ao registrar a demanda.']);
 }

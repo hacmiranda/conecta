@@ -10,6 +10,7 @@ header('Content-Type: application/json');
 
 require_once __DIR__ . '/../config/database.php';
 require_once __DIR__ . '/../middleware/auth.php';
+require_once __DIR__ . '/../services/acesso-service.php';
 require_once __DIR__ . '/../services/auditoria-service.php';
 
 AuthMiddleware::configurarCORS(['POST']);
@@ -98,6 +99,14 @@ try {
     $nome_ator_stmt->execute([$user['id']]);
     $nome_ator = $nome_ator_stmt->fetchColumn() ?: 'Sistema';
 
+    // Nome do responsável atual (para o histórico, independente de quem executa a ação)
+    $responsavel_atual_nome = 'Não atribuído';
+    if (!empty($ticket['agente_id'])) {
+        $resp_stmt = $db->prepare("SELECT nome FROM usuarios WHERE id = ?");
+        $resp_stmt->execute([$ticket['agente_id']]);
+        $responsavel_atual_nome = $resp_stmt->fetchColumn() ?: $responsavel_atual_nome;
+    }
+
     $notificar = []; // [usuario_id => mensagem]
 
     if ($acao === 'atribuir') {
@@ -110,16 +119,14 @@ try {
         $destino_stmt->execute([$destino_id]);
         $destino = $destino_stmt->fetch(PDO::FETCH_ASSOC);
 
-        if (!$destino || !$destino['ativo'] || !AuthMiddleware::mesmoSetor($user, (int) $destino['setor_id'])) {
-            throw new InvalidArgumentException('Destinatário inválido ou fora do seu setor');
+        // O destinatário precisa ser operador/gestor ativo do setor da DEMANDA (vale também para o admin)
+        if (!$destino || !$destino['ativo']
+            || !in_array($destino['tipo'], ['operador', 'gestor'], true)
+            || (int) $destino['setor_id'] !== (int) $ticket['setor_id']) {
+            throw new InvalidArgumentException('Destinatário inválido ou fora do setor da demanda');
         }
 
-        $agente_anterior_nome = 'Não atribuído';
-        if ($ticket['agente_id']) {
-            $ant_stmt = $db->prepare("SELECT nome FROM usuarios WHERE id = ?");
-            $ant_stmt->execute([$ticket['agente_id']]);
-            $agente_anterior_nome = $ant_stmt->fetchColumn() ?: $agente_anterior_nome;
-        }
+        $agente_anterior_nome = $responsavel_atual_nome;
 
         $status_novo = $ticket['status'] === 'novo' ? 'em_atendimento' : $ticket['status'];
         $upd = $db->prepare("UPDATE tickets SET agente_id = :agente_id, atribuido_em = NOW(), status = :status WHERE id = :id");
@@ -139,7 +146,7 @@ try {
         $notificar[$destino_id] = "A demanda (#" . str_pad($ticket_id, 5, '0', STR_PAD_LEFT) . ") foi atribuída a você por {$nome_ator}.";
 
     } elseif ($acao === 'devolver') {
-        $agente_anterior_nome = $nome_ator;
+        $agente_anterior_nome = $responsavel_atual_nome;
 
         $upd = $db->prepare("UPDATE tickets SET agente_id = NULL, atribuido_em = NULL WHERE id = :id");
         $upd->execute([':id' => $ticket_id]);
@@ -155,13 +162,9 @@ try {
 
         $auditoria->registrarTicket($ticket_id, $user['id'], 'agente', $agente_anterior_nome, 'Não atribuído');
 
-        // Notifica os gestores do setor atual da demanda
-        if ($ticket['setor_id']) {
-            $sup_stmt = $db->prepare("SELECT id FROM usuarios WHERE setor_id = ? AND tipo = 'gestor' AND ativo = 1");
-            $sup_stmt->execute([$ticket['setor_id']]);
-            foreach ($sup_stmt->fetchAll(PDO::FETCH_COLUMN) as $sup_id) {
-                $notificar[$sup_id] = "{$nome_ator} devolveu a demanda (#" . str_pad($ticket_id, 5, '0', STR_PAD_LEFT) . ") para o setor.";
-            }
+        // Notifica os gestores do setor atual da demanda (admins se o setor não tiver gestor)
+        foreach (AcessoService::destinatariosInternosDoSetor($db, $ticket['setor_id'] ? (int) $ticket['setor_id'] : null, (int) $user['id']) as $dest) {
+            $notificar[$dest['id']] = "{$nome_ator} devolveu a demanda (#" . str_pad($ticket_id, 5, '0', STR_PAD_LEFT) . ") para o setor.";
         }
 
     } elseif ($acao === 'reatribuir_colega') {
@@ -187,11 +190,11 @@ try {
         }
         $db->prepare("INSERT INTO ticket_agente_log (ticket_id, usuario_id) VALUES (?, ?)")->execute([$ticket_id, $destino_id]);
 
-        $hist_valor_anterior = $nome_ator;
+        $hist_valor_anterior = $responsavel_atual_nome;
         $hist_valor_novo = $destino['nome'];
         $hist_acao = 'reatribuicao_colega';
 
-        $auditoria->registrarTicket($ticket_id, $user['id'], 'agente', $nome_ator, $destino['nome']);
+        $auditoria->registrarTicket($ticket_id, $user['id'], 'agente', $responsavel_atual_nome, $destino['nome']);
         $notificar[$destino_id] = "{$nome_ator} repassou a demanda (#" . str_pad($ticket_id, 5, '0', STR_PAD_LEFT) . ") para você.";
 
     } else { // transferir_setor
@@ -239,10 +242,8 @@ try {
 
         $auditoria->registrarTicket($ticket_id, $user['id'], 'setor', $setor_origem_nome, $setor_destino['nome']);
 
-        $sup_stmt = $db->prepare("SELECT id FROM usuarios WHERE setor_id = ? AND tipo = 'gestor' AND ativo = 1");
-        $sup_stmt->execute([$setor_destino_id]);
-        foreach ($sup_stmt->fetchAll(PDO::FETCH_COLUMN) as $sup_id) {
-            $notificar[$sup_id] = "{$nome_ator} transferiu uma demanda (#" . str_pad($ticket_id, 5, '0', STR_PAD_LEFT) . ") para o setor {$setor_destino['nome']}.";
+        foreach (AcessoService::destinatariosInternosDoSetor($db, $setor_destino_id, (int) $user['id']) as $dest) {
+            $notificar[$dest['id']] = "{$nome_ator} transferiu uma demanda (#" . str_pad($ticket_id, 5, '0', STR_PAD_LEFT) . ") para o setor {$setor_destino['nome']}.";
         }
     }
 

@@ -13,7 +13,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
 
 try {
     $user = AuthMiddleware::verificarAuth();
-    AuthMiddleware::verificarGestor($user);
+    AuthMiddleware::verificarAdmin($user); // Auditoria: exclusiva de administradores
 
     $database = new Database();
     $db = $database->getConnection();

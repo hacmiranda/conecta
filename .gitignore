@@ -22,3 +22,6 @@ error_log
 # Arquivos do OS
 .DS_Store
 Thumbs.db
+
+# Artefatos do Playwright (testes manuais)
+.playwright-mcp/
