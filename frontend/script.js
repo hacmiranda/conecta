@@ -3096,6 +3096,21 @@ function mostrarListaUsuarios(usuarios, setores) {
                     </div>
                     ${campoSetor}
                 </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="senha-usuario">Senha inicial:</label>
+                        <input type="password" id="senha-usuario" required autocomplete="new-password"
+                            aria-describedby="senha-usuario-ajuda">
+                    </div>
+                    <div class="form-group">
+                        <label for="senha-confirmacao-usuario">Confirmar senha:</label>
+                        <input type="password" id="senha-confirmacao-usuario" required autocomplete="new-password">
+                    </div>
+                </div>
+                <p id="senha-usuario-ajuda" class="ajuda-senha-usuario">
+                    A senha deve ter no mínimo 10 caracteres, com letra maiúscula, minúscula, número e caractere especial.
+                    Informe a senha ao usuário por um canal seguro; ele pode alterá-la depois em <em>Alterar senha</em>.
+                </p>
                 <button type="submit" class="btn-primary">Adicionar Usuário</button>
             </form>
         </div>
@@ -3133,9 +3148,22 @@ function criarUsuario(event) {
     const tipo = document.getElementById('tipo-usuario').value;
     const campoSetor = document.getElementById('setor-usuario');
     const setor_id = campoSetor ? campoSetor.value : null;
+    const senha = document.getElementById('senha-usuario').value;
+    const senhaConfirmacao = document.getElementById('senha-confirmacao-usuario').value;
 
     if ((tipo === 'operador' || tipo === 'gestor') && campoSetor && !setor_id) {
         mostrarAlert('Erro', 'Selecione um setor para os perfis Operador/Gestor.');
+        return;
+    }
+
+    if (senha !== senhaConfirmacao) {
+        mostrarAlert('Erro', 'As senhas não coincidem.');
+        return;
+    }
+
+    const erroSenha = validarSenhaNova(senha);
+    if (erroSenha) {
+        mostrarAlert('Senha inválida', erroSenha);
         return;
     }
 
@@ -3161,7 +3189,17 @@ function criarUsuario(event) {
         }
     };
 
-    xhr.send(JSON.stringify({ nome, username, email, cargo, tipo, setor_id }));
+    xhr.send(JSON.stringify({ nome, username, email, cargo, tipo, setor_id, senha }));
+}
+
+// Regras de senha (as mesmas do servidor e da tela "Alterar senha"); retorna a mensagem ou null
+function validarSenhaNova(senha) {
+    if (senha.length < 10) return 'A senha deve ter no mínimo 10 caracteres.';
+    if (!/[A-Z]/.test(senha)) return 'A senha deve conter ao menos 1 letra maiúscula.';
+    if (!/[a-z]/.test(senha)) return 'A senha deve conter ao menos 1 letra minúscula.';
+    if (!/[0-9]/.test(senha)) return 'A senha deve conter ao menos 1 número.';
+    if (!/[!@#$%^&*(),.?":{}|<>]/.test(senha)) return 'A senha deve conter ao menos 1 caractere especial (! @ # $ % ^ & * ( ) , . ? " : { } | < >).';
+    return null;
 }
 
 // Editar usuário
@@ -6138,6 +6176,7 @@ function alterarSenha(event) {
     const xhr = new XMLHttpRequest();
     xhr.open('POST', window.APP_CONFIG.apiBase + 'alterar-senha.php', true);
     xhr.setRequestHeader('Content-Type', 'application/json');
+    setSecurityHeaders(xhr);
 
     xhr.onload = function () {
         if (xhr.status === 200) {
