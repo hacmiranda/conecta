@@ -157,15 +157,9 @@ try {
     $stmt->execute();
     $ticket_id = $db->lastInsertId();
 
-    // Abre a janela de passagem pelo setor (histórico de setores)
-    if ($setor_id) {
-        $db->prepare("INSERT INTO ticket_setor_log (ticket_id, setor_id) VALUES (?, ?)")->execute([$ticket_id, $setor_id]);
-    }
     
-    // 4. Carimbar Início de Contador do SLA 
-    $sla_query = "INSERT INTO ticket_sla (ticket_id) VALUES (?)";
-    $sla_stmt = $db->prepare($sla_query);
-    $sla_stmt->execute([$ticket_id]);
+    // 4. SLA, janela de setor e evento de abertura na linha do tempo
+    AcessoService::registrarAbertura($db, (int) $ticket_id, $setor_id ? (int) $setor_id : null, (int) $usuario_id, 'via integração (' . $origem . ')');
     
     // 4.1 Processar Anexo Base64 do Satélite (Opcional)
     if (!empty($anexo_base64)) {

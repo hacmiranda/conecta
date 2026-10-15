@@ -515,10 +515,21 @@ document.getElementById('form-ticket').addEventListener('submit', function (e) {
 });
 
 // Carregar tickets do banco de dados (apenas não fechados e não cancelados)
+// Estado do filtro do Arquivo: 'arquivo' | 'transferidas' | 'repassadas'
+let escopoArquivoAtual = 'arquivo';
+
+// A coluna "Setor" só agrega para quem enxerga mais de um setor (admin) ou nas visões
+// em que a demanda está em outro setor/com outra pessoa.
+function exibirColunaSetor(emArquivo) {
+    const u = JSON.parse(localStorage.getItem('cd_usuario') || '{}');
+    if (u.tipo === 'admin') return true;
+    return !!emArquivo && escopoArquivoAtual !== 'arquivo';
+}
+
 function carregarTickets() {
     mostrarSkeletonTickets();
     const xhr = new XMLHttpRequest();
-    xhr.open('GET', window.APP_CONFIG.apiBase + 'tickets.php', true);
+    xhr.open('GET', window.APP_CONFIG.apiBase + 'tickets.php?escopo=abertas', true);
     setSecurityHeaders(xhr);
 
     xhr.onload = function () {
@@ -948,6 +959,7 @@ function mostrarTicketsNaTela(tickets) {
                     <th onclick="ordenarTabela('criado_em')" class="sortable" data-campo="criado_em" scope="col">Abertura <span class="sort-arrows">↕</span></th>
                     <th onclick="ordenarTabela('titulo')" class="sortable" data-campo="titulo" scope="col">Assunto <span class="sort-arrows">↕</span></th>
                     <th onclick="ordenarTabela('usuario_nome')" class="sortable" data-campo="usuario_nome" scope="col">Solicitante <span class="sort-arrows">↕</span></th>
+                    ${exibirColunaSetor(false) ? '<th onclick="ordenarTabela(\'setor_nome\')" class="sortable" data-campo="setor_nome" scope="col">Setor <span class="sort-arrows">↕</span></th>' : ''}
                     <th onclick="ordenarTabela('agente_nome')" class="sortable" data-campo="agente_nome" scope="col">Responsável <span class="sort-arrows">↕</span></th>
                     <th onclick="ordenarTabela('categoria_nome')" class="sortable" data-campo="categoria_nome" scope="col">Subcategoria <span class="sort-arrows">↕</span></th>
                     <th onclick="ordenarTabela('status')" class="sortable" data-campo="status" scope="col">Status <span class="sort-arrows">↕</span></th>
@@ -1007,7 +1019,8 @@ function mostrarTicketsNaTela(tickets) {
                     <span class="ticket-titulo-texto" data-vg-tooltip="${tituloSeguro}" data-vg-title="ASSUNTO">${ticket.titulo}</span>
                 </td>
                 <td data-label="Solicitante">${solicitante}${emailExibir}</td>
-                <td data-label="Responsável"><span class="status ${ticket.agente_nome ? 'atribuido' : 'nao-atribuido'} ${modoMergeAtivo ? '' : 'clickable'}" ${modoMergeAtivo ? '' : `onclick="event.stopPropagation(); atribuirTicket(${ticket.id})" title="Clique para atribuir"`}>${ticket.agente_nome || 'Não atribuído'}</span>${(ticket.agente_nome && ticket.atribuido_em) ? `<small class="ticket-data-hora">desde ${new Date(ticket.atribuido_em).toLocaleDateString('pt-BR')}</small>` : ''}</td>
+                ${exibirColunaSetor(false) ? `<td data-label="Setor">${ticket.setor_nome || '-'}</td>` : ''}
+                <td data-label="Responsável"><span class="status ${ticket.agente_nome ? 'atribuido' : 'nao-atribuido'} ${modoMergeAtivo ? '' : 'clickable'}" ${modoMergeAtivo ? '' : `onclick="event.stopPropagation(); atribuirTicket(${ticket.id}, ${ticket.setor_id ? Number(ticket.setor_id) : 'null'})" title="Clique para atribuir"`}>${ticket.agente_nome || 'Não atribuído'}</span>${(ticket.agente_nome && ticket.atribuido_em) ? `<small class="ticket-data-hora">desde ${new Date(ticket.atribuido_em).toLocaleDateString('pt-BR')}</small>` : ''}</td>
                 <td data-label="Subcategoria"><span class="status categoria ${ticket.categoria_nome ? '' : 'sem-categoria'} ${modoMergeAtivo ? '' : 'clickable'}" ${modoMergeAtivo ? '' : `onclick="event.stopPropagation(); alterarCategoria(${ticket.id})" title="Clique para alterar"`}>${ticket.categoria_nome || 'Sem subcategoria'}</span></td>
                 <td data-label="Status"><span class="status ${ticket.status} ${modoMergeAtivo ? '' : 'clickable'}" ${modoMergeAtivo ? '' : `onclick="event.stopPropagation(); alterarStatusNovo(${ticket.id}, ${ticket.setor_id || 'null'})"`} title="Clique para alterar">${window.STATUS_CONFIG && window.STATUS_CONFIG[ticket.status] ? window.STATUS_CONFIG[ticket.status].nome : (typeof formatarNomeStatus === 'function' ? formatarNomeStatus(ticket.status) : ticket.status)}</span></td>
                 <td data-label="Prioridade"><span class="status prioridade ${ticket.prioridade || 'normal'} ${modoMergeAtivo ? '' : 'clickable'}" ${modoMergeAtivo ? '' : `onclick="event.stopPropagation(); alterarPrioridade(${ticket.id})" title="Clique para alterar"`}>${typeof formatarNomePrioridade === 'function' ? formatarNomePrioridade(ticket.prioridade) : (ticket.prioridade ? ticket.prioridade.charAt(0).toUpperCase() + ticket.prioridade.slice(1).toLowerCase() : 'Normal')}</span></td>
@@ -1084,30 +1097,55 @@ function alterarPorPagina(valor) {
     mostrarTicketsNaTela(ticketsFiltradosPorStatus.length > 0 ? ticketsFiltradosPorStatus : ticketsAtuais);
 }
 
-// Atribuir ticket a agente
-function atribuirTicket(ticketId) {
-    // Carregar lista de agentes
+// Encaminhar a demanda a um operador do setor (gestor/admin).
+// Usa demanda-acoes.php (comentário obrigatório + histórico) em vez do PUT direto.
+function atribuirTicket(ticketId, setorId) {
+    const usuarioLogado = JSON.parse(localStorage.getItem('cd_usuario') || '{}');
+    if (usuarioLogado.tipo !== 'gestor' && usuarioLogado.tipo !== 'admin') {
+        return; // operadores não distribuem demandas
+    }
+
+    // O setor vem da própria demanda (o admin não pertence a um setor)
+    if (setorId === undefined || setorId === null) {
+        const ticketLista = (typeof ticketsAtuais !== 'undefined' ? ticketsAtuais : []).find(t => t.id == ticketId);
+        setorId = ticketLista ? ticketLista.setor_id : null;
+    }
+    const filtroSetor = setorId ? `?setor_id=${encodeURIComponent(setorId)}` : '';
+
     const xhr = new XMLHttpRequest();
-    xhr.open('GET', window.APP_CONFIG.apiBase + 'agentes.php', true);
+    xhr.open('GET', window.APP_CONFIG.apiBase + 'agentes.php' + filtroSetor, true);
     setSecurityHeaders(xhr);
 
     xhr.onload = function () {
         if (xhr.status === 200) {
-            const agentes = JSON.parse(xhr.responseText);
+            const equipe = JSON.parse(xhr.responseText);
+
+            if (equipe.length === 0) {
+                mostrarAlert('Sem operadores', 'Não há operadores ativos neste setor para receber a demanda.');
+                return;
+            }
 
             mostrarSelect(
-                'Atribuir Demanda',
-                'Selecione o agente responsável:',
-                agentes,
-                function (agenteEscolhido) {
-                    if (agenteEscolhido) {
-                        confirmarAtribuicao(ticketId, agenteEscolhido.id, agenteEscolhido.nome);
-                    }
+                'Encaminhar a Operador',
+                'Selecione quem vai atender a demanda:',
+                equipe,
+                function (escolhido) {
+                    if (!escolhido) return;
+                    pedirComentarioEExecutar(
+                        ticketId, 'atribuir', { usuario_id: escolhido.id },
+                        'Encaminhar a Operador',
+                        `Registre o encaminhamento para ${escolhido.nome}:`,
+                        `Demanda encaminhada para ${escolhido.nome}!`
+                    );
                 }
             );
         } else {
-            mostrarAlert('Erro', 'Erro ao carregar agentes');
+            mostrarAlert('Erro', 'Erro ao carregar a equipe do setor');
         }
+    };
+
+    xhr.onerror = function () {
+        mostrarAlert('Erro', 'Erro de conexão');
     };
 
     xhr.send();
@@ -1264,7 +1302,7 @@ function repassarParaColega(ticketId) {
 }
 
 // Transferir a demanda para outro setor
-function transferirParaSetor(ticketId) {
+function transferirParaSetor(ticketId, setorAtualId) {
     const xhr = new XMLHttpRequest();
     xhr.open('GET', window.APP_CONFIG.apiBase + 'setores.php', true);
     setSecurityHeaders(xhr);
@@ -1274,9 +1312,8 @@ function transferirParaSetor(ticketId) {
             mostrarAlert('Erro', 'Erro ao carregar setores');
             return;
         }
-        const usuario = JSON.parse(localStorage.getItem('cd_usuario'));
         const setoresDisponiveis = JSON.parse(xhr.responseText)
-            .filter(s => s.ativo == 1 && s.id != usuario.setor_id)
+            .filter(s => s.ativo == 1 && s.id != setorAtualId)
             .map(s => ({ id: s.id, nome: s.nome }));
 
         if (setoresDisponiveis.length === 0) {
@@ -1665,6 +1702,8 @@ function formatarAcaoHistorico(acao, valorAnterior, valorNovo) {
     };
 
     switch (acao) {
+        case 'abertura':
+            return `abriu a demanda <strong>${valorNovo || ''}</strong>`;
         case 'status':
             const statusAnt = formatarStatus(valorAnterior);
             const statusNovo = formatarStatus(valorNovo);
@@ -1688,7 +1727,7 @@ function formatarAcaoHistorico(acao, valorAnterior, valorNovo) {
         case 'merge':
             return `mesclou as demandas <strong>#${valorNovo}</strong> nesta demanda`;
         case 'atribuicao_supervisor':
-            return `atribuiu a demanda para <strong>${valorNovo}</strong>`;
+            return `encaminhou a demanda para <strong>${valorNovo}</strong>`;
         case 'devolucao':
             return `devolveu a demanda ao gestor (estava com <strong>${valorAnterior}</strong>)`;
         case 'reatribuicao_colega':
@@ -1700,7 +1739,7 @@ function formatarAcaoHistorico(acao, valorAnterior, valorNovo) {
     }
 }
 
-// Monta os botões de ação de fluxo multi-setor (atribuir/devolver/repassar/transferir)
+// Monta os botões de ação de fluxo multi-setor (encaminhar/devolver/repassar/transferir)
 // disponíveis conforme o papel do usuário logado e o estado atual da demanda.
 function gerarAcoesDemandaHTML(ticket) {
     const usuario = JSON.parse(localStorage.getItem('cd_usuario'));
@@ -1710,27 +1749,28 @@ function gerarAcoesDemandaHTML(ticket) {
     if (demandaEncerrada) return '';
 
     const ehResponsavelAtual = ticket.agente_id && ticket.agente_id == usuario.id;
+    const setorDaDemanda = ticket.setor_id ? Number(ticket.setor_id) : 'null';
     const botoes = [];
 
     if (usuario.tipo === 'gestor' || usuario.tipo === 'admin') {
-        botoes.push(`<button class="btn-primary" onclick="atribuirTicket(${ticket.id})">👤 Atribuir a Colaborador</button>`);
+        botoes.push(`<button class="btn-primary btn-acao-encaminhar" onclick="atribuirTicket(${ticket.id}, ${setorDaDemanda})">👤 Encaminhar a Operador</button>`);
     }
 
     if (usuario.tipo === 'operador' && ehResponsavelAtual) {
-        botoes.push(`<button class="btn-primary" onclick="devolverAoGestor(${ticket.id})" style="background-color:#6c757d;">↩️ Devolver ao Gestor</button>`);
-        botoes.push(`<button class="btn-primary" onclick="repassarParaColega(${ticket.id})" style="background-color:#17a2b8;">🔁 Repassar a Colega</button>`);
+        botoes.push(`<button class="btn-primary btn-acao-devolver" onclick="devolverAoGestor(${ticket.id})">↩️ Devolver ao Gestor</button>`);
+        botoes.push(`<button class="btn-primary btn-acao-repassar" onclick="repassarParaColega(${ticket.id})">🔁 Repassar a Colega</button>`);
     }
 
-    if (usuario.tipo === 'gestor' || (usuario.tipo === 'operador' && ehResponsavelAtual)) {
-        botoes.push(`<button class="btn-primary" onclick="transferirParaSetor(${ticket.id})" style="background-color:#fd7e14;">🏢 Transferir para Outro Setor</button>`);
+    if (usuario.tipo === 'gestor' || usuario.tipo === 'admin' || (usuario.tipo === 'operador' && ehResponsavelAtual)) {
+        botoes.push(`<button class="btn-primary btn-acao-transferir" onclick="transferirParaSetor(${ticket.id}, ${setorDaDemanda})">🏢 Transferir para Outro Setor</button>`);
     }
 
     if (botoes.length === 0) return '';
 
     return `
-        <div class="acoes-demanda-section" style="margin-top: 1.5rem; border-top: 1px solid #eee; padding-top: 1rem;">
-            <h3 style="font-size: 1.1rem; font-weight: bold; margin-bottom: 0.75rem;">Ações da Demanda</h3>
-            <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
+        <div class="acoes-demanda-section">
+            <h3 class="acoes-demanda-titulo">Ações da Demanda</h3>
+            <div class="acoes-demanda-botoes">
                 ${botoes.join('')}
             </div>
         </div>
@@ -1808,6 +1848,8 @@ function mostrarDetalhesTicket(ticket) {
                         } else {
                             acao = `reatribuiu a demanda de <strong>${partes[0]}</strong> para <strong>${partes[1]}</strong>`;
                         }
+                    } else {
+                        acao = formatarAcaoHistorico(item.acao, item.valor_anterior, item.valor_novo);
                     }
                 } else {
                     acao = formatarAcaoHistorico(item.acao, item.valor_anterior, item.valor_novo);
@@ -1852,7 +1894,7 @@ function mostrarDetalhesTicket(ticket) {
                     ${ticket.status === 'fechado' ? '<span class="carimbo-fechado">FECHADO</span>' : ''}
                 </div>
                 <div style="display: flex; gap: 0.5rem; align-items: center;">
-                    <span class="status ${ticket.agente_nome ? 'atribuido' : 'nao-atribuido'} ${ticket.status === 'fechado' ? 'disabled' : 'clickable'}" ${ticket.status === 'fechado' ? '' : `onclick="atribuirTicket(${ticket.id})" title="Clique para atribuir"`}>
+                    <span class="status ${ticket.agente_nome ? 'atribuido' : 'nao-atribuido'} ${ticket.status === 'fechado' ? 'disabled' : 'clickable'}" ${ticket.status === 'fechado' ? '' : `onclick="atribuirTicket(${ticket.id}, ${ticket.setor_id ? Number(ticket.setor_id) : 'null'})" title="Clique para atribuir"`}>
                         ${ticket.agente_nome || 'Não atribuído'}
                     </span>
                     <span class="status categoria ${ticket.categoria_nome ? '' : 'sem-categoria'} ${ticket.status === 'fechado' ? 'disabled' : 'clickable'}" ${ticket.status === 'fechado' ? '' : `onclick="alterarCategoria(${ticket.id})" title="Clique para alterar"`}>
@@ -4697,28 +4739,21 @@ function limparFormularioTicket() {
 // Carregar tickets fechados (encerrados e cancelados)
 function carregarTicketsFechados() {
     mostrarSkeletonTickets('lista-fechados');
+    prepararFiltroArquivo();
 
-    // Gestor: Arquivo inclui também demandas que passaram pelo setor e foram transferidas.
-    // Usuario: Arquivo inclui também demandas que ele já atendeu e foram repassadas/devolvidas.
-    const usuarioLogado = JSON.parse(localStorage.getItem('cd_usuario') || '{}');
-    const sufixoArquivo = (usuarioLogado.tipo === 'gestor' || usuarioLogado.tipo === 'operador') ? '?arquivo=1' : '';
+    // Escopo vem do filtro do Arquivo (select); o servidor aplica as regras de cada papel
+    const seletorEscopo = document.getElementById('filtro-arquivo-escopo');
+    if (seletorEscopo && seletorEscopo.value) {
+        escopoArquivoAtual = seletorEscopo.value;
+    }
 
     const xhr = new XMLHttpRequest();
-    xhr.open('GET', window.APP_CONFIG.apiBase + 'tickets.php' + sufixoArquivo, true);
+    xhr.open('GET', window.APP_CONFIG.apiBase + 'tickets.php?escopo=' + encodeURIComponent(escopoArquivoAtual), true);
     setSecurityHeaders(xhr);
 
     xhr.onload = function () {
         if (xhr.status === 200) {
-            const todosTickets = JSON.parse(xhr.responseText);
-            // Encerrados/cancelados sempre entram no Arquivo. Além disso: para o gestor, uma
-            // demanda transferida para outro setor "sai" do seu Arquivo mesmo sem estar fechada;
-            // para o usuario, uma demanda repassada/devolvida (não é mais dele) também entra.
-            const ticketsFechados = todosTickets.filter(ticket => {
-                if (ticket.status === 'encerrado' || ticket.status === 'cancelado') return true;
-                if (usuarioLogado.tipo === 'gestor') return ticket.setor_id != usuarioLogado.setor_id;
-                if (usuarioLogado.tipo === 'operador') return ticket.agente_id != usuarioLogado.id && ticket.usuario_id != usuarioLogado.id;
-                return false;
-            });
+            const ticketsFechados = JSON.parse(xhr.responseText);
 
             // Re-aplicar ordenação persistida antes de renderizar
             if (ordemFechados.campo) {
@@ -4864,6 +4899,7 @@ function mostrarTicketsFechadosNaTela(tickets) {
                     <th onclick="ordenarTabelaFechados('criado_em')" class="sortable" data-campo-fechado="criado_em">Abertura <span class="sort-arrows">↕</span></th>
                     <th onclick="ordenarTabelaFechados('titulo')" class="sortable" data-campo-fechado="titulo">Assunto <span class="sort-arrows">↕</span></th>
                     <th onclick="ordenarTabelaFechados('usuario_nome')" class="sortable" data-campo-fechado="usuario_nome">Solicitante <span class="sort-arrows">↕</span></th>
+                    ${exibirColunaSetor(true) ? '<th onclick="ordenarTabelaFechados(\'setor_nome\')" class="sortable" data-campo-fechado="setor_nome">Setor <span class="sort-arrows">↕</span></th>' : ''}
                     <th onclick="ordenarTabelaFechados('agente_nome')" class="sortable" data-campo-fechado="agente_nome">Responsável <span class="sort-arrows">↕</span></th>
                     <th onclick="ordenarTabelaFechados('categoria_nome')" class="sortable" data-campo-fechado="categoria_nome">Subcategoria <span class="sort-arrows">↕</span></th>
                     <th onclick="ordenarTabelaFechados('status')" class="sortable" data-campo-fechado="status">Status <span class="sort-arrows">↕</span></th>
@@ -4898,9 +4934,10 @@ function mostrarTicketsFechadosNaTela(tickets) {
                     <strong>${ticket.usuario_nome}</strong>
                     ${ticket.usuario_email ? `<span class="ticket-data-hora" style="font-size: 0.85em;">${ofuscarEmail(ticket.usuario_email)}</span>` : ''}
                 </td>
+                ${exibirColunaSetor(true) ? `<td data-label="Setor">${ticket.setor_nome || '-'}</td>` : ''}
                 <td data-label="Responsável">${ticket.agente_nome || 'Não atribuído'}</td>
                 <td data-label="Subcategoria">${ticket.categoria_nome || 'Sem subcategoria'}</td>
-                <td data-label="Status"><span class="status ${ticket.status}">${ticket.status === 'encerrado' ? '🏁 Encerrado' : '❌ Cancelado'}</span></td>
+                <td data-label="Status"><span class="status ${ticket.status}">${ticket.status === 'encerrado' ? '🏁 Encerrado' : ticket.status === 'cancelado' ? '❌ Cancelado' : (typeof formatarNomeStatus === 'function' ? formatarNomeStatus(ticket.status) : ticket.status)}</span></td>
                 <td data-label="Encerramento" style="font-size: 0.8rem; font-weight: bold;">${ticket.fechado_em ? new Date(ticket.fechado_em).toLocaleDateString('pt-BR') + '<span class="ticket-data-hora">' + new Date(ticket.fechado_em).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }) + '</span>' : '-'}</td>
                 <td data-label="Ações">
                     <button class="btn-compact" onclick="${modoMergeFechadosAtivo ? 'event.stopPropagation();' : ''} reabrirTicket(${ticket.id})" style="background-color: #28a745; margin-right: 0.5rem; transition: background 0.2s;" onmouseover="this.style.backgroundColor='#218838'" onmouseout="this.style.backgroundColor='#28a745'">Reabrir</button>
@@ -4968,6 +5005,40 @@ function mostrarTicketsFechadosNaTela(tickets) {
 
 
 // Mostrar página de tickets fechados
+// Monta as opções do filtro do Arquivo conforme o papel do usuário
+function prepararFiltroArquivo() {
+    const seletor = document.getElementById('filtro-arquivo-escopo');
+    if (!seletor) return;
+
+    const u = JSON.parse(localStorage.getItem('cd_usuario') || '{}');
+    const opcoes = [];
+    if (u.tipo === 'gestor' || u.tipo === 'admin') {
+        opcoes.push({ valor: 'arquivo', texto: 'Encerradas e canceladas' });
+        opcoes.push({ valor: 'transferidas', texto: 'Transferidas para outros setores' });
+    } else if (u.tipo === 'operador') {
+        opcoes.push({ valor: 'arquivo', texto: 'Minhas encerradas e canceladas' });
+        opcoes.push({ valor: 'repassadas', texto: 'Repassadas por mim' });
+    }
+
+    const wrapper = document.getElementById('filtro-arquivo-wrapper');
+    if (opcoes.length === 0) {
+        if (wrapper) wrapper.hidden = true;
+        return;
+    }
+    if (wrapper) wrapper.hidden = false;
+
+    seletor.innerHTML = opcoes.map(o => `<option value="${o.valor}">${o.texto}</option>`).join('');
+    seletor.value = opcoes.some(o => o.valor === escopoArquivoAtual) ? escopoArquivoAtual : 'arquivo';
+    escopoArquivoAtual = seletor.value;
+}
+
+function mudarEscopoArquivo() {
+    const seletor = document.getElementById('filtro-arquivo-escopo');
+    escopoArquivoAtual = seletor ? seletor.value : 'arquivo';
+    paginaAtualFechados = 1;
+    carregarTicketsFechados();
+}
+
 function mostrarTicketsFechados() {
     mostrarSecao('fechados');
     carregarTicketsFechados();

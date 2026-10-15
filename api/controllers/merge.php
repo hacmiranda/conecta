@@ -101,6 +101,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $stmt->bindParam(':valor_novo', $tickets_ids);
         $stmt->execute();
 
+        // Espelha na linha do tempo da demanda principal (ticket_historico)
+        $db->prepare("INSERT INTO ticket_historico (ticket_id, usuario_id, acao, valor_anterior, valor_novo) VALUES (?, ?, 'merge', NULL, ?)")
+           ->execute([$ticket_principal, $user['id'], mb_substr((string) $tickets_ids, 0, 255)]);
+
         // Adicionar comentário detalhado de merge no ticket principal
         $comentario_merge = "🔗 **MESCLAGEM DE DEMANDAS**\n\n";
         $comentario_merge .= "Demandas mescladas: #" . $tickets_ids . "\n\n";
@@ -146,6 +150,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $principal_formatted = str_pad($ticket_principal, 5, '0', STR_PAD_LEFT);
             $stmt->bindParam(':valor_novo', $principal_formatted);
             $stmt->execute();
+
+            // Linha do tempo da demanda mesclada + fechamento das janelas de setor/responsável
+            $db->prepare("INSERT INTO ticket_historico (ticket_id, usuario_id, acao, valor_anterior, valor_novo) VALUES (?, ?, 'merge', NULL, ?)")
+               ->execute([$ticket_id, $user['id'], $principal_formatted]);
+            AcessoService::fecharJanelasDaDemanda($db, (int) $ticket_id);
 
             // Adicionar comentário detalhado nos tickets fechados
             $ticket_num = str_pad($ticket_id, 5, '0', STR_PAD_LEFT);

@@ -6,6 +6,7 @@ require_once __DIR__ . '/../middleware/auth.php';
 require_once __DIR__ . '/../services/auditoria-service.php';
 require_once __DIR__ . '/../services/sla-service.php';
 require_once __DIR__ . '/../services/acesso-service.php';
+require_once __DIR__ . '/../services/timeline-service.php';
 
 AuthMiddleware::configurarCORS(['GET', 'POST', 'PUT', 'DELETE']);
 
@@ -37,6 +38,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
                              a.nome as agente_nome,
                              c.nome as categoria_nome,
                              f.nome as fechado_por_nome,
+                             st.nome as setor_nome,
                              (SELECT COUNT(*) FROM historico WHERE ticket_id = t.id AND acao = 'merge') as eh_mesclado,
                              (SELECT valor_novo FROM historico WHERE ticket_id = t.id AND acao = 'merge' LIMIT 1) as tickets_mesclados
                       FROM tickets t 
@@ -44,6 +46,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
                       LEFT JOIN usuarios a ON t.agente_id = a.id 
                       LEFT JOIN categorias c ON t.categoria_id = c.id 
                       LEFT JOIN usuarios f ON t.fechado_por = f.id
+                      LEFT JOIN setores st ON t.setor_id = st.id
                       WHERE t.id = :id";
             
             $stmt = $db->prepare($query);
@@ -63,150 +66,146 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
                 exit;
             }
 
-            // Buscar comentários
-            $comentarios_query = "SELECT c.*, u.nome as autor_nome, 'comentario' as tipo
-                                 FROM comentarios c 
-                                 LEFT JOIN usuarios u ON c.usuario_id = u.id 
-                                 WHERE c.ticket_id = :ticket_id 
-                                 ORDER BY c.criado_em ASC";
-            
-            $comentarios_stmt = $db->prepare($comentarios_query);
-            $comentarios_stmt->bindParam(':ticket_id', $ticket_id);
-            $comentarios_stmt->execute();
-            $comentarios = $comentarios_stmt->fetchAll();
-            
-            // Buscar anexos de cada comentário
-            foreach ($comentarios as &$comentario) {
-                $anexos_comentario_query = "SELECT * FROM anexos WHERE comentario_id = ?";
-                $anexos_comentario_stmt = $db->prepare($anexos_comentario_query);
-                $anexos_comentario_stmt->execute([$comentario['id']]);
-                $comentario['anexos'] = $anexos_comentario_stmt->fetchAll();
-            }
-            
-            // Buscar anexos (apenas os do ticket, não dos comentários)
+            // Linha do tempo cronológica (comentários + histórico + abertura)
+            $dados_timeline = TimelineService::montar($db, (int) $ticket_id);
+
+            // Anexos do próprio ticket (os dos comentários vêm dentro de cada comentário)
             $anexos_query = "SELECT id, ticket_id, nome_original, nome_arquivo, tamanho, tipo, criado_em FROM anexos WHERE ticket_id = :ticket_id AND comentario_id IS NULL ORDER BY criado_em ASC";
             $anexos_stmt = $db->prepare($anexos_query);
             $anexos_stmt->bindParam(':ticket_id', $ticket_id);
             $anexos_stmt->execute();
             $anexos = $anexos_stmt->fetchAll();
-            
-            // Buscar histórico
-            $historico = [];
-            try {
-                $historico_query = "SELECT 
-                    h.*,
-                    u.nome as autor_nome,
-                    'historico' as tipo
-                FROM ticket_historico h 
-                LEFT JOIN usuarios u ON h.usuario_id = u.id 
-                WHERE h.ticket_id = :ticket_id 
-                ORDER BY h.criado_em ASC";
-                
-                $historico_stmt = $db->prepare($historico_query);
-                $historico_stmt->bindParam(':ticket_id', $ticket_id);
-                $historico_stmt->execute();
-                $historico = $historico_stmt->fetchAll();
-            } catch (Exception $e) {
-                $historico = [];
-            }
-            
-            // Mesclar comentários e histórico em ordem cronológica
-            $timeline = array_merge($comentarios, $historico);
-            usort($timeline, function($a, $b) {
-                return strtotime($a['criado_em']) - strtotime($b['criado_em']);
-            });
-            
-            // Adicionar dados ao ticket
-            $ticket['comentarios'] = $timeline;
+
+            $ticket['comentarios'] = $dados_timeline['timeline'];
             $ticket['anexos'] = $anexos;
-            $ticket['historico'] = $historico;
-            
+            $ticket['historico'] = $dados_timeline['historico'];
+
             echo json_encode($ticket);
             
         } else {
-            // Listar todos os tickets
-            // Criar tabela se não existir
-            $usuario_logado_id = $user['id'];
+            // Listagem por escopo: abertas | arquivo | transferidas | repassadas
+            // (sem escopo, devolve tudo que o papel do usuário enxerga)
+            $usuario_logado_id = (int) $user['id'];
+            $tipo_logado = $user['tipo'] ?? '';
+            $escopo = $_GET['escopo'] ?? (isset($_GET['arquivo']) ? 'arquivo' : '');
 
-            $create_table = "CREATE TABLE IF NOT EXISTS comentarios_nao_lidos (
-                id INT AUTO_INCREMENT PRIMARY KEY,
-                ticket_id INT NOT NULL,
-                criado_em TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                UNIQUE KEY unique_ticket (ticket_id),
-                FOREIGN KEY (ticket_id) REFERENCES tickets(id) ON DELETE CASCADE
-            )";
-            $db->exec($create_table);
-            
-            
-            
-            $query = "SELECT t.*, 
+            if (!in_array($escopo, ['', 'abertas', 'arquivo', 'transferidas', 'repassadas'], true)) {
+                http_response_code(400);
+                echo json_encode(['error' => 'Escopo inválido']);
+                exit;
+            }
+
+            // Status que movem a demanda para o Arquivo (constantes internas, sem entrada do usuário)
+            $arquivados = "'" . implode("','", AcessoService::STATUS_ARQUIVO) . "'";
+            $setor_escopo = AcessoService::setorEscopo($user);
+
+            $query = "SELECT t.*,
                              u.nome as usuario_nome, u.email as usuario_email,
                              a.nome as agente_nome,
                              c.nome as categoria_nome,
+                             s.nome as setor_nome,
                              (SELECT COUNT(*) FROM anexos WHERE ticket_id = t.id) as tem_anexos,
                              0 as criado_por_email,
                              CASE WHEN cnl.ticket_id IS NOT NULL THEN 1 ELSE 0 END as tem_comentario_nao_lido,
                              (SELECT CONCAT(data_lembrete, ' ', hora_lembrete) FROM lembretes WHERE ticket_id = t.id AND notificado = FALSE ORDER BY data_lembrete ASC, hora_lembrete ASC LIMIT 1) as proximo_lembrete,
                              (SELECT COUNT(*) FROM historico WHERE ticket_id = t.id AND acao = 'merge') as eh_mesclado,
                              (SELECT valor_novo FROM historico WHERE ticket_id = t.id AND acao = 'merge' LIMIT 1) as tickets_mesclados
-                      FROM tickets t 
-                      LEFT JOIN usuarios u ON t.usuario_id = u.id 
-                      LEFT JOIN usuarios a ON t.agente_id = a.id 
-                      LEFT JOIN categorias c ON t.categoria_id = c.id 
+                      FROM tickets t
+                      LEFT JOIN usuarios u ON t.usuario_id = u.id
+                      LEFT JOIN usuarios a ON t.agente_id = a.id
+                      LEFT JOIN categorias c ON t.categoria_id = c.id
+                      LEFT JOIN setores s ON t.setor_id = s.id
                       LEFT JOIN comentarios_nao_lidos cnl ON t.id = cnl.ticket_id AND cnl.usuario_id = :usuario_id";
 
             $params = [':usuario_id' => $usuario_logado_id];
-            $tipo_logado = $user['tipo'] ?? '';
-            $modoArquivo = isset($_GET['arquivo']);
+            $where = [];
 
-            if ($tipo_logado === 'gestor') {
-                if ($modoArquivo) {
-                    // Arquivo do gestor: demandas encerradas do setor + demandas que já passaram
-                    // pelo setor e saíram (transferidas), mesmo que o setor_id atual seja outro
-                    $query .= " WHERE (t.setor_id = :setor_id OR t.id IN (
-                                    SELECT ticket_id FROM ticket_setor_log
-                                    WHERE setor_id = :setor_id_log AND saiu_em IS NOT NULL
-                                ))";
-                    $params[':setor_id'] = $user['setor_id'] ?? 0;
-                    $params[':setor_id_log'] = $user['setor_id'] ?? 0;
-                } else {
-                    $query .= " WHERE t.setor_id = :setor_id";
-                    $params[':setor_id'] = $user['setor_id'] ?? 0;
+            if ($escopo === 'transferidas') {
+                // Demandas que passaram pelo setor e hoje estão em outro (gestor/admin)
+                if (!in_array($tipo_logado, ['gestor', 'admin'], true)) {
+                    http_response_code(403);
+                    echo json_encode(['error' => 'Escopo disponível apenas para gestores e administradores']);
+                    exit;
                 }
-            } elseif ($tipo_logado === 'operador') {
-                if ($modoArquivo) {
-                    // Arquivo do usuário: além do que é seu hoje, inclui demandas que ele já
-                    // atendeu no passado e foram repassadas/devolvidas (ticket_agente_log fechado)
-                    $query .= " WHERE (t.agente_id = :self_id OR t.usuario_id = :self_id2 OR t.id IN (
-                                    SELECT ticket_id FROM ticket_agente_log
-                                    WHERE usuario_id = :self_id3 AND saiu_em IS NOT NULL
-                                ))";
-                    $params[':self_id'] = $usuario_logado_id;
-                    $params[':self_id2'] = $usuario_logado_id;
-                    $params[':self_id3'] = $usuario_logado_id;
+                if ($setor_escopo !== null) {
+                    $where[] = "(t.setor_id IS NULL OR t.setor_id <> :setor_atual) AND EXISTS (
+                                    SELECT 1 FROM ticket_setor_log l
+                                    WHERE l.ticket_id = t.id AND l.setor_id = :setor_log AND l.saiu_em IS NOT NULL)";
+                    $params[':setor_atual'] = $setor_escopo;
+                    $params[':setor_log'] = $setor_escopo;
+                } elseif ($tipo_logado === 'admin') {
+                    $where[] = "EXISTS (SELECT 1 FROM ticket_setor_log l
+                                        WHERE l.ticket_id = t.id AND l.saiu_em IS NOT NULL AND l.setor_id <> t.setor_id)";
                 } else {
-                    $query .= " WHERE (t.agente_id = :self_id OR t.usuario_id = :self_id2)";
-                    $params[':self_id'] = $usuario_logado_id;
-                    $params[':self_id2'] = $usuario_logado_id;
+                    $where[] = "1 = 0";
                 }
-            } elseif ($tipo_logado === 'cliente') {
-                $query .= " WHERE t.usuario_id = :self_id";
-                $params[':self_id'] = $usuario_logado_id;
+            } elseif ($escopo === 'repassadas') {
+                // Demandas que o usuário atendeu e passou adiante, ainda abertas com outra pessoa
+                if (!in_array($tipo_logado, ['operador', 'gestor'], true)) {
+                    http_response_code(403);
+                    echo json_encode(['error' => 'Escopo disponível apenas para operadores e gestores']);
+                    exit;
+                }
+                $where[] = "EXISTS (SELECT 1 FROM ticket_agente_log l
+                                    WHERE l.ticket_id = t.id AND l.usuario_id = :self_log AND l.saiu_em IS NOT NULL)
+                            AND (t.agente_id IS NULL OR t.agente_id <> :self_atual)
+                            AND t.status NOT IN ($arquivados)";
+                $params[':self_log'] = $usuario_logado_id;
+                $params[':self_atual'] = $usuario_logado_id;
+            } else {
+                // Visibilidade base por papel
+                if ($tipo_logado === 'admin') {
+                    if ($setor_escopo !== null) {
+                        $where[] = "t.setor_id = :setor_id";
+                        $params[':setor_id'] = $setor_escopo;
+                    }
+                } elseif ($tipo_logado === 'gestor') {
+                    $where[] = "t.setor_id = :setor_id";
+                    $params[':setor_id'] = $setor_escopo ?? 0;
+                } elseif ($tipo_logado === 'operador') {
+                    if ($escopo === 'arquivo') {
+                        // Arquivo do operador: o que é/foi dele (responsável atual, solicitante,
+                        // quem encerrou ou quem já atendeu — ticket_agente_log)
+                        $where[] = "(t.agente_id = :self_id OR t.usuario_id = :self_id2 OR t.fechado_por = :self_id3
+                                     OR t.id IN (SELECT ticket_id FROM ticket_agente_log WHERE usuario_id = :self_id4))";
+                        $params[':self_id'] = $usuario_logado_id;
+                        $params[':self_id2'] = $usuario_logado_id;
+                        $params[':self_id3'] = $usuario_logado_id;
+                        $params[':self_id4'] = $usuario_logado_id;
+                    } else {
+                        $where[] = "(t.agente_id = :self_id OR t.usuario_id = :self_id2)";
+                        $params[':self_id'] = $usuario_logado_id;
+                        $params[':self_id2'] = $usuario_logado_id;
+                    }
+                } else {
+                    // cliente: apenas as próprias demandas
+                    $where[] = "t.usuario_id = :self_id";
+                    $params[':self_id'] = $usuario_logado_id;
+                }
+
+                if ($escopo === 'abertas') {
+                    $where[] = "t.status NOT IN ($arquivados)";
+                } elseif ($escopo === 'arquivo') {
+                    $where[] = "t.status IN ($arquivados)";
+                }
             }
-            // admin: sem filtro, enxerga tudo
 
+            if (!empty($where)) {
+                $query .= " WHERE " . implode(' AND ', $where);
+            }
             $query .= " ORDER BY t.criado_em DESC";
 
             $stmt = $db->prepare($query);
             $stmt->execute($params);
             $tickets = $stmt->fetchAll();
-            
+
             echo json_encode($tickets);
         }
         
     } catch (Exception $e) {
+        error_log('[TICKETS GET] Erro: ' . $e->getMessage());
         http_response_code(500);
-        echo json_encode(['error' => 'Erro ao buscar demandas: ' . $e->getMessage()]);
+        echo json_encode(['error' => 'Erro ao buscar demandas']);
     }
 }
 
@@ -287,16 +286,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $stmt->bindParam(':setor_id', $setor_id);
         $stmt->execute();
 
-        // Criar registro de SLA
+        // SLA, janela de setor e evento de abertura na linha do tempo
         $ticket_id = $db->lastInsertId();
-        $sla_query = "INSERT INTO ticket_sla (ticket_id) VALUES (?)";
-        $sla_stmt = $db->prepare($sla_query);
-        $sla_stmt->execute([$ticket_id]);
-
-        if ($setor_id) {
-            $setor_log_stmt = $db->prepare("INSERT INTO ticket_setor_log (ticket_id, setor_id) VALUES (:ticket_id, :setor_id)");
-            $setor_log_stmt->execute([':ticket_id' => $ticket_id, ':setor_id' => $setor_id]);
-        }
+        AcessoService::registrarAbertura($db, (int) $ticket_id, $setor_id ? (int) $setor_id : null, (int) $user['id'], 'no sistema');
 
         error_log("[DEBUG] Ticket criado com ID: $ticket_id");
         

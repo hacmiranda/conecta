@@ -4,6 +4,7 @@ header('Content-Type: application/json');
 require_once __DIR__ . '/../config/database.php';
 require_once __DIR__ . '/../middleware/auth.php';
 require_once __DIR__ . '/../services/acesso-service.php';
+require_once __DIR__ . '/../services/timeline-service.php';
 
 AuthMiddleware::configurarCORS(['GET']);
 
@@ -84,12 +85,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
         $historico_stmt->execute();
         $historico = $historico_stmt->fetchAll();
         
+        // Linha do tempo cronológica completa (comentários + histórico + abertura)
+        $dados_timeline = TimelineService::montar($db, (int) $ticket_id);
+
         // Montar resposta
         $response = [
             'ticket' => $ticket,
             'comentarios' => $comentarios,
             'anexos' => $anexos,
-            'historico' => $historico
+            'historico' => $dados_timeline['historico'],
+            'timeline' => $dados_timeline['timeline']
         ];
         
         echo json_encode($response);

@@ -9,7 +9,7 @@
 class AcessoService {
 
     /** Status que movem a demanda para o Arquivo */
-    const STATUS_ARQUIVO = ['encerrado', 'cancelado'];
+    const STATUS_ARQUIVO = ['encerrado', 'cancelado', 'fechado']; // 'fechado' = valor legado do ENUM
 
     /**
      * Quem pode VER a demanda.
@@ -154,6 +154,28 @@ class AcessoService {
         }
         $setorId = isset($ticket['setor_id']) ? (int) $ticket['setor_id'] : null;
         return self::destinatariosInternosDoSetor($db, $setorId, $excluirUsuarioId);
+    }
+
+    /**
+     * Registros iniciais de toda demanda nova (qualquer origem: portal, e-mail ou integração):
+     * linha de SLA (somente se ainda não existir; em produção um trigger pode tê-la criado),
+     * janela de passagem pelo setor e o evento "abertura" na linha do tempo.
+     *
+     * @param string $detalhe texto do evento (ex.: "no sistema", "via e-mail", "via integração (x)")
+     */
+    public static function registrarAbertura(PDO $db, int $ticketId, ?int $setorId, int $autorId, string $detalhe): void {
+        $db->prepare("INSERT INTO ticket_sla (ticket_id)
+                      SELECT ? FROM DUAL WHERE NOT EXISTS (SELECT 1 FROM ticket_sla WHERE ticket_id = ?)")
+           ->execute([$ticketId, $ticketId]);
+
+        if ($setorId) {
+            $db->prepare("INSERT INTO ticket_setor_log (ticket_id, setor_id) VALUES (?, ?)")
+               ->execute([$ticketId, $setorId]);
+        }
+
+        $db->prepare("INSERT INTO ticket_historico (ticket_id, usuario_id, acao, valor_anterior, valor_novo)
+                      VALUES (?, ?, 'abertura', NULL, ?)")
+           ->execute([$ticketId, $autorId, mb_substr($detalhe, 0, 255)]);
     }
 
     /**

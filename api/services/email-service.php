@@ -342,9 +342,17 @@ class EmailService {
             $ticket_id = $this->db->lastInsertId();
             echo "<p>✅ Ticket criado com ID: #" . str_pad($ticket_id, 5, '0', STR_PAD_LEFT) . "</p>";
 
-            if ($setor_id) {
-                $this->db->prepare("INSERT INTO ticket_setor_log (ticket_id, setor_id) VALUES (?, ?)")->execute([$ticket_id, $setor_id]);
+            // SLA, janela de setor e evento de abertura (com a caixa de origem, quando houver)
+            $detalhe_abertura = 'via e-mail';
+            if ($this->caixaEmailAtualId !== null) {
+                $cx = $this->db->prepare("SELECT email FROM setor_emails WHERE id = ?");
+                $cx->execute([$this->caixaEmailAtualId]);
+                $caixa_email = $cx->fetchColumn();
+                if ($caixa_email) {
+                    $detalhe_abertura = 'via e-mail (' . $caixa_email . ')';
+                }
             }
+            AcessoService::registrarAbertura($this->db, (int) $ticket_id, $setor_id ? (int) $setor_id : null, (int) $usuario_id, $detalhe_abertura);
             
             // Salvar todos os anexos
             foreach ($resultado_anexos['validos'] as $anexo) {
