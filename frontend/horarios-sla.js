@@ -120,13 +120,14 @@ function mostrarHorariosEFeriados(horarios, feriados) {
         <p style="margin-top: 0; margin-bottom: 1rem; color: #666;">Setor: <strong>${nomeSetorDoExpediente()}</strong>. Configure os horários em que o sistema deve considerar como horas úteis para cálculo de SLA deste setor.</p>
         
         <table class="tickets-tabela" style="margin-bottom: 2.5rem;">
+            <caption class="sr-only">Horários úteis de atendimento do setor</caption>
             <thead>
                 <tr>
-                    <th>Dia da Semana</th>
-                    <th>Hora Início</th>
-                    <th>Hora Fim</th>
-                    <th>Ativo</th>
-                    <th>Ações</th>
+                    <th scope="col">Dia da Semana</th>
+                    <th scope="col">Hora Início</th>
+                    <th scope="col">Hora Fim</th>
+                    <th scope="col">Ativo</th>
+                    <th scope="col">Ações</th>
                 </tr>
             </thead>
             <tbody>
@@ -177,12 +178,13 @@ function mostrarHorariosEFeriados(horarios, feriados) {
         </div>
         
         <table class="tickets-tabela">
+            <caption class="sr-only">Feriados cadastrados para o setor</caption>
             <thead>
                 <tr>
-                    <th>Data</th>
-                    <th>Descrição</th>
-                    <th>Recorrente</th>
-                    <th>Ações</th>
+                    <th scope="col">Data</th>
+                    <th scope="col">Descrição</th>
+                    <th scope="col">Recorrente</th>
+                    <th scope="col">Ações</th>
                 </tr>
             </thead>
             <tbody>

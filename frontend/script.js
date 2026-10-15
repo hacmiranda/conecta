@@ -154,9 +154,10 @@ const EMAIL_ALERT_INTERVAL = 5 * 60 * 1000; // Checar a cada 5 minutos
 const EMAIL_ALERT_DISMISSED = 'emailAlertDismissedAt';
 
 function iniciarMonitoramentoEmailFalhas() {
-    // Só monitora se for funcionário interno (operador/gestor/admin)
+    // Só o administrador configura e-mail (Setores/Configurar e-mail): só ele pode agir
+    // sobre a falha, então só ele é avisado (gestor/operador não têm o que fazer aqui).
     const usuario = JSON.parse(localStorage.getItem('cd_usuario') || '{}');
-    if (!['operador', 'gestor', 'admin'].includes(usuario.tipo)) return;
+    if (usuario.tipo !== 'admin') return;
 
     verificarFalhasEmail(); // verificação imediata
     setInterval(verificarFalhasEmail, EMAIL_ALERT_INTERVAL);
@@ -731,17 +732,6 @@ function aplicarFiltroMeusTickets() {
 }
 
 
-function aplicarFiltroMeusTicketsFechados() {
-    const filtroAtivo = document.getElementById('filtro-meus-tickets-fechados').checked;
-    let ticketsFiltrados = ticketsFechadosAtuais;
-
-    if (filtroAtivo) {
-        const usuarioLogado = JSON.parse(localStorage.getItem('cd_usuario'));
-        ticketsFiltrados = ticketsFechadosAtuais.filter(ticket => ticket.agente_id == usuarioLogado.id);
-    }
-
-    mostrarTicketsFechadosNaTela(ticketsFiltrados);
-}
 
 // Mostrar skeleton loading enquanto carrega
 function mostrarSkeletonTickets(idContainer = 'lista-tickets') {
@@ -763,39 +753,6 @@ function mostrarSkeletonTickets(idContainer = 'lista-tickets') {
             <thead><tr>${Array.from({ length: 8 }, () => '<th></th>').join('')}</tr></thead>
             <tbody>${linhas}</tbody>
         </table>`;
-}
-
-// Calcular texto do SLA restante
-function calcularTextoSLA(ticket) {
-    // O SLA vem do backend via status-sla.js
-    // Aqui apenas exibimos o badge com base nos dados disponíveis
-    if (!ticket.prazo_sla && !ticket.vencimento_sla) return null;
-
-    if (ticket.vencimento_sla) {
-        // Já vencido
-        const prazo = new Date(ticket.prazo_sla);
-        if (!isNaN(prazo)) {
-            const diffMin = Math.floor((Date.now() - prazo.getTime()) / 60000);
-            if (diffMin < 60) return { texto: `Vencido há ${diffMin}min`, classe: 'sla-vencido' };
-            const diffH = Math.floor(diffMin / 60);
-            if (diffH < 24) return { texto: `Vencido há ${diffH}h`, classe: 'sla-vencido' };
-            return { texto: `Vencido há ${Math.floor(diffH / 24)}d`, classe: 'sla-vencido' };
-        }
-        return { texto: 'SLA vencido', classe: 'sla-vencido' };
-    }
-
-    if (ticket.prazo_sla) {
-        const prazo = new Date(ticket.prazo_sla);
-        if (isNaN(prazo)) return null;
-        const diffMin = Math.ceil((prazo.getTime() - Date.now()) / 60000);
-        if (diffMin <= 0) return { texto: 'SLA vencido', classe: 'sla-vencido' };
-        if (diffMin <= 30) return { texto: `${diffMin}min restantes`, classe: 'sla-critico' };
-        if (diffMin <= 120) return { texto: `${Math.ceil(diffMin / 60)}h restantes`, classe: 'sla-alerta' };
-        const diffH = Math.ceil(diffMin / 60);
-        if (diffH < 24) return { texto: `${diffH}h restantes`, classe: 'sla-ok' };
-        return { texto: `${Math.ceil(diffH / 24)}d restantes`, classe: 'sla-ok' };
-    }
-    return null;
 }
 
 // Atualizar contadores dos pills de filtro
@@ -2272,6 +2229,7 @@ async function visualizarAnexo(anexoId, tipoMime) {
 // Fechar visualizador
 function fecharVisualizador() {
     const modal = document.getElementById('visualizador-anexo');
+    if (!modal) return; // só existe quando algum anexo já foi aberto nesta tela
     if (modal._blobUrl) {
         URL.revokeObjectURL(modal._blobUrl);
         modal._blobUrl = null;
@@ -5220,14 +5178,6 @@ function aplicarBuscaFechadosComDebounce() {
     }, 300);
 }
 
-function limparBuscaFechados() {
-    const input = document.getElementById('busca-fechados');
-    if (input) {
-        input.value = '';
-        aplicarFiltroMeusTicketsFechados();
-    }
-}
-
 // Filtro combinado de fechados
 function filtrarEMostrarTicketsFechados(ticketsBase) {
     let filtrados = ticketsBase;
@@ -5312,18 +5262,19 @@ function mostrarTicketsFechadosNaTela(tickets) {
 
     let tabelaHTML = `
         <table class="tickets-tabela">
+            <caption class="sr-only">Demandas do Arquivo</caption>
             <thead>
                 <tr>
-                    <th onclick="ordenarTabelaFechados('id')" class="sortable" data-campo-fechado="id">Nº Demanda <span class="sort-arrows">↕</span></th>
-                    <th onclick="ordenarTabelaFechados('criado_em')" class="sortable" data-campo-fechado="criado_em">Abertura <span class="sort-arrows">↕</span></th>
-                    <th onclick="ordenarTabelaFechados('titulo')" class="sortable" data-campo-fechado="titulo">Assunto <span class="sort-arrows">↕</span></th>
-                    <th onclick="ordenarTabelaFechados('usuario_nome')" class="sortable" data-campo-fechado="usuario_nome">Solicitante <span class="sort-arrows">↕</span></th>
-                    ${exibirColunaSetor(true) ? '<th onclick="ordenarTabelaFechados(\'setor_nome\')" class="sortable" data-campo-fechado="setor_nome">Setor <span class="sort-arrows">↕</span></th>' : ''}
-                    <th onclick="ordenarTabelaFechados('agente_nome')" class="sortable" data-campo-fechado="agente_nome">Responsável <span class="sort-arrows">↕</span></th>
-                    <th onclick="ordenarTabelaFechados('categoria_nome')" class="sortable" data-campo-fechado="categoria_nome">Subcategoria <span class="sort-arrows">↕</span></th>
-                    <th onclick="ordenarTabelaFechados('status')" class="sortable" data-campo-fechado="status">Status <span class="sort-arrows">↕</span></th>
-                    <th onclick="ordenarTabelaFechados('fechado_em')" class="sortable" data-campo-fechado="fechado_em" style="white-space: nowrap;">Encerramento <span class="sort-arrows">↕</span></th>
-                    <th>Ações</th>
+                    <th onclick="ordenarTabelaFechados('id')" class="sortable" data-campo-fechado="id" scope="col">Nº Demanda <span class="sort-arrows">↕</span></th>
+                    <th onclick="ordenarTabelaFechados('criado_em')" class="sortable" data-campo-fechado="criado_em" scope="col">Abertura <span class="sort-arrows">↕</span></th>
+                    <th onclick="ordenarTabelaFechados('titulo')" class="sortable" data-campo-fechado="titulo" scope="col">Assunto <span class="sort-arrows">↕</span></th>
+                    <th onclick="ordenarTabelaFechados('usuario_nome')" class="sortable" data-campo-fechado="usuario_nome" scope="col">Solicitante <span class="sort-arrows">↕</span></th>
+                    ${exibirColunaSetor(true) ? '<th onclick="ordenarTabelaFechados(\'setor_nome\')" class="sortable" data-campo-fechado="setor_nome" scope="col">Setor <span class="sort-arrows">↕</span></th>' : ''}
+                    <th onclick="ordenarTabelaFechados('agente_nome')" class="sortable" data-campo-fechado="agente_nome" scope="col">Responsável <span class="sort-arrows">↕</span></th>
+                    <th onclick="ordenarTabelaFechados('categoria_nome')" class="sortable" data-campo-fechado="categoria_nome" scope="col">Subcategoria <span class="sort-arrows">↕</span></th>
+                    <th onclick="ordenarTabelaFechados('status')" class="sortable" data-campo-fechado="status" scope="col">Status <span class="sort-arrows">↕</span></th>
+                    <th onclick="ordenarTabelaFechados('fechado_em')" class="sortable" data-campo-fechado="fechado_em" style="white-space: nowrap;" scope="col">Encerramento <span class="sort-arrows">↕</span></th>
+                    <th scope="col">Ações</th>
                 </tr>
             </thead>
             <tbody>
@@ -5461,13 +5412,6 @@ function mudarEscopoArquivo() {
 function mostrarTicketsFechados() {
     mostrarSecao('fechados');
     carregarTicketsFechados();
-}
-
-// Função para mostrar relatórios
-function mostrarRelatorios() {
-    mostrarSecao('relatorios');
-    salvarSecaoAtiva('relatorios');
-    carregarFiltrosRelatorio();
 }
 
 // Reabrir ticket fechado
@@ -6231,17 +6175,18 @@ function exibirRelatorio(dados) {
         
         <div class="relatorio-tabela">
             <table class="tickets-tabela">
+                <caption class="sr-only">Relatório de demandas</caption>
                 <thead>
                     <tr>
-                        <th>Nº Demanda</th>
-                        <th>Abertura</th>
-                        <th>Assunto</th>
-                        <th>Solicitante</th>
-                        <th>Responsável</th>
-                        <th>Subcategoria</th>
-                        <th>Status</th>
-                        <th>Prioridade</th>
-                        <th>Fechamento</th>
+                        <th scope="col">Nº Demanda</th>
+                        <th scope="col">Abertura</th>
+                        <th scope="col">Assunto</th>
+                        <th scope="col">Solicitante</th>
+                        <th scope="col">Responsável</th>
+                        <th scope="col">Subcategoria</th>
+                        <th scope="col">Status</th>
+                        <th scope="col">Prioridade</th>
+                        <th scope="col">Fechamento</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -6377,17 +6322,18 @@ function exportarPDF() {
             </div>
             
             <table>
+                <caption class="sr-only">Relatório de demandas para impressão</caption>
                 <thead>
                     <tr>
-                        <th>Nº</th>
-                        <th>Abertura</th>
-                        <th>Assunto</th>
-                        <th>Solicitante</th>
-                        <th>Responsável</th>
-                        <th>Subcategoria</th>
-                        <th>Status</th>
-                        <th>Prioridade</th>
-                        <th>Fechamento</th>
+                        <th scope="col">Nº</th>
+                        <th scope="col">Abertura</th>
+                        <th scope="col">Assunto</th>
+                        <th scope="col">Solicitante</th>
+                        <th scope="col">Responsável</th>
+                        <th scope="col">Subcategoria</th>
+                        <th scope="col">Status</th>
+                        <th scope="col">Prioridade</th>
+                        <th scope="col">Fechamento</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -6879,6 +6825,23 @@ function getCorLabel() {
     return '#475569';
 }
 
+/**
+ * Acessibilidade (A7): os gráficos abaixo são desenhados à mão em <canvas>, sem nenhuma
+ * alternativa textual. Esta função dá ao canvas o papel de imagem e um resumo dos valores,
+ * para quem usa leitor de tela.
+ */
+function descreverGraficoCanvas(canvas, titulo, labels, valores) {
+    if (!canvas) return;
+    const total = valores.reduce((s, v) => s + (Number(v) || 0), 0);
+    const partes = labels.map((l, i) => {
+        const v = Number(valores[i]) || 0;
+        const pct = total > 0 ? Math.round((v / total) * 100) : 0;
+        return `${l}: ${v}${total > 0 ? ` (${pct}%)` : ''}`;
+    });
+    canvas.setAttribute('role', 'img');
+    canvas.setAttribute('aria-label', partes.length ? `${titulo}. ${partes.join(', ')}.` : `${titulo}. Sem dados no período.`);
+}
+
 function criarGraficoStatus(dados) {
     const canvas = document.getElementById('grafico-status');
     if (!canvas) return;
@@ -6925,6 +6888,7 @@ function criarGraficoStatus(dados) {
     const statusOrdenados = Object.keys(dados.por_status || {}).filter(s => dados.por_status[s] > 0);
     const valores = statusOrdenados.map(s => parseInt(dados.por_status[s]));
     const labels = statusOrdenados.map(s => labelsStatus[s] || s);
+    descreverGraficoCanvas(canvas, 'Demandas por status', labels, valores);
 
     // Atribuir cor única: fixa se mapeada, fallback sem repetição
     const coresUsadas = new Set(Object.values(coresStatus));
@@ -7119,6 +7083,7 @@ function criarGraficoPrioridade(dados) {
     const prioridades = ['urgente', 'alta', 'normal', 'baixa'];
     const valores = prioridades.map(p => dados.por_prioridade?.[p] || 0);
     const labels = ['Urgente', 'Alta', 'Normal', 'Baixa'];
+    descreverGraficoCanvas(canvas, 'Demandas por prioridade', labels, valores);
 
     const totalPrioridade = valores.reduce((s, v) => s + v, 0) || 1;
     const maxValor = Math.max(...valores) || 1;
@@ -7204,6 +7169,7 @@ function criarGraficoMensal(dados) {
                 const meses = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
                 const valores = meses.map((_, i) => dados.por_mes?.[i + 1] || 0);
                 const totalMensal = valores.reduce((s, v) => s + v, 0) || 1;
+                descreverGraficoCanvas(canvas, 'Demandas por mês', meses, valores);
 
                 const maxValor = Math.max(...valores) || 1;
                 const margemEsquerda = 30;
@@ -7550,21 +7516,21 @@ function mostrarSobre() {
                 </div>
                 <div style="padding: 1.5rem;">
 
-                    <!-- Tabela de tickets -->
+                    <!-- Tabela de demandas -->
                     <div style="margin-bottom: 1.5rem;">
                         <div style="font-size: 0.9rem; font-weight: 700; color: var(--text-primary, #004373); margin-bottom: 0.8rem; display: flex; align-items: center; gap: 0.5rem; padding-bottom: 0.5rem; border-bottom: 1px solid var(--border-color, #e5e7eb);">
-                            <span>🎫</span> Tabelas de Demandas — Melhorias de UX e Unificação
+                            <span>🎫</span> Lista de Demandas
                         </div>
                         <ul style="margin: 0; padding-left: 1.4rem; font-size: 0.88rem; color: var(--text-secondary, #555); line-height: 1.8;">
-                            <li><strong>Unificação da Tabela de Demandas Encerradas</strong>: Paridade de design e performance com "Demandas Abertas" — paginação dedicada, busca com debounce (300ms), skeleton loading, ordenação persistente independente.</li>
-                            <li><strong>Módulo Kanban</strong>: Visão Kanban com toggle Tabela/Kanban, drag &amp; drop assíncrono e colunas inteligentes (Novo, Em Atendimento, Aguardando, Resp. Usuário).</li>
-                            <li><strong>Responsividade Híbrida</strong>: Tabela se transforma em cards em telas &lt; 768px usando data-labels CSS e pseudo-elementos <code>:before</code>.</li>
-                            <li><strong>Editor WYSIWYG (Quill.js)</strong>: Formatação rica nas demandas e comentários — negrito, listas, imagens. Migração para <code>LONGTEXT</code> no banco.</li>
-                            <li><strong>Indicador de ordenação ativa</strong>: Coluna ordenada exibe ↑ ou ↓ em laranja; demais exibem ↕ cinza. Persistente via <code>localStorage</code>.</li>
-                            <li><strong>Filtros rápidos por status</strong>: Pills com contadores em tempo real — Todos, Novo, Em atendimento, Aguardando, Nova resposta, Urgente.</li>
-                            <li><strong>Badge de SLA inline</strong>: Tempo restante (ou vencimento) — 🟢 OK, 🟡 Alerta, 🔴 Crítico, 🩸 Vencido, ⬜ Pausado. Respeita <code>prefers-reduced-motion</code>.</li>
-                            <li><strong>Paginação</strong>: 25/50/100 itens por página com numeração ±2. Padrão alterado para 50 itens. Quantidade persistente.</li>
-                            <li><strong>Ícones Material Symbols</strong>: Substituem PNGs antigos — escaláveis, compatíveis com dark mode e acessíveis com <code>aria-label</code>.</li>
+                            <li>O Arquivo (demandas encerradas) ganhou a mesma busca, paginação e velocidade da lista de demandas abertas.</li>
+                            <li><strong>Visão Kanban</strong>: alterne entre tabela e quadro, e arraste a demanda entre as colunas (Novo, Em Atendimento, Aguardando, Nova Resposta) para mudar o status.</li>
+                            <li>Em telas pequenas (celular), a lista se adapta automaticamente em cartões.</li>
+                            <li>Editor de texto com formatação nas demandas e comentários — negrito, listas e imagens.</li>
+                            <li>A coluna usada para ordenar a lista fica destacada com uma seta (↑ ou ↓).</li>
+                            <li>Filtros rápidos por status, com a quantidade de demandas em cada um.</li>
+                            <li>Selo de prazo (SLA) ao lado de cada demanda, com cores indicando o quanto falta ou se já venceu.</li>
+                            <li>Escolha quantas demandas mostrar por página (25, 50 ou 100) — o sistema lembra sua preferência.</li>
+                            <li>Ícones mais nítidos, compatíveis com o modo escuro.</li>
                         </ul>
                     </div>
 
@@ -7574,85 +7540,72 @@ function mostrarSobre() {
                             <span>⚡</span> Respostas Rápidas (Macros)
                         </div>
                         <ul style="margin: 0; padding-left: 1.4rem; font-size: 0.88rem; color: var(--text-secondary, #555); line-height: 1.8;">
-                            <li>Templates de texto pré-formatados com WYSIWYG (Quill.js) para acelerar o atendimento.</li>
-                            <li>Modal dedicado com listagem dinâmica, edição e exclusão. Acessível pelo dropdown do perfil.</li>
-                            <li>Integração fluida no campo de comentários — macro injetada sem sobrescrever o texto existente.</li>
+                            <li>Textos padronizados e já formatados para agilizar o atendimento.</li>
+                            <li>Tela própria para criar, editar e excluir — acessível pelo menu do seu perfil.</li>
+                            <li>O texto da macro é inserido no comentário sem apagar o que você já tinha escrito.</li>
                         </ul>
                     </div>
 
-                    <!-- Notificações SSE -->
+                    <!-- Notificações -->
                     <div style="margin-bottom: 1.5rem;">
                         <div style="font-size: 0.9rem; font-weight: 700; color: var(--text-primary, #004373); margin-bottom: 0.8rem; display: flex; align-items: center; gap: 0.5rem; padding-bottom: 0.5rem; border-bottom: 1px solid var(--border-color, #e5e7eb);">
-                            <span>🔔</span> Notificações em Tempo Real (SSE)
+                            <span>🔔</span> Notificações
                         </div>
                         <ul style="margin: 0; padding-left: 1.4rem; font-size: 0.88rem; color: var(--text-secondary, #555); line-height: 1.8;">
-                            <li>Notificações atualizadas automaticamente a cada 30 segundos, sem recarregar a página.</li>
-                            <li>Badge pulsante com contador de alertas não lidos sobre o ícone do sino.</li>
-                            <li>Dropdown de feed com histórico; clicar na notificação abre a demanda correspondente e marca como lida.</li>
-                            <li>Triggers em sistema: nova atribuição, nova demanda, novos comentários e lembretes.</li>
-                        </ul>
-                    </div>
-
-                    <!-- Alpine.js -->
-                    <div style="margin-bottom: 1.5rem;">
-                        <div style="font-size: 0.9rem; font-weight: 700; color: var(--text-primary, #004373); margin-bottom: 0.8rem; display: flex; align-items: center; gap: 0.5rem; padding-bottom: 0.5rem; border-bottom: 1px solid var(--border-color, #e5e7eb);">
-                            <span>🏗️</span> Arquitetura Frontend — Componentização (Alpine.js)
-                        </div>
-                        <ul style="margin: 0; padding-left: 1.4rem; font-size: 0.88rem; color: var(--text-secondary, #555); line-height: 1.8;">
-                            <li>Migração incremental de <code>script.js</code> monolítico para componentes Alpine.js encapsulados sem build step.</li>
-                            <li>Editor Quill.js extraído para <code>alpine-components.js</code> com inicialização atômica.</li>
-                            <li>Micro-animações com física de mola (<code>cubic-bezier(0.175, 0.885, 0.32, 1.275)</code>); respeita <code>prefers-reduced-motion</code>.</li>
+                            <li>Notificações atualizadas automaticamente, sem precisar recarregar a página.</li>
+                            <li>Contador de alertas não lidos sobre o ícone do sino.</li>
+                            <li>Veja o histórico de notificações; clicar em uma abre a demanda e marca como lida.</li>
+                            <li>Você é avisado de: nova atribuição, nova demanda, novos comentários e lembretes.</li>
                         </ul>
                     </div>
 
                     <!-- Segurança -->
                     <div style="margin-bottom: 1.5rem;">
                         <div style="font-size: 0.9rem; font-weight: 700; color: var(--text-primary, #004373); margin-bottom: 0.8rem; display: flex; align-items: center; gap: 0.5rem; padding-bottom: 0.5rem; border-bottom: 1px solid var(--border-color, #e5e7eb);">
-                            <span>🛡️</span> Segurança e Compliance (LGPD)
+                            <span>🛡️</span> Segurança e Privacidade
                         </div>
                         <ul style="margin: 0; padding-left: 1.4rem; font-size: 0.88rem; color: var(--text-secondary, #555); line-height: 1.8;">
-                            <li>Mascaramento obrigatório de e-mails (<code>a***@gmail.com</code>) na visualização de demandas encerradas.</li>
-                            <li>CSRF obrigatório em todos os Payloads de mutação via macros (<code>AuthMiddleware::verificarCSRF()</code>).</li>
+                            <li>Nas demandas encerradas, o e-mail do solicitante aparece parcialmente oculto (ex.: a***@gmail.com), para proteger dados pessoais.</li>
+                            <li>Proteção reforçada contra ações indevidas em todas as telas que alteram dados, incluindo as macros.</li>
                         </ul>
                     </div>
 
                     <!-- BI -->
                     <div style="margin-bottom: 1.5rem;">
                         <div style="font-size: 0.9rem; font-weight: 700; color: var(--text-primary, #004373); margin-bottom: 0.8rem; display: flex; align-items: center; gap: 0.5rem; padding-bottom: 0.5rem; border-bottom: 1px solid var(--border-color, #e5e7eb);">
-                            <span>📈</span> Business Intelligence — Dashboard FCR e Otimizações
+                            <span>📈</span> Dashboard
                         </div>
                         <ul style="margin: 0; padding-left: 1.4rem; font-size: 0.88rem; color: var(--text-secondary, #555); line-height: 1.8;">
-                            <li>Widget de <strong>First Contact Resolution (FCR)</strong>: % de demandas resolvidas no primeiro contato.</li>
-                            <li>Cache HTTP dinâmico no <code>dashboard.php</code> (60s) — reduz em ~90% as queries simultâneas de resumo.</li>
-                            <li>Migration v8 com indexação agressiva em <code>tickets</code>, <code>comentarios</code>, <code>historico</code> e <code>notificacoes</code>.</li>
+                            <li>Indicador de resolução no primeiro contato: percentual de demandas resolvidas já no primeiro atendimento.</li>
+                            <li>Dashboard mais rápido para quem usa o sistema ao mesmo tempo.</li>
                         </ul>
                     </div>
 
-                    <!-- Login e header -->
+                    <!-- Login -->
                     <div style="margin-bottom: 1.5rem;">
                         <div style="font-size: 0.9rem; font-weight: 700; color: var(--text-primary, #004373); margin-bottom: 0.8rem; display: flex; align-items: center; gap: 0.5rem; padding-bottom: 0.5rem; border-bottom: 1px solid var(--border-color, #e5e7eb);">
-                            <span>🔐</span> Login — Redesign Completo e Melhorias de Segurança
+                            <span>🔐</span> Tela de Login
                         </div>
                         <ul style="margin: 0; padding-left: 1.4rem; font-size: 0.88rem; color: var(--text-secondary, #555); line-height: 1.8;">
-                            <li>Layout split-screen: painel de identidade CRPRS (esquerdo) + formulário moderno com Inter e Material Symbols.</li>
-                            <li>Cloudflare Turnstile CAPTCHA validado no frontend antes do envio; 5 tentativas antes do bloqueio.</li>
-                            <li>Tratamento diferenciado por código HTTP (400 captcha, 401/403 credenciais, erro de rede).</li>
-                            <li>Suporte completo a <code>prefers-reduced-motion</code> e acessibilidade WCAG 2.2.</li>
+                            <li>Tela redesenhada, com a identidade visual do CRPRS.</li>
+                            <li>Verificação de segurança (captcha) antes do envio; bloqueio temporário após 5 tentativas.</li>
+                            <li>Mensagens de erro mais claras para cada situação (captcha, senha incorreta, falha de conexão).</li>
+                            <li>Compatível com leitores de tela e com quem prefere menos animações na tela.</li>
                         </ul>
                     </div>
 
                     <!-- E-mail -->
                     <div style="margin-bottom: 0;">
                         <div style="font-size: 0.9rem; font-weight: 700; color: var(--text-primary, #004373); margin-bottom: 0.8rem; display: flex; align-items: center; gap: 0.5rem; padding-bottom: 0.5rem; border-bottom: 1px solid var(--border-color, #e5e7eb);">
-                            <span>📧</span> Sistema de E-mail e Demandas por E-mail
+                            <span>📧</span> E-mail e Demandas Abertas por E-mail
                         </div>
                         <ul style="margin: 0; padding-left: 1.4rem; font-size: 0.88rem; color: var(--text-secondary, #555); line-height: 1.8;">
-                            <li>Estratégia IMAP alterada para <code>SINCE 3 days ago</code> — captura e-mails lidos em outros clientes.</li>
-                            <li>Anti-duplicidade de demandas (10 min) e comentários (5 min) via e-mail e interface.</li>
-                            <li>Blacklist de remetentes internos (<code>suporte@crprs.org.br</code>) para evitar loops.</li>
-                            <li>Log completo de envios na tabela <code>email_logs</code> com filtros, paginação e estatísticas de taxa de sucesso.</li>
-                            <li>Alerta visual pulsante 🔴 no botão Configurações quando há falhas de e-mail nas últimas 24h.</li>
-                            <li>Notificação entre colegas: comentário em demanda de outro responsável dispara e-mail + muda status para "Nova Resposta".</li>
+                            <li>A verificação de e-mails deixou de perder mensagens já lidas em outro aplicativo (celular, Outlook etc.).</li>
+                            <li>Proteção contra demandas e comentários duplicados quando o mesmo e-mail chega mais de uma vez.</li>
+                            <li>E-mails enviados pelo próprio sistema não geram demandas, evitando loops.</li>
+                            <li>Histórico completo dos e-mails enviados, com filtros, paginação e taxa de sucesso.</li>
+                            <li>Aviso visual quando há falhas recentes no envio de e-mail (visível a quem configura o e-mail do sistema).</li>
+                            <li>Ao comentar em uma demanda de outro responsável, ele é avisado por e-mail e o status muda para "Nova Resposta".</li>
                         </ul>
                     </div>
 
@@ -7717,12 +7670,13 @@ function mostrarSLA() {
             
             <h4>📋 Tabela de Prazos por Prioridade</h4>
             <table class="sla-table">
+                <caption class="sr-only">Prazos de SLA por prioridade</caption>
                 <thead>
                     <tr>
-                        <th>Prioridade</th>
-                        <th>1ª Resposta</th>
-                        <th>Resolução</th>
-                        <th>Exemplos</th>
+                        <th scope="col">Prioridade</th>
+                        <th scope="col">1ª Resposta</th>
+                        <th scope="col">Resolução</th>
+                        <th scope="col">Exemplos</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -8586,14 +8540,15 @@ function mostrarLogEmails(dados, paginaAtual = 1) {
         tabelaHtml = `
             <div style="overflow-x:auto;">
             <table style="width:100%; border-collapse:collapse; font-size:13px;">
+                <caption class="sr-only">Log de e-mails enviados</caption>
                 <thead>
                     <tr style="background:#1e3a5f; color:#fff;">
-                        <th style="padding:10px 12px; text-align:left;">Data/Hora</th>
-                        <th style="padding:10px 12px; text-align:left;">Destinatário</th>
-                        <th style="padding:10px 12px; text-align:left;">Assunto</th>
-                        <th style="padding:10px 12px; text-align:center;">Tipo</th>
-                        <th style="padding:10px 12px; text-align:center;">Demanda</th>
-                        <th style="padding:10px 12px; text-align:center;">Status</th>
+                        <th scope="col" style="padding:10px 12px; text-align:left;">Data/Hora</th>
+                        <th scope="col" style="padding:10px 12px; text-align:left;">Destinatário</th>
+                        <th scope="col" style="padding:10px 12px; text-align:left;">Assunto</th>
+                        <th scope="col" style="padding:10px 12px; text-align:center;">Tipo</th>
+                        <th scope="col" style="padding:10px 12px; text-align:center;">Demanda</th>
+                        <th scope="col" style="padding:10px 12px; text-align:center;">Status</th>
                     </tr>
                 </thead>
                 <tbody>

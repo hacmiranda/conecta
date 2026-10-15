@@ -192,12 +192,21 @@ Cada fase termina com o sistema funcionando, um commit próprio, testes de API p
 3. **S18, S19**: escape nos templates e validação de destinatários.
 4. **P2, U8**: paginação, busca e contadores no servidor.
 
-### Fase 12: frontend (estrutura, UX e acessibilidade)
-1. **P1, U2**: `api.js` (cliente HTTP único com 401 global), divisão do `script.js` e remoção das funções duplicadas.
-2. **A1-A3**: modais acessíveis, elementos clicáveis com teclado e regiões `aria-live`.
-3. **A4-A9**: Inter, `<header>` e *skip link*, tabelas, gráficos, contraste e foco.
-4. **U3, U5, U7, U9-U11**: aba Solicitantes, estados de envio, vocabulário e prioridades, resposta × nota interna.
-5. **S16**: versões fixas com SRI e início da retirada de `onclick` inline.
+### Fase 12: frontend (estrutura, UX e acessibilidade) (parcialmente concluída em 15/10/2026 — ver nota)
+1. **P1 (parcial)**: as 4 funções duplicadas (`aplicarFiltroMeusTicketsFechados`, `calcularTextoSLA`, `limparBuscaFechados`, `mostrarRelatorios`) foram removidas. **`api.js` e a divisão de `script.js` em arquivos por domínio ficam para depois** — mudança grande, melhor feita com mais tempo de teste.
+2. **U2**: já estava resolvido desde a Fase 9 (monitor global de 401/403 em `script.js`, redireciona ao login).
+3. **A1-A3**: concluído — `frontend/acessibilidade.js` (novo) dá foco preso, ESC e retorno de foco a todos os modais (`#modal-overlay`), Tab/Enter/Espaço aos `<div>/<span>/<tr>/<li>` com `onclick`, e `aria-live` aos *toasts*. Corrigido de carona: o "×" do modal de confirmação não acionava o `callback` (perdia a resposta); `fecharVisualizador()` quebrava com o visualizador de anexo fechado.
+4. **A4**: já estava resolvido (Inter carrega via `@import` em `modern-enhancements.css`).
+5. **A5**: *skip link* para `<main>` e `role="banner"` na marca/setor (em vez de `<header>` literal, para não herdar o CSS de um cabeçalho de topo já removido do layout).
+6. **A6**: `<caption class="sr-only">` e `scope="col"` nas 6 tabelas que não tinham.
+7. **A7**: os 7 gráficos em `<canvas>` (desenhados à mão, sem Chart.js) ganharam `role="img"` e `aria-label` com o resumo dos dados.
+8. **A8**: não feito — mover 266 estilos inline para variáveis é grande, fica para quando houver mais tempo.
+9. **A9**: auditado, nenhuma mudança necessária — os 7 `outline: none` já têm substituto visível (`box-shadow`/borda) no `:focus`.
+10. **U7**: já estava resolvido (textos e descrições de prioridade já revisados em fases anteriores).
+11. **U10**: o alerta de falha de e-mail passou a aparecer só para o admin (único que configura e-mail), no frontend e no endpoint.
+12. **U11**: a tela "Sobre" foi reescrita para linguagem de usuário final (sem nomes de arquivo, tabela ou código); a seção só de arquitetura interna (Alpine.js) foi removida.
+13. **U3, U5, U9**: não feitos — aba Solicitantes separada, estado de "enviando" no comentário e escolha explícita resposta×nota interna ficam para uma próxima fase.
+14. **S16**: as 5 dependências de CDN (Alpine, Quill JS/CSS, Cropper JS/CSS) ganharam versão fixa e `integrity` (SRI) com hash real, verificado buscando o arquivo. A retirada de `onclick` inline (para tirar `unsafe-inline` da CSP) não foi feita — grande, fica para o médio prazo como o plano já previa.
 
 ### Fase 13: qualidade contínua
 1. **P4**: PHPUnit e script de matriz de acesso.

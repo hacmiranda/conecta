@@ -11,6 +11,7 @@ function criarGraficoAgente(dados) {
                 const agentes = dados.por_agente || [];
                 const cores = ['#2797e1', '#c52ee7', '#39dd52', '#d7e744', '#e56b46', '#e62c45'];
                 const total = agentes.reduce((sum, a) => sum + parseInt(a.total), 0);
+                descreverGraficoCanvas(canvas, 'Demandas por responsável', agentes.map(a => a.nome), agentes.map(a => parseInt(a.total)));
                 const centerX = canvas.width / 2;
                 const centerY = canvas.height / 2;
                 const raio = 80;
@@ -241,6 +242,7 @@ function criarGraficoDiaSemana(dados) {
                     return item ? parseInt(item.total) : 0;
                 });
                 const totalDias = valores.reduce((s, v) => s + v, 0) || 1;
+                descreverGraficoCanvas(canvas, 'Demandas por dia da semana', dias, valores);
                 const maxValor = Math.max(...valores) || 1;
                 const margemEsquerda = 30;
                 const margemDireita = 30;
@@ -359,6 +361,11 @@ function criarGraficoStatusAgente(dados) {
 
                 // Mapa de segmentos para hit-detection: [{agente, status, label, valor, cor, x, yTopo, altura}]
                 const segmentosHit = [];
+
+                const totaisPorAgente = agentes.map(ag => statusAgente
+                    .filter(s => s.agente === ag)
+                    .reduce((soma, s) => soma + parseInt(s.total), 0));
+                descreverGraficoCanvas(canvas, 'Demandas por responsável e status', agentes, totaisPorAgente);
 
                 ctx.clearRect(0, 0, canvas.width, canvas.height);
 
@@ -645,6 +652,13 @@ function criarGraficoDiarios30d(dados) {
             const valores = diasLabels.map(d => valoresMap[d.chave] || 0);
             const totalDiarios = valores.reduce((s, v) => s + v, 0) || 1;
             const maxValor = Math.max(...valores, 1);
+
+            // Resumo (em vez dos 30 pontos, que tornariam o texto muito longo)
+            const idxMaiorDia = valores.indexOf(Math.max(...valores));
+            canvas.setAttribute('role', 'img');
+            canvas.setAttribute('aria-label',
+                `Demandas abertas nos últimos 30 dias. Total: ${totalDiarios}. ` +
+                `Dia com mais aberturas: ${diasLabels[idxMaiorDia].label} (${valores[idxMaiorDia]}).`);
 
             const margemEsq = 36;
             const margemDir = 20;
