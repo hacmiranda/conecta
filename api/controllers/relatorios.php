@@ -132,7 +132,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
                 if ($resultado['primeira_resposta']) {
                     $ticketsComResposta[] = [
                         'criado_em' => $ticket['criado_em'],
-                        'primeira_resposta' => $resultado['primeira_resposta']
+                        'primeira_resposta' => $resultado['primeira_resposta'],
+                        'setor_id' => $ticket['setor_id'] ?? null
                     ];
                 }
             }
@@ -141,7 +142,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
                 $soma = 0;
                 foreach ($ticketsComResposta as $tempo) {
                     // Usar SLAService PHP para calcular segundos úteis
-                    $segundosUteis = $slaService->calcularSegundosUteis($tempo['criado_em'], $tempo['primeira_resposta']);
+                    $segundosUteis = $slaService->calcularSegundosUteis($tempo['criado_em'], $tempo['primeira_resposta'], $tempo['setor_id']);
                     $soma += $segundosUteis;
                 }
                 $tempoPrimeiroAtendimentoSegundos = round($soma / count($ticketsComResposta));
@@ -156,7 +157,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
                 $soma = 0;
                 foreach ($ticketsEncerradosFiltrados as $ticket) {
                     // Usar SLAService PHP para calcular segundos úteis
-                    $segundosUteis = $slaService->calcularSegundosUteis($ticket['criado_em'], $ticket['fechado_em']);
+                    $segundosUteis = $slaService->calcularSegundosUteis($ticket['criado_em'], $ticket['fechado_em'], $ticket['setor_id'] ?? null);
                     $soma += $segundosUteis;
                 }
                 $tempoMedioSegundos = round($soma / count($ticketsEncerradosFiltrados));

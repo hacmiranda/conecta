@@ -191,6 +191,8 @@ function formatarNomePrioridade(prioridade) {
 // Horários configuráveis (carregados do banco)
 let HORARIOS_CONFIGURADOS = null;
 let FERIADOS_CONFIGURADOS = [];
+// Expediente e feriados de cada setor: { setor_id: { horarios: [...], feriados: [...] } }
+let SLA_CONFIG_POR_SETOR = {};
 
 // Carregar horários e feriados do banco
 function carregarHorariosConfigurados() {
@@ -210,7 +212,23 @@ function carregarHorariosConfigurados() {
                 xhr2.onload = function () {
                     if (xhr2.status === 200) {
                         FERIADOS_CONFIGURADOS = JSON.parse(xhr2.responseText);
-                        resolve();
+
+                        // Expediente/feriados de cada setor, para calcular o SLA de cada demanda
+                        const xhr3 = new XMLHttpRequest();
+                        xhr3.open('GET', window.APP_CONFIG.apiBase + 'horarios-sla.php?mapa=1', true);
+                        setSecurityHeaders(xhr3);
+                        xhr3.onload = function () {
+                            if (xhr3.status === 200) {
+                                try {
+                                    SLA_CONFIG_POR_SETOR = JSON.parse(xhr3.responseText) || {};
+                                } catch (e) {
+                                    SLA_CONFIG_POR_SETOR = {};
+                                }
+                            }
+                            resolve();
+                        };
+                        xhr3.onerror = function () { resolve(); };
+                        xhr3.send();
                     } else {
                         reject('Erro ao carregar feriados');
                     }
@@ -363,6 +381,25 @@ function calcularSegundosUteisOtimizado(dataInicio, dataFim) {
     }
 
     return segundosUteis;
+}
+
+// Segundos úteis usando o expediente e os feriados do setor da demanda
+function calcularSegundosUteisPorSetor(dataInicio, dataFim, setorId) {
+    const cfg = setorId ? SLA_CONFIG_POR_SETOR[setorId] : null;
+    if (!cfg) {
+        return calcularSegundosUteisOtimizado(dataInicio, dataFim);
+    }
+
+    const horariosOriginais = HORARIOS_CONFIGURADOS;
+    const feriadosOriginais = FERIADOS_CONFIGURADOS;
+    HORARIOS_CONFIGURADOS = cfg.horarios;
+    FERIADOS_CONFIGURADOS = cfg.feriados;
+    try {
+        return calcularSegundosUteisOtimizado(dataInicio, dataFim);
+    } finally {
+        HORARIOS_CONFIGURADOS = horariosOriginais;
+        FERIADOS_CONFIGURADOS = feriadosOriginais;
+    }
 }
 
 // Carregar status disponíveis
@@ -621,7 +658,7 @@ function calcularTempoRestanteSLA(ticket) {
     const criacao = new Date(ticket.criado_em);
 
     // Calcular tempo decorrido em horas úteis
-    const tempoDecorridoUtil = calcularSegundosUteisOtimizado(criacao, agora);
+    const tempoDecorridoUtil = calcularSegundosUteisPorSetor(criacao, agora, ticket.setor_id);
 
     // Subtrair tempo pausado (se houver)
     const tempoPausado = ticket.tempo_pausado_segundos || 0;
