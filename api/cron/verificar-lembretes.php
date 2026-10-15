@@ -52,7 +52,7 @@ try {
             $notif_stmt->execute();
         } else {
             // "Todos os agentes": Buscar todos os agentes/admins ativos
-            $agentes_query = "SELECT id, email FROM usuarios WHERE tipo IN ('usuario', 'supervisor', 'admin') AND ativo = 1";
+            $agentes_query = "SELECT id, email FROM usuarios WHERE tipo IN ('operador', 'gestor', 'admin') AND ativo = 1";
             $agentes_stmt = $db->prepare($agentes_query);
             $agentes_stmt->execute();
             $todosAgentes = $agentes_stmt->fetchAll(PDO::FETCH_ASSOC);

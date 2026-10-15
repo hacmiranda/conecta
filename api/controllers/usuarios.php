@@ -46,10 +46,10 @@ function gerarUsernameUnico(PDO $db, string $nomeCompleto): string {
     return $candidato;
 }
 
-// GET - Listar usuários (admin vê todos / pode filtrar por setor_id; supervisor só vê o próprio setor)
+// GET - Listar usuários (admin vê todos / pode filtrar por setor_id; gestor só vê o próprio setor)
 if ($_SERVER['REQUEST_METHOD'] === 'GET') {
     $user = AuthMiddleware::verificarAuth();
-    AuthMiddleware::verificarSupervisor($user);
+    AuthMiddleware::verificarGestor($user);
 
     try {
         $where = [];
@@ -61,7 +61,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
                 $params[':setor_id'] = (int) $_GET['setor_id'];
             }
         } else {
-            // Supervisor: sempre restrito ao próprio setor
+            // Gestor: sempre restrito ao próprio setor
             $where[] = 'u.setor_id = :setor_id';
             $params[':setor_id'] = $user['setor_id'];
         }
@@ -87,13 +87,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
 // POST - Criar usuário
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $user = AuthMiddleware::verificarAuth();
-    AuthMiddleware::verificarSupervisor($user);
+    AuthMiddleware::verificarGestor($user);
     AuthMiddleware::verificarCSRF();
 
     $input = json_decode(file_get_contents('php://input'), true);
     $nome = trim($input['nome'] ?? '');
     $email = trim($input['email'] ?? '');
-    $tipo = $input['tipo'] ?? 'usuario';
+    $tipo = $input['tipo'] ?? 'operador';
     $cargo = trim($input['cargo'] ?? '') ?: null;
     $username = trim($input['username'] ?? '');
     $setor_id = !empty($input['setor_id']) ? (int) $input['setor_id'] : null;
@@ -104,19 +104,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         exit;
     }
 
-    // Supervisor só pode criar usuários comuns dentro do próprio setor
-    if ($user['tipo'] === 'supervisor') {
-        if (!in_array($tipo, ['usuario'], true)) {
+    // Gestor só pode criar usuários comuns dentro do próprio setor
+    if ($user['tipo'] === 'gestor') {
+        if (!in_array($tipo, ['operador'], true)) {
             http_response_code(403);
-            echo json_encode(['error' => 'Supervisores só podem cadastrar usuários com papel "usuario"']);
+            echo json_encode(['error' => 'Gestores só podem cadastrar usuários com papel "operador"']);
             exit;
         }
         $setor_id = $user['setor_id'];
     }
 
-    if (in_array($tipo, ['usuario', 'supervisor'], true) && empty($setor_id)) {
+    if (in_array($tipo, ['operador', 'gestor'], true) && empty($setor_id)) {
         http_response_code(400);
-        echo json_encode(['error' => 'Setor é obrigatório para os papéis usuario/supervisor']);
+        echo json_encode(['error' => 'Setor é obrigatório para os papéis operador/gestor']);
         exit;
     }
 
@@ -177,7 +177,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 // PUT - Atualizar usuário
 if ($_SERVER['REQUEST_METHOD'] === 'PUT') {
     $user = AuthMiddleware::verificarAuth();
-    AuthMiddleware::verificarSupervisor($user);
+    AuthMiddleware::verificarGestor($user);
     AuthMiddleware::verificarCSRF();
 
     $path = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH);
@@ -186,7 +186,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'PUT') {
 
     $input = json_decode(file_get_contents('php://input'), true);
 
-    // Confirma que o alvo pertence ao setor do supervisor (admin passa direto)
+    // Confirma que o alvo pertence ao setor do gestor (admin passa direto)
     $alvo_stmt = $db->prepare("SELECT nome, username, email, tipo, cargo, setor_id, ativo FROM usuarios WHERE id = ?");
     $alvo_stmt->execute([$usuario_id]);
     $alvo = $alvo_stmt->fetch(PDO::FETCH_ASSOC);
@@ -197,7 +197,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'PUT') {
         exit;
     }
 
-    if ($user['tipo'] === 'supervisor' && !AuthMiddleware::mesmoSetor($user, $alvo['setor_id'])) {
+    if ($user['tipo'] === 'gestor' && !AuthMiddleware::mesmoSetor($user, $alvo['setor_id'])) {
         http_response_code(403);
         echo json_encode(['error' => 'Você só pode editar usuários do próprio setor']);
         exit;
@@ -242,11 +242,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'PUT') {
         exit;
     }
 
-    // Supervisor não pode promover para supervisor/admin nem mudar o setor do usuário
-    if ($user['tipo'] === 'supervisor') {
-        if (!in_array($tipo, ['usuario'], true)) {
+    // Gestor não pode promover para gestor/admin nem mudar o setor do usuário
+    if ($user['tipo'] === 'gestor') {
+        if (!in_array($tipo, ['operador'], true)) {
             http_response_code(403);
-            echo json_encode(['error' => 'Supervisores não podem alterar o papel para supervisor/admin']);
+            echo json_encode(['error' => 'Gestores não podem alterar o papel para gestor/admin']);
             exit;
         }
         $setor_id = $alvo['setor_id'];

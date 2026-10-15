@@ -34,7 +34,7 @@ function _buscarNotificacoes() {
                 const usuario = JSON.parse(localStorage.getItem('cd_usuario') || '{}');
 
                 // Para agentes e admins, incluir alertas de falha de e-mail no sino
-                if (['agente', 'admin'].includes(usuario.tipo)) {
+                if (['operador', 'gestor', 'admin'].includes(usuario.tipo)) {
                     _mesclarAlertaEmail(data.notificacoes, data.nao_lidas);
                 } else {
                     atualizarBadgeNotificacoes(data.nao_lidas);

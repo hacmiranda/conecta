@@ -74,12 +74,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
             $params[':agente'] = $agente;
         }
 
-        // Escopo por papel: admin vê tudo; supervisor só o próprio setor; usuario/cliente só o que é seu
+        // Escopo por papel: admin vê tudo; gestor só o próprio setor; usuario/cliente só o que é seu
         $tipo = $user['tipo'] ?? '';
-        if ($tipo === 'supervisor') {
+        if ($tipo === 'gestor') {
             $query .= " AND t.setor_id = :setor_id_escopo";
             $params[':setor_id_escopo'] = $user['setor_id'] ?? 0;
-        } elseif ($tipo === 'usuario') {
+        } elseif ($tipo === 'operador') {
             $query .= " AND (t.agente_id = :self_id_escopo OR t.usuario_id = :self_id_escopo2)";
             $params[':self_id_escopo'] = $user['id'];
             $params[':self_id_escopo2'] = $user['id'];
@@ -117,7 +117,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
                 $queryPrimeiraResposta = "SELECT MIN(c.criado_em) as primeira_resposta
                                          FROM comentarios c
                                          INNER JOIN usuarios u ON c.usuario_id = u.id
-                                         WHERE c.ticket_id = :ticket_id AND u.tipo IN ('usuario', 'supervisor', 'admin')";
+                                         WHERE c.ticket_id = :ticket_id AND u.tipo IN ('operador', 'gestor', 'admin')";
                 $stmtPR = $db->prepare($queryPrimeiraResposta);
                 $stmtPR->bindParam(':ticket_id', $ticket['id']);
                 $stmtPR->execute();

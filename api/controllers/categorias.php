@@ -49,7 +49,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
 // POST - Criar categoria
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $user = AuthMiddleware::verificarAuth();
-    AuthMiddleware::verificarSupervisor($user);
+    AuthMiddleware::verificarGestor($user);
     AuthMiddleware::verificarCSRF();
 
     $input = json_decode(file_get_contents('php://input'), true);
@@ -111,7 +111,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 // PUT - Atualizar categoria
 if ($_SERVER['REQUEST_METHOD'] === 'PUT') {
     $user = AuthMiddleware::verificarAuth();
-    AuthMiddleware::verificarSupervisor($user);
+    AuthMiddleware::verificarGestor($user);
     AuthMiddleware::verificarCSRF();
 
     $path = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH);
@@ -151,7 +151,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'PUT') {
 // DELETE - Excluir categoria
 if ($_SERVER['REQUEST_METHOD'] === 'DELETE') {
     $user = AuthMiddleware::verificarAuth();
-    AuthMiddleware::verificarSupervisor($user);
+    AuthMiddleware::verificarGestor($user);
     AuthMiddleware::verificarCSRF();
 
     $path = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH);

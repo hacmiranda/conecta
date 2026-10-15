@@ -42,10 +42,10 @@ const TIPOS = [
 
 /**
  * Verifica se o usuário pode gerenciar a configuração do setor informado
- * (admin sempre; supervisor só o próprio setor) e encerra com 403 caso não.
+ * (admin sempre; gestor só o próprio setor) e encerra com 403 caso não.
  */
 function autorizarSetor(array $user, int $setor_id): void {
-    AuthMiddleware::verificarSupervisor($user);
+    AuthMiddleware::verificarGestor($user);
     if (!AuthMiddleware::mesmoSetor($user, $setor_id)) {
         http_response_code(403);
         echo json_encode(['error' => 'Você só pode configurar o próprio setor']);

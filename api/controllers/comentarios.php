@@ -143,7 +143,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $user_stmt->execute([$usuario_id]);
             $user_data = $user_stmt->fetch(PDO::FETCH_ASSOC);
             
-            if ($user_data && in_array($user_data['tipo'], ['usuario', 'supervisor', 'admin'])) {
+            if ($user_data && in_array($user_data['tipo'], ['operador', 'gestor', 'admin'])) {
                 $sla_update = "UPDATE ticket_sla 
                               SET sla_primeira_resposta_cumprido = 1, 
                                   sla_primeira_resposta_cumprido_em = NOW() 
@@ -268,7 +268,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     // Se o autor é agente/admin comentando em ticket de outro agente:
                     // 1. Mudar status para nova_resposta
                     // 2. Enviar e-mail específico ao agente responsável
-                    if (in_array($autor_tipo, ['usuario', 'supervisor', 'admin'])) {
+                    if (in_array($autor_tipo, ['operador', 'gestor', 'admin'])) {
                         // 1. Alterar status para nova_resposta
                         $status_query = "SELECT status FROM tickets WHERE id = ?";
                         $status_stmt = $db->prepare($status_query);
@@ -302,7 +302,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 }
             } else {
                 // Ticket sem responsável: notificar todos os agentes exceto o autor
-                $query_agentes = "SELECT id FROM usuarios WHERE tipo IN ('usuario', 'supervisor', 'admin') AND id != ?";
+                $query_agentes = "SELECT id FROM usuarios WHERE tipo IN ('operador', 'gestor', 'admin') AND id != ?";
                 $stmt_agentes = $db->prepare($query_agentes);
                 $stmt_agentes->execute([$usuario_id]);
                 $agentes_notificar = $stmt_agentes->fetchAll(PDO::FETCH_COLUMN);

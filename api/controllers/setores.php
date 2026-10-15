@@ -77,10 +77,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 }
 
-// PUT - Atualizar setor (admin edita tudo; supervisor só o nome do próprio setor)
+// PUT - Atualizar setor (admin edita tudo; gestor só o nome do próprio setor)
 if ($_SERVER['REQUEST_METHOD'] === 'PUT') {
     $user = AuthMiddleware::verificarAuth();
-    AuthMiddleware::verificarSupervisor($user);
+    AuthMiddleware::verificarGestor($user);
     AuthMiddleware::verificarCSRF();
 
     $path = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH);

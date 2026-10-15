@@ -12,7 +12,7 @@ AuthMiddleware::configurarCORS(['GET']);
 if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') { exit(0); }
 
 $user = AuthMiddleware::verificarAuth();
-if (!in_array($user['tipo'] ?? '', ['usuario', 'supervisor', 'admin'])) {
+if (!in_array($user['tipo'] ?? '', ['operador', 'gestor', 'admin'])) {
     http_response_code(403);
     echo json_encode(['error' => 'Acesso negado']);
     exit;

@@ -1,6 +1,5 @@
 -- Fase 1: Setores, Papéis e Usuários
--- Aplicar com: C:\xampp\mysql\bin\mysql.exe -u root -e "USE crpdesk; SOURCE 9_setores_papeis.sql;"
--- (ou "C:\Program Files\MySQL\MySQL Server 8.0\bin\mysql.exe" se essa for a instância ativa)
+-- Aplicar com: "C:\Program Files\MySQL\MySQL Server 8.4\bin\mysql.exe" -u root -p --default-character-set=utf8mb4 db_conecta < 9_setores_papeis.sql
 
 -- 1. Tabela de setores
 CREATE TABLE IF NOT EXISTS `setores` (

@@ -130,14 +130,14 @@ class AuthMiddleware {
     }
 
     /**
-     * Verifica se o usuário autenticado é supervisor ou administrador.
+     * Verifica se o usuário autenticado é gestor ou administrador.
      * Encerra com 403 se não for.
      */
-    public static function verificarSupervisor(array $user): void {
+    public static function verificarGestor(array $user): void {
         $tipo = $user['tipo'] ?? '';
-        if (!$user || ($tipo !== 'supervisor' && $tipo !== 'admin')) {
+        if (!$user || ($tipo !== 'gestor' && $tipo !== 'admin')) {
             http_response_code(403);
-            echo json_encode(['error' => 'Acesso negado. Apenas supervisores ou administradores.']);
+            echo json_encode(['error' => 'Acesso negado. Apenas gestores ou administradores.']);
             exit;
         }
     }
