@@ -1,8 +1,6 @@
 <?php
 // Endpoint leve: retorna contagem de falhas de e-mail recentes (últimas 24h).
 // Usado pelo frontend para exibir alertas visuais sem precisar acessar o log completo.
-error_reporting(0);
-ini_set('display_errors', 0);
 
 header('Content-Type: application/json');
 

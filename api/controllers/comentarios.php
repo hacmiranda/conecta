@@ -1,6 +1,4 @@
 <?php
-error_reporting(0);
-ini_set('display_errors', 0);
 
 header('Content-Type: application/json');
 
@@ -296,7 +294,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         $status_stmt->execute([$ticket_id]);
                         $status_atual = $status_stmt->fetchColumn();
                         
-                        if (!in_array($status_atual, ['encerrado', 'fechado', 'cancelado', 'nova_resposta'])) {
+                        if (!in_array($status_atual, array_merge(AcessoService::STATUS_ARQUIVO, ['nova_resposta']), true)) {
                             try {
                                 $upd_status = "UPDATE tickets SET status = 'nova_resposta' WHERE id = ?";
                                 $db->prepare($upd_status)->execute([$ticket_id]);

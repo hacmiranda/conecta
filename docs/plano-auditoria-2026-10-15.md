@@ -208,9 +208,13 @@ Cada fase termina com o sistema funcionando, um commit próprio, testes de API p
 13. **U3, U5, U9**: não feitos — aba Solicitantes separada, estado de "enviando" no comentário e escolha explícita resposta×nota interna ficam para uma próxima fase.
 14. **S16**: as 5 dependências de CDN (Alpine, Quill JS/CSS, Cropper JS/CSS) ganharam versão fixa e `integrity` (SRI) com hash real, verificado buscando o arquivo. A retirada de `onclick` inline (para tirar `unsafe-inline` da CSP) não foi feita — grande, fica para o médio prazo como o plano já previa.
 
-### Fase 13: qualidade contínua
-1. **P4**: PHPUnit e script de matriz de acesso.
-2. **P5-P10**: logger, constantes de status, padrão de resposta e documentação (CLAUDE.md e a tela Novidades).
-3. Roteiro de implantação em produção: `migrar.php` com backup, `APP_ENV`, chaves (`SETOR_EMAIL_ENCRYPTION_KEY_PROD`, `INTEGRATION_API_KEY_PROD`), `base_url` e host do banco de produção (ainda `crpdesk` em `environment.php:117-131`) e agendamento dos crons.
+### Fase 13: qualidade contínua (parcialmente concluída em 15/10/2026 — ver nota)
+1. **P4**: concluído — `api/tests/` com PHPUnit (31 testes: `AcessoService`, `SenhaService`, `SLAService`, este com SQLite em memória) e `api/tests/matriz-de-acesso.php` (19 checagens contra a API local de verdade; cria e remove seus próprios dados; recusa rodar com `APP_ENV=production`). Comandos em `CLAUDE.md`.
+2. **P6**: concluído — os 3 lugares que ainda comparavam o status contra uma lista solta (`comentarios.php`, `tickets.php`, `email-service.php`) passaram a usar `AcessoService::STATUS_ARQUIVO`; de carona, `dashboard.php` tinha 7 consultas com `('encerrado','cancelado')` **sem** o valor legado `'fechado'` — corrigido também.
+3. **P5 (parcial)**: removido `error_reporting(0)`/`display_errors=0` solto no topo de 4 controllers (`comentarios.php`, `email-alert.php`, `email-logs.php`, `macros.php`) — testado que nenhum deles vazava aviso no JSON sem a supressão. O logger único e a remoção dos `echo` de progresso em `email-service.php` (usados hoje pelo log do cron) ficam para outra fase.
+4. **P7**: já estava resolvido (`config-email.php` não lê mais chave inexistente; a tela "Sobre" não fala mais em SSE desde a Fase 12).
+5. **P9**: já resolvido pelo U10 da Fase 12 (alerta de falha de e-mail só para o admin).
+6. **P8, P10**: não feitos — padronizar o formato de resposta de ~30 controllers e tirar o cálculo de SLA duplicado do frontend (`status-sla.js`) são mudanças transversais; avaliar numa fase própria.
+7. Roteiro de implantação em produção: `docs/implantacao-producao.md` (novo). **Decisão do CRPRS pendente**: host/nome do banco de produção e `base_url` em `environment.php` ainda apontam para o CRPDESK (`crpdesk`/`crp07.org.br/crpdesk`) — confirmar antes do primeiro deploy, já documentado no roteiro.
 
 **Ordem recomendada:** 8 → 9 → 10 são pré-requisito para a produção. 11 a 13 podem ser intercaladas conforme a prioridade de uso.

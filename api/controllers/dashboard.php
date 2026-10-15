@@ -16,6 +16,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
 $database = new Database();
 $db = $database->getConnection();
 
+// Lista única de status finais (P6 da auditoria) — evita listas soltas que podem ficar desatualizadas
+$ARQUIVO_SQL = "'" . implode("','", AcessoService::STATUS_ARQUIVO) . "'";
+
 // GET - Dados do dashboard
 if ($_SERVER['REQUEST_METHOD'] === 'GET') {
     $user = AuthMiddleware::verificarAuth();
@@ -52,7 +55,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
         $dashboard['total_tickets'] = $stmt->fetch()['total'];
 
         // Tickets por status (apenas ativos)
-        $query = "SELECT t.status, COUNT(*) as total FROM tickets t WHERE t.status NOT IN ('encerrado', 'cancelado'){$filtroT} GROUP BY t.status";
+        $query = "SELECT t.status, COUNT(*) as total FROM tickets t WHERE t.status NOT IN ($ARQUIVO_SQL){$filtroT} GROUP BY t.status";
         $stmt = $db->prepare($query);
         $stmt->execute();
         $status_data = $stmt->fetchAll();
@@ -68,7 +71,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
         $dashboard['total_encerrados'] = $stmt_encerrado->fetch()['total'];
 
         // Tickets por prioridade (apenas ativos)
-        $query = "SELECT t.prioridade, COUNT(*) as total FROM tickets t WHERE t.status NOT IN ('encerrado', 'cancelado'){$filtroT} GROUP BY t.prioridade";
+        $query = "SELECT t.prioridade, COUNT(*) as total FROM tickets t WHERE t.status NOT IN ($ARQUIVO_SQL){$filtroT} GROUP BY t.prioridade";
         $stmt = $db->prepare($query);
         $stmt->execute();
         $prioridade_data = $stmt->fetchAll();
@@ -111,7 +114,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
         }
         $query = "SELECT u.nome, COUNT(t.id) as total
                   FROM usuarios u
-                  LEFT JOIN tickets t ON u.id = t.agente_id AND t.status NOT IN ('encerrado', 'cancelado'){$filtroAgenteJoin}
+                  LEFT JOIN tickets t ON u.id = t.agente_id AND t.status NOT IN ($ARQUIVO_SQL){$filtroAgenteJoin}
                   WHERE u.tipo IN ('admin', 'gestor', 'operador') AND u.ativo = 1{$filtroAgenteWhere}
                   GROUP BY u.id, u.nome
                   ORDER BY total DESC";
@@ -148,7 +151,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
         // Taxa de resolução (abertos vs fechados) - excluindo cancelados da conta total
         $query = "SELECT
                     SUM(CASE WHEN t.status = 'encerrado' THEN 1 ELSE 0 END) as fechados,
-                    SUM(CASE WHEN t.status NOT IN ('encerrado', 'cancelado') THEN 1 ELSE 0 END) as abertos
+                    SUM(CASE WHEN t.status NOT IN ($ARQUIVO_SQL) THEN 1 ELSE 0 END) as abertos
                   FROM tickets t WHERE t.status != 'cancelado'{$filtroT}";
         $stmt = $db->prepare($query);
         $stmt->execute();
@@ -180,7 +183,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
                   FROM tickets t
                   JOIN usuarios u ON t.agente_id = u.id
                   WHERE u.tipo IN ('operador', 'gestor', 'admin') AND u.ativo = 1
-                    AND t.status NOT IN ('encerrado', 'cancelado', 'resolvido'){$filtroT}{$filtroStatusPorAgente}
+                    AND t.status NOT IN ($ARQUIVO_SQL, 'resolvido'){$filtroT}{$filtroStatusPorAgente}
                   GROUP BY u.nome, t.status
                   ORDER BY u.nome, t.status";
         $stmt = $db->prepare($query);
@@ -202,7 +205,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
         ];
 
         // Funil de conversão (exclui encerrado e cancelado)
-        $query = "SELECT t.status, COUNT(*) as total FROM tickets t WHERE t.status NOT IN ('encerrado', 'cancelado'){$filtroT} GROUP BY t.status";
+        $query = "SELECT t.status, COUNT(*) as total FROM tickets t WHERE t.status NOT IN ($ARQUIVO_SQL){$filtroT} GROUP BY t.status";
         $stmt = $db->prepare($query);
         $stmt->execute();
         $funil_data = $stmt->fetchAll();
@@ -297,7 +300,7 @@ LEAST(
         $query = "SELECT COUNT(DISTINCT t.id) as total
                   FROM tickets t
                   JOIN ticket_sla ts ON t.id = ts.ticket_id
-                  WHERE t.status NOT IN ('encerrado', 'cancelado')
+                  WHERE t.status NOT IN ($ARQUIVO_SQL)
                     AND (ts.sla_resposta_vencido = 1 OR ts.sla_resolucao_vencido = 1){$filtroT}";
         $stmt = $db->prepare($query);
         $stmt->execute();

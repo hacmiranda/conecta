@@ -36,7 +36,13 @@ php database/migrar.php            # aplica as pendentes; --status lista; --marc
 php database/seed_admin.php "email@crprs.org.br" "Nome Completo"
 ```
 
-There is no lint command, test suite, or frontend build process.
+### Tests (api/tests/, P4 of the 2026-10-15 audit)
+```bash
+cd api && composer test              # PHPUnit unit tests (AcessoService, SenhaService, SLAService)
+php api/tests/matriz-de-acesso.php   # access matrix against the real local API; creates/deletes its own zz_ data; refuses APP_ENV=production
+```
+
+There is no lint command or frontend build process.
 
 ## Architecture
 
