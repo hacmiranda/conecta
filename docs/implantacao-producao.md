@@ -7,11 +7,13 @@ na produção, como ficou decidido para o fim deste projeto). Siga na ordem.
 
 Nada abaixo foi definido neste roteiro — são escolhas de implantação, não técnicas.
 
-- **Host e nome do banco de produção.** `api/config/environment.php` (função `production()`)
-  ainda tem os valores herdados do CRPDESK: `db_host` = `crpdesk.vpshost0269.mysql.dbaas.com.br`,
-  `db_name` = `crpdesk`. Como o banco local (`db_conecta`) será replicado na produção, confirme
-  se o banco de produção vai manter o nome `crpdesk` (banco existente, substituído) ou vai se
-  chamar `db_conecta` (banco novo) — e ajuste `db_host`/`db_name` em `environment.php` de acordo.
+- **Nome do banco de produção: decidido — `db_conecta`** (confirmado em 15/10/2026; já ajustado
+  em `api/config/environment.php` e `api/config/.env.example`).
+- **Host e usuário do banco de produção.** `api/config/environment.php` (função `production()`)
+  ainda tem `db_host` = `crpdesk.vpshost0269.mysql.dbaas.com.br` e `db_user` = `crpdesk`, herdados
+  do CRPDESK. Confirmar se o novo banco `db_conecta` fica no mesmo servidor/usuário ou muda —
+  e ajustar `db_host`/`db_user` em `environment.php` de acordo (ou preencher `DB_HOST_PROD`/
+  `DB_USER_PROD` no `.env`, que tem prioridade sobre o valor fixo no arquivo).
 - **`base_url` de produção.** Mesma função, hoje `https://crp07.org.br/crpdesk`. Confirme o caminho
   definitivo (ex.: `https://crp07.org.br/conecta`) e ajuste.
 - **E-mail de cada setor.** As caixas IMAP/SMTP de setor (`setor_emails`) são cadastradas pela
