@@ -1,68 +1,48 @@
 <?php
-// Cron job para verificar emails
+/**
+ * Lê as caixas de e-mail (uma por setor, ou a global do .env) e abre/atualiza demandas.
+ * Ao final, dispara os lembretes vencidos.
+ *
+ * Execução:
+ *   - linha de comando:  php api/cron/verificar-emails.php
+ *   - HTTP (cron-job.org, a cada 2 min): .../api/cron/verificar-emails.php
+ *       com o header "X-Cron-Key: <CRON_KEY_PROD>" (ou ?key=<CRON_KEY_PROD>)
+ *
+ * Por HTTP a resposta traz só um resumo; o detalhe fica em backend/logs/email-cron.log.
+ */
+require_once __DIR__ . '/acesso-cron.php';
+cronExigirAcesso();
 
-// Proteção: Verificar chave de segurança (apenas para acesso web)
-$chave_secreta = 'crp07_cron_2025';
-if (php_sapi_name() !== 'cli' && (!isset($_GET['key']) || $_GET['key'] !== $chave_secreta)) {
-    http_response_code(403);
-    die('Acesso negado');
+require_once __DIR__ . '/../config/database.php';
+require_once __DIR__ . '/../config/email-config.php';
+require_once __DIR__ . '/../services/email-service.php';
+
+$db = (new Database())->getConnection();
+
+if (!cronTravar($db, 'emails')) {
+    echo "E-mails: outra execução em andamento\n";
+    exit;
 }
 
-// Definir diretório base
-$base_dir = dirname(__DIR__);
-require_once $base_dir . '/config/environment.php';
-require_once $base_dir . '/config/database.php';
-require_once $base_dir . '/config/email-config.php';
-require_once $base_dir . '/services/email-service.php';
+cronLog('email-cron.log', 'Início da verificação de e-mails');
 
-// Log de execução
-$log_file = '../../backend/logs/email-cron.log';
-$log_dir = dirname($log_file);
-if (!is_dir($log_dir)) {
-    mkdir($log_dir, 0755, true);
-}
-
-function log_message($message) {
-    global $log_file;
-    $timestamp = date('Y-m-d H:i:s');
-    file_put_contents($log_file, "[$timestamp] $message\n", FILE_APPEND);
-}
-
-echo "<h2>Verificando emails...</h2>";
-
+// O EmailService escreve o andamento na saída: guardado para o log (não vai para o cron externo)
+ob_start();
 try {
-    echo "<p>Iniciando verificação de emails...</p>";
-    log_message("Iniciando verificação de emails...");
-    
-    echo "<p>Conectando ao banco de dados...</p>";
-    $database = new Database();
-    $db = $database->getConnection();
-    
-    echo "<p>Criando serviço de email...</p>";
-    $emailService = new EmailService($db);
-    
-    echo "<p>Verificando emails...</p>";
-    $resultado = $emailService->verificarEmails();
-    
-    if ($resultado) {
-        echo "<p style='color: green;'>✅ Verificação de emails concluída com sucesso</p>";
-        log_message("Verificação de emails concluída com sucesso");
-    } else {
-        echo "<p style='color: red;'>❌ Erro na verificação de emails</p>";
-        log_message("Erro na verificação de emails");
-    }
-    
-    // Verificar lembretes
-    echo "<p>Verificando lembretes...</p>";
-    log_message("Verificando lembretes...");
-    include 'verificar-lembretes.php';
-    log_message("Verificação de lembretes concluída");
-    
+    $resultado = (new EmailService($db))->verificarEmails(3);
+    $situacao = $resultado ? 'E-mails: verificação concluída' : 'E-mails: verificação concluída com erros';
 } catch (Exception $e) {
-    echo "<p style='color: red;'>❌ Erro crítico: " . $e->getMessage() . "</p>";
-    log_message("Erro crítico: " . $e->getMessage());
+    $resultado = false;
+    $situacao = 'E-mails: erro crítico (ver log)';
+    error_log('[CRON EMAILS] Erro crítico: ' . $e->getMessage());
 }
+$detalhe = trim(html_entity_decode(strip_tags(str_replace(['</p>', '<br>'], "\n", ob_get_clean()))));
 
-echo "<p>Fim da execução</p>";
-log_message("Fim da execução\n");
-?>
+cronLog('email-cron.log', $situacao);
+if (PHP_SAPI === 'cli') {
+    echo $detalhe . "\n";
+}
+echo $situacao . "\n";
+
+// Lembretes vencidos (mesma execução do cron)
+include __DIR__ . '/verificar-lembretes.php';

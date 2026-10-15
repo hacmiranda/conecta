@@ -14,8 +14,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
 
 try {
     require_once __DIR__ . '/../config/database.php';
-    require_once __DIR__ . '/../middleware/auth.php';
-    
+    require_once __DIR__ . '/../services/html-sanitizer.php';
+
     // Auth check
     $user = AuthMiddleware::verificarAuth();
     $usuario_id = $user['id'];
@@ -23,7 +23,7 @@ try {
 
 } catch (Exception $e) {
     http_response_code(401);
-    echo json_encode(['error' => 'Não autorizado: ' . $e->getMessage()]);
+    echo json_encode(['error' => 'Não autorizado']);
     exit;
 }
 
@@ -51,9 +51,13 @@ if ($method === 'GET') {
 if ($method === 'POST') {
     AuthMiddleware::verificarCSRF();
     $data = json_decode(file_get_contents("php://input"));
+    if ($data) {
+        $data->titulo = HtmlSanitizer::texto($data->titulo ?? '', 255);
+        $data->texto = HtmlSanitizer::rico($data->texto ?? '');
+    }
     if(!empty($data->titulo) && !empty($data->texto)) {
         try {
-            $query = "INSERT INTO macros (titulo, texto, usuario_id) VALUES (:titulo, :texto, :usuario_id)";
+            $query = "INSERT INTO macros(titulo, texto, usuario_id) VALUES (:titulo, :texto, :usuario_id)";
             $stmt = $db->prepare($query);
             $stmt->bindParam(':titulo', $data->titulo);
             $stmt->bindParam(':texto', $data->texto);
@@ -98,9 +102,13 @@ if ($method === 'PUT') {
         exit;
     }
 
+    if ($data) {
+        $data->titulo = HtmlSanitizer::texto($data->titulo ?? '', 255);
+        $data->texto = HtmlSanitizer::rico($data->texto ?? '');
+    }
     if(!empty($data->titulo) && !empty($data->texto)) {
         try {
-            $query = "UPDATE macros SET titulo = :titulo, texto = :texto WHERE id = :id";
+            $query = "UPDATE macrosSET titulo = :titulo, texto = :texto WHERE id = :id";
             $stmt = $db->prepare($query);
             $stmt->bindParam(':titulo', $data->titulo);
             $stmt->bindParam(':texto', $data->texto);

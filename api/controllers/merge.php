@@ -184,7 +184,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $db->rollback();
         }
         http_response_code(500);
-        echo json_encode(['error' => 'Erro ao mesclar demandas: ' . $e->getMessage()]);
+        error_log('[MERGE] Erro: ' . $e->getMessage());
+        echo json_encode(['error' => 'Erro ao mesclar demandas']);
     }
 }
 ?>

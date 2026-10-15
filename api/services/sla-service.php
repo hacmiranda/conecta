@@ -155,6 +155,23 @@ class SLAService {
     }
 
     /**
+     * Retoma o SLA pausado da demanda: soma o tempo útil em pausa e limpa a marca de pausa.
+     * Sem pausa ativa, não faz nada.
+     */
+    public function retomarPausa(int $ticketId, ?int $setorId): void {
+        $stmt = $this->db->prepare("SELECT COALESCE(tempo_pausado_segundos, 0) AS tempo_pausado, pausado_em
+                                    FROM ticket_sla WHERE ticket_id = ?");
+        $stmt->execute([$ticketId]);
+        $sla = $stmt->fetch(PDO::FETCH_ASSOC);
+        if (!$sla || !$sla['pausado_em']) {
+            return;
+        }
+        $pausado = $this->calcularSegundosUteis($sla['pausado_em'], date('Y-m-d H:i:s'), $setorId);
+        $this->db->prepare("UPDATE ticket_sla SET pausado = FALSE, tempo_pausado_segundos = ?, pausado_em = NULL WHERE ticket_id = ?")
+                 ->execute([(int) $sla['tempo_pausado'] + $pausado, $ticketId]);
+    }
+
+    /**
      * Formata segundos em formato legível
      */
     public function formatarTempo($segundos) {

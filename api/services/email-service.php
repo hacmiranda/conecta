@@ -1,5 +1,6 @@
 <?php
 require_once __DIR__ . '/acesso-service.php';
+require_once __DIR__ . '/html-sanitizer.php';
 date_default_timezone_set('America/Sao_Paulo');
 
 class EmailService {
@@ -10,6 +11,9 @@ class EmailService {
     private $db;
     private $setorAtualId = null; // setor da caixa sendo processada no momento (null = caixa legada global)
     private $caixaEmailAtualId = null; // id em setor_emails da caixa sendo processada (null = caixa legada global)
+    private $diasBusca = 3; // janela de busca na caixa (dias)
+    private $enderecosDoSistema = null; // caixas do próprio sistema (nunca viram demanda)
+    const MAX_TENTATIVAS = 5; // falhas seguidas antes de desistir de um e-mail
 
     public function __construct($db) {
         $this->host = EmailConfig::get('IMAP_HOST');
@@ -24,8 +28,9 @@ class EmailService {
      * Se nenhuma estiver cadastrada, cai para a caixa global legada do .env (compatibilidade
      * com quem ainda não migrou para e-mail por setor).
      */
-    public function verificarEmails() {
+    public function verificarEmails(int $dias = 3) {
         require_once __DIR__ . '/crypto-service.php';
+        $this->diasBusca = max(1, min(60, $dias));
 
         $caixas = [];
         try {
@@ -101,9 +106,9 @@ class EmailService {
             echo "<p>✅ Conectado com sucesso!</p>";
             file_put_contents($log_file, "[" . date('Y-m-d H:i:s') . "] Conectado com sucesso\n", FILE_APPEND);
 
-                // Buscar emails dos últimos 3 dias para garantir que nenhum foi perdido
-                // mesmo se marcado como lido por outro cliente (Outlook/Celular)
-                $data_busca = date('d-M-Y', strtotime('-3 days'));
+                // Buscar emails dos últimos N dias (padrão 3) para garantir que nenhum foi perdido
+                // mesmo se marcado como lido por outro cliente (Outlook/Celular); o Message-ID evita duplicar
+                $data_busca = date('d-M-Y', strtotime('-' . $this->diasBusca . ' days'));
                 $search_criteria = 'SINCE "' . $data_busca . '"';
 
                 echo "<p>Buscando emails com critério: $search_criteria</p>";
@@ -157,92 +162,230 @@ class EmailService {
     
     private function processarEmail($inbox, $email_number, $uid = null) {
         echo "<p>--- Processando Email #$email_number ---</p>";
-        
+
         $header = imap_headerinfo($inbox, $email_number);
         $structure = imap_fetchstructure($inbox, $email_number);
-        
-        // Extrair Message-ID para evitar duplicatas
-        $message_id = $header->message_id ?? uniqid('email_', true);
-        
+
+        // Message-ID evita duplicatas. Sem ele, usa uma identidade estável da mensagem
+        // (um id aleatório faria o mesmo e-mail virar demanda nova a cada execução)
+        $message_id = $header->message_id ?? null;
+        if (!$message_id) {
+            $message_id = 'sem-id-' . sha1(($header->date ?? '') . '|' . ($header->fromaddress ?? '') . '|' . ($header->subject ?? '') . '|' . ($this->caixaEmailAtualId ?? 'global'));
+        }
+
+        $marcarLido = function () use ($inbox, $uid, $email_number) {
+            if ($uid) {
+                imap_setflag_full($inbox, $uid, "\\Seen", ST_UID);
+            } else {
+                imap_setflag_full($inbox, $email_number, "\\Seen");
+            }
+        };
+
         // Verificar se já foi processado
         if ($this->emailJaProcessado($message_id)) {
             echo "<p>⏭️ Email já processado anteriormente (Message-ID: $message_id)</p>";
-            // Se já foi processado, garantir que esteja marcado como lido
-            if ($uid) {
-                imap_setflag_full($inbox, $uid, "\\Seen", ST_UID);
-            }
+            $marcarLido();
             return;
         }
-        
-        // Extrair corpo do email (texto ou HTML)
+
+        // Dados do remetente e assunto (o assunto vira o título: texto puro, sem tags)
+        $remetente = strtolower(trim(($header->from[0]->mailbox ?? '') . '@' . ($header->from[0]->host ?? '')));
+        $assunto = HtmlSanitizer::texto($this->decodificarTexto($header->subject ?? ''), 200);
+        if ($assunto === '') {
+            $assunto = '(sem assunto)';
+        }
+
+        // Caixas do próprio sistema e respostas automáticas nunca viram demanda (evita laços)
+        $motivo_ignorar = $this->motivoParaIgnorar($inbox, $email_number, $remetente);
+        if ($motivo_ignorar !== null) {
+            echo "<p>🚫 Email ignorado ($motivo_ignorar): $remetente</p>";
+            $this->registrarEmailProcessado($message_id, $remetente, $assunto, null, 'ignorado', $motivo_ignorar);
+            $marcarLido();
+            return;
+        }
+
+        // Extrair corpo do email (texto ou HTML) e reduzir a texto
         $body = $this->extrairCorpoEmail($inbox, $email_number, $structure);
-        
-        // Limpar HTML e remover conteúdo base64
         $body = strip_tags($body);
         $body = preg_replace('/[A-Za-z0-9+\/]{100,}={0,2}/', '', $body); // Remove blocos base64
         $body = preg_replace('/Content-Type:.*?\n/i', '', $body); // Remove headers MIME
         $body = preg_replace('/Content-Transfer-Encoding:.*?\n/i', '', $body);
         $body = preg_replace('/Content-Disposition:.*?\n/i', '', $body);
         $body = preg_replace('/Content-Id:.*?\n/i', '', $body);
-        $body = trim($body);
-        
-        // Limitar tamanho se necessário
-        if (strlen($body) > 10000) {
-            $body = substr($body, 0, 10000) . "\n\n[CONTEÚDO TRUNCADO]";
+        $body = html_entity_decode(trim($body), ENT_QUOTES | ENT_HTML5, 'UTF-8');
+        if (mb_strlen($body) > 10000) {
+            $body = mb_substr($body, 0, 10000) . "\n\n[CONTEÚDO TRUNCADO]";
         }
-        
-        // Extrair dados do email
-        $assunto = $this->decodificarTexto($header->subject);
-        $remetente = $header->from[0]->mailbox . '@' . $header->from[0]->host;
-        $data = date('Y-m-d H:i:s', strtotime($header->date));
+        if ($body === '') {
+            $body = "Email recebido em " . date('d/m/Y H:i:s') . " de " . $remetente;
+        }
+        // Corpo vindo de fora: gravado como texto escapado, preservando as quebras de linha
+        $body = nl2br(htmlspecialchars($body, ENT_QUOTES, 'UTF-8'), false);
 
-        // Verificar se o email deve ser ignorado (evitar loops)
-        $emails_ignorados = ['suporte@crprs.org.br', 'suporte2@crprs.org.br'];
-        if (in_array(strtolower($remetente), $emails_ignorados)) {
-            echo "<p>🚫 Email ignorado (remetente na blacklist): $remetente</p>";
-            // Marcar como lido para não processar novamente
-            if ($uid) {
-                imap_setflag_full($inbox, $uid, "\\Seen", ST_UID);
+        echo "<p>Assunto: " . htmlspecialchars($assunto) . "</p>";
+        echo "<p>Remetente: $remetente</p>";
+
+        // Resposta a uma demanda existente? Só vira comentário se o remetente participa da demanda
+        // e a caixa é de um setor por onde ela passou; senão, abre uma demanda nova.
+        $ticket_id = $this->extrairTicketId($assunto);
+        $observacao = null;
+
+        try {
+            $recusa = $ticket_id ? $this->motivoRecusaComentario((int) $ticket_id, $remetente) : null;
+
+            if ($ticket_id && $recusa === null) {
+                echo "<p>✉️ Resposta à demanda #" . str_pad($ticket_id, 5, '0', STR_PAD_LEFT) . "</p>";
+                $anexos_processados = $this->processarAnexosEmail($inbox, $email_number);
+                $this->adicionarComentario($ticket_id, $body, $remetente, $anexos_processados, $inbox, $email_number);
+                $tipo = 'comentario';
             } else {
-                imap_setflag_full($inbox, $email_number, "\\Seen");
+                if ($ticket_id) {
+                    $observacao = 'Mencionou a demanda #' . str_pad($ticket_id, 5, '0', STR_PAD_LEFT) . ', mas ' . $recusa . '; aberta demanda nova.';
+                    $body = '<p><em>' . htmlspecialchars($observacao, ENT_QUOTES, 'UTF-8') . '</em></p>' . $body;
+                    echo "<p>⚠️ $observacao</p>";
+                }
+                echo "<p>🆕 Criando nova demanda...</p>";
+                $ticket_id = $this->criarTicketPorEmail($assunto, $body, $remetente, $inbox, $email_number);
+                $tipo = 'novo_ticket';
+            }
+        } catch (Exception $e) {
+            // Não marca como lido nem como processado: tenta de novo na próxima execução
+            $tentativas = $this->registrarFalha($message_id, $remetente, $assunto, $e->getMessage());
+            error_log('[EMAIL-SERVICE] Falha ao processar e-mail de ' . $remetente . ' (tentativa ' . $tentativas . '): ' . $e->getMessage());
+            echo "<p style='color: red;'>❌ Falha ao processar (tentativa $tentativas): " . htmlspecialchars($e->getMessage()) . "</p>";
+            if ($tentativas >= self::MAX_TENTATIVAS) {
+                $this->registrarEmailProcessado($message_id, $remetente, $assunto, null, 'erro', 'Desistiu após ' . $tentativas . ' tentativas: ' . mb_substr($e->getMessage(), 0, 180));
+                $marcarLido();
             }
             return;
         }
-        
-        if (empty($body)) {
-            $body = "Email recebido em " . date('d/m/Y H:i:s') . " de " . $remetente;
-        }
-        
-        echo "<p>Assunto: $assunto</p>";
-        echo "<p>Remetente: $remetente</p>";
-        echo "<p>Data: $data</p>";
-        
-        // Verificar se é resposta a ticket existente
-        $ticket_id = $this->extrairTicketId($assunto);
-        
-        if ($ticket_id) {
-            echo "<p>✉️ Resposta ao ticket #" . str_pad($ticket_id, 5, '0', STR_PAD_LEFT) . "</p>";
-            
-            // Processar anexos para comentário
-            $anexos_processados = $this->processarAnexosEmail($inbox, $email_number);
-            
-            $this->adicionarComentario($ticket_id, $body, $remetente, $anexos_processados, $inbox, $email_number);
-            $this->registrarEmailProcessado($message_id, $remetente, $assunto, $ticket_id, 'comentario');
-        } else {
-            echo "<p>🆕 Criando novo ticket...</p>";
-            $ticket_id = $this->criarTicketPorEmail($assunto, $body, $remetente, $inbox, $email_number);
-            $this->registrarEmailProcessado($message_id, $remetente, $assunto, $ticket_id, 'novo_ticket');
-        }
-        
+
+        $this->registrarEmailProcessado($message_id, $remetente, $assunto, $ticket_id, $tipo, $observacao);
+
         // Marcar email como lido APENAS após sucesso
-        if ($uid) {
-            imap_setflag_full($inbox, $uid, "\\Seen", ST_UID);
-        } else {
-            imap_setflag_full($inbox, $email_number, "\\Seen");
-        }
+        $marcarLido();
         echo "<p>✅ Email processado e marcado como lido</p>";
     }
-    
+
+    /**
+     * Endereços que pertencem ao próprio sistema (caixas dos setores e remetente global).
+     */
+    private function enderecosDoSistema(): array {
+        if ($this->enderecosDoSistema === null) {
+            $lista = ['suporte@crprs.org.br', 'suporte2@crprs.org.br'];
+            foreach (['FROM_EMAIL', 'SMTP_USERNAME', 'IMAP_USERNAME'] as $chave) {
+                $valor = EmailConfig::get($chave);
+                if ($valor) {
+                    $lista[] = $valor;
+                }
+            }
+            try {
+                foreach ($this->db->query("SELECT email, imap_user, smtp_user FROM setor_emails")->fetchAll(PDO::FETCH_ASSOC) as $cx) {
+                    $lista[] = $cx['email'];
+                    $lista[] = $cx['imap_user'];
+                    $lista[] = $cx['smtp_user'];
+                }
+            } catch (Exception $e) {
+                error_log('[EMAIL-SERVICE] Não foi possível listar as caixas dos setores: ' . $e->getMessage());
+            }
+            $this->enderecosDoSistema = array_values(array_unique(array_filter(array_map(function ($e) {
+                return strtolower(trim((string) $e));
+            }, $lista))));
+        }
+        return $this->enderecosDoSistema;
+    }
+
+    /**
+     * Motivo para ignorar o e-mail (null = processar): remetente do próprio sistema ou mensagem automática.
+     */
+    private function motivoParaIgnorar($inbox, $email_number, string $remetente): ?string {
+        if ($remetente === '@' || $remetente === '') {
+            return 'remetente ausente';
+        }
+        if (in_array($remetente, $this->enderecosDoSistema(), true)) {
+            return 'remetente é uma caixa do próprio sistema';
+        }
+        $cabecalho = (string) imap_fetchheader($inbox, $email_number);
+        if (preg_match('/^Auto-Submitted:\s*(?!no\b)\S+/im', $cabecalho)
+            || preg_match('/^X-(Autoreply|Autorespond|Autoresponder|Auto-Reply):/im', $cabecalho)) {
+            return 'resposta automática';
+        }
+        if (preg_match('/^Precedence:\s*(bulk|junk|auto_reply)\b/im', $cabecalho)) {
+            return 'mensagem automática ou em massa';
+        }
+        return null;
+    }
+
+    /**
+     * Motivo para NÃO aceitar o e-mail como comentário na demanda (null = aceitar).
+     * Aceita se: a demanda existe; a caixa é global ou de um setor por onde a demanda passou;
+     * e o remetente é o solicitante, alguém que recebeu cópia, ou a equipe do setor atual.
+     */
+    private function motivoRecusaComentario(int $ticket_id, string $remetente): ?string {
+        $stmt = $this->db->prepare("SELECT t.id, t.setor_id, t.email_solicitante, u.email AS usuario_email
+                                    FROM tickets t LEFT JOIN usuarios u ON u.id = t.usuario_id
+                                    WHERE t.id = ?");
+        $stmt->execute([$ticket_id]);
+        $ticket = $stmt->fetch(PDO::FETCH_ASSOC);
+        if (!$ticket) {
+            return 'a demanda não existe';
+        }
+
+        if ($this->setorAtualId !== null && (int) $ticket['setor_id'] !== (int) $this->setorAtualId) {
+            $passou = $this->db->prepare("SELECT 1 FROM ticket_setor_log WHERE ticket_id = ? AND setor_id = ? LIMIT 1");
+            $passou->execute([$ticket_id, $this->setorAtualId]);
+            if (!$passou->fetchColumn()) {
+                return 'a demanda nunca passou pelo setor desta caixa';
+            }
+        }
+
+        $participantes = [strtolower((string) $ticket['email_solicitante']), strtolower((string) $ticket['usuario_email'])];
+        if (in_array($remetente, $participantes, true)) {
+            return null;
+        }
+
+        // Quem recebeu cópia de alguma resposta da demanda
+        $copias = $this->db->prepare("SELECT valor_novo FROM ticket_historico WHERE ticket_id = ? AND acao = 'email_copia'");
+        $copias->execute([$ticket_id]);
+        foreach ($copias->fetchAll(PDO::FETCH_COLUMN) as $texto) {
+            preg_match_all('/[A-Z0-9._%+\-]+@[A-Z0-9.\-]+\.[A-Z]{2,}/i', (string) $texto, $m);
+            if (in_array($remetente, array_map('strtolower', $m[0]), true)) {
+                return null;
+            }
+        }
+
+        // Equipe interna ativa do setor atual da demanda (ou administradores)
+        $equipe = $this->db->prepare("SELECT 1 FROM usuarios WHERE LOWER(email) = ? AND ativo = 1
+                                      AND (tipo = 'admin' OR (tipo IN ('operador','gestor') AND setor_id = ?)) LIMIT 1");
+        $equipe->execute([$remetente, (int) $ticket['setor_id']]);
+        if ($equipe->fetchColumn()) {
+            return null;
+        }
+
+        return 'o remetente não participa dela';
+    }
+
+    /**
+     * Registra a falha no processamento de um e-mail e devolve quantas tentativas já houve.
+     */
+    private function registrarFalha(string $message_id, string $remetente, string $assunto, string $erro): int {
+        try {
+            $sel = $this->db->prepare("SELECT id, tentativas FROM emails_erro WHERE message_id = ? ORDER BY id DESC LIMIT 1");
+            $sel->execute([$message_id]);
+            $linha = $sel->fetch(PDO::FETCH_ASSOC);
+            if ($linha) {
+                $this->db->prepare("UPDATE emails_erro SET tentativas = tentativas + 1, erro_mensagem = ?, ultima_tentativa = NOW() WHERE id = ?")
+                         ->execute([mb_substr($erro, 0, 2000), $linha['id']]);
+                return (int) $linha['tentativas'] + 1;
+            }
+            $this->db->prepare("INSERT INTO emails_erro (message_id, email_remetente, assunto, erro_mensagem) VALUES (?, ?, ?, ?)")
+                     ->execute([$message_id, $remetente, $assunto, mb_substr($erro, 0, 2000)]);
+        } catch (Exception $e) {
+            error_log('[EMAIL-SERVICE] Não foi possível registrar a falha: ' . $e->getMessage());
+        }
+        return 1;
+    }
+
     private function emailJaProcessado($message_id) {
         try {
             $query = "SELECT id FROM emails_processados WHERE message_id = :message_id";
@@ -256,10 +399,10 @@ class EmailService {
         }
     }
     
-    private function registrarEmailProcessado($message_id, $remetente, $assunto, $ticket_id, $tipo) {
+    private function registrarEmailProcessado($message_id, $remetente, $assunto, $ticket_id, $tipo, $observacao = null) {
         try {
-            $query = "INSERT INTO emails_processados (message_id, email_remetente, assunto, ticket_id, setor_email_id, tipo)
-                      VALUES (:message_id, :remetente, :assunto, :ticket_id, :setor_email_id, :tipo)
+            $query = "INSERT INTO emails_processados (message_id, email_remetente, assunto, ticket_id, setor_email_id, tipo, observacao)
+                      VALUES (:message_id, :remetente, :assunto, :ticket_id, :setor_email_id, :tipo, :observacao)
                       ON DUPLICATE KEY UPDATE tentativas = tentativas + 1";
             $stmt = $this->db->prepare($query);
             $stmt->bindParam(':message_id', $message_id);
@@ -268,6 +411,7 @@ class EmailService {
             $stmt->bindParam(':ticket_id', $ticket_id);
             $stmt->bindValue(':setor_email_id', $this->caixaEmailAtualId, $this->caixaEmailAtualId === null ? PDO::PARAM_NULL : PDO::PARAM_INT);
             $stmt->bindParam(':tipo', $tipo);
+            $stmt->bindValue(':observacao', $observacao);
             $stmt->execute();
             echo "<p>📝 Email registrado no histórico</p>";
         } catch (Exception $e) {
@@ -276,9 +420,8 @@ class EmailService {
         }
     }
     
-    private function criarTicketPorEmail($assunto, $corpo, $remetente, $inbox, $email_number) {
-        try {
-            echo "<p>Iniciando criação de ticket...</p>";
+    private function criarTicketPorEmail($assunto, $corpo, $remetente, $inbox, $email_number): int {
+            echo "<p>Iniciando criação de demanda...</p>";
             
             // Buscar ou criar usuário
             echo "<p>Buscando/criando usuário para: $remetente</p>";
@@ -295,7 +438,7 @@ class EmailService {
             // Adicionar nota sobre anexos se houver
             $total_anexos = count($resultado_anexos['validos']);
             if ($total_anexos > 0) {
-                $corpo_limpo .= "\n\n📎 " . $total_anexos . " anexo(s) do email foram salvos.";
+                $corpo_limpo .= "<br><br>📎 " . $total_anexos . " anexo(s) do email foram salvos.";
             }
 
             // Safety net: garante UTF-8 válido para evitar erro no banco (ex: emails em iso-8859-1)
@@ -314,9 +457,10 @@ class EmailService {
             $dup_ticket_stmt->bindParam(':descricao', $corpo_limpo);
             $dup_ticket_stmt->execute();
             
-            if ($dup_ticket_stmt->fetch()) {
-                echo "<p>⚠️ Ticket ignorado: Detectado ticket duplicado recente (mesmo assunto, corpo e usuário).</p>";
-                return;
+            $duplicado = $dup_ticket_stmt->fetchColumn();
+            if ($duplicado) {
+                echo "<p>⚠️ Demanda duplicada recente (mesmo assunto, corpo e usuário): mantida a #$duplicado.</p>";
+                return (int) $duplicado;
             }
             // --- FIM VERIFICAÇÃO EXTRA DE DUPLICIDADE ---
             
@@ -395,15 +539,12 @@ class EmailService {
                     error_log("[EMAIL-SERVICE] FALHA ao notificar agentes");
                 }
             } catch (Exception $e) {
+                // A demanda já existe: falha de envio não deve reprocessar o e-mail
                 echo "<p>❌ ERRO ao enviar emails: " . $e->getMessage() . "</p>";
-                error_log("[EMAIL-SERVICE] ERRO CRITICO: " . $e->getMessage());
-                error_log("[EMAIL-SERVICE] Stack trace: " . $e->getTraceAsString());
+                error_log("[EMAIL-SERVICE] Erro ao enviar e-mails da demanda #$ticket_id: " . $e->getMessage());
             }
-            
-        } catch (Exception $e) {
-            echo "<p style='color: red;'>❌ Erro ao criar ticket: " . $e->getMessage() . "</p>";
-            error_log('Erro ao criar ticket por email: ' . $e->getMessage());
-        }
+
+            return (int) $ticket_id;
     }
     
     private function processarAnexosEmail($inbox, $email_number) {
@@ -606,7 +747,10 @@ class EmailService {
             }
         }
         
-        $nome_arquivo = time() . '_email_' . $anexo['nome'];
+        // Nome no disco imprevisível e sem o nome original (que vem de fora e fica só no banco)
+        $extensao = strtolower(pathinfo(basename($anexo['nome']), PATHINFO_EXTENSION));
+        $nome_arquivo = bin2hex(random_bytes(16)) . ($extensao !== '' ? '.' . preg_replace('/[^a-z0-9]/', '', $extensao) : '');
+        $anexo['nome'] = basename(str_replace('\\', '/', $anexo['nome']));
         $caminho_completo = $upload_dir . $nome_arquivo;
         
         error_log("[ANEXO SAVE] Nome arquivo: $nome_arquivo");
@@ -692,14 +836,14 @@ class EmailService {
         
         // Limpar conteúdo do comentário
         $comentario = trim($comentario);
-        if (strlen($comentario) > 5000) {
-            $comentario = substr($comentario, 0, 5000) . "\n\n[CONTEÚDO TRUNCADO]";
+        if (mb_strlen($comentario) > 20000) {
+            $comentario = mb_substr($comentario, 0, 20000) . "<br>[CONTEÚDO TRUNCADO]";
         }
         
         // Adicionar nota sobre anexos
         $total_anexos = count($anexos_processados['validos']);
         if ($total_anexos > 0) {
-            $comentario .= "\n\n📎 " . $total_anexos . " anexo(s) incluído(s) neste comentário.";
+            $comentario .= "<br><br>📎 " . $total_anexos . " anexo(s) incluído(s) neste comentário.";
         }
         
         // --- INÍCIO VERIFICAÇÃO EXTRA DE DUPLICIDADE ---
@@ -838,44 +982,6 @@ class EmailService {
             }
         }
     }
-    
-    private function enviarConfirmacao($email, $ticket_id, $anexos_rejeitados) {
-        $assunto = "[#" . str_pad($ticket_id, 5, '0', STR_PAD_LEFT) . "] Demanda criada - Conecta CRPRS";
-
-        $mensagem = "Sua demanda foi criada com sucesso!\n\n";
-        $mensagem .= "Número da demanda: #" . str_pad($ticket_id, 5, '0', STR_PAD_LEFT) . "\n\n";
-        
-        if (!empty($anexos_rejeitados)) {
-            $mensagem .= "ATENÇÃO: Alguns anexos foram rejeitados:\n\n";
-            foreach ($anexos_rejeitados as $anexo) {
-                $mensagem .= "- {$anexo['nome']}: {$anexo['motivo']}\n";
-            }
-            $mensagem .= "\nLimites para anexos:\n";
-            $mensagem .= "- Máximo 5 arquivos\n";
-            $mensagem .= "- Tamanho total máximo: 20MB\n";
-            $mensagem .= "- Tipos aceitos: PDF, DOC, DOCX, TXT, CSV, XLS, XLSX, PNG, JPG, ZIP, RAR\n\n";
-            $mensagem .= "Você pode responder a este email com novos anexos dentro dos limites.\n\n";
-        }
-        
-        $mensagem .= "Para acompanhar o andamento, responda a este email.\n\n";
-        $mensagem .= "Atenciosamente,\nEquipe Conecta CRPRS";
-        
-        // Configurar SMTP antes de enviar
-        ini_set('SMTP', EmailConfig::SMTP_HOST);
-        ini_set('smtp_port', EmailConfig::SMTP_PORT);
-        ini_set('sendmail_from', EmailConfig::FROM_EMAIL);
-        
-        $headers = "From: " . EmailConfig::FROM_NAME . " <" . EmailConfig::FROM_EMAIL . ">\r\n";
-        $headers .= "Reply-To: " . EmailConfig::FROM_EMAIL . "\r\n";
-        $headers .= "Content-Type: text/plain; charset=UTF-8\r\n";
-        
-        if (mail($email, $assunto, $mensagem, $headers)) {
-            echo "<p>✅ Confirmação enviada para: $email</p>";
-        } else {
-            echo "<p>⚠️ Não foi possível enviar confirmação para: $email</p>";
-        }
-    }
-    
     
     private function extrairCorpoEmail($inbox, $email_number, $structure) {
         $body = '';

@@ -139,7 +139,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     } catch (Exception $e) {
         error_log('[AUTH POST] Erro: ' . $e->getMessage());
         http_response_code(500);
-        // [DEBUG TEMP] Mostra o erro real em vez de ocultar
-        echo json_encode(['error' => 'Erro interno do servidor: ' . $e->getMessage()]);
+        echo json_encode(['error' => 'Erro interno do servidor']);
     }
 }

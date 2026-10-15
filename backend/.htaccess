@@ -1,0 +1,4 @@
+# Pasta backend/: anexos, logs, cache e templates de e-mail são lidos só pelo PHP.
+# Anexos são entregues por api/controllers/anexos.php (que confere o acesso à demanda).
+# Exceção: backend/uploads/avatars/ (ver o .htaccess daquela pasta).
+Require all denied

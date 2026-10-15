@@ -4,15 +4,19 @@ Options -Indexes
 # Configurar charset UTF-8
 AddDefaultCharset UTF-8
 
-# Proteger arquivos sensíveis
-<FilesMatch "\.(env|sql|log)$">
+# Proteger arquivos sensíveis (segredos, dumps, logs, manifestos do composer/npm, documentação)
+<FilesMatch "(?i)(\.(env|sql|log|md|lock|phar|bak|ini|sh)|^composer\.json|^package(-lock)?\.json|^\.git.*|^\.env.*)$">
     Require all denied
 </FilesMatch>
 
 # Bloquear scripts de diagnóstico/manutenção que não fazem parte da aplicação pública
-<FilesMatch "^(check_db|migrate_db|test_php_input|test_integracao)\.php$">
+<FilesMatch "^(check_db|migrate_db|test_php_input|test_integracao|composer-setup)\.php$">
     Require all denied
 </FilesMatch>
+
+# Pastas que nunca são servidas pela web: código interno, dependências, testes e documentação.
+# (api/cron/ continua acessível: o cron externo chama por HTTP com a chave CRON_KEY_*.)
+RedirectMatch 404 (?i)/(\.git|\.agent|\.claude|docs|database|api/vendor|api/test|api/services|api/middleware|api/config)(/|$)
 
 
 # Permitir header Authorization e redirecionar

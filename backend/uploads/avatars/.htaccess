@@ -1,0 +1,23 @@
+# Avatares são públicos para o navegador (imagens), mas nada aqui pode ser executado.
+Require all granted
+
+# Só imagens; qualquer outro arquivo é negado
+<FilesMatch "\.(?i:jpe?g|png|gif)$">
+    Require all granted
+</FilesMatch>
+<FilesMatch "^(?!.*\.(?i:jpe?g|png|gif)$).*$">
+    Require all denied
+</FilesMatch>
+
+# Nunca interpretar scripts nesta pasta
+<IfModule mod_php.c>
+    php_flag engine off
+</IfModule>
+<IfModule mod_php7.c>
+    php_flag engine off
+</IfModule>
+RemoveHandler .php .phtml .php3 .php4 .php5 .php7 .php8 .phar .pht
+RemoveType .php .phtml .php3 .php4 .php5 .php7 .php8 .phar .pht
+<IfModule mod_headers.c>
+    Header set X-Content-Type-Options "nosniff"
+</IfModule>

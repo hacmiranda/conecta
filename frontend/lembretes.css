@@ -81,3 +81,30 @@
 .modo-escuro .lembrete-info small {
     color: #b0b0b0;
 }
+
+/* Lembrete cancelado automaticamente (demanda encerrada/transferida) */
+.lembrete-card.lembrete-cancelado {
+    background: #f8f9fa;
+    border-left-color: #b45309;
+    opacity: 0.8;
+}
+
+.badge-cancelado {
+    display: inline-block;
+    background: #b45309;
+    color: #fff;
+    padding: 0.25rem 0.5rem;
+    border-radius: 4px;
+    font-size: 0.75rem;
+    margin-left: 0.5rem;
+}
+
+.lembrete-motivo {
+    display: block;
+    margin-top: 0.25rem;
+    font-style: italic;
+}
+
+.modo-escuro .lembrete-card.lembrete-cancelado {
+    background: #2d2d2d;
+}

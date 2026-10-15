@@ -87,5 +87,6 @@ try {
     
 } catch (Exception $e) {
     http_response_code(500);
-    echo json_encode(['error' => $e->getMessage()]);
+    error_log('[AUDITORIA] Erro: ' . $e->getMessage());
+    echo json_encode(['error' => 'Erro ao consultar a auditoria']);
 }

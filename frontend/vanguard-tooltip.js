@@ -71,10 +71,13 @@ class VanguardTooltip {
         this.tooltipEl.innerHTML = `
             <div class="vg-header">
                 <div class="vg-icon">${svgIcon}</div>
-                <span class="vg-title">${titulo}</span>
+                <span class="vg-title"></span>
             </div>
-            <div class="vg-body">${texto}</div>
+            <div class="vg-body"></div>
         `;
+        // Título e texto vêm de atributos (podem conter dados de usuários): sempre como texto
+        this.tooltipEl.querySelector('.vg-title').textContent = titulo;
+        this.tooltipEl.querySelector('.vg-body').textContent = texto;
 
         this.calculatePosition(target);
 

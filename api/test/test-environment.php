@@ -1,54 +1,40 @@
 <?php
 /**
- * Script de Teste de Ambiente
- * Verifica se as configurações estão corretas
+ * Teste de configuração do ambiente — somente pela linha de comando:
+ *   php api/test/test-environment.php
  */
-
-require_once '../config/environment.php';
-require_once '../config/database.php';
-require_once '../config/email-config.php';
-
-echo "<h1>🔧 Teste de Configuração de Ambiente</h1>";
-
-// Detectar ambiente
-$env = Environment::isProduction() ? 'PRODUÇÃO' : 'LOCALHOST';
-echo "<h2>Ambiente Detectado: <strong style='color: " . (Environment::isProduction() ? 'green' : 'blue') . "'>$env</strong></h2>";
-
-echo "<hr>";
-
-// Testar Banco de Dados
-echo "<h3>📊 Banco de Dados</h3>";
-echo "<table border='1' cellpadding='10'>";
-echo "<tr><th>Configuração</th><th>Valor</th></tr>";
-echo "<tr><td>Host</td><td>" . Environment::get('db_host') . "</td></tr>";
-echo "<tr><td>Database</td><td>" . Environment::get('db_name') . "</td></tr>";
-echo "<tr><td>Usuário</td><td>" . Environment::get('db_user') . "</td></tr>";
-echo "<tr><td>Senha</td><td>" . str_repeat('*', strlen(Environment::get('db_pass'))) . "</td></tr>";
-echo "</table>";
-
-try {
-    $database = new Database();
-    $db = $database->getConnection();
-    echo "<p style='color: green;'>✅ Conexão com banco de dados: <strong>SUCESSO</strong></p>";
-    
-    $stmt = $db->query("SELECT COUNT(*) as total FROM tickets");
-    $result = $stmt->fetch();
-    echo "<p>Total de tickets no banco: <strong>{$result['total']}</strong></p>";
-} catch (Exception $e) {
-    echo "<p style='color: red;'>❌ Erro na conexão: " . $e->getMessage() . "</p>";
+if (PHP_SAPI !== 'cli') {
+    http_response_code(404);
+    exit;
 }
 
-echo "<hr>";
+require_once __DIR__ . '/../config/environment.php';
+require_once __DIR__ . '/../config/database.php';
+require_once __DIR__ . '/../config/email-config.php';
 
-// Testar Email
-echo "<h3>📧 Configuração de Email</h3>";
-echo "<table border='1' cellpadding='10'>";
-echo "<tr><th>Configuração</th><th>Valor</th></tr>";
-echo "<tr><td>IMAP Host</td><td>" . EmailConfig::get('IMAP_HOST') . "</td></tr>";
-echo "<tr><td>IMAP Port</td><td>" . EmailConfig::get('IMAP_PORT') . "</td></tr>";
-echo "<tr><td>From Name</td><td>" . EmailConfig::get('FROM_NAME') . "</td></tr>";
-echo "</table>";
+echo "Teste de configuração do ambiente\n";
+echo "Ambiente: " . (Environment::isProduction() ? 'PRODUÇÃO' : 'LOCAL') . " (APP_ENV no .env)\n\n";
 
-echo "<hr>";
-echo "<p><strong>Teste concluído!</strong></p>";
-?>
+echo "Banco de dados\n";
+echo "  Host:     " . Environment::get('db_host') . "\n";
+echo "  Database: " . Environment::get('db_name') . "\n";
+echo "  Usuário:  " . Environment::get('db_user') . "\n";
+echo "  Senha:    " . (Environment::get('db_pass') ? 'definida' : 'NÃO definida') . "\n";
+
+try {
+    $db = (new Database())->getConnection();
+    $total = $db->query("SELECT COUNT(*) FROM tickets")->fetchColumn();
+    echo "  Conexão:  OK ($total demandas)\n";
+} catch (Exception $e) {
+    echo "  Conexão:  ERRO - " . $e->getMessage() . "\n";
+}
+
+echo "\nE-mail (remetente global)\n";
+echo "  IMAP: " . EmailConfig::get('IMAP_HOST') . ':' . EmailConfig::get('IMAP_PORT') . "\n";
+echo "  SMTP: " . EmailConfig::get('SMTP_HOST') . ':' . EmailConfig::get('SMTP_PORT') . "\n";
+echo "  Remetente: " . EmailConfig::get('FROM_NAME') . ' <' . EmailConfig::get('FROM_EMAIL') . ">\n";
+
+echo "\nChaves\n";
+foreach (['jwt_secret', 'setor_email_encryption_key', 'integration_api_key', 'cron_key'] as $chave) {
+    echo '  ' . str_pad(strtoupper($chave), 28) . (Environment::get($chave) ? 'definida' : 'NÃO definida') . "\n";
+}

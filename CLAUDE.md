@@ -18,10 +18,10 @@ cd api && composer install
 # Verify environment configuration
 php api/test/test-environment.php
 
-# Run cron jobs manually
-php api/cron/verificar-emails.php
+# Run cron jobs manually (CLI needs no key; HTTP needs header X-Cron-Key = CRON_KEY_* from .env)
+php api/cron/verificar-emails.php          # also fires due reminders at the end
 php api/cron/verificar-lembretes.php
-php api/cron/verificar-emails-perdidos.php
+php api/cron/verificar-emails-perdidos.php 30   # reprocess the last N days (max 60)
 ```
 
 ### Database
@@ -29,7 +29,7 @@ php api/cron/verificar-emails-perdidos.php
 # Banco local: db_conecta (credenciais em api/config/.env). MySQL 8.4:
 # "C:\Program Files\MySQL\MySQL Server 8.4\bin\mysql.exe" -u root -p db_conecta
 # Esquema base: database/squema_crpdesk.sql (sem as tabelas de setores)
-# Depois aplicar, em ordem e uma única vez cada: database/9_*.sql até database/18_*.sql
+# Depois aplicar, em ordem e uma única vez cada: database/9_*.sql até database/19_*.sql
 # Primeiro administrador (senha pedida no terminal):
 php database/seed_admin.php "email@crprs.org.br" "Nome Completo"
 ```
@@ -61,7 +61,7 @@ All API requests go through `api/middleware/auth.php` for JWT verification and r
 - `api/services/` — Business logic: access rules, timeline, SLA calculation, email sending, audit logging, crypto of mailbox passwords
 - `api/cron/` — Scheduled jobs for email polling and reminders
 
-Environment is auto-detected in `api/config/environment.php` (localhost = dev, else prod). Credentials and keys come only from `api/config/.env` (`*_LOCAL` / `*_PROD`); see `.env.example` (DB, IMAP/SMTP, JWT/CSRF, CORS, SSO, `SETOR_EMAIL_ENCRYPTION_KEY_*`, `INTEGRATION_API_KEY_*`).
+Environment comes from `APP_ENV` in `api/config/.env` (`local` | `production`; missing = production) — never from the Host header. Credentials and keys come only from `api/config/.env` (`*_LOCAL` / `*_PROD`); see `.env.example` (DB, IMAP/SMTP, JWT/CSRF, CORS, SSO, `SETOR_EMAIL_ENCRYPTION_KEY_*`, `INTEGRATION_API_KEY_*`).
 
 ### Frontend Structure
 Single HTML shell (`frontend/index.html`) with no framework router. JavaScript is split by feature module:
@@ -93,8 +93,18 @@ CSS follows a per-feature file convention (`tickets-melhorias.css`, `status-sla.
 - `macros` — WYSIWYG quick-reply templates
 - `email_logs` — Delivery tracking for all outbound emails (records the sender)
 
+### Untrusted content (XSS)
+- Backend: rich HTML (description, comments, macros, integration) goes through `HtmlSanitizer::rico()` (HTML Purifier, `api/services/html-sanitizer.php`); plain fields (titles, names, reminder text) through `HtmlSanitizer::texto()`. Incoming e-mail bodies are stored escaped (`htmlspecialchars` + `nl2br`)
+- Frontend: every API value inserted with `innerHTML` uses `sanitizeHTML()` (text) or `htmlSeguro()` (rich HTML via local `frontend/lib/purify.min.js`); strings inside `onclick` use `argJs()` + `decodeURIComponent`
+
+### Incoming e-mail rules
+A reply with `#NNNNN` in the subject becomes a comment only if the sender is the requester, someone who got a copy, or the sector team, and the mailbox's sector is one the demand passed through; otherwise a new demand is opened. Mail from the system's own mailboxes and auto-replies is ignored (`emails_processados.tipo = 'ignorado'`). Failures are retried (`emails_erro`) up to 5 times instead of being lost.
+
 ### Real-time Notifications
-`api/controllers/notificacoes-stream.php` streams via Server-Sent Events (SSE). Triggers are inserted directly in `tickets.php` and `comentarios.php` on assignment and reply events.
+The frontend polls `api/controllers/notificacoes.php` every 30 s (`notificacoes.js`). Rows are inserted directly by `tickets.php`, `comentarios.php`, `demanda-acoes.php` and the reminder service.
+
+### Reminders
+`api/services/lembrete-service.php`, fired only by the cron (never by the browser). Reminders of closed/cancelled demands and directed reminders of transferred demands are cancelled (`lembretes.cancelado_em`/`cancelado_motivo`), not sent.
 
 ### File Uploads
 Attachments stored in `backend/anexos/`. Max 5 files, 20MB each. Allowed: pdf, doc, docx, txt, csv, xls, xlsx, png, jpg, jpeg.
@@ -103,7 +113,7 @@ Attachments stored in `backend/anexos/`. Max 5 files, 20MB each. Allowed: pdf, d
 `api/services/sla-service.php` computes business seconds using the hours (`horarios_uteis`) and holidays (`feriados`) of the demand's sector (sector without hours falls back to "Geral"). Some statuses (`congela_sla`) pause the SLA timer.
 
 ### Database Migrations
-`database/9_*.sql` … `18_*.sql` build on the base schema, in order: 9 sectors/roles, 10 sector log, 11 per-sector status/priorities, 12 sector mailboxes, 13 responsible log, 14 roles gestor/operador, 15 initial seed, 16 categories per sector, 17 hours/holidays per sector, 18 SMTP per sector. Each runs once (MySQL 8.4 has no `ADD COLUMN IF NOT EXISTS`).
+`database/9_*.sql` … `19_*.sql` build on the base schema, in order: 9 sectors/roles, 10 sector log, 11 per-sector status/priorities, 12 sector mailboxes, 13 responsible log, 14 roles gestor/operador, 15 initial seed, 16 categories per sector, 17 hours/holidays per sector, 18 SMTP per sector, 19 reminder cancellation + ignored e-mails. Each runs once (MySQL 8.4 has no `ADD COLUMN IF NOT EXISTS`).
 
 ---
 

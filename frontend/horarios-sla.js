@@ -108,7 +108,7 @@ function mostrarHorariosEFeriados(horarios, feriados) {
         feriadosHtml += `
             <tr>
                 <td>${dataFormatada}</td>
-                <td>${feriado.descricao}</td>
+                <td>${sanitizeHTML(feriado.descricao)}</td>
                 <td>${feriado.recorrente ? 'Sim' : 'Não'}</td>
                 <td><button class="btn-excluir" onclick="excluirFeriado(${feriado.id})">Excluir</button></td>
             </tr>

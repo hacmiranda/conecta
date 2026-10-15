@@ -81,13 +81,13 @@ function mostrarDashboardNaTela(dados) {
                 <div class="dashboard-list">`;
     
     (dados.top_categorias || []).forEach(item => {
-        html += `<div class="dashboard-item"><span>${item.nome || 'Sem subcategoria'}</span><span>${item.total}</span></div>`;
+        html += `<div class="dashboard-item"><span>${sanitizeHTML(item.nome || 'Sem subcategoria')}</span><span>${item.total}</span></div>`;
     });
     
     html += `</div></div><div class="dashboard-card"><h3>📁 Demandas por Categoria</h3><div class="dashboard-list">`;
     
     (dados.ticketsPorMacrocategoria || []).forEach(item => {
-        html += `<div class="dashboard-item"><span>${item.nome || 'Sem categoria'}</span><span>${item.quantidade}</span></div>`;
+        html += `<div class="dashboard-item"><span>${sanitizeHTML(item.nome || 'Sem categoria')}</span><span>${item.quantidade}</span></div>`;
     });
     
     html += `</div></div></div>`;

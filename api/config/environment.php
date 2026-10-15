@@ -10,12 +10,14 @@ class Environment {
     private static $envCache = null;
 
     /**
-     * Detecta se está em produção ou localhost
+     * Ambiente definido por APP_ENV no .env ("local" ou "production").
+     * Nunca pelo cabeçalho Host (controlado por quem faz a requisição) nem pelo modo de
+     * execução (o cron roda pela linha de comando). Sem APP_ENV válido = produção (mais seguro).
      */
     public static function isProduction() {
         if (self::$isProduction === null) {
-            $host = $_SERVER['HTTP_HOST'] ?? $_SERVER['SERVER_NAME'] ?? 'localhost';
-            self::$isProduction = !in_array($host, ['localhost', '127.0.0.1', '::1']);
+            $appEnv = strtolower(self::loadEnv()['APP_ENV'] ?? '');
+            self::$isProduction = !in_array($appEnv, ['local', 'dev', 'desenvolvimento'], true);
         }
         return self::$isProduction;
     }

@@ -161,7 +161,7 @@ cp api/services/email-service.php api/services/email-service.php.backup
 
 **Acessar:**
 ```
-http://crp07.org.br/crpdesk/api/cron/verificar-emails.php?key=crp07_cron_2025
+https://<servidor>/<pasta>/api/cron/verificar-emails.php   (header X-Cron-Key: <CRON_KEY_PROD do .env>)
 ```
 
 **Verificar logs:**

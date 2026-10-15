@@ -52,9 +52,9 @@ function renderizarListaMacros() {
         html += `
             <div style="background: #fff; padding: 1rem; border-radius: 8px; margin-bottom: 0.5rem; border: 1px solid #ddd; display: flex; justify-content: space-between; align-items: flex-start;">
                 <div style="flex: 1; padding-right: 1rem;">
-                    <h4 style="margin: 0 0 0.5rem 0; color: var(--azul-primario);">${macro.titulo}</h4>
+                    <h4 style="margin: 0 0 0.5rem 0; color: var(--azul-primario);">${sanitizeHTML(macro.titulo)}</h4>
                     <div style="font-size: 0.9rem; color: #555; max-height: 40px; overflow: hidden; text-overflow: ellipsis;">
-                        ${macro.texto.replace(/<[^>]*>?/gm, '').substring(0, 100)}...
+                        ${sanitizeHTML(macro.texto.replace(/<[^>]*>?/gm, '').substring(0, 100))}...
                     </div>
                 </div>
                 ${podeEditar ? `
@@ -110,7 +110,7 @@ function editarMacro(id) {
     document.getElementById('macro-id').value = macro.id;
     document.getElementById('macro-titulo').value = macro.titulo;
     setTimeout(() => {
-        if (window.quillMacro) window.quillMacro.root.innerHTML = macro.texto;
+        if (window.quillMacro) window.quillMacro.root.innerHTML = htmlSeguro(macro.texto);
     }, 100);
 }
 
@@ -190,7 +190,7 @@ function carregarSeletorMacros() {
             const macros = JSON.parse(xhr.responseText);
             todasMacros = macros; // Atualiza a global também
             macros.forEach(m => {
-                seletor.innerHTML += `<option value="${m.id}">${m.titulo}</option>`;
+                seletor.innerHTML += `<option value="${m.id}">${sanitizeHTML(m.titulo)}</option>`;
             });
         }
     };
@@ -211,7 +211,7 @@ function aplicarMacroTicket(macroId) {
 
     const conteudoAtual = window.quillComentario.root.innerHTML;
     const conteudoLimpo = conteudoAtual === '<p><br></p>' ? '' : conteudoAtual;
-    const novoConteudo = conteudoLimpo + macro.texto;
+    const novoConteudo = conteudoLimpo + htmlSeguro(macro.texto);
 
     // Usar API do Quill para garantir sincronização do modelo interno
     window.quillComentario.clipboard.dangerouslyPasteHTML(novoConteudo);
