@@ -1,4 +1,22 @@
-﻿// Funções para gerenciar horários úteis e feriados
+﻿// Funções para gerenciar horários úteis e feriados (expediente e feriados são de cada setor)
+
+// Extrai a mensagem de erro enviada pelo servidor (ou usa o texto padrão)
+function mensagemErroServidor(xhr, padrao) {
+    try {
+        return JSON.parse(xhr.responseText).error || padrao;
+    } catch (e) {
+        return padrao;
+    }
+}
+
+// Nome do setor cujo expediente está sendo exibido (próprio setor ou o escolhido pelo admin)
+function nomeSetorDoExpediente() {
+    const usuario = JSON.parse(localStorage.getItem('cd_usuario') || '{}');
+    if (usuario.tipo !== 'admin') return usuario.setor_nome || '';
+    const seletor = document.getElementById('seletor-setor');
+    if (seletor && seletor.value) return seletor.options[seletor.selectedIndex].textContent;
+    return 'Geral (nenhum setor escolhido no cabeçalho)';
+}
 
 function mostrarHorariosSLA() {
     document.querySelectorAll('.btn-config').forEach(btn => btn.classList.remove('active'));
@@ -16,7 +34,7 @@ function mostrarHorariosSLA() {
 
 function carregarHorariosSLA() {
     const xhr = new XMLHttpRequest();
-    xhr.open('GET', window.APP_CONFIG.apiBase + 'horarios-sla.php', true);
+    xhr.open('GET', urlComSetor(window.APP_CONFIG.apiBase + 'horarios-sla.php'), true);
     setSecurityHeaders(xhr);
     
     xhr.onload = function() {
@@ -33,7 +51,7 @@ function carregarHorariosSLA() {
 
 function carregarFeriados(horarios) {
     const xhr = new XMLHttpRequest();
-    xhr.open('GET', window.APP_CONFIG.apiBase + 'horarios-sla.php?feriados=1', true);
+    xhr.open('GET', urlComSetor(window.APP_CONFIG.apiBase + 'horarios-sla.php?feriados=1'), true);
     setSecurityHeaders(xhr);
     
     xhr.onload = function() {
@@ -99,7 +117,7 @@ function mostrarHorariosEFeriados(horarios, feriados) {
     
     content.innerHTML = `
         <h3 style="margin-bottom: 0.4rem;">⏰ Horários Úteis de Atendimento</h3>
-        <p style="margin-top: 0; margin-bottom: 1rem; color: #666;">Configure os horários em que o sistema deve considerar como horas úteis para cálculo de SLA.</p>
+        <p style="margin-top: 0; margin-bottom: 1rem; color: #666;">Setor: <strong>${nomeSetorDoExpediente()}</strong>. Configure os horários em que o sistema deve considerar como horas úteis para cálculo de SLA deste setor.</p>
         
         <table class="tickets-tabela" style="margin-bottom: 2.5rem;">
             <thead>
@@ -142,6 +160,16 @@ function mostrarHorariosEFeriados(horarios, feriados) {
                     <span>Repetir todo ano (feriado recorrente)</span>
                 </label>
             </div>
+            ${(JSON.parse(localStorage.getItem('cd_usuario') || '{}').tipo === 'admin') ? `
+            <div class="form-group">
+                <label class="switch-label">
+                    <label class="switch">
+                        <input type="checkbox" id="todos-setores-feriado">
+                        <span class="slider"></span>
+                    </label>
+                    <span>Aplicar a todos os setores (ex.: feriado nacional)</span>
+                </label>
+            </div>` : ''}
             <div style="display: flex; gap: 0.5rem; margin-top: 1rem;">
                 <button class="btn-primary" onclick="salvarFeriado()">Salvar</button>
                 <button class="btn-secondary" onclick="cancelarFormFeriado()">Cancelar</button>
@@ -176,7 +204,7 @@ function salvarHorario(dia) {
     const fim = document.getElementById(`fim-${dia}`).value + ':00';
     
     const xhr = new XMLHttpRequest();
-    xhr.open('PUT', window.APP_CONFIG.apiBase + 'horarios-sla.php', true);
+    xhr.open('PUT', urlComSetor(window.APP_CONFIG.apiBase + 'horarios-sla.php'), true);
     xhr.setRequestHeader('Content-Type', 'application/json');
     setSecurityHeaders(xhr);
     
@@ -184,7 +212,7 @@ function salvarHorario(dia) {
         if (xhr.status === 200) {
             mostrarToast('Sucesso', 'Horário atualizado com sucesso!', 'success');
         } else {
-            mostrarAlert('Erro', 'Erro ao atualizar horário');
+            mostrarAlert('Erro', mensagemErroServidor(xhr, 'Erro ao atualizar horário'));
         }
     };
     
@@ -205,6 +233,8 @@ function cancelarFormFeriado() {
     document.getElementById('data-feriado').value = '';
     document.getElementById('descricao-feriado').value = '';
     document.getElementById('recorrente-feriado').checked = false;
+    const campoTodosLimpar = document.getElementById('todos-setores-feriado');
+    if (campoTodosLimpar) campoTodosLimpar.checked = false;
 }
 
 function salvarFeriado() {
@@ -218,7 +248,7 @@ function salvarFeriado() {
     }
     
     const xhr = new XMLHttpRequest();
-    xhr.open('POST', window.APP_CONFIG.apiBase + 'horarios-sla.php', true);
+    xhr.open('POST', urlComSetor(window.APP_CONFIG.apiBase + 'horarios-sla.php'), true);
     xhr.setRequestHeader('Content-Type', 'application/json');
     setSecurityHeaders(xhr);
     
@@ -228,14 +258,17 @@ function salvarFeriado() {
             cancelarFormFeriado();
             mostrarHorariosSLA();
         } else {
-            mostrarAlert('Erro', 'Erro ao cadastrar feriado');
+            mostrarAlert('Erro', mensagemErroServidor(xhr, 'Erro ao cadastrar feriado'));
         }
     };
     
+    const campoTodos = document.getElementById('todos-setores-feriado');
+
     xhr.send(JSON.stringify({
         data: data,
         descricao: descricao,
-        recorrente: recorrente
+        recorrente: recorrente,
+        todos_setores: campoTodos ? campoTodos.checked : false
     }));
 }
 
@@ -247,7 +280,7 @@ function excluirFeriado(id) {
             if (!confirmado) return;
             
             const xhr = new XMLHttpRequest();
-            xhr.open('DELETE', `${window.APP_CONFIG.apiBase}horarios-sla.php?id=${id}`, true);
+            xhr.open('DELETE', urlComSetor(`${window.APP_CONFIG.apiBase}horarios-sla.php?id=${id}`), true);
             setSecurityHeaders(xhr);
             
             xhr.onload = function() {
@@ -255,7 +288,7 @@ function excluirFeriado(id) {
                     mostrarToast('Sucesso', 'Feriado excluído com sucesso!', 'success');
                     mostrarHorariosSLA();
                 } else {
-                    mostrarAlert('Erro', 'Erro ao excluir feriado');
+                    mostrarAlert('Erro', mensagemErroServidor(xhr, 'Erro ao excluir feriado'));
                 }
             };
             

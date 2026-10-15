@@ -614,7 +614,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'PUT') {
                     if ($sla_data && $sla_data['pausado_em']) {
                         // Calcular segundos úteis pausados
                         $slaService = new SLAService($db);
-                        $segundos_pausados = $slaService->calcularSegundosUteis($sla_data['pausado_em'], date('Y-m-d H:i:s'));
+                        $segundos_pausados = $slaService->calcularSegundosUteis($sla_data['pausado_em'], date('Y-m-d H:i:s'), $current_data['setor_id']);
                         
                         $novo_tempo_pausado = $sla_data['tempo_pausado'] + $segundos_pausados;
                         
@@ -633,7 +633,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'PUT') {
                     
                     if ($ticket_info) {
                         $slaService = new SLAService($db);
-                        $segundos_resposta = $slaService->calcularSegundosUteis($ticket_info['criado_em'], date('Y-m-d H:i:s'));
+                        $segundos_resposta = $slaService->calcularSegundosUteis($ticket_info['criado_em'], date('Y-m-d H:i:s'), $current_data['setor_id']);
                         
                         $sla_update = "UPDATE ticket_sla SET primeira_resposta_em = NOW(), tempo_primeira_resposta_segundos = ? WHERE ticket_id = ?";
                         $sla_stmt = $db->prepare($sla_update);
@@ -657,7 +657,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'PUT') {
                     
                     if ($ticket_info) {
                         $slaService = new SLAService($db);
-                        $segundos_totais = $slaService->calcularSegundosUteis($ticket_info['criado_em'], date('Y-m-d H:i:s'));
+                        $segundos_totais = $slaService->calcularSegundosUteis($ticket_info['criado_em'], date('Y-m-d H:i:s'), $current_data['setor_id']);
                         
                         $tempo_resolucao = $segundos_totais - $tempo_pausado;
                         

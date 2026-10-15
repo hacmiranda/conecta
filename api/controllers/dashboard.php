@@ -245,8 +245,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
             $slaService = new SLAService($db);
 
             // Tempo médio de primeira resposta (considera atribuição, mudança de status ou comentário)
-            $query = "SELECT t.id, t.criado_em,
-                      LEAST(
+            $query = "SELECT t.id, t.criado_em, t.setor_id,
+LEAST(
                           COALESCE((SELECT MIN(h.criado_em) FROM ticket_historico h
                                     WHERE h.ticket_id = t.id
                                     AND h.acao IN ('atribuicao', 'status')), '9999-12-31'),
@@ -266,14 +266,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
                 $soma = 0;
                 foreach ($tempos as $tempo) {
                     // Usar SLAService PHP para calcular segundos úteis
-                    $segundosUteis = $slaService->calcularSegundosUteis($tempo['criado_em'], $tempo['primeiro_atendimento']);
+                    $segundosUteis = $slaService->calcularSegundosUteis($tempo['criado_em'], $tempo['primeiro_atendimento'], $tempo['setor_id']);
                     $soma += $segundosUteis;
                 }
                 $dashboard['tempoPrimeiroAtendimentoSegundos'] = round($soma / count($tempos));
             }
 
             // Tempo médio total (abertura até fechamento em horas úteis)
-            $query = "SELECT t.criado_em, t.fechado_em
+            $query = "SELECT t.criado_em, t.fechado_em, t.setor_id
                       FROM tickets t
                       WHERE t.status = 'encerrado' AND t.fechado_em IS NOT NULL{$filtroT}";
             $stmt = $db->prepare($query);
@@ -284,7 +284,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
                 $soma = 0;
                 foreach ($tickets_fechados as $ticket) {
                     // Usar SLAService PHP para calcular segundos úteis
-                    $segundosUteis = $slaService->calcularSegundosUteis($ticket['criado_em'], $ticket['fechado_em']);
+                    $segundosUteis = $slaService->calcularSegundosUteis($ticket['criado_em'], $ticket['fechado_em'], $ticket['setor_id']);
                     $soma += $segundosUteis;
                 }
                 $dashboard['tempoMedioSegundos'] = round($soma / count($tickets_fechados));
