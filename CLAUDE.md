@@ -88,6 +88,7 @@ Single HTML shell (`frontend/index.html`) with no framework router. JavaScript i
 | `status-sla.js` | SLA badge rendering (uses each demand's sector hours via `horarios-sla.php?mapa=1`) |
 | `lembretes.js` | Reminder management |
 | `avatar.js` | User profile dropdown |
+| `acessibilidade.js` | Cross-cutting a11y: focus-trap/ESC/return-focus for every `#modal-overlay` dialog, keyboard (Tab/Enter/Space) for `onclick` `<div>/<span>/<tr>/<li>` (skips `aria-hidden` ones), `aria-live` on toasts |
 
 CSS follows a per-feature file convention (`tickets-melhorias.css`, `status-sla.css`, etc.). The main theme color is `#1e3a8a` (blue gradient sidebar). Dark/light mode is CSS-variable-driven in `style.css`.
 

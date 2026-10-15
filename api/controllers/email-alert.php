@@ -12,12 +12,10 @@ AuthMiddleware::configurarCORS(['GET']);
 
 if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') { exit(0); }
 
+// Só o administrador configura e-mail (Setores/Configurar e-mail): é o único que pode
+// agir sobre a falha, então é o único avisado (U10 da auditoria).
 $user = AuthMiddleware::verificarAuth();
-if (!in_array($user['tipo'] ?? '', ['operador', 'gestor', 'admin'])) {
-    http_response_code(403);
-    echo json_encode(['error' => 'Acesso negado']);
-    exit;
-}
+AuthMiddleware::verificarAdmin($user);
 
 require_once __DIR__ . '/../config/database.php';
 
