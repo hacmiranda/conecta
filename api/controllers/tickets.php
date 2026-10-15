@@ -7,6 +7,8 @@ require_once __DIR__ . '/../services/auditoria-service.php';
 require_once __DIR__ . '/../services/sla-service.php';
 require_once __DIR__ . '/../services/acesso-service.php';
 require_once __DIR__ . '/../services/timeline-service.php';
+require_once __DIR__ . '/../services/html-sanitizer.php';
+require_once __DIR__ . '/../services/lembrete-service.php';
 
 AuthMiddleware::configurarCORS(['GET', 'POST', 'PUT', 'DELETE']);
 
@@ -107,7 +109,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
                              (SELECT COUNT(*) FROM anexos WHERE ticket_id = t.id) as tem_anexos,
                              0 as criado_por_email,
                              CASE WHEN cnl.ticket_id IS NOT NULL THEN 1 ELSE 0 END as tem_comentario_nao_lido,
-                             (SELECT CONCAT(data_lembrete, ' ', hora_lembrete) FROM lembretes WHERE ticket_id = t.id AND notificado = FALSE ORDER BY data_lembrete ASC, hora_lembrete ASC LIMIT 1) as proximo_lembrete,
+                             (SELECT CONCAT(data_lembrete, ' ', hora_lembrete) FROM lembretes WHERE ticket_id = t.id AND notificado = FALSE AND cancelado_em IS NULL ORDER BY data_lembrete ASC, hora_lembrete ASC LIMIT 1) as proximo_lembrete,
                              (SELECT COUNT(*) FROM historico WHERE ticket_id = t.id AND acao = 'merge') as eh_mesclado,
                              (SELECT valor_novo FROM historico WHERE ticket_id = t.id AND acao = 'merge' LIMIT 1) as tickets_mesclados
                       FROM tickets t
@@ -217,7 +219,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         AuthMiddleware::verificarCSRF();
     } catch (Exception $e) {
         http_response_code(401);
-        echo json_encode(['error' => 'Acesso não autorizado', 'details' => $e->getMessage()]);
+        echo json_encode(['error' => 'Acesso não autorizado']);
         exit;
     }
     
@@ -229,22 +231,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $categoria_id = $_POST['categoria_id'] ?? null;
     $email_solicitante = $_POST['email_solicitante'] ?? null;
     
-    // Sanitização de entradas — remove tags e atributos perigosos
-    $titulo = strip_tags($titulo_raw);
-
-    // Tags permitidas na descrição (sem <img> para evitar src malicioso)
-    $tags_permitidas = '<p><br><strong><em><u><s><h1><h2><h3><h4><h5><h6><ul><ol><li><a><blockquote><span>';
-    $descricao = strip_tags($descricao_raw, $tags_permitidas);
-    // Remove event handlers (onclick, onload, etc.)
-    $descricao = preg_replace('/\s+on\w+\s*=\s*(?:"[^"]*"|\'[^\']*\'|[^\s>]*)/i', '', $descricao);
-    // Remove protocolos perigosos em atributos href/src
-    $descricao = preg_replace('/(href|src)\s*=\s*["\']?\s*(?:javascript|vbscript|data)[^"\'>\s]*/i', '$1="#"', $descricao);
+    // Sanitização: título como texto puro; descrição com o HTML seguro do editor
+    $titulo = HtmlSanitizer::texto($titulo_raw, 200);
+    $descricao = HtmlSanitizer::rico($descricao_raw);
 
     // Se email não informado, usar email do usuário logado
-    if (empty($email_solicitante)) {
+    $email_solicitante = trim((string) $email_solicitante);
+    if ($email_solicitante === '') {
         $email_solicitante = $user['email'];
+    } elseif (!filter_var($email_solicitante, FILTER_VALIDATE_EMAIL)) {
+        http_response_code(400);
+        echo json_encode(['error' => 'E-mail do solicitante inválido']);
+        exit;
     }
-    
+
     error_log("[DEBUG] Dados recebidos: titulo=$titulo, prioridade=$prioridade");
     
     if (empty($titulo) || empty($descricao)) {
@@ -411,7 +411,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     } catch (Exception $e) {
         error_log("[ERROR] Erro ao criar ticket: " . $e->getMessage());
         http_response_code(500);
-        echo json_encode(['error' => 'Erro ao criar demanda: ' . $e->getMessage()]);
+        echo json_encode(['error' => 'Erro ao criar demanda']);
     }
 }
 
@@ -687,6 +687,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'PUT') {
                     $vai_arquivar  = in_array($input['status'], AcessoService::STATUS_ARQUIVO, true);
                     if ($vai_arquivar && !$era_arquivada) {
                         AcessoService::fecharJanelasDaDemanda($db, (int) $ticket_id);
+                        LembreteService::cancelarPendentes($db, (int) $ticket_id, 'Demanda ' . ($input['status'] === 'cancelado' ? 'cancelada' : 'encerrada'));
                     } elseif ($era_arquivada && !$vai_arquivar) {
                         // Se a mesma requisição troca o responsável, a janela dele é aberta mais abaixo
                         $troca_agente = array_key_exists('agente_id', $input) && $input['agente_id'] != $current_data['agente_id'];
@@ -829,11 +830,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'PUT') {
         error_log("[ATRIBUICAO ERRO] Exceção: " . $e->getMessage());
         error_log("[ATRIBUICAO ERRO] Stack trace: " . $e->getTraceAsString());
         http_response_code(500);
-        echo json_encode([
-            'error' => 'Erro ao atualizar demanda',
-            'details' => $e->getMessage(),
-            'line' => $e->getLine()
-        ]);
+        echo json_encode(['error' => 'Erro ao atualizar demanda']);
     }
 }
 
@@ -889,7 +886,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'DELETE') {
         
     } catch (Exception $e) {
         http_response_code(500);
-        echo json_encode(['error' => 'Erro ao excluir demanda: ' . $e->getMessage()]);
+        error_log('[TICKETS DELETE] Erro: ' . $e->getMessage());
+        echo json_encode(['error' => 'Erro ao excluir demanda']);
     }
 }
 ?>

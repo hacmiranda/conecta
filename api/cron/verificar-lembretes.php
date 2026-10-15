@@ -1,101 +1,36 @@
 <?php
-$base_dir = dirname(__DIR__);
-require_once $base_dir . '/config/database.php';
-require_once $base_dir . '/services/email-sender.php';
-require_once $base_dir . '/services/acesso-service.php';
+/**
+ * Dispara os lembretes vencidos (e cancela os que não fazem mais sentido).
+ *
+ * Execução: pela linha de comando (php api/cron/verificar-lembretes.php) ou por HTTP com a
+ * chave CRON_KEY_*. Também é chamado ao final de verificar-emails.php (a cada execução do
+ * cron de e-mails), então não precisa de agendamento próprio em produção.
+ */
+require_once __DIR__ . '/acesso-cron.php';
+cronExigirAcesso();
 
-$database = new Database();
-$db = $database->getConnection();
-$emailSender = new EmailSender($db);
+require_once __DIR__ . '/../config/database.php';
+require_once __DIR__ . '/../services/email-sender.php';
+require_once __DIR__ . '/../services/lembrete-service.php';
 
 try {
-    // Buscar lembretes que devem ser notificados
-    $query = "SELECT l.*, t.titulo as ticket_titulo, t.id as ticket_numero, t.status as ticket_status,
-                     t.setor_id as ticket_setor_id, t.agente_id as ticket_agente_id,
-                     u.nome as agente_nome, u.email as agente_email,
-                     c.email as autor_email
-             FROM lembretes l
-             INNER JOIN tickets t ON l.ticket_id = t.id
-             LEFT JOIN usuarios u ON l.agente_id = u.id
-             LEFT JOIN usuarios c ON l.criado_por = c.id
-             WHERE l.notificado = FALSE
-             AND CONCAT(l.data_lembrete, ' ', l.hora_lembrete) <= NOW()";
-    
-    $stmt = $db->prepare($query);
-    $stmt->execute();
-    $lembretes = $stmt->fetchAll(PDO::FETCH_ASSOC);
-    
-    foreach ($lembretes as $lembrete) {
-        $ticket_formatado_email = str_pad($lembrete['ticket_numero'], 5, '0', STR_PAD_LEFT);
-        $assunto = "🔔 [Lembrete] Demanda #" . $ticket_formatado_email . " - {$lembrete['ticket_titulo']}";
-        $mensagem = "
-            <h2>🔔 Lembrete de Demanda</h2>
-            <p><strong>Demanda:</strong> #" . $ticket_formatado_email . " - {$lembrete['ticket_titulo']}</p>
-            <p><strong>Lembrete:</strong> {$lembrete['descricao']}</p>
-            <p><strong>Data/Hora:</strong> " . date('d/m/Y H:i', strtotime($lembrete['data_lembrete'] . ' ' . $lembrete['hora_lembrete'])) . "</p>
-            <p><a href='" . Environment::get('base_url') . "/frontend/index.html'>Acessar Demanda</a></p>
-        ";
+    $db_lembretes = (new Database())->getConnection();
 
-        $notif_titulo = "🔔 Lembrete: Demanda #" . $ticket_formatado_email . " - " . $lembrete['ticket_titulo'];
-        $notif_msg = "Seu lembrete agendado: " . $lembrete['descricao'];
-
-        if ($lembrete['agente_id']) {
-            // Lembrete Direcionado (Apenas para o Agente selecionado)
-            if ($lembrete['agente_email']) {
-                $emailSender->enviarEmail($lembrete['agente_email'], $assunto, $mensagem);
-            }
-            // Inserir notificação visual no sistema
-            $notif_query = "INSERT INTO notificacoes (usuario_id, titulo, mensagem, ticket_id) VALUES (:usuario_id, :titulo, :mensagem, :ticket_id)";
-            $notif_stmt = $db->prepare($notif_query);
-            $notif_stmt->bindParam(':usuario_id', $lembrete['agente_id']);
-            $notif_stmt->bindParam(':titulo', $notif_titulo);
-            $notif_stmt->bindParam(':mensagem', $notif_msg);
-            $notif_stmt->bindParam(':ticket_id', $lembrete['ticket_id']);
-            $notif_stmt->execute();
-        } else {
-            // Lembrete geral: o responsável da demanda ou, sem responsável, os gestores do setor
-            $todosAgentes = AcessoService::destinatariosDaDemanda($db, [
-                'agente_id' => $lembrete['ticket_agente_id'],
-                'setor_id'  => $lembrete['ticket_setor_id'],
-            ]);
-
-            foreach ($todosAgentes as $ag) {
-                if ($ag['email']) {
-                    $emailSender->enviarEmail($ag['email'], $assunto, $mensagem);
-                }
-                
-                $notif_query = "INSERT INTO notificacoes (usuario_id, titulo, mensagem, ticket_id) VALUES (:usuario_id, :titulo, :mensagem, :ticket_id)";
-                $notif_stmt = $db->prepare($notif_query);
-                $notif_stmt->bindParam(':usuario_id', $ag['id']);
-                $notif_stmt->bindParam(':titulo', $notif_titulo);
-                $notif_stmt->bindParam(':mensagem', $notif_msg);
-                $notif_stmt->bindParam(':ticket_id', $lembrete['ticket_id']);
-                $notif_stmt->execute();
-            }
+    if (!cronTravar($db_lembretes, 'lembretes')) {
+        echo "Lembretes: outra execução em andamento\n";
+    } else {
+        $resumo = LembreteService::dispararVencidos($db_lembretes, new EmailSender($db_lembretes));
+        $linha = "Lembretes: {$resumo['enviados']} enviado(s), {$resumo['cancelados']} cancelado(s), {$resumo['erros']} erro(s)";
+        echo $linha . "\n";
+        if ($resumo['enviados'] || $resumo['cancelados'] || $resumo['erros']) {
+            cronLog('lembretes-cron.log', $linha);
         }
-
-        
-        // Se o ticket está em "aguardando_data", mudar para "em_atendimento"
-        if ($lembrete['ticket_status'] === 'aguardando_data') {
-            $updateTicketQuery = "UPDATE tickets SET status = 'em_atendimento' WHERE id = :ticket_id";
-            $updateTicketStmt = $db->prepare($updateTicketQuery);
-            $updateTicketStmt->bindParam(':ticket_id', $lembrete['ticket_id']);
-            $updateTicketStmt->execute();
-            
-            $ticket_formatado = str_pad($lembrete['ticket_numero'], 5, '0', STR_PAD_LEFT);
-            echo "Ticket #" . $ticket_formatado . " mudou de 'aguardando_data' para 'em_atendimento'\n";
-        }
-        
-        // Marcar como notificado
-        $updateQuery = "UPDATE lembretes SET notificado = TRUE WHERE id = :id";
-        $updateStmt = $db->prepare($updateQuery);
-        $updateStmt->bindParam(':id', $lembrete['id']);
-        $updateStmt->execute();
-        
-        echo "Lembrete #{$lembrete['id']} notificado\n";
     }
-    
-    echo "Verificação de lembretes concluída\n";
 } catch (Exception $e) {
-    echo "Erro: " . $e->getMessage() . "\n";
+    error_log('[CRON LEMBRETES] Erro: ' . $e->getMessage());
+    cronLog('lembretes-cron.log', 'Erro: ' . $e->getMessage());
+    if (PHP_SAPI !== 'cli') {
+        http_response_code(500);
+    }
+    echo "Lembretes: erro (ver log)\n";
 }

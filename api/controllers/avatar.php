@@ -18,8 +18,9 @@ $db = $database->getConnection();
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     try {
         $user = AuthMiddleware::verificarAuth();
-        
-        $userId = (int)$_POST['user_id'];
+        AuthMiddleware::verificarCSRF();
+
+        $userId = (int) ($_POST['user_id'] ?? 0);
         
         // Verificar permissão: admin ou próprio usuário
         if ($user['tipo'] !== 'admin' && $userId != $user['id']) {
@@ -36,13 +37,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         
         $file = $_FILES['avatar'];
         
-        // Validar tipo
-        $allowedTypes = ['image/jpeg', 'image/png', 'image/gif'];
+        if (($file['error'] ?? UPLOAD_ERR_NO_FILE) !== UPLOAD_ERR_OK || !is_uploaded_file($file['tmp_name'])) {
+            http_response_code(400);
+            echo json_encode(['error' => 'Falha no envio do arquivo']);
+            exit;
+        }
+
+        // Validar tipo pelo conteúdo; a extensão gravada vem do tipo real (nunca do nome enviado)
+        $allowedTypes = ['image/jpeg' => 'jpg', 'image/png' => 'png', 'image/gif' => 'gif'];
         $finfo = finfo_open(FILEINFO_MIME_TYPE);
         $mimeType = finfo_file($finfo, $file['tmp_name']);
         finfo_close($finfo);
         
-        if (!in_array($mimeType, $allowedTypes)) {
+        if (!isset($allowedTypes[$mimeType]) || @getimagesize($file['tmp_name']) === false) {
             http_response_code(400);
             echo json_encode(['error' => 'Tipo de arquivo inválido. Use JPG, PNG ou GIF']);
             exit;
@@ -56,8 +63,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
         
         // Gerar nome único
-        $extension = pathinfo($file['name'], PATHINFO_EXTENSION);
-        $filename = 'avatar_' . $userId . '_' . time() . '.' . $extension;
+        $extension = $allowedTypes[$mimeType];
+        $filename = 'avatar_' . $userId . '_' . bin2hex(random_bytes(8)) . '.' . $extension;
         $uploadDir = __DIR__ . '/../../backend/uploads/avatars/';
 
         // Criar diretório se não existir
@@ -80,7 +87,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         
         // Remover avatar antigo
         if (!empty($userData['avatar'])) {
-            $oldFile = __DIR__ . '/../../backend/uploads/avatars/' . $userData['avatar'];
+            $oldFile = __DIR__ . '/../../backend/uploads/avatars/' . basename($userData['avatar']);
             if (file_exists($oldFile)) {
                 unlink($oldFile);
             }
@@ -103,12 +110,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $auditoria->registrar($user['id'], 'atualizar_avatar', 'usuarios', $userId, 
             json_encode(['avatar_antigo' => $userData['avatar']]), 
             json_encode(['avatar_novo' => $filename]));
-        
-        // Atualizar sessão se for o próprio usuário
-        if ($userId == $user['id']) {
-            session_start();
-            $_SESSION['avatar'] = $filename;
-        }
         
         echo json_encode([
             'success' => true,

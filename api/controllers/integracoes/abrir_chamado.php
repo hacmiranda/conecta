@@ -21,6 +21,7 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
 require_once __DIR__ . '/../../config/database.php';
 require_once __DIR__ . '/../../config/environment.php';
 require_once __DIR__ . '/../../services/acesso-service.php';
+require_once __DIR__ . '/../../services/html-sanitizer.php';
 
 // Validar API KEY da Transação (Segurança Server-to-Server)
 $headers = getallheaders();
@@ -52,11 +53,13 @@ if (!$input) {
 }
 
 // Resgatar Variáveis do Payload (Sistemas Satélites enviam isso)
-$origem = $input['origem'] ?? 'desconhecida';
-$titulo = strip_tags($input['titulo'] ?? '');
+// Origem: identificador curto (letras, números e _), usado no texto da demanda
+$origem = preg_replace('/[^a-z0-9_]/', '', strtolower((string) ($input['origem'] ?? ''))) ?: 'desconhecida';
+$origem = substr($origem, 0, 50);
+$titulo = HtmlSanitizer::texto($input['titulo'] ?? '', 200);
 $descricao_raw = $input['descricao'] ?? '';
 $email_solicitante = strtolower(trim($input['email_solicitante'] ?? ''));
-$nome_solicitante = strip_tags($input['nome_solicitante'] ?? 'Usuário ' . strtoupper($origem));
+$nome_solicitante = HtmlSanitizer::texto($input['nome_solicitante'] ?? ('Usuário ' . strtoupper($origem)), 100);
 $prioridade = strtolower($input['prioridade'] ?? 'normal');
 $categoria_id = $input['categoria_id'] ?? null;
 $metadados = $input['metadados'] ?? null; // Array opcional para logs do navegador/sistema
@@ -88,15 +91,19 @@ if (empty($titulo) || empty($descricao_raw)) {
     exit;
 }
 
-// Sanitização Contra XSS Cross-System
-$descricao = strip_tags($descricao_raw, '<p><br><strong><em><u><s><h1><h2><h3><h4><h5><h6><ul><ol><li><a><blockquote><span><img>');
-$descricao = preg_replace('/on[a-z]+\s*=\s*(["\']).*?\1/i', '', $descricao);
-$descricao = preg_replace('/javascript:/i', '#', $descricao);
+// Sanitização contra XSS (HTML seguro do editor)
+$descricao = HtmlSanitizer::rico($descricao_raw);
+
+if ($email_solicitante !== '' && !filter_var($email_solicitante, FILTER_VALIDATE_EMAIL)) {
+    http_response_code(400);
+    echo json_encode(['error' => 'E-mail do solicitante inválido.']);
+    exit;
+}
 
 // Tag Tática: Identidade Visual da API no Corpo da Descrição
 $descricao_final = "<div style=\"background-color: #f1f5f9; border-left: 4px solid #3b82f6; padding: 12px; margin-bottom: 20px; border-radius: 4px;\">";
 $descricao_final .= "<p style=\"margin: 0; font-size: 13px; color: #475569;\"><strong>🤖 AVISO DE INTEGRAÇÃO M2M</strong><br>";
-$descricao_final .= "Esta demanda foi protocolada automaticamente via API (<strong>" . strtoupper(str_replace('_', ' ', $origem)) . "</strong>).<br>";
+$descricao_final .= "Esta demanda foi protocolada automaticamente via API (<strong>" . htmlspecialchars(strtoupper(str_replace('_', ' ', $origem))) . "</strong>).<br>";
 $descricao_final .= "Solicitante Identificado Repasse: <strong>" . htmlspecialchars($nome_solicitante . ' (' . $email_solicitante . ')') . "</strong></p></div>";
 $descricao_final .= $descricao;
 

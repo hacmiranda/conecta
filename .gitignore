@@ -14,8 +14,11 @@ backend/anexos/*
 !backend/anexos/.gitkeep
 backend/uploads/avatars/*
 !backend/uploads/avatars/.gitkeep
+!backend/uploads/avatars/.htaccess
 backend/logs/*
 !backend/logs/.gitkeep
+# Cache do HTML Purifier (gerado em tempo de execução)
+backend/cache/
 error_log
 *.tmp
 
@@ -25,3 +28,6 @@ Thumbs.db
 
 # Artefatos do Playwright (testes manuais)
 .playwright-mcp/
+
+# Composer local (instale globalmente; nunca versionar o .phar)
+*.phar

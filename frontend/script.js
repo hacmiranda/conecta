@@ -1,8 +1,19 @@
-﻿// Função para sanitizar HTML
+﻿// Escapa texto para inserir em HTML (conteúdo e atributos). Use em todo dado vindo da API.
 function sanitizeHTML(str) {
-    const div = document.createElement('div');
-    div.textContent = str;
-    return div.innerHTML;
+    return String(str ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+}
+
+// HTML rico (descrição, comentários, macros): mantém só a formatação segura (DOMPurify)
+function htmlSeguro(html) {
+    if (window.DOMPurify) {
+        return DOMPurify.sanitize(String(html ?? ''), { ADD_ATTR: ['target'], FORBID_TAGS: ['style', 'form', 'input', 'button'] });
+    }
+    return sanitizeHTML(html);
+}
+
+// Texto como argumento de função em onclick="fn(decodeURIComponent('...'))"
+function argJs(valor) {
+    return encodeURIComponent(String(valor ?? '')).replace(/'/g, '%27');
 }
 
 // Retorna headers de autenticação para uso com fetch()
@@ -79,17 +90,6 @@ function fazerLogout() {
     window.location.href = './login.html';
 }
 
-// Sessão sem expiração: nem por tempo de token, nem por inatividade.
-// Mantém só o "pseudo-cron" de lembretes, que dependia deste mesmo timer.
-function iniciarMonitoramentoSessao() {
-    pingLembretes();
-    setInterval(pingLembretes, 60000); // Checar a cada minuto
-}
-
-function pingLembretes() {
-    if (!localStorage.getItem('cd_token')) return;
-    fetch(window.APP_CONFIG.rootBase + 'api/cron/verificar-lembretes.php').catch(() => { });
-}
 
 // ======================================================
 // 📧 ALERTA DE FALHAS DE E-MAIL
@@ -861,7 +861,7 @@ function renderizarKanbanTela(tickets) {
 
         col.tickets.forEach(ticket => {
             const isNovaResposta = ticket.status === 'nova_resposta';
-            const tituloSeguro = (ticket.titulo || '').replace(/"/g, '&quot;').replace(/</g, '&lt;');
+            const tituloSeguro = sanitizeHTML(ticket.titulo || '');
             const slaInfo = calcularTextoSLA(ticket);
             const slaBadge = slaInfo ? `<span class="sla-badge ${slaInfo.classe}" style="display:inline-block; margin: 5px 0 0 0; font-size: 0.7rem;">⏱ ${slaInfo.texto}</span>` : '';
 
@@ -871,13 +871,13 @@ function renderizarKanbanTela(tickets) {
                         <span class="kanban-ticket-id">#${String(ticket.id).padStart(5, '0')}</span>
                         <span class="kanban-ticket-prioridade p-${ticket.prioridade || 'normal'}">${(ticket.prioridade || 'normal').toUpperCase()}</span>
                     </div>
-                    <div class="kanban-card-title" title="${tituloSeguro}">${ticket.titulo}</div>
+                    <div class="kanban-card-title" title="${tituloSeguro}">${sanitizeHTML(ticket.titulo)}</div>
                     <div class="kanban-card-info">
-                        👤 ${ticket.usuario_nome}
+                        👤 ${sanitizeHTML(ticket.usuario_nome)}
                     </div>
                     ${slaBadge}
                     <div class="kanban-card-footer">
-                        <span class="kanban-agente">${ticket.agente_nome || 'Livre'}</span>
+                        <span class="kanban-agente">${sanitizeHTML(ticket.agente_nome || 'Livre')}</span>
                         <span class="kanban-data">${new Date(ticket.criado_em).toLocaleDateString('pt-BR')}</span>
                     </div>
                 </div>
@@ -1009,12 +1009,12 @@ function mostrarTicketsNaTela(tickets) {
         const hora = dataObj.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
 
         // Solicitante
-        const solicitante = ticket.email_solicitante || ticket.usuario_nome || '—';
+        const solicitante = sanitizeHTML(ticket.email_solicitante || ticket.usuario_nome || '—');
         const emailExibir = (ticket.email_solicitante && ticket.email_solicitante !== ticket.usuario_email)
-            ? '' : (ticket.usuario_email ? `<small class="ticket-data-hora">${ticket.usuario_email}</small>` : '');
+            ? '' : (ticket.usuario_email ? `<small class="ticket-data-hora">${sanitizeHTML(ticket.usuario_email)}</small>` : '');
 
         // Título truncado
-        const tituloSeguro = (ticket.titulo || '').replace(/"/g, '&quot;').replace(/</g, '&lt;');
+        const tituloSeguro = sanitizeHTML(ticket.titulo || '');
 
         tabelaHTML += `
             <tr data-ticket-id="${ticket.id}" class="${isNovaResposta ? 'ticket-nova-resposta' : ''}" ${modoMergeAtivo ? 'style="cursor:pointer;"' : ''}>
@@ -1027,12 +1027,12 @@ function mostrarTicketsNaTela(tickets) {
                     ${slaBadge}
                 </td>
                 <td class="ticket-titulo-cell" data-label="Assunto">
-                    <span class="ticket-titulo-texto" data-vg-tooltip="${tituloSeguro}" data-vg-title="ASSUNTO">${ticket.titulo}</span>
+                    <span class="ticket-titulo-texto" data-vg-tooltip="${tituloSeguro}" data-vg-title="ASSUNTO">${sanitizeHTML(ticket.titulo)}</span>
                 </td>
                 <td data-label="Solicitante">${solicitante}${emailExibir}</td>
-                ${exibirColunaSetor(false) ? `<td data-label="Setor">${ticket.setor_nome || '-'}</td>` : ''}
-                <td data-label="Responsável"><span class="status ${ticket.agente_nome ? 'atribuido' : 'nao-atribuido'} ${modoMergeAtivo ? '' : 'clickable'}" ${modoMergeAtivo ? '' : `onclick="event.stopPropagation(); atribuirTicket(${ticket.id}, ${ticket.setor_id ? Number(ticket.setor_id) : 'null'})" title="Clique para atribuir"`}>${ticket.agente_nome || 'Não atribuído'}</span>${(ticket.agente_nome && ticket.atribuido_em) ? `<small class="ticket-data-hora">desde ${new Date(ticket.atribuido_em).toLocaleDateString('pt-BR')}</small>` : ''}</td>
-                <td data-label="Subcategoria"><span class="status categoria ${ticket.categoria_nome ? '' : 'sem-categoria'} ${modoMergeAtivo ? '' : 'clickable'}" ${modoMergeAtivo ? '' : `onclick="event.stopPropagation(); alterarCategoria(${ticket.id})" title="Clique para alterar"`}>${ticket.categoria_nome || 'Sem subcategoria'}</span></td>
+                ${exibirColunaSetor(false) ? `<td data-label="Setor">${sanitizeHTML(ticket.setor_nome || '-')}</td>` : ''}
+                <td data-label="Responsável"><span class="status ${ticket.agente_nome ? 'atribuido' : 'nao-atribuido'} ${modoMergeAtivo ? '' : 'clickable'}" ${modoMergeAtivo ? '' : `onclick="event.stopPropagation(); atribuirTicket(${ticket.id}, ${ticket.setor_id ? Number(ticket.setor_id) : 'null'})" title="Clique para atribuir"`}>${sanitizeHTML(ticket.agente_nome || 'Não atribuído')}</span>${(ticket.agente_nome && ticket.atribuido_em) ? `<small class="ticket-data-hora">desde ${new Date(ticket.atribuido_em).toLocaleDateString('pt-BR')}</small>` : ''}</td>
+                <td data-label="Subcategoria"><span class="status categoria ${ticket.categoria_nome ? '' : 'sem-categoria'} ${modoMergeAtivo ? '' : 'clickable'}" ${modoMergeAtivo ? '' : `onclick="event.stopPropagation(); alterarCategoria(${ticket.id})" title="Clique para alterar"`}>${sanitizeHTML(ticket.categoria_nome || 'Sem subcategoria')}</span></td>
                 <td data-label="Status"><span class="status ${ticket.status} ${modoMergeAtivo ? '' : 'clickable'}" ${modoMergeAtivo ? '' : `onclick="event.stopPropagation(); alterarStatusNovo(${ticket.id}, ${ticket.setor_id || 'null'})"`} title="Clique para alterar">${window.STATUS_CONFIG && window.STATUS_CONFIG[ticket.status] ? window.STATUS_CONFIG[ticket.status].nome : (typeof formatarNomeStatus === 'function' ? formatarNomeStatus(ticket.status) : ticket.status)}</span></td>
                 <td data-label="Prioridade"><span class="status prioridade ${ticket.prioridade || 'normal'} ${modoMergeAtivo ? '' : 'clickable'}" ${modoMergeAtivo ? '' : `onclick="event.stopPropagation(); alterarPrioridade(${ticket.id})" title="Clique para alterar"`}>${typeof formatarNomePrioridade === 'function' ? formatarNomePrioridade(ticket.prioridade) : (ticket.prioridade ? ticket.prioridade.charAt(0).toUpperCase() + ticket.prioridade.slice(1).toLowerCase() : 'Normal')}</span></td>
             </tr>
@@ -1146,7 +1146,7 @@ function atribuirTicket(ticketId, setorId) {
                         ticketId, 'atribuir', { usuario_id: escolhido.id },
                         'Encaminhar a Operador',
                         `Registre o encaminhamento para ${escolhido.nome}:`,
-                        `Demanda encaminhada para ${escolhido.nome}!`
+                        `Demanda encaminhada para ${sanitizeHTML(escolhido.nome)}!`
                     );
                 }
             );
@@ -1304,7 +1304,7 @@ function repassarParaColega(ticketId) {
                 ticketId, 'reatribuir_colega', { usuario_id: colegaEscolhido.id },
                 'Repassar Demanda',
                 `Explique o motivo de repassar para ${colegaEscolhido.nome}:`,
-                `Demanda repassada para ${colegaEscolhido.nome}!`
+                `Demanda repassada para ${sanitizeHTML(colegaEscolhido.nome)}!`
             );
         });
     };
@@ -1338,7 +1338,7 @@ function transferirParaSetor(ticketId, setorAtualId) {
                 ticketId, 'transferir_setor', { setor_id: setorEscolhido.id },
                 'Transferir para Outro Setor',
                 `Explique o motivo da transferência para ${setorEscolhido.nome}:`,
-                `Demanda transferida para ${setorEscolhido.nome}!`
+                `Demanda transferida para ${sanitizeHTML(setorEscolhido.nome)}!`
             );
         });
     };
@@ -1700,6 +1700,10 @@ function marcarComentariosLidos(ticketId) {
 
 // Formatar ações do histórico
 function formatarAcaoHistorico(acao, valorAnterior, valorNovo) {
+    // Valores do histórico vêm do banco (nomes, setores, e-mails): sempre como texto
+    acao = sanitizeHTML(acao);
+    valorAnterior = valorAnterior == null ? valorAnterior : sanitizeHTML(valorAnterior);
+    valorNovo = valorNovo == null ? valorNovo : sanitizeHTML(valorNovo);
     const formatarStatus = (status) => {
         if (!status) return 'N/A';
         return typeof formatarNomeStatus === 'function' ? formatarNomeStatus(status) :
@@ -1808,11 +1812,11 @@ function mostrarDetalhesTicket(ticket) {
                 comentariosHtml += `
                     <div class="comentario-wrapper">
                         <div class="comentario-info">
-                            <strong>💬 ${item.autor_nome}</strong> - ${new Date(item.criado_em).toLocaleString('pt-BR')}<br>
+                            <strong>💬 ${sanitizeHTML(item.autor_nome)}</strong> - ${new Date(item.criado_em).toLocaleString('pt-BR')}<br>
                             <strong style="color: #666; font-size: 0.9em;">Comentário:</strong>
                         </div>
                         <div class="comentario">
-                            ${item.comentario}
+                            ${htmlSeguro(item.comentario)}
                         </div>
                 `;
 
@@ -1830,12 +1834,12 @@ function mostrarDetalhesTicket(ticket) {
                         comentariosHtml += `
                             <div style="background: #f8f9fa; padding: 0.75rem; margin: 0.5rem 0; border-radius: 4px; display: flex; justify-content: space-between; align-items: center;">
                                 <div>
-                                    <strong>${nomeExibir}</strong><br>
+                                    <strong>${sanitizeHTML(nomeExibir)}</strong><br>
                                     <small style="color: #666;">${tamanhoMB}MB</small>
                                 </div>
                                 <div style="display: flex; gap: 0.5rem;">
                                     ${isPDF || isImage ? `<button class="btn-visualizar" onclick="visualizarAnexo(${anexo.id}, '${tipo}')">👁️ Visualizar</button>` : ''}
-                                    <button class="btn-small" onclick="baixarAnexo(${anexo.id}, '${(anexo.nome_original || anexo.nome_arquivo).replace(/'/g, "\\'")}')">⬇ Download</button>
+                                    <button class="btn-small" onclick="baixarAnexo(${anexo.id}, decodeURIComponent('${argJs(anexo.nome_original || anexo.nome_arquivo)}'))">⬇ Download</button>
                                 </div>
                             </div>
                         `;
@@ -1847,10 +1851,10 @@ function mostrarDetalhesTicket(ticket) {
             } else if (item.tipo === 'historico') {
                 let acao;
                 if (item.acao === 'email_enviado' || item.acao === 'email_copia') {
-                    acao = '📧 ' + item.valor_novo;
+                    acao = '📧 ' + sanitizeHTML(item.valor_novo);
                 } else if (item.valores_formatados) {
                     // Usar valores já formatados do backend
-                    const partes = item.valores_formatados.split(' → ');
+                    const partes = item.valores_formatados.split(' → ').map(p => sanitizeHTML(p));
                     if (item.acao === 'categoria') {
                         acao = `alterou a categoria de <strong>${partes[0]}</strong> para <strong>${partes[1]}</strong>`;
                     } else if (item.acao === 'atribuicao') {
@@ -1869,7 +1873,7 @@ function mostrarDetalhesTicket(ticket) {
                 comentariosHtml += `
                     <div class="historico-wrapper">
                         <div class="historico-info">
-                            <strong>📅 ${item.autor_nome || 'Sistema'}</strong> - ${new Date(item.criado_em).toLocaleString('pt-BR')}
+                            <strong>📅 ${sanitizeHTML(item.autor_nome || 'Sistema')}</strong> - ${new Date(item.criado_em).toLocaleString('pt-BR')}
                         </div>
                         <div class="historico-acao">
                             ${acao}
@@ -1906,10 +1910,10 @@ function mostrarDetalhesTicket(ticket) {
                 </div>
                 <div style="display: flex; gap: 0.5rem; align-items: center;">
                     <span class="status ${ticket.agente_nome ? 'atribuido' : 'nao-atribuido'} ${ticket.status === 'fechado' ? 'disabled' : 'clickable'}" ${ticket.status === 'fechado' ? '' : `onclick="atribuirTicket(${ticket.id}, ${ticket.setor_id ? Number(ticket.setor_id) : 'null'})" title="Clique para atribuir"`}>
-                        ${ticket.agente_nome || 'Não atribuído'}
+                        ${sanitizeHTML(ticket.agente_nome || 'Não atribuído')}
                     </span>
                     <span class="status categoria ${ticket.categoria_nome ? '' : 'sem-categoria'} ${ticket.status === 'fechado' ? 'disabled' : 'clickable'}" ${ticket.status === 'fechado' ? '' : `onclick="alterarCategoria(${ticket.id})" title="Clique para alterar"`}>
-                        ${ticket.categoria_nome || 'Sem subcategoria'}
+                        ${sanitizeHTML(ticket.categoria_nome || 'Sem subcategoria')}
                     </span>
                     <span class="status ${ticket.status || 'aberto'} ${ticket.status === 'encerrado' ? 'disabled' : 'clickable'}" ${ticket.status === 'encerrado' ? '' : `onclick="alterarStatus(${ticket.id})" title="Clique para alterar"`}>
                         ${typeof formatarNomeStatus === 'function' ? formatarNomeStatus(ticket.status || 'aberto') : (window.STATUS_CONFIG && window.STATUS_CONFIG[ticket.status || 'aberto'] ? window.STATUS_CONFIG[ticket.status || 'aberto'].nome : (ticket.status || 'aberto').charAt(0).toUpperCase() + (ticket.status || 'aberto').slice(1).toLowerCase())}
@@ -1919,10 +1923,10 @@ function mostrarDetalhesTicket(ticket) {
                     </span>
                 </div>
             </div>
-            <h2>${ticket.titulo}</h2>
+            <h2>${sanitizeHTML(ticket.titulo)}</h2>
             <div><strong>Descrição:</strong></div>
             <div class="descricao-ticket">
-                ${ticket.descricao}
+                ${htmlSeguro(ticket.descricao)}
             </div>
             <p><strong>Criado por:</strong> ${(() => {
             const email = ticket.email_solicitante || ticket.usuario_email || '';
@@ -1934,11 +1938,11 @@ function mostrarDetalhesTicket(ticket) {
             <p><strong>Prioridade:</strong> ${ticket.prioridade}</p>
             <p><strong>Data:</strong> ${new Date(ticket.criado_em).toLocaleString('pt-BR')}</p>
             ${ticket.status === 'encerrado' && ticket.fechado_por_nome ?
-            `<p><strong>Encerrado por:</strong> ${ticket.fechado_por_nome} em ${new Date(ticket.fechado_em).toLocaleString('pt-BR')}</p>` :
+            `<p><strong>Encerrado por:</strong> ${sanitizeHTML(ticket.fechado_por_nome)} em ${new Date(ticket.fechado_em).toLocaleString('pt-BR')}</p>` :
             ''
         }
             ${ticket.agente_nome && ticket.atribuido_em ?
-            `<p><strong>Atribuída a:</strong> ${ticket.agente_nome} em ${new Date(ticket.atribuido_em).toLocaleString('pt-BR')}</p>` :
+            `<p><strong>Atribuída a:</strong> ${sanitizeHTML(ticket.agente_nome)} em ${new Date(ticket.atribuido_em).toLocaleString('pt-BR')}</p>` :
             ''
         }
 
@@ -1951,7 +1955,7 @@ function mostrarDetalhesTicket(ticket) {
                         ${ticket.anexos.map(anexo => `
                             <div class="anexo-item" style="background: #f8f9fa; padding: 0.75rem; margin: 0.5rem 0; border-radius: 4px; display: flex; justify-content: space-between; align-items: center;">
                                 <div>
-                                    <strong>${anexo.nome_original}</strong><br>
+                                    <strong>${sanitizeHTML(anexo.nome_original)}</strong><br>
                                     <small style="color: #666;">${(anexo.tamanho / 1024 / 1024).toFixed(2)}MB - ${new Date(anexo.criado_em).toLocaleDateString('pt-BR')}</small>
                                 </div>
                                 <div style="display: flex; gap: 0.5rem;">
@@ -1959,7 +1963,7 @@ function mostrarDetalhesTicket(ticket) {
                 `<button class="btn-visualizar" onclick="visualizarAnexo(${anexo.id}, '${anexo.tipo || anexo.tipo_mime}')">👁️ Visualizar</button>` :
                 ''
             }
-                                    <button class="btn-small" onclick="baixarAnexo(${anexo.id}, '${anexo.nome_original.replace(/'/g, "\\'")}')">📥 Download</button>
+                                    <button class="btn-small" onclick="baixarAnexo(${anexo.id}, decodeURIComponent('${argJs(anexo.nome_original)}'))">📥 Download</button>
                                 </div>
                             </div>
                         `).join('')}
@@ -2339,7 +2343,7 @@ function adicionarComentario(event, ticketId) {
                     // Conteúdo do comentário — renderizado como HTML (gerado pelo editor Quill)
                     const comentarioDiv = document.createElement('div');
                     comentarioDiv.className = 'comentario';
-                    comentarioDiv.innerHTML = data.comentario.comentario || '';
+                    comentarioDiv.innerHTML = htmlSeguro(data.comentario.comentario || '');
                     wrapper.appendChild(comentarioDiv);
 
                     // Anexos
@@ -2766,7 +2770,7 @@ function mostrarListaSetores(setores) {
     const cards = setores.map(setor => `
         <div class="usuario-card ${setor.ativo == 0 ? 'usuario-inativo' : ''}">
             <div class="usuario-info">
-                <h4>${setor.nome} ${setor.ativo == 0 ? '<span style="color: #dc3545;">(Inativo)</span>' : ''}</h4>
+                <h4>${sanitizeHTML(setor.nome)} ${setor.ativo == 0 ? '<span style="color: #dc3545;">(Inativo)</span>' : ''}</h4>
                 <p><strong>Criado:</strong> ${new Date(setor.criado_em).toLocaleDateString('pt-BR')}</p>
             </div>
             <div class="usuario-acoes">
@@ -2775,7 +2779,7 @@ function mostrarListaSetores(setores) {
                         ${setor.ativo == 1 ? 'Desativar' : 'Ativar'}
                     </button>
                 ` : ''}
-                <button class="btn-editar" onclick="editarSetor(${setor.id}, '${setor.nome.replace(/'/g, "\\'")}')">Editar</button>
+                <button class="btn-editar" onclick="editarSetor(${setor.id}, decodeURIComponent('${argJs(setor.nome)}'))">Editar</button>
             </div>
         </div>
     `).join('');
@@ -3010,9 +3014,9 @@ function mostrarListaUsuarios(usuarios, setores) {
         return `
             <div class="usuario-card ${!statusAtivo ? 'usuario-inativo' : ''}">
                 <div class="usuario-info">
-                    <h4>${usuario.nome} ${!statusAtivo ? '<span style="color: #dc3545;">(Inativo)</span>' : ''}</h4>
-                    <p>${usuario.email}${usuario.username ? ` · <code>${usuario.username}</code>` : ''}</p>
-                    <p><strong>Papel:</strong> ${tipoExibicao}${usuario.cargo ? ` · <strong>Cargo:</strong> ${usuario.cargo}` : ''}${usuario.setor_nome ? ` · <strong>Setor:</strong> ${usuario.setor_nome}` : ''}</p>
+                    <h4>${sanitizeHTML(usuario.nome)} ${!statusAtivo ? '<span style="color: #dc3545;">(Inativo)</span>' : ''}</h4>
+                    <p>${sanitizeHTML(usuario.email)}${usuario.username ? ` · <code>${sanitizeHTML(usuario.username)}</code>` : ''}</p>
+                    <p><strong>Papel:</strong> ${tipoExibicao}${usuario.cargo ? ` · <strong>Cargo:</strong> ${sanitizeHTML(usuario.cargo)}` : ''}${usuario.setor_nome ? ` · <strong>Setor:</strong> ${usuario.setor_nome}` : ''}</p>
                     <p><strong>Criado:</strong> ${new Date(usuario.criado_em).toLocaleDateString('pt-BR')}</p>
                 </div>
                 <div class="usuario-acoes">
@@ -3054,7 +3058,7 @@ function mostrarListaUsuarios(usuarios, setores) {
                         <label for="setor-usuario">Setor:</label>
                         <select id="setor-usuario">
                             <option value="">Nenhum (obrigatório para Operador/Gestor)</option>
-                            ${setores.map(s => `<option value="${s.id}">${s.nome}</option>`).join('')}
+                            ${setores.map(s => `<option value="${s.id}">${sanitizeHTML(s.nome)}</option>`).join('')}
                         </select>
                     </div>` : '';
 
@@ -3253,14 +3257,14 @@ function mostrarFormularioEdicaoUsuario(usuario, setores) {
             <label for="edit-setor">Setor:</label>
             <select id="edit-setor">
                 <option value="">Nenhum (obrigatório para Operador/Gestor)</option>
-                ${setores.map(s => `<option value="${s.id}" ${String(usuario.setor_id) === String(s.id) ? 'selected' : ''}>${s.nome}</option>`).join('')}
+                ${setores.map(s => `<option value="${s.id}" ${String(usuario.setor_id) === String(s.id) ? 'selected' : ''}>${sanitizeHTML(s.nome)}</option>`).join('')}
             </select>
         </div>` : '';
 
     const content = `
         <div class="form-group">
             <label for="edit-nome">Nome:</label>
-            <input type="text" id="edit-nome" value="${usuario.nome}" required>
+            <input type="text" id="edit-nome" value="${sanitizeHTML(usuario.nome)}" required>
         </div>
         <div class="form-group">
             <label for="edit-username">Nome de usuário:</label>
@@ -3834,10 +3838,10 @@ function mostrarListaCategorias(categorias, macrocategorias) {
         categoriasHtml += `
             <div class="usuario-card" style="margin-bottom: 0.75rem;">
                 <div class="usuario-info">
-                    <h4>📁 ${macro.nome} <span style="font-weight: normal; color: #666;">(${grupo.itens.length} subcategoria${grupo.itens.length !== 1 ? 's' : ''})</span></h4>
+                    <h4>📁 ${sanitizeHTML(macro.nome)} <span style="font-weight: normal; color: #666;">(${grupo.itens.length} subcategoria${grupo.itens.length !== 1 ? 's' : ''})</span></h4>
                 </div>
                 <div class="usuario-acoes">
-                    <button class="btn-editar" onclick="editarMacrocategoria(${macro.id}, '${macro.nome.replace(/'/g, "\\'")}')">Editar</button>
+                    <button class="btn-editar" onclick="editarMacrocategoria(${macro.id}, decodeURIComponent('${argJs(macro.nome)}'))">Editar</button>
                     <button class="btn-excluir" onclick="excluirMacrocategoria(${macro.id})">Excluir</button>
                 </div>
             </div>
@@ -3848,7 +3852,7 @@ function mostrarListaCategorias(categorias, macrocategorias) {
                 categoriasHtml += `
                     <div class="usuario-card">
                         <div class="usuario-info">
-                            <h4>${categoria.nome}</h4>
+                            <h4>${sanitizeHTML(categoria.nome)}</h4>
                             <p><strong>Criado:</strong> ${new Date(categoria.criado_em).toLocaleDateString('pt-BR')}</p>
                         </div>
                         <div class="usuario-acoes">
@@ -3868,7 +3872,7 @@ function mostrarListaCategorias(categorias, macrocategorias) {
             categoriasHtml += `
                 <div class="usuario-card">
                     <div class="usuario-info">
-                        <h4>${categoria.nome}</h4>
+                        <h4>${sanitizeHTML(categoria.nome)}</h4>
                         <p><strong>Criado:</strong> ${new Date(categoria.criado_em).toLocaleDateString('pt-BR')}</p>
                     </div>
                     <div class="usuario-acoes">
@@ -4163,13 +4167,13 @@ function mostrarFormularioEdicaoCategoria(categoria) {
             let opcoesHtml = '<option value="">Selecione uma categoria</option>';
             macrocategorias.forEach(macro => {
                 const selected = macro.id === categoria.macrocategoria_id ? 'selected' : '';
-                opcoesHtml += `<option value="${macro.id}" ${selected}>${macro.nome}</option>`;
+                opcoesHtml += `<option value="${macro.id}" ${selected}>${sanitizeHTML(macro.nome)}</option>`;
             });
 
             const content = `
                 <div class="form-group">
                     <label for="edit-nome-cat">Nome:</label>
-                    <input type="text" id="edit-nome-cat" value="${categoria.nome}" required>
+                    <input type="text" id="edit-nome-cat" value="${sanitizeHTML(categoria.nome)}" required>
                     <small style="color: #666; font-size: 0.85rem; margin-top: 0.25rem; display: block;">
                         📝 Use *asteriscos* para preservar formatação (ex: Sistema *RFID*)
                     </small>
@@ -4322,7 +4326,7 @@ function renderizarPainelConfigSetor(setores, setorInicialId) {
         <div class="form-group" style="max-width: 320px;">
             <label for="setor-config-select">Setor:</label>
             <select id="setor-config-select" onchange="setorConfigAtual = parseInt(this.value); carregarAbaConfigSetor('status')">
-                ${setores.map(s => `<option value="${s.id}" ${s.id == setorInicialId ? 'selected' : ''}>${s.nome}</option>`).join('')}
+                ${setores.map(s => `<option value="${s.id}" ${s.id == setorInicialId ? 'selected' : ''}>${sanitizeHTML(s.nome)}</option>`).join('')}
             </select>
         </div>
     ` : '';
@@ -4414,7 +4418,7 @@ function renderizarEmailsSetor(caixas) {
         <div class="config-setor-item ${caixa.ativo ? '' : 'config-setor-item-inativo'}" style="flex-direction:column;align-items:flex-start;gap:0.5rem;">
             <div style="display:flex;justify-content:space-between;align-items:center;width:100%;">
                 <div>
-                    <strong>${caixa.email}</strong>
+                    <strong>${sanitizeHTML(caixa.email)}</strong>
                     <div style="font-size:0.85rem;color:#666;">Recebimento (IMAP): ${caixa.imap_host}:${caixa.imap_port} · usuário: ${caixa.imap_user}</div>
                     <div style="font-size:0.85rem;color:#666;">Envio (SMTP): ${caixa.smtp_host ? caixa.smtp_host + ':' + caixa.smtp_port + ' (' + (caixa.smtp_seguranca === 'tls' ? 'STARTTLS' : 'SSL') + ')' : 'servidor global do sistema'} · remetente: ${caixa.nome_remetente || 'Conecta CRPRS - (nome do setor)'}</div>
                 </div>
@@ -4606,7 +4610,7 @@ function testarEmailSetor() {
         try {
             const resp = JSON.parse(xhr.responseText);
             const cor = resp.sucesso ? '#28a745' : '#dc3545';
-            resultadoDiv.innerHTML = `<p style="color:${cor};">${resp.sucesso ? '✅' : '❌'} ${resp.mensagem}</p>`;
+            resultadoDiv.innerHTML = `<p style="color:${cor};">${resp.sucesso ? '✅' : '❌'} ${sanitizeHTML(resp.mensagem)}</p>`;
         } catch (e) {
             resultadoDiv.innerHTML = '<p style="color:#dc3545;">Erro ao testar conexão.</p>';
         }
@@ -5019,7 +5023,7 @@ function mostrarTicketsFechadosNaTela(tickets) {
             ? `<span class="material-symbols-outlined icone-tabela" data-vg-tooltip="Esta demanda foi mesclada com outra demanda." data-vg-title="DEMANDA MESCLADA" aria-label="Mesclado" style="color:#6366f1">call_merge</span>` : '';
 
         // Título truncado
-        const tituloSeguro = (ticket.titulo || '').replace(/"/g, '&quot;').replace(/</g, '&lt;');
+        const tituloSeguro = sanitizeHTML(ticket.titulo || '');
 
         tabelaHTML += `
             <tr data-ticket-id="${ticket.id}" ${modoMergeFechadosAtivo ? 'style="cursor: pointer;"' : ''}>
@@ -5029,15 +5033,15 @@ function mostrarTicketsFechadosNaTela(tickets) {
                 </td>
                 <td data-label="Abertura">${new Date(ticket.criado_em).toLocaleDateString('pt-BR')}<span class="ticket-data-hora">${new Date(ticket.criado_em).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}</span></td>
                 <td class="ticket-titulo-cell" data-label="Assunto">
-                    <span class="ticket-titulo-texto" data-vg-tooltip="${tituloSeguro}" data-vg-title="ASSUNTO">${ticket.titulo}</span>
+                    <span class="ticket-titulo-texto" data-vg-tooltip="${tituloSeguro}" data-vg-title="ASSUNTO">${sanitizeHTML(ticket.titulo)}</span>
                 </td>
                 <td data-label="Solicitante">
-                    <strong>${ticket.usuario_nome}</strong>
+                    <strong>${sanitizeHTML(ticket.usuario_nome)}</strong>
                     ${ticket.usuario_email ? `<span class="ticket-data-hora" style="font-size: 0.85em;">${ofuscarEmail(ticket.usuario_email)}</span>` : ''}
                 </td>
-                ${exibirColunaSetor(true) ? `<td data-label="Setor">${ticket.setor_nome || '-'}</td>` : ''}
-                <td data-label="Responsável">${ticket.agente_nome || 'Não atribuído'}</td>
-                <td data-label="Subcategoria">${ticket.categoria_nome || 'Sem subcategoria'}</td>
+                ${exibirColunaSetor(true) ? `<td data-label="Setor">${sanitizeHTML(ticket.setor_nome || '-')}</td>` : ''}
+                <td data-label="Responsável">${sanitizeHTML(ticket.agente_nome || 'Não atribuído')}</td>
+                <td data-label="Subcategoria">${sanitizeHTML(ticket.categoria_nome || 'Sem subcategoria')}</td>
                 <td data-label="Status"><span class="status ${ticket.status}">${ticket.status === 'encerrado' ? '🏁 Encerrado' : ticket.status === 'cancelado' ? '❌ Cancelado' : (typeof formatarNomeStatus === 'function' ? formatarNomeStatus(ticket.status) : ticket.status)}</span></td>
                 <td data-label="Encerramento" style="font-size: 0.8rem; font-weight: bold;">${ticket.fechado_em ? new Date(ticket.fechado_em).toLocaleDateString('pt-BR') + '<span class="ticket-data-hora">' + new Date(ticket.fechado_em).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }) + '</span>' : '-'}</td>
                 <td data-label="Ações">
@@ -5429,7 +5433,7 @@ function mostrarDashboardNaTela(dados) {
 
     (dados.top_solicitantes || []).forEach((item, index) => {
         const trofeu = index === 0 ? ' <span class="material-symbols-outlined item-trofeu" aria-hidden="true">emoji_events</span>' : '';
-        html += `<div class="dashboard-item dashboard-item-animate" data-delay="${index * 0.1}"><span>${item.nome}${trofeu}</span><span>${item.total}</span></div>`;
+        html += `<div class="dashboard-item dashboard-item-animate" data-delay="${index * 0.1}"><span>${sanitizeHTML(item.nome)}${trofeu}</span><span>${item.total}</span></div>`;
     });
 
     html += `</div></div><div class="dashboard-card"><h3 class="card-title-flex">
@@ -5440,7 +5444,7 @@ function mostrarDashboardNaTela(dados) {
 
     (dados.top_categorias || []).forEach((item, index) => {
         const trofeu = index === 0 ? ' <span class="material-symbols-outlined item-trofeu" aria-hidden="true">emoji_events</span>' : '';
-        html += `<div class="dashboard-item dashboard-item-animate" data-delay="${index * 0.1}"><span>${item.nome || 'Sem subcategoria'}${trofeu}</span><span>${item.total}</span></div>`;
+        html += `<div class="dashboard-item dashboard-item-animate" data-delay="${index * 0.1}"><span>${sanitizeHTML(item.nome || 'Sem subcategoria')}${trofeu}</span><span>${item.total}</span></div>`;
     });
 
     html += `</div></div><div class="dashboard-card"><h3 class="card-title-flex">
@@ -5451,7 +5455,7 @@ function mostrarDashboardNaTela(dados) {
 
     (dados.ticketsPorMacrocategoria || []).forEach((item, index) => {
         const trofeu = index === 0 ? ' <span class="material-symbols-outlined item-trofeu" aria-hidden="true">emoji_events</span>' : '';
-        html += `<div class="dashboard-item dashboard-item-animate" data-delay="${index * 0.1}"><span>${item.nome || 'Sem categoria'}${trofeu}</span><span>${item.quantidade}</span></div>`;
+        html += `<div class="dashboard-item dashboard-item-animate" data-delay="${index * 0.1}"><span>${sanitizeHTML(item.nome || 'Sem categoria')}${trofeu}</span><span>${item.quantidade}</span></div>`;
     });
 
     html += `</div></div></div>`;
@@ -5961,10 +5965,10 @@ function exibirRelatorio(dados) {
                     ${ticket.tem_anexos > 0 ? '<img src="images/clipe-de-anexo.png" class="icone-anexo" title="Demanda com anexos" alt="Anexo">' : ''}
                 </td>
                 <td>${dataAberturaFormatada}<br><small style="color: #666;">${horaAberturaFormatada}</small></td>
-                <td>${ticket.titulo}</td>
-                <td>${ticket.usuario_nome || 'N/A'}</td>
-                <td>${ticket.agente_nome || 'Não atribuído'}</td>
-                <td>${ticket.categoria_nome || 'Sem subcategoria'}</td>
+                <td>${sanitizeHTML(ticket.titulo)}</td>
+                <td>${sanitizeHTML(ticket.usuario_nome || 'N/A')}</td>
+                <td>${sanitizeHTML(ticket.agente_nome || 'Não atribuído')}</td>
+                <td>${sanitizeHTML(ticket.categoria_nome || 'Sem subcategoria')}</td>
                 <td>${ticket.status.charAt(0).toUpperCase() + ticket.status.slice(1)}</td>
                 <td>${ticket.prioridade.charAt(0).toUpperCase() + ticket.prioridade.slice(1)}</td>
                 <td><small style=""color: #666;"">${dataFechamento}</small></td>
@@ -6105,10 +6109,10 @@ function exportarPDF() {
             <tr>
                 <td>#${numero}</td>
                 <td>${dataAberturaFormatada}<br><small>${horaAberturaFormatada}</small></td>
-                <td>${ticket.titulo}</td>
-                <td>${ticket.usuario_nome || 'N/A'}</td>
-                <td>${ticket.agente_nome || 'Não atribuído'}</td>
-                <td>${ticket.categoria_nome || 'Sem subcategoria'}</td>
+                <td>${sanitizeHTML(ticket.titulo)}</td>
+                <td>${sanitizeHTML(ticket.usuario_nome || 'N/A')}</td>
+                <td>${sanitizeHTML(ticket.agente_nome || 'Não atribuído')}</td>
+                <td>${sanitizeHTML(ticket.categoria_nome || 'Sem subcategoria')}</td>
                 <td>${ticket.status.charAt(0).toUpperCase() + ticket.status.slice(1)}</td>
                 <td>${ticket.prioridade.charAt(0).toUpperCase() + ticket.prioridade.slice(1)}</td>
                 <td><small style=""color: #666;"">${dataFechamento}</small></td>
@@ -8298,7 +8302,7 @@ function mostrarListaAuditoria(registros) {
 
         let detalhes = '';
         if (registro.acao.includes('ticket')) {
-            detalhes = `Demanda #${String(registro.registro_id).padStart(5, '0')} - ${dados.titulo || 'N/A'}`;
+            detalhes = `Demanda #${String(registro.registro_id).padStart(5, '0')} - ${sanitizeHTML(dados.titulo || 'N/A')}`;
             // Se for exclusão de ticket, adicionar dados do solicitante
             if (registro.acao === 'excluir_ticket') {
                 const solicitanteNome = dados.solicitante_nome || dados.usuario_nome || 'N/A';
@@ -8306,9 +8310,9 @@ function mostrarListaAuditoria(registros) {
                 detalhes += ` | Solicitante: ${solicitanteNome} (${solicitanteEmail})`;
             }
         } else if (registro.acao.includes('usuario')) {
-            detalhes = registro.usuario_afetado || `${dados.nome || 'N/A'} (${dados.email || 'N/A'}) - ${dados.tipo || 'N/A'}`;
+            detalhes = registro.usuario_afetado || `${sanitizeHTML(dados.nome || 'N/A')} (${sanitizeHTML(dados.email || 'N/A')}) - ${sanitizeHTML(dados.tipo || 'N/A')}`;
         } else if (registro.acao.includes('categoria')) {
-            detalhes = `${dados.nome || 'N/A'}`;
+            detalhes = `${sanitizeHTML(dados.nome || 'N/A')}`;
         }
 
         return `
@@ -8316,7 +8320,7 @@ function mostrarListaAuditoria(registros) {
                 <div style="display: grid; grid-template-columns: 250px 400px 180px 250px 120px 180px; gap: 1rem; align-items: center; font-size: 14px;">
                     <div><strong>Ação:</strong> ${formatarAcao(registro.acao)}</div>
                     <div><strong>Detalhes:</strong> ${detalhes}</div>
-                    <div><strong>Usuário:</strong> ${registro.usuario_nome}</div>
+                    <div><strong>Usuário:</strong> ${sanitizeHTML(registro.usuario_nome)}</div>
                     <div><strong>Data/Hora:</strong> ${new Date(registro.criado_em).toLocaleString('pt-BR')}</div>
                     <div><strong>IP:</strong> ${registro.ip_address || 'N/A'}</div>
                     <div><strong>Host:</strong> ${registro.hostname || 'N/A'}</div>
@@ -8567,7 +8571,7 @@ function mostrarRegistrosAuditoria(registros) {
                     <span class="auditoria-data">${new Date(reg.criado_em).toLocaleString('pt-BR')}</span>
                 </div>
                 <div class="auditoria-body">
-                    <div><strong>Usuário:</strong> ${reg.usuario_nome} (${reg.usuario_email})</div>
+                    <div><strong>Usuário:</strong> ${sanitizeHTML(reg.usuario_nome)} (${sanitizeHTML(reg.usuario_email)})</div>
                     ${reg.usuario_afetado ? `<div><strong>Usuário Afetado:</strong> ${reg.usuario_afetado}</div>` : ''}
                     <div><strong>IP:</strong> ${reg.ip_address || 'N/A'} | <strong>Host:</strong> ${reg.hostname || 'N/A'}</div>
                     <div><strong>Navegador:</strong> ${formatarUserAgent(reg.user_agent)}</div>
@@ -8633,11 +8637,11 @@ function mostrarRegistrosTicketsAudit(registros) {
                     <span class="auditoria-data">${new Date(reg.criado_em).toLocaleString('pt-BR')}</span>
                 </div>
                 <div class="auditoria-body">
-                    <div><strong>Usuário:</strong> ${reg.usuario_nome}</div>
-                    <div><strong>Demanda:</strong> ${reg.ticket_titulo || 'N/A'}</div>
+                    <div><strong>Usuário:</strong> ${sanitizeHTML(reg.usuario_nome)}</div>
+                    <div><strong>Demanda:</strong> ${sanitizeHTML(reg.ticket_titulo || 'N/A')}</div>
                     <div class="auditoria-diff">
-                        <div><strong>De:</strong> ${reg.valor_anterior || 'N/A'}</div>
-                        <div><strong>Para:</strong> ${reg.valor_novo || 'N/A'}</div>
+                        <div><strong>De:</strong> ${sanitizeHTML(reg.valor_anterior || 'N/A')}</div>
+                        <div><strong>Para:</strong> ${sanitizeHTML(reg.valor_novo || 'N/A')}</div>
                     </div>
                     <div><strong>IP:</strong> ${reg.ip_address || 'N/A'} | <strong>Host:</strong> ${reg.hostname || 'N/A'}</div>
                 </div>
@@ -8705,8 +8709,8 @@ function mostrarRegistrosLoginAudit(registros) {
                     <span class="auditoria-data">${new Date(reg.criado_em).toLocaleString('pt-BR')}</span>
                 </div>
                 <div class="auditoria-body">
-                    <div><strong>Usuário:</strong> ${reg.usuario_nome || reg.email}</div>
-                    <div><strong>Email:</strong> ${reg.email}</div>
+                    <div><strong>Usuário:</strong> ${sanitizeHTML(reg.usuario_nome || reg.email)}</div>
+                    <div><strong>Email:</strong> ${sanitizeHTML(reg.email)}</div>
                     <div><strong>IP:</strong> ${reg.ip_address || 'N/A'} | <strong>Host:</strong> ${reg.hostname || 'N/A'}</div>
                     <div><strong>Navegador:</strong> ${formatarUserAgent(reg.user_agent)}</div>
                 </div>
@@ -8763,7 +8767,7 @@ function mostrarEstatisticasAudit(dados) {
                 <div class="estatistica-lista">
                     ${dados.acoes_por_usuario.map(item => `
                         <div class="estatistica-item">
-                            <span>${item.nome || 'N/A'}</span>
+                            <span>${sanitizeHTML(item.nome || 'N/A')}</span>
                             <span class="estatistica-valor">${item.total}</span>
                         </div>
                     `).join('')}
@@ -9527,66 +9531,17 @@ function mostrarConfigEmail() {
             <h3>📧 Remetente do sistema (global)</h3>
             <p style="color: #666; margin-bottom: 2rem;">Usado nos e-mails do sistema (recuperação de senha, lembretes, avisos internos) e como alternativa para setores sem endereço próprio.</p>
             
-            <form id="form-config-email" onsubmit="salvarConfigEmail(event)">
-                <div class="config-section">
-                    <h4>📥 Servidor IMAP (Recebimento)</h4>
-                    <div class="form-group">
-                        <label>Servidor IMAP:</label>
-                        <input type="text" id="imap_host" required placeholder="email-ssl.com.br">
-                    </div>
-                    <div class="form-group">
-                        <label>Porta IMAP:</label>
-                        <input type="number" id="imap_port" required placeholder="993">
-                    </div>
-                    <div class="form-group">
-                        <label>Usuário IMAP:</label>
-                        <input type="email" id="imap_username" required placeholder="suporte@exemplo.com">
-                    </div>
-                    <div class="form-group">
-                        <label>Senha IMAP:</label>
-                        <input type="password" id="imap_password" placeholder="••••••••">
-                        <small style="color: #666;">Deixe em branco para manter a senha atual</small>
-                    </div>
-                </div>
-                
-                <div class="config-section">
-                    <h4>📤 Servidor SMTP (Envio)</h4>
-                    <div class="form-group">
-                        <label>Servidor SMTP:</label>
-                        <input type="text" id="smtp_host" required placeholder="email-ssl.com.br">
-                    </div>
-                    <div class="form-group">
-                        <label>Porta SMTP:</label>
-                        <input type="number" id="smtp_port" required placeholder="465">
-                    </div>
-                    <div class="form-group">
-                        <label>Usuário SMTP:</label>
-                        <input type="email" id="smtp_username" required placeholder="suporte@exemplo.com">
-                    </div>
-                    <div class="form-group">
-                        <label>Senha SMTP:</label>
-                        <input type="password" id="smtp_password" placeholder="••••••••">
-                        <small style="color: #666;">Deixe em branco para manter a senha atual</small>
-                    </div>
-                </div>
-                
-                <div class="config-section">
-                    <h4>✉️ Remetente</h4>
-                    <div class="form-group">
-                        <label>Email do Remetente:</label>
-                        <input type="email" id="from_email" required placeholder="suporte@exemplo.com">
-                    </div>
-                    <div class="form-group">
-                        <label>Nome do Remetente:</label>
-                        <input type="text" id="from_name" required placeholder="Suporte CRPRS">
-                    </div>
-                </div>
-                
-                <div style="display: flex; gap: 1rem; margin-top: 2rem;">
-                    <button type="submit" class="btn-primary">💾 Salvar Configurações</button>
-                    <button type="button" onclick="testarConexaoEmail()" class="btn-secondary">🔍 Testar Conexão</button>
-                </div>
-            </form>
+            <p class="config-email-aviso">Somente leitura: estes dados ficam no arquivo <code>.env</code> do servidor e são alterados pelo responsável técnico.</p>
+            <dl class="config-email-global">
+                <dt>Servidor IMAP (recebimento)</dt><dd id="cfg-imap">—</dd>
+                <dt>Usuário IMAP</dt><dd id="cfg-imap-usuario">—</dd>
+                <dt>Servidor SMTP (envio)</dt><dd id="cfg-smtp">—</dd>
+                <dt>Usuário SMTP</dt><dd id="cfg-smtp-usuario">—</dd>
+                <dt>Remetente</dt><dd id="cfg-remetente">—</dd>
+            </dl>
+            <div style="display: flex; gap: 1rem; margin-top: 2rem;">
+                <button type="button" onclick="testarConexaoEmail()" class="btn-secondary">🔍 Testar Conexão</button>
+            </div>
         </div>
     `;
 
@@ -9604,68 +9559,22 @@ function carregarConfigEmail() {
     setSecurityHeaders(xhr);
 
     xhr.onload = function () {
-        if (xhr.status === 200) {
-            const config = JSON.parse(xhr.responseText);
-            document.getElementById('imap_host').value = config.imap_host || '';
-            document.getElementById('imap_port').value = config.imap_port || 993;
-            document.getElementById('imap_username').value = config.imap_username || '';
-            document.getElementById('smtp_host').value = config.smtp_host || '';
-            document.getElementById('smtp_port').value = config.smtp_port || 465;
-            document.getElementById('smtp_username').value = config.smtp_username || '';
-            document.getElementById('from_email').value = config.from_email || '';
-            document.getElementById('from_name').value = config.from_name || '';
-        }
+        if (xhr.status !== 200) return;
+        const config = JSON.parse(xhr.responseText);
+        const preencher = (id, texto) => { const el = document.getElementById(id); if (el) el.textContent = texto || '—'; };
+        const senha = (definida) => definida ? ' (senha definida)' : ' (senha NÃO definida)';
+        preencher('cfg-imap', config.imap_host ? `${config.imap_host}:${config.imap_port}` : '');
+        preencher('cfg-imap-usuario', config.imap_username ? config.imap_username + senha(config.imap_senha_definida) : '');
+        preencher('cfg-smtp', config.smtp_host ? `${config.smtp_host}:${config.smtp_port}` : '');
+        preencher('cfg-smtp-usuario', config.smtp_username ? config.smtp_username + senha(config.smtp_senha_definida) : '');
+        preencher('cfg-remetente', config.from_email ? `${config.from_name || ''} <${config.from_email}>` : '');
     };
 
     xhr.send();
 }
 
-function salvarConfigEmail(event) {
-    event.preventDefault();
-
-    const data = {
-        imap_host: document.getElementById('imap_host').value,
-        imap_port: document.getElementById('imap_port').value,
-        imap_username: document.getElementById('imap_username').value,
-        imap_password: document.getElementById('imap_password').value,
-        smtp_host: document.getElementById('smtp_host').value,
-        smtp_port: document.getElementById('smtp_port').value,
-        smtp_username: document.getElementById('smtp_username').value,
-        smtp_password: document.getElementById('smtp_password').value,
-        from_email: document.getElementById('from_email').value,
-        from_name: document.getElementById('from_name').value
-    };
-
-    const xhr = new XMLHttpRequest();
-    xhr.open('PUT', window.APP_CONFIG.apiBase + 'config-email.php', true);
-    xhr.setRequestHeader('Content-Type', 'application/json');
-    setSecurityHeaders(xhr);
-
-    xhr.onload = function () {
-        if (xhr.status === 200) {
-            mostrarToast('Sucesso', 'Configurações de email salvas com sucesso', 'success');
-            document.getElementById('imap_password').value = '';
-            document.getElementById('smtp_password').value = '';
-        } else {
-            mostrarToast('Erro', 'Erro ao salvar configurações', 'error');
-        }
-    };
-
-    xhr.send(JSON.stringify(data));
-}
-
 function testarConexaoEmail() {
-    const data = {
-        imap_host: document.getElementById('imap_host').value,
-        imap_port: document.getElementById('imap_port').value,
-        imap_username: document.getElementById('imap_username').value,
-        imap_password: document.getElementById('imap_password').value,
-        smtp_host: document.getElementById('smtp_host').value,
-        smtp_port: document.getElementById('smtp_port').value,
-        smtp_username: document.getElementById('smtp_username').value,
-        smtp_password: document.getElementById('smtp_password').value
-    };
-
+    // Testa o remetente global configurado no .env (nenhum dado é enviado pelo navegador)
     mostrarLoader();
 
     const xhr = new XMLHttpRequest();
@@ -9681,15 +9590,15 @@ function testarConexaoEmail() {
             let mensagem = '<div style="text-align: left;">';
 
             if (resultado.imap.sucesso) {
-                mensagem += '<p style="color: #28a745;">✅ <strong>IMAP:</strong> ' + resultado.imap.mensagem + '</p>';
+                mensagem += '<p style="color: #28a745;">✅ <strong>IMAP:</strong> ' + sanitizeHTML(resultado.imap.mensagem) + '</p>';
             } else {
-                mensagem += '<p style="color: #dc3545;">❌ <strong>IMAP:</strong> ' + resultado.imap.mensagem + '</p>';
+                mensagem += '<p style="color: #dc3545;">❌ <strong>IMAP:</strong> ' + sanitizeHTML(resultado.imap.mensagem) + '</p>';
             }
 
             if (resultado.smtp.sucesso) {
-                mensagem += '<p style="color: #28a745;">✅ <strong>SMTP:</strong> ' + resultado.smtp.mensagem + '</p>';
+                mensagem += '<p style="color: #28a745;">✅ <strong>SMTP:</strong> ' + sanitizeHTML(resultado.smtp.mensagem) + '</p>';
             } else {
-                mensagem += '<p style="color: #dc3545;">❌ <strong>SMTP:</strong> ' + resultado.smtp.mensagem + '</p>';
+                mensagem += '<p style="color: #dc3545;">❌ <strong>SMTP:</strong> ' + sanitizeHTML(resultado.smtp.mensagem) + '</p>';
             }
 
             mensagem += '</div>';
@@ -9706,7 +9615,7 @@ function testarConexaoEmail() {
         mostrarAlert('Erro', 'Erro de conexão ao testar');
     };
 
-    xhr.send(JSON.stringify(data));
+    xhr.send("{}");
 }
 
 
@@ -9803,7 +9712,6 @@ window.addEventListener('scroll', function () {
 // Inicialização Geral
 document.addEventListener('DOMContentLoaded', function () {
     // Iniciar monitoramento de sessão
-    iniciarMonitoramentoSessao();
 
     // Inicializar avatar do header
     inicializarAvatar();

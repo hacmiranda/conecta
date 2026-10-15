@@ -242,7 +242,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'PUT') {
             echo json_encode(['success' => true]);
         } catch (Exception $e) {
             http_response_code(500);
-            echo json_encode(['error' => 'Erro ao atualizar usuário: ' . $e->getMessage()]);
+            error_log('[USUARIOS PUT] Erro: ' . $e->getMessage());
+            echo json_encode(['error' => 'Erro ao atualizar usuário']);
         }
         exit;
     }
@@ -394,6 +395,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'DELETE') {
 
     } catch (Exception $e) {
         http_response_code(500);
-        echo json_encode(['error' => 'Erro ao excluir usuário: ' . $e->getMessage()]);
+        error_log('[USUARIOS DELETE] Erro: ' . $e->getMessage());
+        echo json_encode(['error' => 'Erro ao excluir usuário']);
     }
 }

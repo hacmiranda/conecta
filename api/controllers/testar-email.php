@@ -13,7 +13,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
 $user = AuthMiddleware::verificarAuth();
 AuthMiddleware::verificarAdmin($user);
 
-$data = json_decode(file_get_contents('php://input'), true);
+// Testa sempre o remetente global configurado no .env (a tela é somente leitura).
+// Não aceita servidor/credenciais vindos do navegador.
+AuthMiddleware::verificarCSRF();
 
 $resultados = [
     'imap' => ['sucesso' => false, 'mensagem' => ''],
@@ -25,10 +27,10 @@ try {
     if (!function_exists('imap_open')) {
         $resultados['imap']['mensagem'] = "Extensão PHP IMAP não está habilitada. Descomente 'extension=imap' no php.ini e reinicie o Apache.";
     } else {
-        $imap_host = !empty($data['imap_host']) ? $data['imap_host'] : EmailConfig::IMAP_HOST;
-        $imap_port = !empty($data['imap_port']) ? $data['imap_port'] : EmailConfig::IMAP_PORT;
-        $imap_user = !empty($data['imap_username']) ? $data['imap_username'] : EmailConfig::IMAP_USERNAME;
-        $imap_pass = !empty($data['imap_password']) ? $data['imap_password'] : EmailConfig::IMAP_PASSWORD;
+        $imap_host = EmailConfig::get('IMAP_HOST');
+        $imap_port = EmailConfig::get('IMAP_PORT');
+        $imap_user = EmailConfig::get('IMAP_USERNAME');
+        $imap_pass = EmailConfig::get('IMAP_PASSWORD');
         
         imap_errors();
         imap_alerts();
@@ -57,10 +59,10 @@ try {
 try {
     require_once __DIR__ . '/../vendor/autoload.php';
     
-    $smtp_host = !empty($data['smtp_host']) ? $data['smtp_host'] : EmailConfig::SMTP_HOST;
-    $smtp_port = !empty($data['smtp_port']) ? $data['smtp_port'] : EmailConfig::SMTP_PORT;
-    $smtp_user = !empty($data['smtp_username']) ? $data['smtp_username'] : EmailConfig::SMTP_USERNAME;
-    $smtp_pass = !empty($data['smtp_password']) ? $data['smtp_password'] : EmailConfig::SMTP_PASSWORD;
+    $smtp_host = EmailConfig::get('SMTP_HOST');
+    $smtp_port = EmailConfig::get('SMTP_PORT');
+    $smtp_user = EmailConfig::get('SMTP_USERNAME');
+    $smtp_pass = EmailConfig::get('SMTP_PASSWORD');
     
     $mail = new PHPMailer\PHPMailer\PHPMailer(true);
     $mail->isSMTP();

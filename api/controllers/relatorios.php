@@ -180,7 +180,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
         
     } catch (Exception $e) {
         http_response_code(500);
-        echo json_encode(['error' => 'Erro ao gerar relatório: ' . $e->getMessage()]);
+        error_log('[RELATORIOS] Erro: ' . $e->getMessage());
+        echo json_encode(['error' => 'Erro ao gerar relatório']);
     }
 }
 ?>

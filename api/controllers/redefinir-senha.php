@@ -56,7 +56,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         
     } catch (Exception $e) {
         http_response_code(500);
-        echo json_encode(['error' => 'Erro ao redefinir senha: ' . $e->getMessage()]);
+        error_log('[REDEFINIR-SENHA] Erro: ' . $e->getMessage());
+        echo json_encode(['error' => 'Erro ao redefinir senha']);
     }
 }
 ?>

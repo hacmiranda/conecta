@@ -12,6 +12,7 @@ require_once __DIR__ . '/../config/database.php';
 require_once __DIR__ . '/../middleware/auth.php';
 require_once __DIR__ . '/../services/acesso-service.php';
 require_once __DIR__ . '/../services/auditoria-service.php';
+require_once __DIR__ . '/../services/lembrete-service.php';
 
 AuthMiddleware::configurarCORS(['POST']);
 
@@ -40,7 +41,9 @@ $db = $database->getConnection();
 $input = json_decode(file_get_contents('php://input'), true) ?? [];
 $ticket_id = isset($input['ticket_id']) ? (int) $input['ticket_id'] : 0;
 $acao = trim($input['acao'] ?? '');
-$comentario = trim(strip_tags($input['comentario'] ?? ''));
+// Texto simples digitado pelo usuário: exibido como texto (escapado), com quebras de linha
+$comentario_texto = trim((string) ($input['comentario'] ?? ''));
+$comentario = nl2br(htmlspecialchars($comentario_texto, ENT_QUOTES, 'UTF-8'), false);
 
 $acoes_validas = ['atribuir', 'devolver', 'reatribuir_colega', 'transferir_setor'];
 
@@ -50,7 +53,7 @@ if (!$ticket_id || !in_array($acao, $acoes_validas, true)) {
     exit;
 }
 
-if (empty($comentario)) {
+if ($comentario_texto === '') {
     http_response_code(400);
     echo json_encode(['error' => 'Um comentário é obrigatório para registrar esta ação']);
     exit;
@@ -241,6 +244,9 @@ try {
         }
         $upd = $db->prepare("UPDATE tickets SET setor_id = :setor_id, agente_id = NULL, atribuido_em = NULL, categoria_id = NULL WHERE id = :id");
         $upd->execute([':setor_id' => $setor_destino_id, ':id' => $ticket_id]);
+
+        // Lembretes direcionados a pessoas do setor de origem deixam de valer
+        LembreteService::cancelarPendentes($db, $ticket_id, 'Demanda transferida para o setor ' . $setor_destino['nome'], true);
 
         if ($ticket['agente_id']) {
             $db->prepare("UPDATE ticket_agente_log SET saiu_em = NOW() WHERE ticket_id = ? AND usuario_id = ? AND saiu_em IS NULL")

@@ -6,6 +6,7 @@ header('Content-Type: application/json');
 
 require_once __DIR__ . '/../middleware/auth.php';
 require_once __DIR__ . '/../services/acesso-service.php';
+require_once __DIR__ . '/../services/html-sanitizer.php';
 AuthMiddleware::configurarCORS(['POST', 'PUT', 'DELETE']);
 
 if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
@@ -16,7 +17,8 @@ try {
     require_once __DIR__ . '/../config/database.php';
 } catch (Exception $e) {
     http_response_code(500);
-    echo json_encode(['error' => 'Erro ao conectar ao banco: ' . $e->getMessage()]);
+    error_log('[COMENTARIOS] Erro: ' . $e->getMessage());
+    echo json_encode(['error' => 'Erro interno do servidor']);
     exit;
 }
 
@@ -79,10 +81,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $com_copia = $input['com_copia'] ?? null;
     }
     
-    // Sanitização de Entradas (Mitigação XSS)
-    $comentario = strip_tags($comentario_raw, '<p><br><strong><em><u><s><h1><h2><h3><h4><h5><h6><ul><ol><li><a><blockquote><span><img>');
-    $comentario = preg_replace('/on[a-z]+\s*=\s*(["\']).*?\1/i', '', $comentario);
-    $comentario = preg_replace('/javascript:/i', '#', $comentario);
+    $comentario = (string) $comentario_raw;
 
     // Converte classes de tamanho do Quill para estilos inline (compatível com e-mail e histórico sem CSS do Quill)
     $quill_sizes = ['small' => '0.75em', 'large' => '1.5em', 'huge' => '2.5em'];
@@ -105,8 +104,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         },
         $comentario
     );
-    
-    if (!$ticket_id || empty($comentario)) {
+
+    // Sanitização (XSS): mantém só o HTML seguro do editor
+    $comentario = HtmlSanitizer::rico($comentario);
+
+    if (!$ticket_id || trim(strip_tags($comentario, '<img>')) === '') {
         http_response_code(400);
         echo json_encode(['error' => 'ID da demanda e comentário são obrigatórios']);
         exit;
@@ -377,7 +379,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     } catch (Exception $e) {
         error_log('Erro ao adicionar comentário: ' . $e->getMessage());
         http_response_code(500);
-        echo json_encode(['error' => 'Erro ao adicionar comentário: ' . $e->getMessage()]);
+        echo json_encode(['error' => 'Erro ao adicionar comentário']);
     }
 }
 ?>

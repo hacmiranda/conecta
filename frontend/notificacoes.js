@@ -182,8 +182,8 @@ function renderizarNotificacoes(notificacoes) {
             html += `
                 <div style="background: ${bgCor}; border-left: 4px solid ${bordaCor}; padding: 0.8rem; margin-bottom: 0.5rem; border-radius: 4px; box-shadow: 0 1px 2px rgba(0,0,0,0.05);">
                     <div onclick="fecharNavDropdown('notificacoes'); irParaLogEmails();" style="cursor: pointer;">
-                        <div style="font-weight: 600; font-size: 0.9rem; color: ${tituloCor}; margin-bottom: 0.3rem;">${notif.titulo}</div>
-                        <div style="font-size: 0.8rem; color: ${msgCor}; line-height: 1.3;">${notif.mensagem}</div>
+                        <div style="font-weight: 600; font-size: 0.9rem; color: ${tituloCor}; margin-bottom: 0.3rem;">${sanitizeHTML(notif.titulo)}</div>
+                        <div style="font-size: 0.8rem; color: ${msgCor}; line-height: 1.3;">${sanitizeHTML(notif.mensagem)}</div>
                         <div style="font-size: 0.7rem; color: #aaa; margin-top: 0.4rem; text-align: right;">Ver log de e-mails →</div>
                     </div>
                     <div style="display: flex; gap: 0.4rem; margin-top: 0.5rem; justify-content: flex-end;">
@@ -203,8 +203,8 @@ function renderizarNotificacoes(notificacoes) {
 
             html += `
                 <div onclick="${onclickAction}" style="background: ${bgCor}; border-left: 4px solid ${barraCor}; padding: 0.8rem; margin-bottom: 0.5rem; border-radius: 4px; box-shadow: 0 1px 2px rgba(0,0,0,0.05); cursor: pointer; transition: background 0.2s;">
-                    <div style="font-weight: 600; font-size: 0.9rem; color: ${tituloCor}; margin-bottom: 0.3rem;">${notif.titulo}</div>
-                    <div style="font-size: 0.8rem; color: ${txtCor}; line-height: 1.3;">${notif.mensagem}</div>
+                    <div style="font-weight: 600; font-size: 0.9rem; color: ${tituloCor}; margin-bottom: 0.3rem;">${sanitizeHTML(notif.titulo)}</div>
+                    <div style="font-size: 0.8rem; color: ${txtCor}; line-height: 1.3;">${sanitizeHTML(notif.mensagem)}</div>
                     <div style="font-size: 0.7rem; color: #aaa; margin-top: 0.4rem; text-align: right;">${new Date(notif.criado_em).toLocaleString('pt-BR')}</div>
                 </div>
             `;
