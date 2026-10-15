@@ -21,6 +21,134 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
 $database = new Database();
 $db = $database->getConnection();
 
+/**
+ * Listagem paginada: aplica busca, filtros e ordenação no servidor e devolve também os contadores
+ * da visão (sem os filtros do usuário). O SELECT pesado (subconsultas por linha) roda só nas linhas da página.
+ */
+function listarTicketsPaginado(PDO $db, string $selectCompleto, array $where, array $params, string $escopo): array {
+    $pagina = max(1, (int) ($_GET['pagina'] ?? 1));
+    $por_pagina = (int) ($_GET['por_pagina'] ?? 50);
+    if (!in_array($por_pagina, [10, 25, 50, 100], true)) {
+        $por_pagina = 50;
+    }
+
+    $usuario_id = $params[':usuario_id'];
+    unset($params[':usuario_id']);   // só a junção de comentários não lidos usa; ela fica fora das consultas de contagem
+
+    $grupos = [
+        'novo'           => ['novo'],
+        'em_atendimento' => ['em_atendimento'],
+        'aguardando'     => ['aguardando', 'aguardando_resposta', 'aguardando_terceiros', 'aguardando_aprovacao', 'aguardando_data'],
+        'nova_resposta'  => ['nova_resposta'],
+    ];
+
+    $juncoes = " FROM tickets t
+                 LEFT JOIN usuarios u ON t.usuario_id = u.id
+                 LEFT JOIN usuarios a ON t.agente_id = a.id
+                 LEFT JOIN categorias c ON t.categoria_id = c.id
+                 LEFT JOIN setores s ON t.setor_id = s.id";
+    $base = implode(' AND ', $where ?: ['1 = 1']);
+
+    // Contadores da visão (independem de busca, aba e "minhas")
+    $stmt = $db->prepare("SELECT COUNT(*) AS todos,
+                                 COALESCE(SUM(t.agente_id = :c_self), 0) AS meus,
+                                 COALESCE(SUM(t.status = 'novo'), 0) AS novo,
+                                 COALESCE(SUM(t.status = 'em_atendimento'), 0) AS em_atendimento,
+                                 COALESCE(SUM(t.status IN ('aguardando','aguardando_resposta','aguardando_terceiros','aguardando_aprovacao','aguardando_data')), 0) AS aguardando,
+                                 COALESCE(SUM(t.status = 'nova_resposta'), 0) AS nova_resposta,
+                                 COALESCE(SUM(t.prioridade = 'urgente'), 0) AS urgente
+                          FROM tickets t WHERE $base");
+    $stmt->execute($params + [':c_self' => $usuario_id]);
+    $contadores = array_map('intval', $stmt->fetch(PDO::FETCH_ASSOC));
+
+    // Filtros escolhidos pelo usuário
+    $filtros = [];
+    $pf = [];
+    $grupo = (string) ($_GET['grupo'] ?? '');
+    if ($grupo === 'urgente') {
+        $filtros[] = "t.prioridade = 'urgente'";
+    } elseif (isset($grupos[$grupo])) {
+        $marcas = [];
+        foreach ($grupos[$grupo] as $i => $st) {
+            $marcas[] = ":g$i";
+            $pf[":g$i"] = $st;
+        }
+        $filtros[] = "t.status IN (" . implode(',', $marcas) . ")";
+    }
+    if (!empty($_GET['status']) && is_string($_GET['status'])) {
+        $filtros[] = "t.status = :f_status";
+        $pf[':f_status'] = $_GET['status'];
+    }
+    if (!empty($_GET['prioridade']) && is_string($_GET['prioridade'])) {
+        $filtros[] = "t.prioridade = :f_prioridade";
+        $pf[':f_prioridade'] = $_GET['prioridade'];
+    }
+    if (!empty($_GET['meus'])) {
+        $filtros[] = "t.agente_id = :f_meus";
+        $pf[':f_meus'] = $usuario_id;
+    }
+    $busca = trim((string) ($_GET['busca'] ?? ''));
+    if ($busca !== '') {
+        $termo = '%' . str_replace(['\\', '%', '_'], ['\\\\', '\\%', '\\_'], mb_substr($busca, 0, 100)) . '%';
+        $numero = '%' . ltrim(str_replace('#', '', $busca), '0') . '%';
+        $filtros[] = "(t.titulo LIKE :b1 OR t.descricao LIKE :b2 OR u.nome LIKE :b3 OR t.email_solicitante LIKE :b4
+                       OR (:b6 <> '%%' AND CAST(t.id AS CHAR) LIKE :b5))";
+        $pf[':b1'] = $pf[':b2'] = $pf[':b3'] = $pf[':b4'] = $termo;
+        $pf[':b5'] = $numero;
+        $pf[':b6'] = $numero;
+    }
+    $onde = $base . ($filtros ? ' AND ' . implode(' AND ', $filtros) : '');
+
+    // Ordenação: só colunas conhecidas
+    $colunas = [
+        'id' => 't.id', 'criado_em' => 't.criado_em', 'titulo' => 't.titulo', 'usuario_nome' => 'u.nome',
+        'setor_nome' => 's.nome', 'agente_nome' => 'a.nome', 'categoria_nome' => 'c.nome',
+        'status' => 't.status', 'prioridade' => 't.prioridade', 'fechado_em' => 't.fechado_em',
+        'excluido_em' => 't.excluido_em',
+    ];
+    $padrao = $escopo === 'lixeira' ? 't.excluido_em' : 't.criado_em';
+    $ordem = is_string($_GET['ordem'] ?? null) ? $_GET['ordem'] : '';
+    $coluna = $colunas[$ordem] ?? $padrao;
+    $direcao = isset($colunas[$ordem]) && strtolower((string) ($_GET['direcao'] ?? '')) === 'asc' ? 'ASC' : 'DESC';
+
+    $stmt = $db->prepare("SELECT COUNT(*) $juncoes WHERE $onde");
+    $stmt->execute($params + $pf);
+    $total = (int) $stmt->fetchColumn();
+
+    $total_paginas = max(1, (int) ceil($total / $por_pagina));
+    $pagina = min($pagina, $total_paginas);
+    $deslocamento = ($pagina - 1) * $por_pagina;
+
+    $stmt = $db->prepare("SELECT t.id $juncoes WHERE $onde ORDER BY $coluna $direcao, t.id DESC
+                          LIMIT $por_pagina OFFSET $deslocamento");
+    $stmt->execute($params + $pf);
+    $ids = array_map('intval', $stmt->fetchAll(PDO::FETCH_COLUMN));
+
+    $itens = [];
+    if ($ids) {
+        $stmt = $db->prepare($selectCompleto . " WHERE t.id IN (" . implode(',', $ids) . ")");
+        $stmt->execute([':usuario_id' => $usuario_id]);
+        $por_id = [];
+        foreach ($stmt->fetchAll() as $linha) {
+            $por_id[(int) $linha['id']] = $linha;
+        }
+        foreach ($ids as $id) {
+            if (isset($por_id[$id])) {
+                $itens[] = $por_id[$id];
+            }
+        }
+    }
+
+    return [
+        'itens' => $itens,
+        'total' => $total,
+        'pagina' => $pagina,
+        'por_pagina' => $por_pagina,
+        'total_paginas' => $total_paginas,
+        'contadores' => $contadores,
+    ];
+}
+
 // GET - Listar tickets ou buscar ticket específico
 if ($_SERVER['REQUEST_METHOD'] === 'GET') {
     $user = AuthMiddleware::verificarAuth();
@@ -210,6 +338,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
             if ($escopo !== 'lixeira') {
                 array_unshift($where, "t.excluido_em IS NULL");
             }
+            // Paginação, busca, filtros, ordenação e contadores no servidor (?pagina=N).
+            // Sem "pagina", a lista inteira é devolvida como antes (Kanban, integrações).
+            if (isset($_GET['pagina'])) {
+                echo json_encode(listarTicketsPaginado($db, $query, $where, $params, $escopo));
+                exit;
+            }
+
             if (!empty($where)) {
                 $query .= " WHERE " . implode(' AND ', $where);
             }

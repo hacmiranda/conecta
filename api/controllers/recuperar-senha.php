@@ -86,7 +86,7 @@ try {
         <p>Se você não solicitou esta recuperação, ignore este email.</p>
     ";
 
-    if (!$emailSender->enviarEmail($usuario['email'], 'Recuperação de Senha - Conecta CRPRS', $mensagem)) {
+    if (!$emailSender->enviarEmail($usuario['email'], 'Recuperação de Senha - Conecta CRPRS', $mensagem, true)) {
         error_log('[RECUPERAR-SENHA] Falha ao enviar o e-mail de recuperação para o usuário #' . $usuario['id']);
         http_response_code(500);
         echo json_encode(['error' => 'Não foi possível enviar o e-mail agora. Tente novamente mais tarde.']);

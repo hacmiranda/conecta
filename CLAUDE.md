@@ -20,7 +20,8 @@ php api/test/test-environment.php
 
 # Run cron jobs manually (CLI needs no key; HTTP needs header X-Cron-Key = CRON_KEY_* from .env)
 php api/cron/verificar-emails.php          # also fires due reminders at the end
-php api/cron/verificar-lembretes.php
+php api/cron/verificar-lembretes.php      # also sends the e-mail queue at the end
+php api/cron/enviar-fila.php             # sends email_fila (retries failures, up to 5 times)
 php api/cron/verificar-emails-perdidos.php 30   # reprocess the last N days (max 60)
 ```
 
@@ -101,11 +102,18 @@ CSS follows a per-feature file convention (`tickets-melhorias.css`, `status-sla.
 - `auditoria` — General action log with IP, user agent, session
 - `notificacoes` — Internal alert queue polled/streamed to frontend
 - `macros` — WYSIWYG quick-reply templates, per sector (`setor_id` NULL = visible to all sectors; author, sector gestor or admin manage)
-- `email_logs` — Delivery tracking for all outbound emails (records the sender)
+- `email_logs` — Delivery tracking for all outbound emails (records the sender; one row per real SMTP attempt)
+- `email_fila` — Outbound e-mail queue: requests only insert; `api/cron/enviar-fila.php` (also run at the end of `verificar-lembretes.php`/`verificar-emails.php`) sends via `EmailFilaService`, with up to 5 attempts and growing wait; on giving up the demand timeline gets an `email_falha` event. Password recovery sends immediately (`enviarEmail(..., true)`)
 
 ### Untrusted content (XSS)
 - Backend: rich HTML (description, comments, macros, integration) goes through `HtmlSanitizer::rico()` (HTML Purifier, `api/services/html-sanitizer.php`); plain fields (titles, names, reminder text) through `HtmlSanitizer::texto()`. Incoming e-mail bodies are stored escaped (`htmlspecialchars` + `nl2br`)
 - Frontend: every API value inserted with `innerHTML` uses `sanitizeHTML()` (text) or `htmlSeguro()` (rich HTML via local `frontend/lib/purify.min.js`); strings inside `onclick` use `argJs()` + `decodeURIComponent`
+
+### E-mail certificates
+IMAP and SMTP validate the server certificate by default. It is turned off only explicitly: per mailbox (`setor_emails.validar_certificado`, screen Configurar e-mail) or for the global sender with `IMAP_VALIDAR_CERTIFICADO_*`/`SMTP_VALIDAR_CERTIFICADO_*` = 0 in `.env`.
+
+### Demand list (server pagination)
+`GET tickets.php?escopo=abertas|arquivo|...&pagina=N&por_pagina=10|25|50|100&busca=&grupo=novo|em_atendimento|aguardando|nova_resposta|urgente&meus=1&ordem=&direcao=` returns `{itens, total, pagina, por_pagina, total_paginas, contadores}`; without `pagina` it still returns the whole array (Kanban loads everything). Sorting is limited to a column whitelist.
 
 ### Incoming e-mail rules
 A reply with `#NNNNN` in the subject becomes a comment only if the sender is the requester, someone who got a copy, or the sector team, and the mailbox's sector is one the demand passed through; otherwise a new demand is opened. Mail from the system's own mailboxes and auto-replies is ignored (`emails_processados.tipo = 'ignorado'`). Failures are retried (`emails_erro`) up to 5 times instead of being lost.
@@ -123,7 +131,7 @@ Attachments stored in `backend/anexos/`. Max 5 files, 20MB each. Allowed: pdf, d
 `api/services/sla-service.php` computes business seconds using the hours (`horarios_uteis`) and holidays (`feriados`) of the demand's sector (sector without hours falls back to "Geral"). Some statuses (`congela_sla`) pause the SLA timer.
 
 ### Database Migrations
-`database/9_*.sql` … `21_*.sql` build on the base schema, in order: 9 sectors/roles, 10 sector log, 11 per-sector status/priorities, 12 sector mailboxes, 13 responsible log, 14 roles gestor/operador, 15 initial seed, 16 categories per sector, 17 hours/holidays per sector, 18 SMTP per sector, 19 reminder cancellation + ignored e-mails, 20 sessions and passwords (token_versao, trocar_senha, sessoes_revogadas), 21 integrity (foreign keys, utf8mb4, free `tickets.status`, trash columns, macros per sector, legacy tables dropped). Each runs once (MySQL 8.4 has no `ADD COLUMN IF NOT EXISTS`).
+`database/9_*.sql` … `22_*.sql` build on the base schema, in order: 9 sectors/roles, 10 sector log, 11 per-sector status/priorities, 12 sector mailboxes, 13 responsible log, 14 roles gestor/operador, 15 initial seed, 16 categories per sector, 17 hours/holidays per sector, 18 SMTP per sector, 19 reminder cancellation + ignored e-mails, 20 sessions and passwords (token_versao, trocar_senha, sessoes_revogadas), 21 integrity (foreign keys, utf8mb4, free `tickets.status`, trash columns, macros per sector, legacy tables dropped), 22 e-mail queue (`email_fila`) + `setor_emails.validar_certificado`. Each runs once (MySQL 8.4 has no `ADD COLUMN IF NOT EXISTS`).
 
 ---
 

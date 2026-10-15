@@ -598,8 +598,64 @@ function exibirColunaSetor(emArquivo) {
     return !!emArquivo && escopoArquivoAtual !== 'arquivo';
 }
 
+// Lista de abertas: paginação, busca, filtros e ordenação no servidor (tickets.php?pagina=).
+// O Kanban precisa de todas as demandas e segue carregando a lista inteira.
+let paginacaoServidor = null;   // { total, totalPaginas, contadores } da última resposta paginada
+let _tokenCargaLista = 0;
+
+function usaPaginacaoServidor() {
+    return modoVisualizacaoTickets !== 'kanban';
+}
+
+function carregarPaginaServidor() {
+    const token = ++_tokenCargaLista;
+    const parametros = new URLSearchParams({
+        escopo: 'abertas',
+        pagina: String(paginaAtual),
+        por_pagina: String(porPagina)
+    });
+    if (filtroStatusAtivo && filtroStatusAtivo !== 'todos') parametros.set('grupo', filtroStatusAtivo);
+    const meus = document.getElementById('filtro-meus-tickets');
+    if (meus && meus.checked) parametros.set('meus', '1');
+    const busca = document.getElementById('busca-tickets');
+    if (busca && busca.value.trim()) parametros.set('busca', busca.value.trim());
+    if (ordemAtual.campo) {
+        parametros.set('ordem', ordemAtual.campo);
+        parametros.set('direcao', ordemAtual.direcao);
+    }
+
+    const xhr = new XMLHttpRequest();
+    xhr.open('GET', urlComSetor(window.APP_CONFIG.apiBase + 'tickets.php?' + parametros.toString()), true);
+    setSecurityHeaders(xhr);
+
+    xhr.onload = function () {
+        if (token !== _tokenCargaLista) return;   // resposta de uma carga mais antiga
+        if (xhr.status === 200) {
+            const dados = JSON.parse(xhr.responseText);
+            paginacaoServidor = { total: dados.total, totalPaginas: dados.total_paginas, contadores: dados.contadores };
+            paginaAtual = dados.pagina;
+            ticketsAtuais = dados.itens;
+            ticketsFiltradosPorStatus = dados.itens;
+            mostrarTicketsNaTela(dados.itens);
+        } else {
+            console.error('Erro ao carregar tickets:', xhr.status, xhr.responseText);
+            document.getElementById('lista-tickets').innerHTML = '<p>Erro ao carregar demandas.</p>';
+        }
+    };
+    xhr.onerror = function () {
+        if (token !== _tokenCargaLista) return;
+        document.getElementById('lista-tickets').innerHTML = '<p>Erro de conexão.</p>';
+    };
+    xhr.send();
+}
+
 function carregarTickets() {
     mostrarSkeletonTickets();
+    if (usaPaginacaoServidor()) {
+        carregarPaginaServidor();
+        return;
+    }
+    paginacaoServidor = null;
     const xhr = new XMLHttpRequest();
     xhr.open('GET', urlComSetor(window.APP_CONFIG.apiBase + 'tickets.php?escopo=abertas'), true);
     setSecurityHeaders(xhr);
@@ -634,6 +690,11 @@ let ticketsFiltradosPorStatus = [];
 let modoVisualizacaoTickets = localStorage.getItem('cd_ticketsModoView') || 'lista';
 
 function aplicarFiltroMeusTickets() {
+    if (usaPaginacaoServidor()) {
+        paginaAtual = 1;
+        carregarPaginaServidor();
+        return;
+    }
     const filtroAtivo = document.getElementById('filtro-meus-tickets').checked;
     let ticketsFiltrados = ticketsAtuais;
 
@@ -771,6 +832,11 @@ function aplicarFiltroPill(btn) {
     document.querySelectorAll('.filtro-pill').forEach(p => p.classList.remove('ativo'));
     btn.classList.add('ativo');
 
+    if (usaPaginacaoServidor()) {
+        carregarPaginaServidor();
+        return;
+    }
+
     const base = (() => {
         const filtroMeus = document.getElementById('filtro-meus-tickets');
         if (filtroMeus && filtroMeus.checked) {
@@ -784,6 +850,10 @@ function aplicarFiltroPill(btn) {
 }
 
 function filtrarEMostrarTickets(tickets) {
+    if (usaPaginacaoServidor()) {
+        carregarPaginaServidor();
+        return;
+    }
     const statusAgrupados = {
         'novo': ['novo'],
         'em_atendimento': ['em_atendimento'],
@@ -830,6 +900,11 @@ function renderizarPaginacaoNumeros(totalPaginas) {
 
 function irParaPagina(p) {
     paginaAtual = p;
+    if (usaPaginacaoServidor()) {
+        carregarPaginaServidor();
+        document.getElementById('lista-tickets')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        return;
+    }
     mostrarTicketsNaTela(ticketsFiltradosPorStatus.length > 0 ? ticketsFiltradosPorStatus : ticketsAtuais);
     document.getElementById('lista-tickets')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
@@ -885,7 +960,9 @@ function toggleVisaoTickets() {
     if (btn) {
         btn.innerHTML = modoVisualizacaoTickets === 'lista' ? '<span class="material-symbols-outlined" style="font-size: 1.2rem; margin-right: 0.3rem;">view_kanban</span> Kanban' : '<span class="material-symbols-outlined" style="font-size: 1.2rem; margin-right: 0.3rem;">list_alt</span> Tabela';
     }
-    mostrarTicketsNaTela(ticketsFiltradosPorStatus.length > 0 ? ticketsFiltradosPorStatus : ticketsAtuais);
+    // A lista vem paginada do servidor; o Kanban precisa de todas: recarrega no formato do novo modo
+    paginaAtual = 1;
+    carregarTickets();
 }
 
 function renderizarKanbanTela(tickets) {
@@ -987,13 +1064,22 @@ function mostrarTicketsNaTela(tickets) {
 
     // Atualizar contadores
     const usuarioLogado = JSON.parse(localStorage.getItem('cd_usuario'));
-    const totalAbertos = ticketsAtuais.length;
-    const meusTickets = ticketsAtuais.filter(t => t.agente_id == usuarioLogado.id).length;
+    const doServidor = paginacaoServidor && usaPaginacaoServidor();
+    const totalAbertos = doServidor ? paginacaoServidor.contadores.todos : ticketsAtuais.length;
+    const meusTickets = doServidor ? paginacaoServidor.contadores.meus : ticketsAtuais.filter(t => t.agente_id == usuarioLogado.id).length;
     document.getElementById('total-tickets-abertos').textContent = `(${totalAbertos})`;
     document.getElementById('total-meus-tickets').textContent = meusTickets > 0 ? `(${meusTickets})` : '';
 
     // Atualizar contadores dos pills
-    atualizarContadoresPill(ticketsAtuais);
+    if (doServidor) {
+        ['todos', 'novo', 'em_atendimento', 'aguardando', 'nova_resposta', 'urgente'].forEach(chave => {
+            const el = document.getElementById(`pill-count-${chave}`);
+            const valor = paginacaoServidor.contadores[chave] || 0;
+            if (el) el.textContent = valor > 0 ? valor : '';
+        });
+    } else {
+        atualizarContadoresPill(ticketsAtuais);
+    }
 
     // Salvar referência para paginação
     ticketsFiltradosPorStatus = tickets;
@@ -1017,11 +1103,11 @@ function mostrarTicketsNaTela(tickets) {
     window.ticketsAtuais = tickets;
 
     // Paginação
-    const totalPaginas = Math.ceil(tickets.length / porPagina);
-    if (paginaAtual > totalPaginas) paginaAtual = 1;
+    const totalPaginas = doServidor ? paginacaoServidor.totalPaginas : Math.ceil(tickets.length / porPagina);
+    if (!doServidor && paginaAtual > totalPaginas) paginaAtual = 1;
     const inicio = (paginaAtual - 1) * porPagina;
-    const fim = Math.min(inicio + porPagina, tickets.length);
-    const ticketsPagina = tickets.slice(inicio, fim);
+    const fim = doServidor ? inicio + tickets.length : Math.min(inicio + porPagina, tickets.length);
+    const ticketsPagina = doServidor ? tickets : tickets.slice(inicio, fim);
 
     let tabelaHTML = `
         <table class="tickets-tabela" role="grid" aria-label="Lista de demandas abertas">
@@ -1103,7 +1189,7 @@ function mostrarTicketsNaTela(tickets) {
     // Footer: resumo + paginação
     const inicioExib = inicio + 1;
     const fimExib = fim;
-    const totalExib = tickets.length;
+    const totalExib = doServidor ? paginacaoServidor.total : tickets.length;
 
     tabelaHTML += `
             </tbody>
@@ -1166,6 +1252,10 @@ function alterarPorPagina(valor) {
     porPagina = parseInt(valor);
     localStorage.setItem('cd_ticketsPorPagina', porPagina);
     paginaAtual = 1;
+    if (usaPaginacaoServidor()) {
+        carregarPaginaServidor();
+        return;
+    }
     mostrarTicketsNaTela(ticketsFiltradosPorStatus.length > 0 ? ticketsFiltradosPorStatus : ticketsAtuais);
 }
 
@@ -2385,7 +2475,7 @@ function adicionarComentario(event, ticketId) {
                 return;
             }
             const mensagem = enviarEmail ?
-                (comCopia ? 'Comentário adicionado e e-mails enviados!' : 'Comentário adicionado e e-mail enviado!') :
+                (comCopia ? 'Comentário adicionado e e-mails na fila de envio!' : 'Comentário adicionado e e-mail na fila de envio!') :
                 'Comentário adicionado com sucesso!';
 
             if (enviarEmail && data.email_enviado === false) {
@@ -4611,8 +4701,14 @@ function renderizarEmailsSetor(caixas) {
             <div style="display:flex;justify-content:space-between;align-items:center;width:100%;">
                 <div>
                     <strong>${sanitizeHTML(caixa.email)}</strong>
-                    <div style="font-size:0.85rem;color:#666;">Recebimento (IMAP): ${caixa.imap_host}:${caixa.imap_port} · usuário: ${caixa.imap_user}</div>
-                    <div style="font-size:0.85rem;color:#666;">Envio (SMTP): ${caixa.smtp_host ? caixa.smtp_host + ':' + caixa.smtp_port + ' (' + (caixa.smtp_seguranca === 'tls' ? 'STARTTLS' : 'SSL') + ')' : 'servidor global do sistema'} · remetente: ${caixa.nome_remetente || 'Conecta CRPRS - (nome do setor)'}</div>
+                    <div style="font-size:0.85rem;color:#666;">Recebimento (IMAP): ${sanitizeHTML(caixa.imap_host)}:${parseInt(caixa.imap_port, 10)} · usuário: ${sanitizeHTML(caixa.imap_user)}</div>
+                    <div style="font-size:0.85rem;color:#666;">Envio (SMTP): ${caixa.smtp_host ? sanitizeHTML(caixa.smtp_host) + ':' + parseInt(caixa.smtp_port, 10) + ' (' + (caixa.smtp_seguranca === 'tls' ? 'STARTTLS' : 'SSL') + ')' : 'servidor global do sistema'} · remetente: ${sanitizeHTML(caixa.nome_remetente || 'Conecta CRPRS - (nome do setor)')}</div>
+                    <div class="config-certificado">
+                        <label>
+                            <input type="checkbox" ${parseInt(caixa.validar_certificado, 10) === 1 ? 'checked' : ''} onchange="alternarCertificadoEmailSetor(${parseInt(caixa.id, 10)}, this.checked)">
+                            Validar o certificado do servidor de e-mail <span style="color:#666;">(recomendado; desligue só se o servidor usar certificado inválido)</span>
+                        </label>
+                    </div>
                 </div>
                 <label class="switch-label">
                     <label class="switch">
@@ -4672,11 +4768,11 @@ function carregarLogEmailsProcessadosSetor() {
                 ${dados.registros.map(r => `
                     <div class="config-setor-item" style="flex-direction:column;align-items:flex-start;gap:0.25rem;">
                         <div style="display:flex;justify-content:space-between;width:100%;">
-                            <strong>${r.assunto || '(sem assunto)'}</strong>
+                            <strong>${sanitizeHTML(r.assunto || '(sem assunto)')}</strong>
                             <span style="font-size:0.85rem;color:#666;">${new Date(r.processado_em).toLocaleString('pt-BR')}</span>
                         </div>
                         <div style="font-size:0.85rem;color:#666;">
-                            De: ${r.email_remetente} · Caixa: ${r.setor_email_endereco || '—'} · ${rotuloTipo[r.tipo] || r.tipo}
+                            De: ${sanitizeHTML(r.email_remetente)} · Caixa: ${sanitizeHTML(r.setor_email_endereco || '—')} · ${sanitizeHTML(rotuloTipo[r.tipo] || r.tipo)}
                             ${r.ticket_id ? ` · Demanda #${String(r.ticket_id).padStart(5, '0')}` : ''}
                         </div>
                     </div>
@@ -4756,6 +4852,12 @@ function mostrarFormularioEmailSetor() {
                 <label for="novo-nome-remetente">Nome do remetente (opcional):</label>
                 <input type="text" id="novo-nome-remetente" maxlength="100" placeholder="Conecta CRPRS - Cadastro">
             </div>
+            <div class="form-group">
+                <label>
+                    <input type="checkbox" id="novo-validar-certificado" checked>
+                    Validar o certificado do servidor de e-mail (recomendado)
+                </label>
+            </div>
             <div id="resultado-teste-email" style="margin-bottom:0.75rem;"></div>
             <div style="display:flex;gap:0.5rem;">
                 <button type="button" class="btn-small" onclick="testarEmailSetor()">🔌 Testar Conexão</button>
@@ -4778,7 +4880,8 @@ function coletarDadosFormEmailSetor() {
         smtp_seguranca: document.getElementById('novo-smtp-seguranca').value,
         smtp_user: document.getElementById('novo-smtp-usuario').value.trim(),
         smtp_pass: document.getElementById('novo-smtp-senha').value,
-        nome_remetente: document.getElementById('novo-nome-remetente').value.trim()
+        nome_remetente: document.getElementById('novo-nome-remetente').value.trim(),
+        validar_certificado: document.getElementById('novo-validar-certificado').checked
     };
 }
 
@@ -4862,6 +4965,24 @@ function alternarAtivoEmailSetor(id, ativo) {
     };
 
     xhr.send(JSON.stringify({ ativo: ativo }));
+}
+
+function alternarCertificadoEmailSetor(id, validar) {
+    const xhr = new XMLHttpRequest();
+    xhr.open('PUT', `${window.APP_CONFIG.apiBase}setor-emails.php/${id}`, true);
+    xhr.setRequestHeader('Content-Type', 'application/json');
+    setSecurityHeaders(xhr);
+
+    xhr.onload = function () {
+        if (xhr.status === 200) {
+            mostrarToast('Sucesso', validar ? 'Certificado do servidor passa a ser validado.' : 'Atenção: o certificado do servidor deixou de ser validado.', validar ? 'success' : 'warning');
+        } else {
+            mostrarAlert('Erro', 'Erro ao atualizar a caixa de e-mail');
+            carregarEmailsSetor();
+        }
+    };
+
+    xhr.send(JSON.stringify({ validar_certificado: validar }));
 }
 
 function excluirEmailSetor(id) {
@@ -5034,6 +5155,49 @@ function limparFormularioTicket() {
 }
 
 // Carregar tickets fechados (encerrados e cancelados)
+// Arquivo: mesma paginação no servidor da lista de abertas
+let paginacaoFechadosServidor = null;   // { total, totalPaginas }
+let _tokenCargaFechados = 0;
+
+function carregarPaginaFechadosServidor() {
+    const token = ++_tokenCargaFechados;
+    const parametros = new URLSearchParams({
+        escopo: escopoArquivoAtual,
+        pagina: String(paginaAtualFechados),
+        por_pagina: String(porPaginaFechados)
+    });
+    const meus = document.getElementById('filtro-meus-tickets-fechados');
+    if (meus && meus.checked) parametros.set('meus', '1');
+    const busca = document.getElementById('busca-fechados');
+    if (busca && busca.value.trim()) parametros.set('busca', busca.value.trim());
+    if (ordemFechados.campo) {
+        parametros.set('ordem', ordemFechados.campo);
+        parametros.set('direcao', ordemFechados.direcao);
+    }
+
+    const xhr = new XMLHttpRequest();
+    xhr.open('GET', urlComSetor(window.APP_CONFIG.apiBase + 'tickets.php?' + parametros.toString()), true);
+    setSecurityHeaders(xhr);
+
+    xhr.onload = function () {
+        if (token !== _tokenCargaFechados) return;
+        if (xhr.status === 200) {
+            const dados = JSON.parse(xhr.responseText);
+            paginacaoFechadosServidor = { total: dados.total, totalPaginas: dados.total_paginas };
+            paginaAtualFechados = dados.pagina;
+            ticketsFechadosAtuais = dados.itens;
+            mostrarTicketsFechadosNaTela(dados.itens);
+        } else {
+            document.getElementById('lista-fechados').innerHTML = '<p>Erro ao carregar demandas do arquivo.</p>';
+        }
+    };
+    xhr.onerror = function () {
+        if (token !== _tokenCargaFechados) return;
+        document.getElementById('lista-fechados').innerHTML = '<p>Erro de conexão.</p>';
+    };
+    xhr.send();
+}
+
 function carregarTicketsFechados() {
     mostrarSkeletonTickets('lista-fechados');
     prepararFiltroArquivo();
@@ -5044,44 +5208,8 @@ function carregarTicketsFechados() {
         escopoArquivoAtual = seletorEscopo.value;
     }
 
-    const xhr = new XMLHttpRequest();
-    xhr.open('GET', urlComSetor(window.APP_CONFIG.apiBase + 'tickets.php?escopo=' + encodeURIComponent(escopoArquivoAtual)), true);
-    setSecurityHeaders(xhr);
-
-    xhr.onload = function () {
-        if (xhr.status === 200) {
-            const ticketsFechados = JSON.parse(xhr.responseText);
-
-            // Re-aplicar ordenação persistida antes de renderizar
-            if (ordemFechados.campo) {
-                const campo = ordemFechados.campo;
-                ticketsFechadosAtuais = [...ticketsFechados].sort((a, b) => {
-                    let valorA = a[campo] || '';
-                    let valorB = b[campo] || '';
-
-                    if (campo === 'criado_em' || campo === 'fechado_em') {
-                        valorA = new Date(valorA);
-                        valorB = new Date(valorB);
-                    } else if (campo === 'id') {
-                        valorA = parseInt(valorA);
-                        valorB = parseInt(valorB);
-                    }
-
-                    if (valorA < valorB) return ordemFechados.direcao === 'asc' ? -1 : 1;
-                    if (valorA > valorB) return ordemFechados.direcao === 'asc' ? 1 : -1;
-                    return 0;
-                });
-            } else {
-                ticketsFechadosAtuais = ticketsFechados;
-            }
-
-            aplicarFiltroMeusTicketsFechados();
-        } else {
-            document.getElementById('lista-fechados').innerHTML = '<p>Erro ao carregar tickets fechados.</p>';
-        }
-    };
-
-    xhr.send();
+    paginaAtualFechados = 1;
+    carregarPaginaFechadosServidor();
 }
 
 let timeoutBuscaFechados;
@@ -5120,15 +5248,8 @@ function filtrarEMostrarTicketsFechados(ticketsBase) {
 
 // A função original aplicarFiltroMeusTicketsFechados agora delega para filtrarEMostrarTicketsFechados
 function aplicarFiltroMeusTicketsFechados() {
-    const filtroAtivo = document.getElementById('filtro-meus-tickets-fechados');
-    let base = ticketsFechadosAtuais;
-
-    if (filtroAtivo && filtroAtivo.checked) {
-        const usuarioLogado = JSON.parse(localStorage.getItem('cd_usuario'));
-        base = ticketsFechadosAtuais.filter(ticket => ticket.agente_id == usuarioLogado.id);
-    }
-
-    filtrarEMostrarTicketsFechados(base);
+    paginaAtualFechados = 1;
+    carregarPaginaFechadosServidor();
 }
 
 // Renderizar sub-botões de paginação
@@ -5145,15 +5266,17 @@ function renderizarPaginacaoNumerosFechados(totalPaginas) {
 
 function irParaPaginaFechados(p) {
     paginaAtualFechados = p;
-    mostrarTicketsFechadosNaTela(ticketsFechadosFiltradosPorBusca.length > 0 ? ticketsFechadosFiltradosPorBusca : ticketsFechadosAtuais);
+    carregarPaginaFechadosServidor();
     document.getElementById('lista-fechados')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    return;
+
 }
 
 function alterarPorPaginaFechados(valor) {
     porPaginaFechados = parseInt(valor);
     localStorage.setItem('cd_ticketsFechadosPorPagina', porPaginaFechados);
     paginaAtualFechados = 1;
-    mostrarTicketsFechadosNaTela(ticketsFechadosFiltradosPorBusca.length > 0 ? ticketsFechadosFiltradosPorBusca : ticketsFechadosAtuais);
+    carregarPaginaFechadosServidor();
 }
 
 // Ofuscar e-mail conforme premissa da LGPD
@@ -5181,12 +5304,11 @@ function mostrarTicketsFechadosNaTela(tickets) {
         return;
     }
 
-    // Paginação
-    const totalPaginas = Math.ceil(tickets.length / porPaginaFechados);
-    if (paginaAtualFechados > totalPaginas && totalPaginas > 0) paginaAtualFechados = totalPaginas;
+    // Paginação (feita no servidor: "tickets" já é a página)
+    const totalPaginas = paginacaoFechadosServidor ? paginacaoFechadosServidor.totalPaginas : Math.ceil(tickets.length / porPaginaFechados);
     const inicio = (paginaAtualFechados - 1) * porPaginaFechados;
-    const fim = Math.min(inicio + porPaginaFechados, tickets.length);
-    const ticketsPagina = tickets.slice(inicio, fim);
+    const fim = paginacaoFechadosServidor ? inicio + tickets.length : Math.min(inicio + porPaginaFechados, tickets.length);
+    const ticketsPagina = paginacaoFechadosServidor ? tickets : tickets.slice(inicio, fim);
 
     let tabelaHTML = `
         <table class="tickets-tabela">
@@ -5246,7 +5368,7 @@ function mostrarTicketsFechadosNaTela(tickets) {
     // Footer: resumo + paginação
     const inicioExib = inicio + 1;
     const fimExib = fim;
-    const totalExib = tickets.length;
+    const totalExib = paginacaoFechadosServidor ? paginacaoFechadosServidor.total : tickets.length;
 
     tabelaHTML += `
             </tbody>
@@ -5744,6 +5866,12 @@ function ordenarTabela(campo) {
     // Persistir no localStorage
     localStorage.setItem('cd_ticketsOrdem', JSON.stringify(ordemAtual));
 
+    if (usaPaginacaoServidor()) {
+        paginaAtual = 1;
+        carregarPaginaServidor();
+        return;
+    }
+
     // Ordenar tickets
     const ticketsOrdenados = [...ticketsAtuais].sort((a, b) => {
         let valorA = a[campo] || '';
@@ -5810,32 +5938,8 @@ function ordenarTabelaFechados(campo) {
     // Persistir no localStorage
     localStorage.setItem('cd_ticketsFechadosOrdem', JSON.stringify(ordemFechados));
 
-    // Ordenar tickets fechados
-    const ticketsOrdenados = [...ticketsFechadosAtuais].sort((a, b) => {
-        let valorA = a[campo] || '';
-        let valorB = b[campo] || '';
-
-        // Tratamento especial para datas
-        if (campo === 'criado_em' || campo === 'fechado_em') {
-            valorA = new Date(valorA);
-            valorB = new Date(valorB);
-        }
-
-        // Tratamento especial para números
-        if (campo === 'id') {
-            valorA = parseInt(valorA);
-            valorB = parseInt(valorB);
-        }
-
-        // Comparar valores
-        if (valorA < valorB) return ordemFechados.direcao === 'asc' ? -1 : 1;
-        if (valorA > valorB) return ordemFechados.direcao === 'asc' ? 1 : -1;
-        return 0;
-    });
-
-    // Atualizar base e re-aplicar os filtros e busca
-    ticketsFechadosAtuais = ticketsOrdenados;
-    aplicarFiltroMeusTicketsFechados();
+    paginaAtualFechados = 1;
+    carregarPaginaFechadosServidor();
 }
 
 // Função para obter ícone da prioridade
@@ -6717,23 +6821,14 @@ function configurarBuscaFechados() {
 }
 
 function filtrarTicketsFechados(termo) {
-    if (!termo) {
-        mostrarTicketsFechadosNaTela(ticketsFechadosAtuais);
-        return;
-    }
-
-    const ticketsFiltrados = ticketsFechadosAtuais.filter(ticket =>
-        ticket.titulo.toLowerCase().includes(termo) ||
-        ticket.descricao.toLowerCase().includes(termo) ||
-        ticket.usuario_nome.toLowerCase().includes(termo)
-    );
-
-    mostrarTicketsFechadosNaTela(ticketsFiltrados);
+    paginaAtualFechados = 1;
+    carregarPaginaFechadosServidor();
 }
 
 function limparBuscaFechados() {
     document.getElementById('busca-fechados').value = '';
-    mostrarTicketsFechadosNaTela(ticketsFechadosAtuais);
+    paginaAtualFechados = 1;
+    carregarPaginaFechadosServidor();
 }
 
 

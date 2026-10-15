@@ -34,3 +34,6 @@ try {
     }
     echo "Lembretes: erro (ver log)\n";
 }
+
+// Envia a fila de e-mails (inclui os avisos dos lembretes acima)
+include __DIR__ . '/enviar-fila.php';

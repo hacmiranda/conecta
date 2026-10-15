@@ -34,7 +34,7 @@ class EmailService {
 
         $caixas = [];
         try {
-            $stmt = $this->db->query("SELECT id, setor_id, imap_host, imap_port, imap_user, imap_pass_cifrada FROM setor_emails WHERE ativo = 1");
+            $stmt = $this->db->query("SELECT id, setor_id, imap_host, imap_port, imap_user, imap_pass_cifrada, validar_certificado FROM setor_emails WHERE ativo = 1");
             $caixas = $stmt->fetchAll(PDO::FETCH_ASSOC);
         } catch (Exception $e) {
             echo "<p style='color: red;'>❌ Erro ao buscar caixas de e-mail por setor: " . $e->getMessage() . "</p>";
@@ -42,7 +42,8 @@ class EmailService {
 
         if (empty($caixas)) {
             echo "<p>Nenhuma caixa de e-mail por setor cadastrada — usando caixa global legada (.env).</p>";
-            return $this->verificarCaixa($this->host, $this->port, $this->username, $this->password, null, null);
+            $validarGlobal = !in_array(strtolower(trim((string) Environment::get('imap_validar_certificado', '1'))), ['0', 'false', 'nao', 'não', 'off'], true);
+            return $this->verificarCaixa($this->host, $this->port, $this->username, $this->password, null, null, $validarGlobal);
         }
 
         $sucessoGeral = true;
@@ -56,7 +57,7 @@ class EmailService {
             }
 
             echo "<p>=== Verificando caixa do setor #{$caixa['setor_id']} ({$caixa['imap_user']}) ===</p>";
-            $ok = $this->verificarCaixa($caixa['imap_host'], (int) $caixa['imap_port'], $caixa['imap_user'], $senha, (int) $caixa['setor_id'], (int) $caixa['id']);
+            $ok = $this->verificarCaixa($caixa['imap_host'], (int) $caixa['imap_port'], $caixa['imap_user'], $senha, (int) $caixa['setor_id'], (int) $caixa['id'], (int) $caixa['validar_certificado'] === 1);
             $sucessoGeral = $sucessoGeral && $ok;
         }
 
@@ -69,7 +70,7 @@ class EmailService {
      * (null = caixa legada global, mantém o comportamento antigo de setor "Geral"/fallback).
      * $caixaId identifica a linha em setor_emails, para o log de e-mails processados por caixa.
      */
-    private function verificarCaixa($host, $port, $username, $password, $setorId, $caixaId = null) {
+    private function verificarCaixa($host, $port, $username, $password, $setorId, $caixaId = null, bool $validarCertificado = true) {
         $this->setorAtualId = $setorId;
         $this->caixaEmailAtualId = $caixaId;
         $log_file = dirname(__DIR__, 2) . '/backend/logs/email-cron.log';
@@ -81,26 +82,17 @@ class EmailService {
         }
 
         try {
-            // Tentar com novalidate-cert primeiro (Locaweb)
-            $mailbox = "{{$host}:{$port}/imap/ssl/novalidate-cert}INBOX";
+            // Certificado do servidor validado por padrão; só é dispensado por decisão explícita da caixa
+            $mailbox = "{{$host}:{$port}/imap/ssl" . ($validarCertificado ? '' : '/novalidate-cert') . "}INBOX";
             echo "<p>Conectando em: $mailbox</p>";
             file_put_contents($log_file, "[" . date('Y-m-d H:i:s') . "] Conectando em: $mailbox\n", FILE_APPEND);
 
             $inbox = @imap_open($mailbox, $username, $password, 0, 3);
 
             if (!$inbox) {
-                // Tentar sem novalidate-cert
-                $mailbox = "{{$host}:{$port}/imap/ssl}INBOX";
-                echo "<p>Tentando conexão alternativa: $mailbox</p>";
-                file_put_contents($log_file, "[" . date('Y-m-d H:i:s') . "] Tentando conexão alternativa\n", FILE_APPEND);
-
-                $inbox = @imap_open($mailbox, $username, $password);
-
-                if (!$inbox) {
-                    $erro = imap_last_error();
-                    file_put_contents($log_file, "[" . date('Y-m-d H:i:s') . "] ERRO: $erro\n", FILE_APPEND);
-                    throw new Exception('Não foi possível conectar ao email: ' . $erro);
-                }
+                $erro = imap_last_error();
+                file_put_contents($log_file, "[" . date('Y-m-d H:i:s') . "] ERRO: $erro\n", FILE_APPEND);
+                throw new Exception('Não foi possível conectar ao email: ' . $erro);
             }
 
             echo "<p>✅ Conectado com sucesso!</p>";
