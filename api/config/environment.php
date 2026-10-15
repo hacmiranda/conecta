@@ -119,8 +119,10 @@ class Environment {
     private static function production() {
         return [
             // Banco de Dados
+            // O banco de produção é a réplica do banco local e se chama db_conecta (decisão do CRPRS,
+            // 2026-10-15). Host e usuário ainda são os herdados do CRPDESK — confirmar antes do deploy.
             'db_host'        => 'crpdesk.vpshost0269.mysql.dbaas.com.br',
-            'db_name'        => 'crpdesk',
+            'db_name'        => 'db_conecta',
             'db_user'        => 'crpdesk',
             'db_charset'     => 'utf8mb4',
 
