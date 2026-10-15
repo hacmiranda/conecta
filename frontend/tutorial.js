@@ -355,7 +355,8 @@ function reiniciarTutorial() {
 // Iniciar tutorial após 2 segundos do carregamento (primeiro login)
 setTimeout(() => {
     const usuario = JSON.parse(localStorage.getItem('cd_usuario'));
-    if (usuario && (['operador', 'gestor', 'admin'].includes(usuario.tipo))) {
+    // Com troca de senha pendente, o tutorial espera o próximo carregamento
+    if (usuario && !usuario.trocar_senha && (['operador', 'gestor', 'admin'].includes(usuario.tipo))) {
         iniciarTutorial();
     }
 }, 2000);

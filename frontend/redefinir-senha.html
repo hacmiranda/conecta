@@ -136,22 +136,22 @@
 
         <form id="form-redefinir">
             <div class="form-group">
-                <label>Nova Senha:</label>
-                <input type="password" id="senha" required minlength="8">
+                <label for="senha">Nova Senha:</label>
+                <input type="password" id="senha" required minlength="10" autocomplete="new-password" aria-describedby="regras-senha">
                 <div
                     style="margin-top: 0.5rem; padding: 0.75rem; background: #f8f9fa; border-radius: 4px; border: 1px solid #ddd; font-size: 0.85rem;">
-                    <div style="margin-bottom: 0.25rem; color: #666;">A senha deve conter:</div>
-                    <div id="check-length" style="color: #999;">✗ Mínimo 8 caracteres</div>
+                    <div id="regras-senha" style="margin-bottom: 0.25rem; color: #666;">A senha deve conter:</div>
+                    <div id="check-length" style="color: #999;">✗ Mínimo 10 caracteres</div>
                     <div id="check-upper" style="color: #999;">✗ Pelo menos 1 letra maiúscula</div>
                     <div id="check-lower" style="color: #999;">✗ Pelo menos 1 letra minúscula</div>
                     <div id="check-number" style="color: #999;">✗ Pelo menos 1 número</div>
-                    <div id="check-special" style="color: #999;">✗ Pelo menos 1 caractere especial (!@#$%^&*)</div>
+                    <div id="check-special" style="color: #999;">✗ Pelo menos 1 caractere especial (! @ # $ % ^ & * ( ) , . ? " : { } | &lt; &gt;)</div>
                 </div>
             </div>
 
             <div class="form-group">
-                <label>Confirmar Senha:</label>
-                <input type="password" id="confirmar-senha" required minlength="8">
+                <label for="confirmar-senha">Confirmar Senha:</label>
+                <input type="password" id="confirmar-senha" required minlength="10" autocomplete="new-password">
             </div>
 
             <button type="submit" class="btn">Redefinir Senha</button>
@@ -175,14 +175,14 @@
         document.getElementById('senha').addEventListener('input', function () {
             const senha = this.value;
 
-            const temLength = senha.length >= 8;
+            const temLength = senha.length >= 10;
             const temUpper = /[A-Z]/.test(senha);
             const temLower = /[a-z]/.test(senha);
             const temNumber = /[0-9]/.test(senha);
-            const temSpecial = /[!@#$%^&*]/.test(senha);
+            const temSpecial = /[!@#$%^&*(),.?":{}|<>]/.test(senha);
 
             document.getElementById('check-length').style.color = temLength ? '#28a745' : '#999';
-            document.getElementById('check-length').innerHTML = (temLength ? '✓' : '✗') + ' Mínimo 8 caracteres';
+            document.getElementById('check-length').innerHTML = (temLength ? '✓' : '✗') + ' Mínimo 10 caracteres';
 
             document.getElementById('check-upper').style.color = temUpper ? '#28a745' : '#999';
             document.getElementById('check-upper').innerHTML = (temUpper ? '✓' : '✗') + ' Pelo menos 1 letra maiúscula';
@@ -194,7 +194,7 @@
             document.getElementById('check-number').innerHTML = (temNumber ? '✓' : '✗') + ' Pelo menos 1 número';
 
             document.getElementById('check-special').style.color = temSpecial ? '#28a745' : '#999';
-            document.getElementById('check-special').innerHTML = (temSpecial ? '✓' : '✗') + ' Pelo menos 1 caractere especial (!@#$%^&*)';
+            document.getElementById('check-special').innerHTML = (temSpecial ? '✓' : '✗') + ' Pelo menos 1 caractere especial (! @ # $ % ^ & * ( ) , . ? " : { } | < >)';
         });
 
         document.getElementById('form-redefinir').addEventListener('submit', function (e) {
@@ -204,11 +204,11 @@
             const confirmarSenha = document.getElementById('confirmar-senha').value;
 
             // Validar complexidade
-            const temLength = senha.length >= 8;
+            const temLength = senha.length >= 10;
             const temUpper = /[A-Z]/.test(senha);
             const temLower = /[a-z]/.test(senha);
             const temNumber = /[0-9]/.test(senha);
-            const temSpecial = /[!@#$%^&*]/.test(senha);
+            const temSpecial = /[!@#$%^&*(),.?":{}|<>]/.test(senha);
 
             if (!temLength || !temUpper || !temLower || !temNumber || !temSpecial) {
                 document.getElementById('message').innerHTML = '<div class="message error">A senha não atende aos requisitos de complexidade.</div>';
@@ -232,8 +232,15 @@
                         window.location.href = 'login.html';
                     }, 2000);
                 } else {
-                    const response = JSON.parse(xhr.responseText);
-                    document.getElementById('message').innerHTML = '<div class="message error">' + response.error + '</div>';
+                    let erro = 'Não foi possível redefinir a senha.';
+                    try { erro = JSON.parse(xhr.responseText).error || erro; } catch (e) { /* sem JSON */ }
+                    const caixa = document.createElement('div');
+                    caixa.className = 'message error';
+                    caixa.setAttribute('role', 'alert');
+                    caixa.textContent = erro;
+                    const destino = document.getElementById('message');
+                    destino.innerHTML = '';
+                    destino.appendChild(caixa);
                 }
             };
 

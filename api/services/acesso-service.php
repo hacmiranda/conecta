@@ -189,6 +189,52 @@ class AcessoService {
     }
 
     /**
+     * Demandas abertas em que o usuário é o responsável.
+     */
+    public static function contarDemandasAbertasDoResponsavel(PDO $db, int $usuarioId): int {
+        $arquivo = "'" . implode("','", self::STATUS_ARQUIVO) . "'";
+        $stmt = $db->prepare("SELECT COUNT(*) FROM tickets WHERE agente_id = ? AND status NOT IN ($arquivo)");
+        $stmt->execute([$usuarioId]);
+        return (int) $stmt->fetchColumn();
+    }
+
+    /**
+     * Devolve aos gestores do setor as demandas abertas de um responsável que foi desativado,
+     * mudou de setor ou deixou de atender (registra no histórico e avisa os gestores) e cancela
+     * os lembretes direcionados a ele. Devolve quantas demandas foram devolvidas.
+     */
+    public static function devolverDemandasDoResponsavel(PDO $db, int $usuarioId, int $autorId, string $motivo): int {
+        $arquivo = "'" . implode("','", self::STATUS_ARQUIVO) . "'";
+        $stmt = $db->prepare("SELECT t.id, t.setor_id, u.nome AS responsavel_nome
+                              FROM tickets t INNER JOIN usuarios u ON u.id = t.agente_id
+                              WHERE t.agente_id = ? AND t.status NOT IN ($arquivo)");
+        $stmt->execute([$usuarioId]);
+        $demandas = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+        $limpar = $db->prepare("UPDATE tickets SET agente_id = NULL, atribuido_em = NULL WHERE id = ? AND agente_id = ?");
+        $janela = $db->prepare("UPDATE ticket_agente_log SET saiu_em = NOW() WHERE ticket_id = ? AND usuario_id = ? AND saiu_em IS NULL");
+        $hist = $db->prepare("INSERT INTO ticket_historico (ticket_id, usuario_id, acao, valor_anterior, valor_novo) VALUES (?, ?, 'devolucao', ?, 'Não atribuído')");
+        $notif = $db->prepare("INSERT INTO notificacoes (usuario_id, titulo, mensagem, ticket_id) VALUES (?, 'Demanda devolvida', ?, ?)");
+
+        foreach ($demandas as $d) {
+            $ticketId = (int) $d['id'];
+            $limpar->execute([$ticketId, $usuarioId]);
+            $janela->execute([$ticketId, $usuarioId]);
+            $hist->execute([$ticketId, $autorId, $d['responsavel_nome']]);
+            $mensagem = 'A demanda (#' . str_pad($ticketId, 5, '0', STR_PAD_LEFT) . ') voltou para o setor: ' . $motivo . '.';
+            foreach (self::destinatariosInternosDoSetor($db, $d['setor_id'] ? (int) $d['setor_id'] : null, $usuarioId) as $dest) {
+                $notif->execute([$dest['id'], $mensagem, $ticketId]);
+            }
+        }
+
+        $db->prepare("UPDATE lembretes SET cancelado_em = NOW(), cancelado_motivo = ?
+                      WHERE agente_id = ? AND notificado = 0 AND cancelado_em IS NULL")
+           ->execute([mb_substr('Destinatário ' . $motivo, 0, 255), $usuarioId]);
+
+        return count($demandas);
+    }
+
+    /**
      * Reabre as janelas de setor/responsável quando uma demanda arquivada volta a ser tratada.
      */
     public static function reabrirJanelasDaDemanda(PDO $db, int $ticketId, ?int $setorId, ?int $agenteId): void {

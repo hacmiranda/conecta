@@ -965,3 +965,43 @@
 @media (max-width: 600px) {
     .config-email-global { grid-template-columns: 1fr; }
 }
+
+/* ===== Troca obrigatória de senha (primeiro acesso / senha redefinida) ===== */
+.troca-senha-obrigatoria .sidebar-nav,
+.troca-senha-obrigatoria #cabecalho-setor-seletor {
+    display: none !important;
+}
+
+.aviso-troca-senha {
+    background: #fff7ed;
+    border-left: 4px solid #c2410c;
+    color: #7c2d12;
+    padding: 0.75rem 1rem;
+    border-radius: 4px;
+    margin-bottom: 1rem;
+}
+
+.modo-escuro .aviso-troca-senha {
+    background: #431407;
+    color: #fed7aa;
+}
+
+/* ===== Usuários: redefinir senha ===== */
+.btn-redefinir-senha {
+    background: #1e3a8a;
+    color: #fff;
+    border: none;
+    border-radius: 4px;
+    padding: 0.4rem 0.8rem;
+    cursor: pointer;
+}
+
+.btn-redefinir-senha:hover,
+.btn-redefinir-senha:focus-visible {
+    background: #172e6e;
+}
+
+.btn-redefinir-senha:focus-visible {
+    outline: 2px solid #f59e0b;
+    outline-offset: 2px;
+}
