@@ -4295,7 +4295,6 @@ function renderizarPainelConfigSetor(setores, setorInicialId) {
         <div class="tabs-container" style="margin-bottom:1rem;">
             <button type="button" class="tab-btn active" id="tab-config-status" onclick="carregarAbaConfigSetor('status')">🚦 Status</button>
             <button type="button" class="tab-btn" id="tab-config-prioridades" onclick="carregarAbaConfigSetor('prioridades')">🔥 Prioridades</button>
-            ${ehAdmin ? `<button type="button" class="tab-btn" id="tab-config-emails" onclick="carregarAbaConfigSetor('emails')">📧 E-mails</button>` : ''}
         </div>
         <div id="config-setor-lista"></div>
     `;
@@ -4344,7 +4343,7 @@ function carregarAbaConfigSetor(tipo) {
 
 // ==== Fase 4: E-mails por Setor ====
 
-const LIMITE_EMAILS_POR_SETOR = 2;
+const LIMITE_EMAILS_POR_SETOR = 1;
 
 function carregarEmailsSetor() {
     const lista = document.getElementById('config-setor-lista');
@@ -4378,7 +4377,8 @@ function renderizarEmailsSetor(caixas) {
             <div style="display:flex;justify-content:space-between;align-items:center;width:100%;">
                 <div>
                     <strong>${caixa.email}</strong>
-                    <div style="font-size:0.85rem;color:#666;">${caixa.imap_host}:${caixa.imap_port} · usuário: ${caixa.imap_user}</div>
+                    <div style="font-size:0.85rem;color:#666;">Recebimento (IMAP): ${caixa.imap_host}:${caixa.imap_port} · usuário: ${caixa.imap_user}</div>
+                    <div style="font-size:0.85rem;color:#666;">Envio (SMTP): ${caixa.smtp_host ? caixa.smtp_host + ':' + caixa.smtp_port + ' (' + (caixa.smtp_seguranca === 'tls' ? 'STARTTLS' : 'SSL') + ')' : 'servidor global do sistema'} · remetente: ${caixa.nome_remetente || 'Conecta CRPRS - (nome do setor)'}</div>
                 </div>
                 <label class="switch-label">
                     <label class="switch">
@@ -4396,12 +4396,12 @@ function renderizarEmailsSetor(caixas) {
     const podeAdicionar = caixas.length < LIMITE_EMAILS_POR_SETOR;
 
     lista.innerHTML = `
-        <p style="color:#666;margin-bottom:1rem;">Até ${LIMITE_EMAILS_POR_SETOR} caixas de e-mail (IMAP) por setor. E-mails recebidos nelas viram demandas automaticamente já neste setor.</p>
+        <p style="color:#666;margin-bottom:1rem;">Cada setor tem um endereço de e-mail. Os e-mails recebidos nele viram demandas automaticamente neste setor e as respostas às demandas do setor são enviadas por esse mesmo endereço.</p>
         <div class="config-setor-itens">${cardsHtml}</div>
         ${podeAdicionar ? `
-            <button type="button" class="btn-primary" style="margin-top:1rem;" onclick="mostrarFormularioEmailSetor()">➕ Adicionar Caixa de E-mail</button>
+            <button type="button" class="btn-primary" style="margin-top:1rem;" onclick="mostrarFormularioEmailSetor()">➕ Cadastrar E-mail do Setor</button>
             <div id="form-email-setor-container"></div>
-        ` : `<p style="margin-top:1rem;color:#999;font-style:italic;">Limite de ${LIMITE_EMAILS_POR_SETOR} caixas atingido para este setor.</p>`}
+        ` : `<p style="margin-top:1rem;color:#999;font-style:italic;">Este setor já possui um endereço de e-mail. Para trocá-lo, exclua o atual e cadastre outro.</p>`}
 
         <div style="margin-top:2rem;border-top:1px solid #eee;padding-top:1rem;">
             <h4 style="margin-bottom:0.75rem;">📨 Log de E-mails Recebidos</h4>
@@ -4488,6 +4488,40 @@ function mostrarFormularioEmailSetor() {
                 <label for="novo-email-senha">Senha IMAP:</label>
                 <input type="password" id="novo-email-senha" required autocomplete="new-password">
             </div>
+
+            <h4 style="margin:1rem 0 0.25rem 0;">📤 Envio (SMTP)</h4>
+            <p style="color:#666;font-size:0.85rem;margin:0 0 0.75rem 0;">Em branco = usa o servidor SMTP do sistema e as mesmas credenciais do IMAP.</p>
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="novo-smtp-host">Host SMTP:</label>
+                    <input type="text" id="novo-smtp-host" placeholder="mesmo servidor do sistema">
+                </div>
+                <div class="form-group">
+                    <label for="novo-smtp-porta">Porta SMTP:</label>
+                    <input type="number" id="novo-smtp-porta" value="465">
+                </div>
+                <div class="form-group">
+                    <label for="novo-smtp-seguranca">Segurança:</label>
+                    <select id="novo-smtp-seguranca">
+                        <option value="ssl">SSL/TLS (porta 465)</option>
+                        <option value="tls">STARTTLS (porta 587)</option>
+                    </select>
+                </div>
+            </div>
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="novo-smtp-usuario">Usuário SMTP (opcional):</label>
+                    <input type="text" id="novo-smtp-usuario" placeholder="igual ao usuário IMAP">
+                </div>
+                <div class="form-group">
+                    <label for="novo-smtp-senha">Senha SMTP (opcional):</label>
+                    <input type="password" id="novo-smtp-senha" autocomplete="new-password" placeholder="igual à senha IMAP">
+                </div>
+            </div>
+            <div class="form-group">
+                <label for="novo-nome-remetente">Nome do remetente (opcional):</label>
+                <input type="text" id="novo-nome-remetente" maxlength="100" placeholder="Conecta CRPRS - Cadastro">
+            </div>
             <div id="resultado-teste-email" style="margin-bottom:0.75rem;"></div>
             <div style="display:flex;gap:0.5rem;">
                 <button type="button" class="btn-small" onclick="testarEmailSetor()">🔌 Testar Conexão</button>
@@ -4504,7 +4538,13 @@ function coletarDadosFormEmailSetor() {
         imap_user: document.getElementById('novo-email-usuario').value.trim(),
         imap_host: document.getElementById('novo-email-host').value.trim(),
         imap_port: parseInt(document.getElementById('novo-email-porta').value, 10) || 993,
-        imap_pass: document.getElementById('novo-email-senha').value
+        imap_pass: document.getElementById('novo-email-senha').value,
+        smtp_host: document.getElementById('novo-smtp-host').value.trim(),
+        smtp_port: parseInt(document.getElementById('novo-smtp-porta').value, 10) || 465,
+        smtp_seguranca: document.getElementById('novo-smtp-seguranca').value,
+        smtp_user: document.getElementById('novo-smtp-usuario').value.trim(),
+        smtp_pass: document.getElementById('novo-smtp-senha').value,
+        nome_remetente: document.getElementById('novo-nome-remetente').value.trim()
     };
 }
 
@@ -9426,10 +9466,27 @@ function mostrarConfigEmail() {
     const configTitle = document.getElementById('config-title'); if (configTitle) configTitle.textContent = String.fromCodePoint(0x1F4E7) + ' Configurar Email';
 
     const content = document.getElementById('config-content');
+
+    // Setor em contexto (escolhido pelo admin no cabeçalho)
+    const setorEmailId = window.CabecalhoSetor ? window.CabecalhoSetor.obterSetorContexto() : null;
+    const seletorCab = document.getElementById('seletor-setor');
+    const setorEmailNome = (seletorCab && seletorCab.value) ? seletorCab.options[seletorCab.selectedIndex].textContent : '';
+
+    const secaoSetor = setorEmailId ? `
+        <div class="config-email-setor">
+            <h3>🏢 E-mail do setor: ${setorEmailNome}</h3>
+            <div id="config-setor-lista"><p>Carregando...</p></div>
+        </div>` : `
+        <div class="config-email-setor">
+            <h3>🏢 E-mail do setor</h3>
+            <p style="color:#666;">Selecione um setor no cabeçalho para configurar o endereço de e-mail dele.</p>
+        </div>`;
+
     content.innerHTML = `
+        ${secaoSetor}
         <div class="config-email-container">
-            <h3>📧 Configurações de Email</h3>
-            <p style="color: #666; margin-bottom: 2rem;">Configure os parâmetros de conexão IMAP/SMTP para envio e recebimento de emails.</p>
+            <h3>📧 Remetente do sistema (global)</h3>
+            <p style="color: #666; margin-bottom: 2rem;">Usado nos e-mails do sistema (recuperação de senha, lembretes, avisos internos) e como alternativa para setores sem endereço próprio.</p>
             
             <form id="form-config-email" onsubmit="salvarConfigEmail(event)">
                 <div class="config-section">
@@ -9495,6 +9552,11 @@ function mostrarConfigEmail() {
     `;
 
     carregarConfigEmail();
+
+    if (setorEmailId) {
+        setorConfigAtual = setorEmailId;
+        carregarEmailsSetor();
+    }
 }
 
 function carregarConfigEmail() {
