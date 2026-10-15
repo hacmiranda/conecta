@@ -22,12 +22,12 @@ if ($_SERVER['REQUEST_METHOD'] !== 'GET') {
 }
 
 $user = AuthMiddleware::verificarAuth();
-AuthMiddleware::verificarSupervisor($user);
+AuthMiddleware::verificarGestor($user);
 
 $database = new Database();
 $db = $database->getConnection();
 
-$ehSupervisor = ($user['tipo'] ?? '') === 'supervisor';
+$ehGestor = ($user['tipo'] ?? '') === 'gestor';
 $pagina = isset($_GET['pagina']) ? max(1, (int) $_GET['pagina']) : 1;
 $limite = isset($_GET['limite']) ? min(200, max(1, (int) $_GET['limite'])) : 50;
 $offset = ($pagina - 1) * $limite;
@@ -35,7 +35,7 @@ $offset = ($pagina - 1) * $limite;
 $filtros = [];
 $params = [];
 
-if ($ehSupervisor) {
+if ($ehGestor) {
     $filtros[] = "se.setor_id = :setor_id_escopo";
     $params[':setor_id_escopo'] = $user['setor_id'] ?? 0;
 } elseif (isset($_GET['setor_id']) && $_GET['setor_id'] !== '') {

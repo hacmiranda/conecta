@@ -17,7 +17,7 @@ $db = $database->getConnection();
 
 /**
  * Verifica se o usuário logado pode visualizar a demanda informada.
- * admin: sempre; supervisor: demandas do próprio setor; usuario: demandas
+ * admin: sempre; gestor: demandas do próprio setor; usuario: demandas
  * atribuídas a si ou abertas por si; cliente: apenas as próprias demandas.
  */
 function usuarioPodeVerTicket(array $user, array $ticket): bool {
@@ -25,10 +25,10 @@ function usuarioPodeVerTicket(array $user, array $ticket): bool {
     if ($tipo === 'admin') {
         return true;
     }
-    if ($tipo === 'supervisor') {
+    if ($tipo === 'gestor') {
         return AuthMiddleware::mesmoSetor($user, isset($ticket['setor_id']) ? (int) $ticket['setor_id'] : null);
     }
-    if ($tipo === 'usuario') {
+    if ($tipo === 'operador') {
         return (int) ($ticket['agente_id'] ?? 0) === (int) $user['id']
             || (int) ($ticket['usuario_id'] ?? 0) === (int) $user['id'];
     }
@@ -171,9 +171,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
             $tipo_logado = $user['tipo'] ?? '';
             $modoArquivo = isset($_GET['arquivo']);
 
-            if ($tipo_logado === 'supervisor') {
+            if ($tipo_logado === 'gestor') {
                 if ($modoArquivo) {
-                    // Arquivo do supervisor: demandas encerradas do setor + demandas que já passaram
+                    // Arquivo do gestor: demandas encerradas do setor + demandas que já passaram
                     // pelo setor e saíram (transferidas), mesmo que o setor_id atual seja outro
                     $query .= " WHERE (t.setor_id = :setor_id OR t.id IN (
                                     SELECT ticket_id FROM ticket_setor_log
@@ -185,7 +185,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
                     $query .= " WHERE t.setor_id = :setor_id";
                     $params[':setor_id'] = $user['setor_id'] ?? 0;
                 }
-            } elseif ($tipo_logado === 'usuario') {
+            } elseif ($tipo_logado === 'operador') {
                 if ($modoArquivo) {
                     // Arquivo do usuário: além do que é seu hoje, inclui demandas que ele já
                     // atendeu no passado e foram repassadas/devolvidas (ticket_agente_log fechado)
@@ -277,9 +277,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         
         error_log("[DEBUG] Prioridade final: $prioridade");
 
-        // Determinar setor de destino: quem cria já vinculado a um setor (usuario/supervisor)
+        // Determinar setor de destino: quem cria já vinculado a um setor (operador/gestor)
         // abre a demanda direto no próprio setor; sem setor (cliente/admin), a demanda cai no
-        // setor "Geral" para triagem — de lá, um supervisor a transfere para o setor correto.
+        // setor "Geral" para triagem — de lá, um gestor a transfere para o setor correto.
         $setor_id = !empty($user['setor_id']) ? (int) $user['setor_id'] : null;
         if ($setor_id === null) {
             $setor_stmt = $db->prepare("SELECT id FROM setores WHERE nome = 'Geral' AND ativo = 1 LIMIT 1");
@@ -384,7 +384,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $emailSender->notificarAgentesNovoTicket($ticket_id);
             
             // Push Notification para agentes
-            $agentes_query = "SELECT id FROM usuarios WHERE tipo IN ('usuario', 'supervisor', 'admin') AND ativo = 1";
+            $agentes_query = "SELECT id FROM usuarios WHERE tipo IN ('operador', 'gestor', 'admin') AND ativo = 1";
             $agentes_stmt = $db->query($agentes_query);
             $agentes = $agentes_stmt->fetchAll(PDO::FETCH_COLUMN);
 

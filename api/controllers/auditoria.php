@@ -13,7 +13,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
 
 try {
     $user = AuthMiddleware::verificarAuth();
-    AuthMiddleware::verificarSupervisor($user);
+    AuthMiddleware::verificarGestor($user);
 
     $database = new Database();
     $db = $database->getConnection();
@@ -22,8 +22,8 @@ try {
         $filtros = [];
         $params = [];
 
-        // Supervisor só vê ações praticadas por gente do próprio setor; admin vê tudo
-        if (($user['tipo'] ?? '') === 'supervisor') {
+        // Gestor só vê ações praticadas por gente do próprio setor; admin vê tudo
+        if (($user['tipo'] ?? '') === 'gestor') {
             $filtros[] = "a.usuario_id IN (SELECT id FROM usuarios WHERE setor_id = :setor_id_escopo)";
             $params[':setor_id_escopo'] = $user['setor_id'] ?? 0;
         }

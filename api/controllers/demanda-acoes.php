@@ -1,6 +1,6 @@
 <?php
 /**
- * Ações de fluxo multi-setor sobre uma demanda: atribuir, devolver ao supervisor,
+ * Ações de fluxo multi-setor sobre uma demanda: atribuir, devolver ao gestor,
  * repassar a um colega do mesmo setor, ou transferir para outro setor.
  * Todas as ações exigem um comentário (registrado na timeline da demanda) e são
  * auditadas em ticket_historico + auditoria_tickets.
@@ -67,25 +67,25 @@ try {
     }
 
     // Todas as ações exigem que o usuário logado enxergue o setor atual da demanda
-    // (admin sempre; supervisor no próprio setor; usuario só se for o responsável atual).
+    // (admin sempre; gestor no próprio setor; usuario só se for o responsável atual).
     $tipo = $user['tipo'];
     $mesmoSetorAtual = AuthMiddleware::mesmoSetor($user, $ticket['setor_id'] !== null ? (int) $ticket['setor_id'] : null);
 
-    if ($tipo === 'usuario' && (int) ($ticket['agente_id'] ?? 0) !== (int) $user['id'] && !$mesmoSetorAtual) {
+    if ($tipo === 'operador' && (int) ($ticket['agente_id'] ?? 0) !== (int) $user['id'] && !$mesmoSetorAtual) {
         http_response_code(403);
         echo json_encode(['error' => 'Você não tem acesso a esta demanda']);
         exit;
     }
-    if ($tipo === 'supervisor' && !$mesmoSetorAtual) {
+    if ($tipo === 'gestor' && !$mesmoSetorAtual) {
         http_response_code(403);
         echo json_encode(['error' => 'Esta demanda não pertence ao seu setor']);
         exit;
     }
     if ($acao === 'atribuir') {
-        AuthMiddleware::verificarSupervisor($user);
+        AuthMiddleware::verificarGestor($user);
     }
     if (in_array($acao, ['devolver', 'reatribuir_colega', 'transferir_setor'], true)
-        && $tipo === 'usuario' && (int) ($ticket['agente_id'] ?? 0) !== (int) $user['id']) {
+        && $tipo === 'operador' && (int) ($ticket['agente_id'] ?? 0) !== (int) $user['id']) {
         http_response_code(403);
         echo json_encode(['error' => 'Apenas o responsável atual pela demanda pode executar esta ação']);
         exit;
@@ -155,9 +155,9 @@ try {
 
         $auditoria->registrarTicket($ticket_id, $user['id'], 'agente', $agente_anterior_nome, 'Não atribuído');
 
-        // Notifica os supervisores do setor atual da demanda
+        // Notifica os gestores do setor atual da demanda
         if ($ticket['setor_id']) {
-            $sup_stmt = $db->prepare("SELECT id FROM usuarios WHERE setor_id = ? AND tipo = 'supervisor' AND ativo = 1");
+            $sup_stmt = $db->prepare("SELECT id FROM usuarios WHERE setor_id = ? AND tipo = 'gestor' AND ativo = 1");
             $sup_stmt->execute([$ticket['setor_id']]);
             foreach ($sup_stmt->fetchAll(PDO::FETCH_COLUMN) as $sup_id) {
                 $notificar[$sup_id] = "{$nome_ator} devolveu a demanda (#" . str_pad($ticket_id, 5, '0', STR_PAD_LEFT) . ") para o setor.";
@@ -239,7 +239,7 @@ try {
 
         $auditoria->registrarTicket($ticket_id, $user['id'], 'setor', $setor_origem_nome, $setor_destino['nome']);
 
-        $sup_stmt = $db->prepare("SELECT id FROM usuarios WHERE setor_id = ? AND tipo = 'supervisor' AND ativo = 1");
+        $sup_stmt = $db->prepare("SELECT id FROM usuarios WHERE setor_id = ? AND tipo = 'gestor' AND ativo = 1");
         $sup_stmt->execute([$setor_destino_id]);
         foreach ($sup_stmt->fetchAll(PDO::FETCH_COLUMN) as $sup_id) {
             $notificar[$sup_id] = "{$nome_ator} transferiu uma demanda (#" . str_pad($ticket_id, 5, '0', STR_PAD_LEFT) . ") para o setor {$setor_destino['nome']}.";

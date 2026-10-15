@@ -355,7 +355,7 @@ function reiniciarTutorial() {
 // Iniciar tutorial após 2 segundos do carregamento (primeiro login)
 setTimeout(() => {
     const usuario = JSON.parse(localStorage.getItem('cd_usuario'));
-    if (usuario && (usuario.tipo === 'agente' || usuario.tipo === 'admin')) {
+    if (usuario && (['operador', 'gestor', 'admin'].includes(usuario.tipo))) {
         iniciarTutorial();
     }
 }, 2000);

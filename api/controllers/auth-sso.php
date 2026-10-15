@@ -8,7 +8,7 @@
  *   - nome   (string, obrigatório na primeira vez que o usuário aparece)
  *   - role   (string, opcional)    — mapeado para o enum local `tipo` (ver mapearTipo())
  *   - setor_id (int, opcional)     — setor local a vincular no primeiro acesso (fica NULL se omitido;
- *                                    um admin precisa atribuir um setor depois para papéis usuario/supervisor)
+ *                                    um admin precisa atribuir um setor depois para papéis operador/gestor)
  *   - exp    (int, obrigatório)    — expiração padrão do JWT
  *
  * Após validar o token central, este endpoint cria o usuário local se ainda não existir
@@ -46,11 +46,12 @@ function mapearTipo(?string $roleCentral): string {
     if ($role === 'admin' || $role === 'administrador') {
         return 'admin';
     }
-    if ($role === 'supervisor') {
-        return 'supervisor';
+    // O painel central pode enviar o vocabulário antigo (supervisor/usuario/agente); ambos são aceitos
+    if ($role === 'gestor' || $role === 'supervisor') {
+        return 'gestor';
     }
-    if ($role === 'agente' || $role === 'agent' || $role === 'usuario' || $role === 'user') {
-        return 'usuario';
+    if ($role === 'operador' || $role === 'usuario' || $role === 'agente' || $role === 'agent' || $role === 'user') {
+        return 'operador';
     }
     return 'cliente';
 }

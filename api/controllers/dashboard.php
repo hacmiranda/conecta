@@ -19,13 +19,13 @@ $db = $database->getConnection();
 if ($_SERVER['REQUEST_METHOD'] === 'GET') {
     $user = AuthMiddleware::verificarAuth();
 
-    // Escopo por papel: admin vê tudo; supervisor só o próprio setor; usuario/cliente só o que é seu.
+    // Escopo por papel: admin vê tudo; gestor só o próprio setor; usuario/cliente só o que é seu.
     // Interpolado direto (não bindParam) pois setor_id/id vêm do JWT já validado, não de input do usuário.
     $tipo = $user['tipo'] ?? '';
     $filtroT = ''; // aplica-se a queries que usam alias "t" para tickets
-    if ($tipo === 'supervisor') {
+    if ($tipo === 'gestor') {
         $filtroT = ' AND t.setor_id = ' . (int) ($user['setor_id'] ?? 0);
-    } elseif ($tipo === 'usuario') {
+    } elseif ($tipo === 'operador') {
         $filtroT = ' AND (t.agente_id = ' . (int) $user['id'] . ' OR t.usuario_id = ' . (int) $user['id'] . ')';
     } elseif ($tipo === 'cliente') {
         $filtroT = ' AND t.usuario_id = ' . (int) $user['id'];
@@ -93,12 +93,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
 
         // Tickets por agente (apenas tickets ativos) — escopo aplicado na condição do LEFT JOIN,
         // não no WHERE, para não excluir agentes sem nenhum ticket no recorte (ficam com total 0)
-        $filtroAgenteJoin = $tipo === 'supervisor' ? (' AND t.setor_id = ' . (int) ($user['setor_id'] ?? 0)) : '';
-        $filtroAgenteWhere = $tipo === 'usuario' ? (' AND u.id = ' . (int) $user['id']) : '';
+        $filtroAgenteJoin = $tipo === 'gestor' ? (' AND t.setor_id = ' . (int) ($user['setor_id'] ?? 0)) : '';
+        $filtroAgenteWhere = $tipo === 'operador' ? (' AND u.id = ' . (int) $user['id']) : '';
         $query = "SELECT u.nome, COUNT(t.id) as total
                   FROM usuarios u
                   LEFT JOIN tickets t ON u.id = t.agente_id AND t.status NOT IN ('encerrado', 'cancelado'){$filtroAgenteJoin}
-                  WHERE u.tipo IN ('admin', 'supervisor', 'usuario') AND u.ativo = 1{$filtroAgenteWhere}
+                  WHERE u.tipo IN ('admin', 'gestor', 'operador') AND u.ativo = 1{$filtroAgenteWhere}
                   GROUP BY u.id, u.nome
                   ORDER BY total DESC";
         $stmt = $db->prepare($query);
@@ -161,11 +161,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
         $dashboard['por_dia_semana'] = $stmt->fetchAll();
 
         // Status por agente (apenas tickets ativos) - todos os status aguardando especificados
-        $filtroStatusPorAgente = $tipo === 'usuario' ? (' AND u.id = ' . (int) $user['id']) : '';
+        $filtroStatusPorAgente = $tipo === 'operador' ? (' AND u.id = ' . (int) $user['id']) : '';
         $query = "SELECT u.nome as agente, t.status, COUNT(*) as total
                   FROM tickets t
                   JOIN usuarios u ON t.agente_id = u.id
-                  WHERE u.tipo IN ('usuario', 'supervisor', 'admin') AND u.ativo = 1
+                  WHERE u.tipo IN ('operador', 'gestor', 'admin') AND u.ativo = 1
                     AND t.status NOT IN ('encerrado', 'cancelado', 'resolvido'){$filtroT}{$filtroStatusPorAgente}
                   GROUP BY u.nome, t.status
                   ORDER BY u.nome, t.status";
@@ -239,7 +239,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
                           COALESCE((SELECT MIN(c.criado_em) FROM comentarios c
                                     JOIN usuarios u ON c.usuario_id = u.id
                                     WHERE c.ticket_id = t.id
-                                    AND u.tipo IN ('usuario', 'supervisor', 'admin')), '9999-12-31')
+                                    AND u.tipo IN ('operador', 'gestor', 'admin')), '9999-12-31')
                       ) as primeiro_atendimento
                       FROM tickets t
                       WHERE t.status != 'cancelado'{$filtroT}

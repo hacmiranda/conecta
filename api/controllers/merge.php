@@ -16,7 +16,7 @@ $db = $database->getConnection();
 // POST - Mesclar tickets
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $user = AuthMiddleware::verificarAuth();
-    AuthMiddleware::verificarSupervisor($user);
+    AuthMiddleware::verificarGestor($user);
     AuthMiddleware::verificarCSRF();
 
     $input = json_decode(file_get_contents('php://input'), true);

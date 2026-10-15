@@ -210,7 +210,7 @@ try {
     // Notificar Sino dos Agentes Logados no HD
     try {
         $msg_notificacao = "🤖 Novo ticket M2M (#" . str_pad($ticket_id, 5, '0', STR_PAD_LEFT) . ") gerado a partir da: " . strtoupper(str_replace('_', ' ', $origem));
-        $stmt_agentes = $db->prepare("SELECT id FROM usuarios WHERE tipo IN ('usuario', 'supervisor', 'admin')");
+        $stmt_agentes = $db->prepare("SELECT id FROM usuarios WHERE tipo IN ('operador', 'gestor', 'admin')");
         $stmt_agentes->execute();
         $agentes = $stmt_agentes->fetchAll(PDO::FETCH_COLUMN);
         

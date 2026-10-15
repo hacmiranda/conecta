@@ -98,9 +98,9 @@ const EMAIL_ALERT_INTERVAL = 5 * 60 * 1000; // Checar a cada 5 minutos
 const EMAIL_ALERT_DISMISSED = 'emailAlertDismissedAt';
 
 function iniciarMonitoramentoEmailFalhas() {
-    // Só monitora se for funcionário interno (usuario/supervisor/admin)
+    // Só monitora se for funcionário interno (operador/gestor/admin)
     const usuario = JSON.parse(localStorage.getItem('cd_usuario') || '{}');
-    if (!['usuario', 'supervisor', 'admin'].includes(usuario.tipo)) return;
+    if (!['operador', 'gestor', 'admin'].includes(usuario.tipo)) return;
 
     verificarFalhasEmail(); // verificação imediata
     setInterval(verificarFalhasEmail, EMAIL_ALERT_INTERVAL);
@@ -212,7 +212,7 @@ function inicializarAvatar() {
     setEl('header-avatar-iniciais', iniciais);
     setEl('header-avatar-iniciais-sm', iniciais);
     setEl('header-avatar-nome', nome.split(' ')[0]); // primeiro nome no botão
-    setEl('header-avatar-role', 'Perfil: ' + (tipo === 'admin' ? 'Administrador' : tipo === 'supervisor' ? 'Supervisor' : 'Usuário'));
+    setEl('header-avatar-role', 'Perfil: ' + (tipo === 'admin' ? 'Administrador' : tipo === 'gestor' ? 'Gestor' : 'Operador'));
     const elCargo = document.getElementById('header-avatar-cargo');
     if (elCargo) {
         elCargo.textContent = cargo;
@@ -301,10 +301,10 @@ function mostrarSecao(secaoId) {
             }
         }, 200);
     } else if (secaoId === 'config') {
-        // Verificar se é admin ou supervisor
+        // Verificar se é admin ou gestor
         const usuario = JSON.parse(localStorage.getItem('cd_usuario'));
-        if (usuario.tipo !== 'admin' && usuario.tipo !== 'supervisor') {
-            mostrarAlert('Acesso Negado', 'Apenas administradores e supervisores podem acessar as configurações.', function () {
+        if (usuario.tipo !== 'admin' && usuario.tipo !== 'gestor') {
+            mostrarAlert('Acesso Negado', 'Apenas administradores e gestores podem acessar as configurações.', function () {
                 mostrarSecao('tickets');
             });
             return;
@@ -1220,13 +1220,13 @@ function pedirComentarioEExecutar(ticketId, acao, extra, tituloPrompt, mensagemP
     });
 }
 
-// Devolver a demanda ao supervisor do setor (quem está com ela atribuída)
-function devolverAoSupervisor(ticketId) {
+// Devolver a demanda ao gestor do setor (quem está com ela atribuída)
+function devolverAoGestor(ticketId) {
     pedirComentarioEExecutar(
         ticketId, 'devolver', {},
-        'Devolver ao Supervisor',
+        'Devolver ao Gestor',
         'Explique o motivo da devolução:',
-        'Demanda devolvida ao supervisor!'
+        'Demanda devolvida ao gestor!'
     );
 }
 
@@ -1689,7 +1689,7 @@ function formatarAcaoHistorico(acao, valorAnterior, valorNovo) {
         case 'atribuicao_supervisor':
             return `atribuiu a demanda para <strong>${valorNovo}</strong>`;
         case 'devolucao':
-            return `devolveu a demanda ao supervisor (estava com <strong>${valorAnterior}</strong>)`;
+            return `devolveu a demanda ao gestor (estava com <strong>${valorAnterior}</strong>)`;
         case 'reatribuicao_colega':
             return `repassou a demanda de <strong>${valorAnterior}</strong> para <strong>${valorNovo}</strong>`;
         case 'transferencia_setor':
@@ -1711,16 +1711,16 @@ function gerarAcoesDemandaHTML(ticket) {
     const ehResponsavelAtual = ticket.agente_id && ticket.agente_id == usuario.id;
     const botoes = [];
 
-    if (usuario.tipo === 'supervisor' || usuario.tipo === 'admin') {
+    if (usuario.tipo === 'gestor' || usuario.tipo === 'admin') {
         botoes.push(`<button class="btn-primary" onclick="atribuirTicket(${ticket.id})">👤 Atribuir a Colaborador</button>`);
     }
 
-    if (usuario.tipo === 'usuario' && ehResponsavelAtual) {
-        botoes.push(`<button class="btn-primary" onclick="devolverAoSupervisor(${ticket.id})" style="background-color:#6c757d;">↩️ Devolver ao Supervisor</button>`);
+    if (usuario.tipo === 'operador' && ehResponsavelAtual) {
+        botoes.push(`<button class="btn-primary" onclick="devolverAoGestor(${ticket.id})" style="background-color:#6c757d;">↩️ Devolver ao Gestor</button>`);
         botoes.push(`<button class="btn-primary" onclick="repassarParaColega(${ticket.id})" style="background-color:#17a2b8;">🔁 Repassar a Colega</button>`);
     }
 
-    if (usuario.tipo === 'supervisor' || (usuario.tipo === 'usuario' && ehResponsavelAtual)) {
+    if (usuario.tipo === 'gestor' || (usuario.tipo === 'operador' && ehResponsavelAtual)) {
         botoes.push(`<button class="btn-primary" onclick="transferirParaSetor(${ticket.id})" style="background-color:#fd7e14;">🏢 Transferir para Outro Setor</button>`);
     }
 
@@ -2692,7 +2692,7 @@ function carregarSetores() {
     xhr.onload = function () {
         if (xhr.status === 200) {
             let setores = JSON.parse(xhr.responseText);
-            // Supervisor só gerencia (edita o nome de) o próprio setor
+            // Gestor só gerencia (edita o nome de) o próprio setor
             if (!ehAdmin) {
                 setores = setores.filter(s => s.id == usuarioLogado.setor_id);
             }
@@ -2842,7 +2842,7 @@ function alternarAtivoSetor(setorId, ativo) {
 // === CONTROLE DE VISIBILIDADE POR PAPEL ===
 
 // Mostra/oculta o menu Configurações e seus itens conforme o papel do usuário logado.
-// admin: vê tudo. supervisor: vê só "Gerenciar Usuários" (escopado ao próprio setor).
+// admin: vê tudo. gestor: vê só "Gerenciar Usuários" (escopado ao próprio setor).
 // usuario/cliente: menu Configurações fica oculto por completo.
 function aplicarVisibilidadePorPapel(tipo) {
     const menuConfigWrapper = document.getElementById('nav-config-wrapper');
@@ -2853,10 +2853,10 @@ function aplicarVisibilidadePorPapel(tipo) {
         return;
     }
 
-    if (tipo === 'supervisor') {
+    if (tipo === 'gestor') {
         menuConfigWrapper.style.display = '';
-        // Categorias, Auditoria e Setores são liberados para supervisor (escopados ao próprio
-        // setor no backend e na tela — supervisor só vê/edita o nome do próprio setor).
+        // Categorias, Auditoria e Setores são liberados para gestor (escopados ao próprio
+        // setor no backend e na tela — gestor só vê/edita o nome do próprio setor).
         const itensAdminApenas = ['btn-config-horarios', 'btn-config-email', 'btn-config-personalizacao'];
         itensAdminApenas.forEach(id => {
             const el = document.getElementById(id);
@@ -2908,7 +2908,7 @@ function carregarUsuarios() {
             const usuarios = JSON.parse(xhr.responseText);
 
             // Admin precisa da lista de setores para poder escolher em qual setor
-            // cadastrar/mover um usuário. Supervisor não precisa (fica travado no próprio setor).
+            // cadastrar/mover um usuário. Gestor não precisa (fica travado no próprio setor).
             if (ehAdmin) {
                 const xhrSetores = new XMLHttpRequest();
                 xhrSetores.open('GET', window.APP_CONFIG.apiBase + 'setores.php', true);
@@ -2938,14 +2938,14 @@ function mostrarListaUsuarios(usuarios, setores) {
 
     // Separar por papel (tratar vazio como usuário comum, por segurança de exibição)
     const admins = usuarios.filter(u => u.tipo === 'admin');
-    const supervisores = usuarios.filter(u => u.tipo === 'supervisor');
-    const usuariosComuns = usuarios.filter(u => u.tipo === 'usuario' || u.tipo === '' || !u.tipo);
-    const outrosTipos = usuarios.filter(u => u.tipo && !['admin', 'supervisor', 'usuario', ''].includes(u.tipo));
+    const gestores = usuarios.filter(u => u.tipo === 'gestor');
+    const usuariosComuns = usuarios.filter(u => u.tipo === 'operador' || u.tipo === '' || !u.tipo);
+    const outrosTipos = usuarios.filter(u => u.tipo && !['admin', 'gestor', 'operador', ''].includes(u.tipo));
 
     function rotuloTipo(tipo) {
         if (tipo === 'admin') return 'Administrador';
-        if (tipo === 'supervisor') return 'Supervisor';
-        if (tipo === 'usuario' || !tipo) return 'Usuário';
+        if (tipo === 'gestor') return 'Gestor';
+        if (tipo === 'operador' || !tipo) return 'Operador';
         return tipo;
     }
 
@@ -2977,29 +2977,29 @@ function mostrarListaUsuarios(usuarios, setores) {
     if (admins.length > 0) {
         secoes += `<h3>👑 Administradores (${admins.length})</h3><div class="usuarios-grid">${admins.map(gerarCardUsuario).join('')}</div>`;
     }
-    if (supervisores.length > 0) {
-        secoes += `<h3>🧭 Supervisores (${supervisores.length})</h3><div class="usuarios-grid">${supervisores.map(gerarCardUsuario).join('')}</div>`;
+    if (gestores.length > 0) {
+        secoes += `<h3>🧭 Gestores (${gestores.length})</h3><div class="usuarios-grid">${gestores.map(gerarCardUsuario).join('')}</div>`;
     }
     if (usuariosComuns.length > 0) {
-        secoes += `<h3>👥 Usuários (${usuariosComuns.length})</h3><div class="usuarios-grid">${usuariosComuns.map(gerarCardUsuario).join('')}</div>`;
+        secoes += `<h3>👥 Operadores (${usuariosComuns.length})</h3><div class="usuarios-grid">${usuariosComuns.map(gerarCardUsuario).join('')}</div>`;
     }
     if (outrosTipos.length > 0) {
         secoes += `<h3>🔄 Outros Papéis (${outrosTipos.length})</h3><div class="usuarios-grid">${outrosTipos.map(gerarCardUsuario).join('')}</div>`;
     }
 
-    // Opções de papel: supervisor só pode cadastrar "usuario"; admin pode tudo
+    // Opções de papel: gestor só pode cadastrar "usuario"; admin pode tudo
     const opcoesTipo = ehAdmin
-        ? `<option value="usuario">Usuário</option>
-           <option value="supervisor">Supervisor</option>
+        ? `<option value="operador">Operador</option>
+           <option value="gestor">Gestor</option>
            <option value="admin">Administrador</option>`
-        : `<option value="usuario">Usuário</option>`;
+        : `<option value="operador">Operador</option>`;
 
-    // Setor só é escolhido pelo admin — supervisor fica travado no próprio setor no backend
+    // Setor só é escolhido pelo admin — gestor fica travado no próprio setor no backend
     const campoSetor = ehAdmin ? `
                     <div class="form-group">
                         <label for="setor-usuario">Setor:</label>
                         <select id="setor-usuario">
-                            <option value="">Nenhum (obrigatório para Usuário/Supervisor)</option>
+                            <option value="">Nenhum (obrigatório para Operador/Gestor)</option>
                             ${setores.map(s => `<option value="${s.id}">${s.nome}</option>`).join('')}
                         </select>
                     </div>` : '';
@@ -3080,8 +3080,8 @@ function criarUsuario(event) {
     const campoSetor = document.getElementById('setor-usuario');
     const setor_id = campoSetor ? campoSetor.value : null;
 
-    if ((tipo === 'usuario' || tipo === 'supervisor') && campoSetor && !setor_id) {
-        mostrarAlert('Erro', 'Selecione um setor para os perfis Usuário/Supervisor.');
+    if ((tipo === 'operador' || tipo === 'gestor') && campoSetor && !setor_id) {
+        mostrarAlert('Erro', 'Selecione um setor para os perfis Operador/Gestor.');
         return;
     }
 
@@ -3151,16 +3151,16 @@ function mostrarFormularioEdicaoUsuario(usuario, setores) {
     setores = setores || [];
 
     const opcoesTipo = ehAdmin
-        ? `<option value="usuario" ${usuario.tipo === 'usuario' ? 'selected' : ''}>Usuário</option>
-           <option value="supervisor" ${usuario.tipo === 'supervisor' ? 'selected' : ''}>Supervisor</option>
+        ? `<option value="operador" ${usuario.tipo === 'operador' ? 'selected' : ''}>Operador</option>
+           <option value="gestor" ${usuario.tipo === 'gestor' ? 'selected' : ''}>Gestor</option>
            <option value="admin" ${usuario.tipo === 'admin' ? 'selected' : ''}>Administrador</option>`
-        : `<option value="usuario" selected>Usuário</option>`;
+        : `<option value="operador" selected>Operador</option>`;
 
     const campoSetor = ehAdmin ? `
         <div class="form-group">
             <label for="edit-setor">Setor:</label>
             <select id="edit-setor">
-                <option value="">Nenhum (obrigatório para Usuário/Supervisor)</option>
+                <option value="">Nenhum (obrigatório para Operador/Gestor)</option>
                 ${setores.map(s => `<option value="${s.id}" ${String(usuario.setor_id) === String(s.id) ? 'selected' : ''}>${s.nome}</option>`).join('')}
             </select>
         </div>` : '';
@@ -3203,8 +3203,8 @@ function mostrarFormularioEdicaoUsuario(usuario, setores) {
             const campoSetorEl = document.getElementById('edit-setor');
             const setor_id = campoSetorEl ? campoSetorEl.value : null;
 
-            if ((tipo === 'usuario' || tipo === 'supervisor') && campoSetorEl && !setor_id) {
-                mostrarAlert('Erro', 'Selecione um setor para os perfis Usuário/Supervisor.');
+            if ((tipo === 'operador' || tipo === 'gestor') && campoSetorEl && !setor_id) {
+                mostrarAlert('Erro', 'Selecione um setor para os perfis Operador/Gestor.');
                 return;
             }
 
@@ -4690,10 +4690,10 @@ function limparFormularioTicket() {
 function carregarTicketsFechados() {
     mostrarSkeletonTickets('lista-fechados');
 
-    // Supervisor: Arquivo inclui também demandas que passaram pelo setor e foram transferidas.
+    // Gestor: Arquivo inclui também demandas que passaram pelo setor e foram transferidas.
     // Usuario: Arquivo inclui também demandas que ele já atendeu e foram repassadas/devolvidas.
     const usuarioLogado = JSON.parse(localStorage.getItem('cd_usuario') || '{}');
-    const sufixoArquivo = (usuarioLogado.tipo === 'supervisor' || usuarioLogado.tipo === 'usuario') ? '?arquivo=1' : '';
+    const sufixoArquivo = (usuarioLogado.tipo === 'gestor' || usuarioLogado.tipo === 'operador') ? '?arquivo=1' : '';
 
     const xhr = new XMLHttpRequest();
     xhr.open('GET', window.APP_CONFIG.apiBase + 'tickets.php' + sufixoArquivo, true);
@@ -4702,13 +4702,13 @@ function carregarTicketsFechados() {
     xhr.onload = function () {
         if (xhr.status === 200) {
             const todosTickets = JSON.parse(xhr.responseText);
-            // Encerrados/cancelados sempre entram no Arquivo. Além disso: para o supervisor, uma
+            // Encerrados/cancelados sempre entram no Arquivo. Além disso: para o gestor, uma
             // demanda transferida para outro setor "sai" do seu Arquivo mesmo sem estar fechada;
             // para o usuario, uma demanda repassada/devolvida (não é mais dele) também entra.
             const ticketsFechados = todosTickets.filter(ticket => {
                 if (ticket.status === 'encerrado' || ticket.status === 'cancelado') return true;
-                if (usuarioLogado.tipo === 'supervisor') return ticket.setor_id != usuarioLogado.setor_id;
-                if (usuarioLogado.tipo === 'usuario') return ticket.agente_id != usuarioLogado.id && ticket.usuario_id != usuarioLogado.id;
+                if (usuarioLogado.tipo === 'gestor') return ticket.setor_id != usuarioLogado.setor_id;
+                if (usuarioLogado.tipo === 'operador') return ticket.agente_id != usuarioLogado.id && ticket.usuario_id != usuarioLogado.id;
                 return false;
             });
 
@@ -5539,11 +5539,11 @@ function restaurarSecaoAtiva() {
         }
     } else if (secaoSalva === 'config') {
         const usuario = JSON.parse(localStorage.getItem('cd_usuario'));
-        if (usuario.tipo !== 'admin' && usuario.tipo !== 'supervisor') {
+        if (usuario.tipo !== 'admin' && usuario.tipo !== 'gestor') {
             mostrarSecao('tickets');
             carregarTickets();
-        } else if (usuario.tipo === 'supervisor') {
-            // Supervisor tem acesso a Usuários, Categorias, Ativação por Setor, Auditoria e Setores (próprio) dentro de Configurações
+        } else if (usuario.tipo === 'gestor') {
+            // Gestor tem acesso a Usuários, Categorias, Ativação por Setor, Auditoria e Setores (próprio) dentro de Configurações
             mostrarSecao('config');
             if (subSecaoSalva === 'categorias') {
                 mostrarCategorias();
@@ -6167,7 +6167,7 @@ document.addEventListener('DOMContentLoaded', function () {
     const naoMostrar = localStorage.getItem('cd_naoMostrarDicas') === 'true';
     const jaViuTutorial = localStorage.getItem('cd_tutorialCompleto') === 'true';
 
-    if (!naoMostrar && jaViuTutorial && dadosUsuario && ['usuario', 'supervisor', 'admin'].includes(dadosUsuario.tipo)) {
+    if (!naoMostrar && jaViuTutorial && dadosUsuario && ['operador', 'gestor', 'admin'].includes(dadosUsuario.tipo)) {
         setTimeout(() => {
             mostrarDicas();
         }, 2000);
@@ -7734,8 +7734,8 @@ function validarAntesComentario(ticketId) {
     const ticketAtual = JSON.parse(localStorage.getItem('cd_ticketAtual') || '{}');
     const usuario = JSON.parse(localStorage.getItem('cd_usuario'));
 
-    // Se for funcionário interno (usuario/supervisor/admin)
-    if (['usuario', 'supervisor', 'admin'].includes(usuario.tipo)) {
+    // Se for funcionário interno (operador/gestor/admin)
+    if (['operador', 'gestor', 'admin'].includes(usuario.tipo)) {
         // Verificar se ticket tem responsável
         if (!ticketAtual.agente_id) {
             mostrarAlert('Atenção', 'Esta demanda não possui responsável. Atribua a demanda antes de adicionar comentários.');
@@ -8265,7 +8265,7 @@ function carregarUsuariosFiltroAudit() {
         if (xhr.status === 200) {
             const usuarios = JSON.parse(xhr.responseText);
             // Filtrar apenas funcionários internos (ativos e inativos)
-            todosUsuariosAudit = usuarios.filter(u => ['usuario', 'supervisor', 'admin'].includes(u.tipo));
+            todosUsuariosAudit = usuarios.filter(u => ['operador', 'gestor', 'admin'].includes(u.tipo));
             configurarBuscaUsuarioAudit();
         }
     };

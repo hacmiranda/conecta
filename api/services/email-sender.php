@@ -128,7 +128,7 @@ class EmailSender {
                 return false;
             }
             
-            $query_agentes = "SELECT email FROM usuarios WHERE tipo IN ('usuario', 'supervisor', 'admin') AND email IS NOT NULL AND ativo = 1";
+            $query_agentes = "SELECT email FROM usuarios WHERE tipo IN ('operador', 'gestor', 'admin') AND email IS NOT NULL AND ativo = 1";
             $stmt_agentes = $this->db->prepare($query_agentes);
             $stmt_agentes->execute();
             $agentes = $stmt_agentes->fetchAll();
@@ -448,7 +448,7 @@ class EmailSender {
                 }
             } else {
                 // Sem agente: notificar todos os agentes/admins ativos
-                $query_agentes = "SELECT id, email FROM usuarios WHERE tipo IN ('usuario', 'supervisor', 'admin') AND email IS NOT NULL AND ativo = 1";
+                $query_agentes = "SELECT id, email FROM usuarios WHERE tipo IN ('operador', 'gestor', 'admin') AND email IS NOT NULL AND ativo = 1";
                 $stmt_agentes  = $this->db->prepare($query_agentes);
                 $stmt_agentes->execute();
                 $agentes = $stmt_agentes->fetchAll();
