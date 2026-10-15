@@ -89,7 +89,7 @@ $db->prepare("INSERT INTO setor_status (setor_id, status_id, ativo, ordem) SELEC
 // PUT - Atualizar setor (admin edita tudo; gestor só o nome do próprio setor)
 if ($_SERVER['REQUEST_METHOD'] === 'PUT') {
     $user = AuthMiddleware::verificarAuth();
-    AuthMiddleware::verificarGestor($user);
+    AuthMiddleware::verificarAdmin($user); // criar/renomear/ativar setores: exclusivo do administrador
     AuthMiddleware::verificarCSRF();
 
     $path = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH);

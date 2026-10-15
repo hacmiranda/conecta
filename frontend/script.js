@@ -2909,9 +2909,9 @@ function aplicarVisibilidadePorPapel(tipo) {
 
     if (tipo === 'gestor') {
         menuConfigWrapper.style.display = '';
-        // Categorias, Auditoria e Setores são liberados para gestor (escopados ao próprio
-        // setor no backend e na tela — gestor só vê/edita o nome do próprio setor).
-        const itensAdminApenas = ['btn-config-horarios', 'btn-config-email', 'btn-config-personalizacao'];
+        // Gestor: Usuários, Categorias, Ativação por Setor, Horários e Feriados e Personalização
+        // (somente leitura). Setores, Configurar e-mail e Auditoria são exclusivos do admin.
+        const itensAdminApenas = ['btn-config-setores', 'btn-config-email', 'btn-config-auditoria'];
         itensAdminApenas.forEach(id => {
             const el = document.getElementById(id);
             if (el) el.style.display = 'none';
@@ -4295,7 +4295,7 @@ function renderizarPainelConfigSetor(setores, setorInicialId) {
         <div class="tabs-container" style="margin-bottom:1rem;">
             <button type="button" class="tab-btn active" id="tab-config-status" onclick="carregarAbaConfigSetor('status')">🚦 Status</button>
             <button type="button" class="tab-btn" id="tab-config-prioridades" onclick="carregarAbaConfigSetor('prioridades')">🔥 Prioridades</button>
-            <button type="button" class="tab-btn" id="tab-config-emails" onclick="carregarAbaConfigSetor('emails')">📧 E-mails</button>
+            ${ehAdmin ? `<button type="button" class="tab-btn" id="tab-config-emails" onclick="carregarAbaConfigSetor('emails')">📧 E-mails</button>` : ''}
         </div>
         <div id="config-setor-lista"></div>
     `;
@@ -5626,16 +5626,16 @@ function restaurarSecaoAtiva() {
             mostrarSecao('tickets');
             carregarTickets();
         } else if (usuario.tipo === 'gestor') {
-            // Gestor tem acesso a Usuários, Categorias, Ativação por Setor, Auditoria e Setores (próprio) dentro de Configurações
+            // Gestor: Usuários, Categorias, Ativação por Setor, Horários e Feriados e Personalização (leitura)
             mostrarSecao('config');
             if (subSecaoSalva === 'categorias') {
                 mostrarCategorias();
             } else if (subSecaoSalva === 'setor-config') {
                 mostrarConfigSetor();
-            } else if (subSecaoSalva === 'auditoria') {
-                mostrarAuditoria();
-            } else if (subSecaoSalva === 'setores') {
-                mostrarSetores();
+            } else if (subSecaoSalva === 'horarios-sla') {
+                mostrarHorariosSLA();
+            } else if (subSecaoSalva === 'personalizacao') {
+                mostrarPersonalizacao();
             } else {
                 mostrarUsuarios();
             }
@@ -5652,6 +5652,8 @@ function restaurarSecaoAtiva() {
                 mostrarConfigSetor();
             } else if (subSecaoSalva === 'auditoria') {
                 mostrarAuditoria();
+            } else if (subSecaoSalva === 'horarios-sla') {
+                mostrarHorariosSLA();
             } else if (subSecaoSalva === 'personalizacao') {
                 mostrarPersonalizacao();
             } else if (subSecaoSalva === 'config-email') {

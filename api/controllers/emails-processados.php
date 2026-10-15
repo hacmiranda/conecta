@@ -22,7 +22,7 @@ if ($_SERVER['REQUEST_METHOD'] !== 'GET') {
 }
 
 $user = AuthMiddleware::verificarAuth();
-AuthMiddleware::verificarGestor($user);
+AuthMiddleware::verificarAdmin($user); // log de e-mails: exclusivo do administrador
 
 $database = new Database();
 $db = $database->getConnection();

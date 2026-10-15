@@ -23,7 +23,7 @@ $database = new Database();
 $db = $database->getConnection();
 
 function autorizarSetorEmail(array $user, int $setor_id): void {
-    AuthMiddleware::verificarGestor($user);
+    AuthMiddleware::verificarAdmin($user); // configuração de e-mail: exclusiva do administrador
     if (!AuthMiddleware::mesmoSetor($user, $setor_id)) {
         http_response_code(403);
         echo json_encode(['error' => 'Você só pode configurar e-mails do próprio setor']);
@@ -60,7 +60,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $input = json_decode(file_get_contents('php://input'), true) ?? [];
 
     if (($input['acao'] ?? '') === 'testar') {
-        AuthMiddleware::verificarGestor($user);
+        AuthMiddleware::verificarAdmin($user); // configuração de e-mail: exclusiva do administrador
 
         $host = trim($input['imap_host'] ?? '');
         $port = (int) ($input['imap_port'] ?? 993);
