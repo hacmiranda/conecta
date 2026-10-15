@@ -47,7 +47,7 @@ function camposSmtp(array $input, array $padrao = []): array {
 /**
  * Testa o login SMTP (sem enviar mensagem).
  */
-function testarSmtp(string $host, int $port, string $seguranca, string $usuario, string $senha): array {
+function testarSmtp(string $host, int $port, string $seguranca, string $usuario, string $senha, bool $validarCertificado = true): array {
     try {
         $mail = new PHPMailer(true);
         $mail->isSMTP();
@@ -58,7 +58,9 @@ function testarSmtp(string $host, int $port, string $seguranca, string $usuario,
         $mail->Password = $senha;
         $mail->SMTPSecure = $seguranca === 'tls' ? PHPMailer::ENCRYPTION_STARTTLS : PHPMailer::ENCRYPTION_SMTPS;
         $mail->Timeout = 15;
-        $mail->SMTPOptions = ['ssl' => ['verify_peer' => false, 'verify_peer_name' => false, 'allow_self_signed' => true]];
+        if (!$validarCertificado) {
+            $mail->SMTPOptions = ['ssl' => ['verify_peer' => false, 'verify_peer_name' => false, 'allow_self_signed' => true]];
+        }
 
         if ($mail->smtpConnect()) {
             $mail->smtpClose();
@@ -81,7 +83,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
 
     try {
         $stmt = $db->prepare("SELECT id, setor_id, email, imap_host, imap_port, imap_user,
-                                     smtp_host, smtp_port, smtp_seguranca, smtp_user, nome_remetente,
+                                     smtp_host, smtp_port, smtp_seguranca, smtp_user, nome_remetente, validar_certificado,
                                      (smtp_pass_cifrada IS NOT NULL AND smtp_pass_cifrada <> '') AS smtp_senha_propria,
                                      ativo, criado_em
                               FROM setor_emails WHERE setor_id = ? ORDER BY id");
@@ -130,12 +132,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
 
         $resultado = ['imap' => null, 'smtp' => null];
+        $validar_cert = isset($input['validar_certificado'])
+            ? (bool) $input['validar_certificado']
+            : (!isset($caixa) || !$caixa || (int) ($caixa['validar_certificado'] ?? 1) === 1);
 
         // IMAP
         if (!function_exists('imap_open')) {
             $resultado['imap'] = ['sucesso' => false, 'mensagem' => 'Extensão PHP IMAP não está habilitada neste servidor.'];
         } else {
-            $mailbox = "{{$host}:{$port}/imap/ssl}INBOX";
+            $mailbox = "{{$host}:{$port}/imap/ssl" . ($validar_cert ? '' : '/novalidate-cert') . "}INBOX";
             $inbox = @imap_open($mailbox, $imap_user, $senha, 0, 1);
             if ($inbox) {
                 $total = imap_num_msg($inbox);
@@ -158,7 +163,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if ($smtp_senha === '') {
             $smtp_senha = $senha;
         }
-        $resultado['smtp'] = testarSmtp($smtp_host, $smtp['smtp_port'], $smtp['smtp_seguranca'], $smtp_user, $smtp_senha);
+        $resultado['smtp'] = testarSmtp($smtp_host, $smtp['smtp_port'], $smtp['smtp_seguranca'], $smtp_user, $smtp_senha, $validar_cert);
 
         $resultado['sucesso'] = $resultado['imap']['sucesso'] && $resultado['smtp']['sucesso'];
         $resultado['mensagem'] = 'IMAP: ' . $resultado['imap']['mensagem'] . ' | SMTP: ' . $resultado['smtp']['mensagem'];
@@ -199,12 +204,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         $stmt = $db->prepare("INSERT INTO setor_emails
                 (setor_id, email, imap_host, imap_port, imap_user, imap_pass_cifrada,
-                 smtp_host, smtp_port, smtp_seguranca, smtp_user, smtp_pass_cifrada, nome_remetente, ativo)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1)");
+                 smtp_host, smtp_port, smtp_seguranca, smtp_user, smtp_pass_cifrada, nome_remetente, validar_certificado, ativo)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1)");
         $stmt->execute([$setor_id, $email, $imap_host, $imap_port, $imap_user, $senha_cifrada,
                         $smtp['smtp_host'], $smtp['smtp_port'], $smtp['smtp_seguranca'],
                         $smtp['smtp_user'] !== '' ? $smtp['smtp_user'] : null, $smtp_senha_cifrada,
-                        $smtp['nome_remetente'] !== '' ? $smtp['nome_remetente'] : null]);
+                        $smtp['nome_remetente'] !== '' ? $smtp['nome_remetente'] : null,
+                        !isset($input['validar_certificado']) || $input['validar_certificado'] ? 1 : 0]);
         $id = $db->lastInsertId();
 
         $auditoria = new AuditoriaService($db);
@@ -250,6 +256,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'PUT') {
         $imap_port = isset($input['imap_port']) ? (int) $input['imap_port'] : (int) $atual['imap_port'];
         $imap_user = isset($input['imap_user']) ? trim($input['imap_user']) : $atual['imap_user'];
         $ativo = isset($input['ativo']) ? ($input['ativo'] ? 1 : 0) : (int) $atual['ativo'];
+        $validar_cert_nova = isset($input['validar_certificado']) ? ($input['validar_certificado'] ? 1 : 0) : (int) $atual['validar_certificado'];
         $senha_cifrada = $atual['imap_pass_cifrada'];
         $smtp_senha_cifrada = $atual['smtp_pass_cifrada'];
 
@@ -267,15 +274,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'PUT') {
         $smtp = camposSmtp($input, $atual);
 
         $stmt = $db->prepare("UPDATE setor_emails SET email = ?, imap_host = ?, imap_port = ?, imap_user = ?, imap_pass_cifrada = ?,
-                                     smtp_host = ?, smtp_port = ?, smtp_seguranca = ?, smtp_user = ?, smtp_pass_cifrada = ?, nome_remetente = ?, ativo = ?
+                                     smtp_host = ?, smtp_port = ?, smtp_seguranca = ?, smtp_user = ?, smtp_pass_cifrada = ?, nome_remetente = ?, validar_certificado = ?, ativo = ?
                               WHERE id = ?");
         $stmt->execute([$email, $imap_host, $imap_port, $imap_user, $senha_cifrada,
                         $smtp['smtp_host'], $smtp['smtp_port'], $smtp['smtp_seguranca'],
                         $smtp['smtp_user'] !== '' ? $smtp['smtp_user'] : null, $smtp_senha_cifrada,
-                        $smtp['nome_remetente'] !== '' ? $smtp['nome_remetente'] : null, $ativo, $id]);
+                        $smtp['nome_remetente'] !== '' ? $smtp['nome_remetente'] : null, $validar_cert_nova, $ativo, $id]);
 
         $auditoria = new AuditoriaService($db);
-        $auditoria->registrar($user['id'], 'atualizar_setor_email', 'setor_emails', $id, null, json_encode(['email' => $email, 'ativo' => $ativo]));
+        $auditoria->registrar($user['id'], 'atualizar_setor_email', 'setor_emails', $id, null, json_encode(['email' => $email, 'ativo' => $ativo, 'validar_certificado' => $validar_cert_nova]));
 
         echo json_encode(['success' => true]);
     } catch (Exception $e) {

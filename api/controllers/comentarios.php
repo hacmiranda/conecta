@@ -400,7 +400,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
         
         echo json_encode(['success' => true, 'comentario_id' => $comentario_id, 'comentario' => $comentario_data, 'anexos' => $anexos,
-            'email_enviado' => $email_resultado, 'email_destino' => $email_destino]);
+            'email_enviado' => $email_resultado, 'email_na_fila' => $email_resultado, 'email_destino' => $email_destino]);
         
     } catch (Exception $e) {
         error_log('Erro ao adicionar comentário: ' . $e->getMessage());

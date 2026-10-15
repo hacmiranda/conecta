@@ -186,7 +186,7 @@ Cada fase termina com o sistema funcionando, um commit próprio, testes de API p
 6. **N13, N14, N15**: crons por setor com reserva atômica e fuso único.
 7. **N9, N18, S20, B4**: remoções conforme D2.
 
-### Fase 11: e-mail confiável e desempenho
+### Fase 11: e-mail confiável e desempenho (concluída em 15/10/2026)
 1. **P3**: fila de e-mails (`email_fila`) com envio pelo cron.
 2. **S14**: validação de certificado configurável por caixa.
 3. **S18, S19**: escape nos templates e validação de destinatários.

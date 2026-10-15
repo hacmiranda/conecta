@@ -15,7 +15,9 @@ class EmailSender {
     private $logContext = ['ticket_id' => null, 'tipo' => null];
     // Remetente do setor da demanda (null = remetente global do sistema, definido no .env)
     private $remetenteSetor = null;
-    
+    // true: as mensagens vão para a fila (email_fila) e o cron envia; false: envio na hora
+    private $filaAtiva = true;
+
     public function __construct($db) {
         $this->db = $db;
         $this->configurarMailer();
@@ -33,6 +35,26 @@ class EmailSender {
         ];
     }
     
+    /**
+     * Liga/desliga a fila. Fora dela o envio é imediato (usado pelo processador da fila e
+     * por fluxos que precisam do resultado real, como a recuperação de senha).
+     */
+    public function usarFila(bool $ativa): void {
+        $this->filaAtiva = $ativa;
+    }
+
+    /**
+     * Valida o certificado do SMTP global? Padrão sim; SMTP_VALIDAR_CERTIFICADO=0 no .env desliga.
+     */
+    private function validarCertificadoGlobal(): bool {
+        $valor = strtolower(trim((string) Environment::get('smtp_validar_certificado', '1')));
+        return !in_array($valor, ['0', 'false', 'nao', 'não', 'off'], true);
+    }
+
+    private function esc($texto): string {
+        return htmlspecialchars((string) $texto, ENT_QUOTES, 'UTF-8');
+    }
+
     private function configurarMailer() {
         $this->mailer = new PHPMailer(true);
         $this->mailer->isSMTP();
@@ -49,14 +71,8 @@ class EmailSender {
         $this->mailer->Port = EmailConfig::get('SMTP_PORT');
         $this->mailer->CharSet = 'UTF-8';
         $this->mailer->Timeout = 30;
-        $this->mailer->SMTPOptions = array(
-            'ssl' => array(
-                'verify_peer' => false,
-                'verify_peer_name' => false,
-                'allow_self_signed' => true
-            )
-        );
         $this->mailer->setFrom(EmailConfig::get('FROM_EMAIL'), EmailConfig::get('FROM_NAME'));
+        $validarCertificado = $this->validarCertificadoGlobal();
 
         // Setor com caixa própria: envia e responde pelo endereço do setor
         if ($this->remetenteSetor !== null) {
@@ -68,7 +84,13 @@ class EmailSender {
             $this->mailer->SMTPSecure = $r['seguranca'] === 'tls' ? PHPMailer::ENCRYPTION_STARTTLS : PHPMailer::ENCRYPTION_SMTPS;
             $this->mailer->setFrom($r['email'], $r['nome']);
             $this->mailer->addReplyTo($r['email'], $r['nome']);
+            $validarCertificado = (bool) $r['validar_certificado'];
         }
+
+        // Certificado validado por padrão; só deixa de ser por decisão explícita (por caixa ou no .env)
+        $this->mailer->SMTPOptions = $validarCertificado ? [] : [
+            'ssl' => ['verify_peer' => false, 'verify_peer_name' => false, 'allow_self_signed' => true]
+        ];
     }
 
     /**
@@ -99,6 +121,8 @@ class EmailSender {
                         'user'      => !empty($caixa['smtp_user']) ? $caixa['smtp_user'] : $caixa['imap_user'],
                         'pass'      => $senhaSmtp,
                         'email'     => $caixa['email'],
+                        'setor_id'  => (int) $setorId,
+                        'validar_certificado' => !isset($caixa['validar_certificado']) || (int) $caixa['validar_certificado'] === 1,
                         'setor_nome' => $caixa['setor_nome'],
                         'nome'      => !empty($caixa['nome_remetente']) ? $caixa['nome_remetente'] : 'Conecta CRPRS - ' . $caixa['setor_nome'],
                     ];
@@ -170,9 +194,9 @@ class EmailSender {
             error_log("[EMAIL-SENDER] Template path: $template_path");
             $template = file_get_contents($template_path);
             $nome_exibir = $ticket['email_solicitante'] ?: $ticket['usuario_nome'];
-            $template = str_replace('{{NOME_USUARIO}}', $nome_exibir, $template);
+            $template = str_replace('{{NOME_USUARIO}}', $this->esc($nome_exibir), $template);
             $template = str_replace('{{NUMERO_TICKET}}', str_pad($ticket_id, 5, '0', STR_PAD_LEFT), $template);
-            $template = str_replace('{{TITULO_TICKET}}', $ticket['titulo'], $template);
+            $template = str_replace('{{TITULO_TICKET}}', $this->esc($ticket['titulo']), $template);
             $template = str_replace('{{DATA_ABERTURA}}', date('d/m/Y H:i', strtotime($ticket['criado_em'])), $template);
             $template = str_replace('{{ASSINATURA_EMAIL}}', $this->getAssinatura(), $template);
             
@@ -180,7 +204,7 @@ class EmailSender {
             if (!empty($anexos_rejeitados)) {
                 $aviso = '<div style="background-color:#fff3cd;border-left:4px solid #ffc107;padding:15px;margin:20px 0"><h3 style="color:#856404;margin-top:0">⚠️ Anexos rejeitados</h3><ul>';
                 foreach ($anexos_rejeitados as $anexo) {
-                    $aviso .= "<li><b>{$anexo['nome']}:</b> {$anexo['motivo']}</li>";
+                    $aviso .= '<li><b>' . $this->esc($anexo['nome']) . ':</b> ' . $this->esc($anexo['motivo']) . '</li>';
                 }
                 $aviso .= '</ul><p><b>Limites:</b> 5 arquivos, 20MB total, tipos: PDF, DOC, DOCX, TXT, CSV, XLS, XLSX, PNG, JPG</p></div>';
                 $template = str_replace('</body>', $aviso . '</body>', $template);
@@ -260,6 +284,13 @@ class EmailSender {
     }
     
     private function enviarEmailComAnexos($para, $assunto, $html, $anexos = []): bool {
+        if ($this->filaAtiva) {
+            return $this->enfileirar($para, $assunto, $html, true, $anexos);
+        }
+        return $this->enviarEmailComAnexosAgora($para, $assunto, $html, $anexos);
+    }
+
+    private function enviarEmailComAnexosAgora($para, $assunto, $html, $anexos = []): bool {
         $status = 'falha';
         $erro   = null;
         try {
@@ -300,48 +331,98 @@ class EmailSender {
     }
 
     /**
+     * Número da demanda e tipo do e-mail: os do contexto informado ou, na falta, detectados pelo assunto.
+     */
+    private function detectarContexto(string $assunto): array {
+        $ticket_id = $this->logContext['ticket_id'];
+        $tipo      = $this->logContext['tipo'];
+
+        // Auto-detectar ticket_id pelo assunto se não informado
+        if ($ticket_id === null && preg_match('/#(\d{5})/', $assunto, $m)) {
+            $ticket_id = (int) $m[1];
+        }
+
+        // Auto-detectar tipo pelo assunto se não informado (case-insensitive via mb_strtolower)
+        if ($tipo === null) {
+            $lower = mb_strtolower($assunto, 'UTF-8');
+            $tipo = match(true) {
+                // Mais específicos primeiro para evitar capturas incorretas
+                str_contains($lower, 'primeira resposta')   => 'primeira_resposta',
+                str_contains($lower, 'resposta da equipe')  => 'resposta',
+                str_contains($lower, 'resposta do suporte') => 'resposta',
+                str_contains($lower, 'nova demanda')        => 'notif_agente',
+                str_contains($lower, 'novo ticket')         => 'notif_agente',
+                str_contains($lower, 'novo comentário')     => 'notif_agente',
+                str_contains($lower, 'novo comentario')     => 'notif_agente',
+                str_contains($lower, 'criada')              => 'novo_ticket',
+                str_contains($lower, 'criado')              => 'novo_ticket',
+                str_contains($lower, 'encerrada')           => 'fechamento',
+                str_contains($lower, 'fechado')             => 'fechamento',
+                str_contains($lower, 'reaberta')            => 'reabertura',
+                str_contains($lower, 'reaberto')            => 'reabertura',
+                str_contains($lower, 'atribuído')           => 'atribuicao',
+                str_contains($lower, 'atribuido')           => 'atribuicao',
+                str_contains($lower, 'comentário')          => 'comentario',
+                str_contains($lower, 'comentario')          => 'comentario',
+                str_contains($lower, 'encaminhamento')      => 'encaminhamento',
+                str_contains($lower, 'lembrete')            => 'lembrete',
+                str_contains($lower, 'recuperação')         => 'recuperacao_senha',
+                str_contains($lower, 'recuperacao')         => 'recuperacao_senha',
+                default                                     => 'outros',
+            };
+        }
+        return [$ticket_id, $tipo];
+    }
+
+    /**
+     * Grava a mensagem na fila; o cron envia. Se a gravação falhar, envia na hora (não perde o e-mail).
+     */
+    private function enfileirar($para, $assunto, $corpo, bool $html, array $anexos = []): bool {
+        try {
+            [$ticket_id, $tipo] = $this->detectarContexto((string) $assunto);
+            $lista = [];
+            foreach ($anexos as $a) {
+                $lista[] = ['nome_arquivo' => $a['nome_arquivo'], 'nome_original' => $a['nome_original'] ?? $a['nome_arquivo']];
+            }
+            $stmt = $this->db->prepare("INSERT INTO email_fila (setor_id, ticket_id, tipo, destinatario, assunto, corpo, eh_html, anexos)
+                                        VALUES (?, ?, ?, ?, ?, ?, ?, ?)");
+            $stmt->execute([
+                $this->remetenteSetor['setor_id'] ?? null,
+                $ticket_id,
+                $tipo,
+                $para,
+                mb_substr((string) $assunto, 0, 500),
+                $corpo,
+                $html ? 1 : 0,
+                $lista ? json_encode($lista) : null,
+            ]);
+            $this->logContext = ['ticket_id' => null, 'tipo' => null];
+            return true;
+        } catch (Exception $e) {
+            error_log('[EMAIL-FILA] Não foi possível enfileirar, enviando na hora: ' . $e->getMessage());
+            return $this->enviarAgora($para, $assunto, $corpo, $html, $anexos);
+        }
+    }
+
+    /**
+     * Envio imediato de uma mensagem (usado pelo processador da fila). O remetente já deve ter sido
+     * escolhido com usarRemetenteDoSetor().
+     */
+    public function enviarAgora($para, $assunto, $corpo, bool $html = true, array $anexos = []): bool {
+        if (!empty($anexos)) {
+            return $this->enviarEmailComAnexosAgora($para, $assunto, $corpo, $anexos);
+        }
+        return $html ? $this->enviarEmailAgora($para, $assunto, $corpo)
+                     : $this->enviarEmailTextoAgora($para, $assunto, $corpo);
+    }
+
+    /**
      * Registra cada tentativa de envio de e-mail na tabela email_logs.
      * Detecta ticket_id e tipo automaticamente pelo assunto quando não configurados via setEmailContext().
      */
     private function registrarLogEmail(string $destinatario, string $assunto, string $status, ?string $erro = null): void {
         try {
-            $ticket_id = $this->logContext['ticket_id'];
-            $tipo      = $this->logContext['tipo'];
-
-            // Auto-detectar ticket_id pelo assunto se não informado
-            if ($ticket_id === null && preg_match('/#(\d{5})/', $assunto, $m)) {
-                $ticket_id = (int) $m[1];
-            }
-
-            // Auto-detectar tipo pelo assunto se não informado (case-insensitive via mb_strtolower)
-            if ($tipo === null) {
-                $lower = mb_strtolower($assunto, 'UTF-8');
-                $tipo = match(true) {
-                    // Mais específicos primeiro para evitar capturas incorretas
-                    str_contains($lower, 'primeira resposta')   => 'primeira_resposta',
-                    str_contains($lower, 'resposta da equipe')  => 'resposta',
-                    str_contains($lower, 'resposta do suporte') => 'resposta',
-                    str_contains($lower, 'nova demanda')        => 'notif_agente',
-                    str_contains($lower, 'novo ticket')         => 'notif_agente',
-                    str_contains($lower, 'novo comentário')     => 'notif_agente',
-                    str_contains($lower, 'novo comentario')     => 'notif_agente',
-                    str_contains($lower, 'criada')              => 'novo_ticket',
-                    str_contains($lower, 'criado')              => 'novo_ticket',
-                    str_contains($lower, 'encerrada')           => 'fechamento',
-                    str_contains($lower, 'fechado')             => 'fechamento',
-                    str_contains($lower, 'reaberta')            => 'reabertura',
-                    str_contains($lower, 'reaberto')            => 'reabertura',
-                    str_contains($lower, 'atribuído')           => 'atribuicao',
-                    str_contains($lower, 'atribuido')           => 'atribuicao',
-                    str_contains($lower, 'comentário')          => 'comentario',
-                    str_contains($lower, 'comentario')          => 'comentario',
-                    str_contains($lower, 'encaminhamento')      => 'encaminhamento',
-                    str_contains($lower, 'lembrete')            => 'lembrete',
-                    str_contains($lower, 'recuperação')         => 'recuperacao_senha',
-                    str_contains($lower, 'recuperacao')         => 'recuperacao_senha',
-                    default                                     => 'outros',
-                };
-            }
+            [$ticket_id, $tipo] = $this->detectarContexto($assunto);
 
             $remetente = $this->remetenteSetor !== null
                 ? $this->remetenteSetor['email']
@@ -369,7 +450,14 @@ class EmailSender {
         }
     }
     
-    public function enviarEmail($para, $assunto, $html): bool {
+    public function enviarEmail($para, $assunto, $html, bool $imediato = false): bool {
+        if ($this->filaAtiva && !$imediato) {
+            return $this->enfileirar($para, $assunto, $html, true);
+        }
+        return $this->enviarEmailAgora($para, $assunto, $html);
+    }
+
+    private function enviarEmailAgora($para, $assunto, $html): bool {
         $status = 'falha';
         $erro   = null;
         try {
@@ -398,6 +486,13 @@ class EmailSender {
     }
     
     private function enviarEmailTexto($para, $assunto, $texto): bool {
+        if ($this->filaAtiva) {
+            return $this->enfileirar($para, $assunto, $texto, false);
+        }
+        return $this->enviarEmailTextoAgora($para, $assunto, $texto);
+    }
+
+    private function enviarEmailTextoAgora($para, $assunto, $texto): bool {
         $status = 'falha';
         $erro   = null;
         try {
@@ -622,16 +717,16 @@ class EmailSender {
             // Usar template HTML ao invés de texto
             $template_path = dirname(__DIR__, 2) . '/backend/email-template-comentario.html';
             $template = file_get_contents($template_path);
-            $template = str_replace('{{NOME_USUARIO}}', $ticket['usuario_nome'], $template);
+            $template = str_replace('{{NOME_USUARIO}}', $this->esc($ticket['usuario_nome']), $template);
             $template = str_replace('{{NUMERO_TICKET}}', str_pad($ticket_id, 5, '0', STR_PAD_LEFT), $template);
-            $template = str_replace('{{TITULO_TICKET}}', $ticket['titulo'], $template);
+            $template = str_replace('{{TITULO_TICKET}}', $this->esc($ticket['titulo']), $template);
             $template = str_replace('{{DATA_COMENTARIO}}', date('d/m/Y, H:i'), $template);
             $template = str_replace('{{ASSINATURA_EMAIL}}', $this->getAssinatura(), $template);
             
             if (!empty($anexos_rejeitados)) {
                 $aviso = '<div style="background-color:#fff3cd;border-left:4px solid #ffc107;padding:15px;margin:20px 0"><h3 style="color:#856404;margin-top:0">⚠️ Anexos rejeitados</h3><ul>';
                 foreach ($anexos_rejeitados as $anexo) {
-                    $aviso .= "<li><b>{$anexo['nome']}:</b> {$anexo['motivo']}</li>";
+                    $aviso .= '<li><b>' . $this->esc($anexo['nome']) . ':</b> ' . $this->esc($anexo['motivo']) . '</li>';
                 }
                 $aviso .= '</ul><p><b>Limites:</b> 5 arquivos, 20MB, PDF/DOC/DOCX/TXT/CSV/XLS/XLSX/PNG/JPG</p></div>';
                 $template = str_replace('<p>Agradecemos', $aviso . '<p>Agradecemos', $template);
@@ -683,10 +778,10 @@ class EmailSender {
                     }
                 }
                 
-                $template = str_replace('{{NOME_USUARIO}}', $nome_exibir, $template);
+                $template = str_replace('{{NOME_USUARIO}}', $this->esc($nome_exibir), $template);
                 $template = str_replace('{{NUMERO_TICKET}}', str_pad($ticket_id, 5, '0', STR_PAD_LEFT), $template);
-                $template = str_replace('{{TITULO_TICKET}}', $ticket['titulo'], $template);
-                $template = str_replace('{{NOME_AGENTE}}', $ticket['fechado_por_nome'] ?: 'Sistema', $template);
+                $template = str_replace('{{TITULO_TICKET}}', $this->esc($ticket['titulo']), $template);
+                $template = str_replace('{{NOME_AGENTE}}', $this->esc($ticket['fechado_por_nome'] ?: 'Sistema'), $template);
                 $template = str_replace('{{DATA_FECHAMENTO}}', date('d/m/Y H:i', strtotime($ticket['fechado_em'])), $template);
                 $template = str_replace('{{ASSINATURA_EMAIL}}', $this->getAssinatura(), $template);
                 
@@ -777,9 +872,9 @@ class EmailSender {
             $assinatura = file_exists($assinatura_path) ? file_get_contents($assinatura_path) : '';
             
             // Substituir variáveis
-            $template = str_replace('{{NOME_USUARIO}}', $ticket['usuario_nome'], $template);
+            $template = str_replace('{{NOME_USUARIO}}', $this->esc($ticket['usuario_nome']), $template);
             $template = str_replace('{{NUMERO_TICKET}}', str_pad($ticket_id, 5, '0', STR_PAD_LEFT), $template);
-            $template = str_replace('{{TITULO_TICKET}}', $ticket['titulo'], $template);
+            $template = str_replace('{{TITULO_TICKET}}', $this->esc($ticket['titulo']), $template);
             $template = str_replace('{{DATA_REABERTURA}}', date('d/m/Y H:i'), $template);
             $template = str_replace('{{ASSINATURA_EMAIL}}', $assinatura, $template);
             
@@ -858,10 +953,10 @@ class EmailSender {
             $template = file_get_contents($template_path);
             $assinatura = $this->getAssinatura();
             
-            $template = str_replace('{{NOME_USUARIO}}', $ticket['usuario_nome'], $template);
+            $template = str_replace('{{NOME_USUARIO}}', $this->esc($ticket['usuario_nome']), $template);
             $template = str_replace('{{NUMERO_TICKET}}', str_pad($ticket_id, 5, '0', STR_PAD_LEFT), $template);
-            $template = str_replace('{{TITULO_TICKET}}', $ticket['titulo'], $template);
-            $template = str_replace('{{NOME_AGENTE}}', $nome_agente, $template);
+            $template = str_replace('{{TITULO_TICKET}}', $this->esc($ticket['titulo']), $template);
+            $template = str_replace('{{NOME_AGENTE}}', $this->esc($nome_agente), $template);
             $template = str_replace('{{DATA_RESPOSTA}}', date('d/m/Y H:i'), $template);
             $template = str_replace('{{ASSINATURA_EMAIL}}', $assinatura, $template);
             
@@ -926,20 +1021,25 @@ class EmailSender {
 
             $assunto = "💬 Novo comentário na Demanda #{$num_ticket} - {$titulo}";
 
+            $e_nome = $this->esc($agente['nome']);
+            $e_autor = $this->esc($autor_nome);
+            $e_titulo = $this->esc($titulo);
+            $e_trecho = $this->esc($trecho);
+
             $html = "
             <div style='font-family: Arial, sans-serif; color: #333; max-width: 600px; margin: 0 auto;'>
                 <div style='background: #1e3a5f; padding: 20px; border-radius: 8px 8px 0 0;'>
                     <h2 style='color: #fff; margin: 0; font-size: 18px;'>💬 Novo Comentário na Sua Demanda</h2>
                 </div>
                 <div style='background: #f9f9f9; padding: 24px; border-radius: 0 0 8px 8px; border: 1px solid #e0e0e0;'>
-                    <p style='margin: 0 0 12px 0;'>Olá, <strong>{$agente['nome']}</strong>!</p>
+                    <p style='margin: 0 0 12px 0;'>Olá, <strong>{$e_nome}</strong>!</p>
                     <p style='margin: 0 0 16px 0;'>
-                        O agente <strong>{$autor_nome}</strong> adicionou um novo comentário na demanda
+                        O agente <strong>{$e_autor}</strong> adicionou um novo comentário na demanda
                         <strong>#{$num_ticket}</strong> que está atribuída a você.
                     </p>
                     <div style='background: #fff; border-left: 4px solid #e0a800; padding: 14px 18px; border-radius: 4px; margin-bottom: 20px;'>
-                        <p style='margin: 0 0 6px 0; font-size: 13px; color: #888;'>Demanda: <strong>#{$num_ticket}</strong> — {$titulo}</p>
-                        <p style='margin: 0; font-size: 14px; color: #333;'>{$trecho}</p>
+                        <p style='margin: 0 0 6px 0; font-size: 13px; color: #888;'>Demanda: <strong>#{$num_ticket}</strong> — {$e_titulo}</p>
+                        <p style='margin: 0; font-size: 14px; color: #333;'>{$e_trecho}</p>
                     </div>
                     <p style='margin: 0 0 20px 0; font-size: 13px; color: #555;'>
                         O status da demanda foi atualizado para <strong>\"Nova Resposta\"</strong>.

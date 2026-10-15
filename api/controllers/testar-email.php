@@ -35,7 +35,8 @@ try {
         imap_errors();
         imap_alerts();
         
-        $mailbox = "{{$imap_host}:{$imap_port}/imap/ssl}INBOX";
+        $validarImap = !in_array(strtolower(trim((string) Environment::get('imap_validar_certificado', '1'))), ['0', 'false', 'nao', 'não', 'off'], true);
+        $mailbox = "{{$imap_host}:{$imap_port}/imap/ssl" . ($validarImap ? '' : '/novalidate-cert') . "}INBOX";
         $inbox = @imap_open($mailbox, $imap_user, $imap_pass);
         
         if ($inbox) {
@@ -73,13 +74,10 @@ try {
     $mail->SMTPSecure = PHPMailer\PHPMailer\PHPMailer::ENCRYPTION_SMTPS;
     $mail->Port = $smtp_port;
     $mail->Timeout = 10;
-    $mail->SMTPOptions = [
-        'ssl' => [
-            'verify_peer' => false,
-            'verify_peer_name' => false,
-            'allow_self_signed' => true
-        ]
-    ];
+    $validarSmtp = !in_array(strtolower(trim((string) Environment::get('smtp_validar_certificado', '1'))), ['0', 'false', 'nao', 'não', 'off'], true);
+    if (!$validarSmtp) {
+        $mail->SMTPOptions = ['ssl' => ['verify_peer' => false, 'verify_peer_name' => false, 'allow_self_signed' => true]];
+    }
     
     if ($mail->smtpConnect()) {
         $mail->smtpClose();
