@@ -31,26 +31,25 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
     
     // Isolamento: gestor só mescla demandas do próprio setor (admin: qualquer uma)
-    AcessoService::exigirOperarTicket($db, $user, $ticket_principal);
+    $tickets_secundarios = array_values(array_unique(array_map('intval', (array) $tickets_secundarios)));
+    $ticket_principal = (int) $ticket_principal;
+    if (in_array($ticket_principal, $tickets_secundarios, true)) {
+        http_response_code(400);
+        echo json_encode(['error' => 'A demanda principal não pode ser mesclada nela mesma']);
+        exit;
+    }
+    $dados_principal = AcessoService::exigirOperarTicket($db, $user, $ticket_principal);
     foreach ($tickets_secundarios as $id_secundario) {
-        AcessoService::exigirOperarTicket($db, $user, $id_secundario);
+        $dados_secundario = AcessoService::exigirOperarTicket($db, $user, $id_secundario);
+        // Demandas de setores diferentes não se misturam (comentários e anexos mudariam de setor)
+        if ((int) $dados_secundario['setor_id'] !== (int) $dados_principal['setor_id']) {
+            http_response_code(400);
+            echo json_encode(['error' => 'Só é possível mesclar demandas do mesmo setor']);
+            exit;
+        }
     }
 
     try {
-        // Criar tabela histórico se não existir (fora da transação)
-        $create_table = "CREATE TABLE IF NOT EXISTS historico (
-            id INT AUTO_INCREMENT PRIMARY KEY,
-            ticket_id INT NOT NULL,
-            usuario_id INT NOT NULL,
-            acao VARCHAR(50) NOT NULL,
-            valor_anterior TEXT,
-            valor_novo TEXT,
-            criado_em TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            FOREIGN KEY (ticket_id) REFERENCES tickets(id) ON DELETE CASCADE,
-            FOREIGN KEY (usuario_id) REFERENCES usuarios(id) ON DELETE CASCADE
-        )";
-        $db->exec($create_table);
-        
         $db->beginTransaction();
         
         // Buscar dados do ticket principal
@@ -94,14 +93,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             return str_pad($id, 5, '0', STR_PAD_LEFT);
         }, $tickets_secundarios));
         
-        $query = "INSERT INTO historico (ticket_id, usuario_id, acao, valor_anterior, valor_novo) VALUES (:ticket_id, :usuario_id, 'merge', '', :valor_novo)";
-        $stmt = $db->prepare($query);
-        $stmt->bindParam(':ticket_id', $ticket_principal);
-        $stmt->bindParam(':usuario_id', $user['id']);
-        $stmt->bindParam(':valor_novo', $tickets_ids);
-        $stmt->execute();
-
-        // Espelha na linha do tempo da demanda principal (ticket_historico)
+        // Linha do tempo da demanda principal
         $db->prepare("INSERT INTO ticket_historico (ticket_id, usuario_id, acao, valor_anterior, valor_novo) VALUES (?, ?, 'merge', NULL, ?)")
            ->execute([$ticket_principal, $user['id'], mb_substr((string) $tickets_ids, 0, 255)]);
 
@@ -111,8 +103,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         foreach ($tickets_secundarios_info as $info) {
             $ticket_num = str_pad($info['id'], 5, '0', STR_PAD_LEFT);
             $comentario_merge .= "**Demanda #" . $ticket_num . "**\n";
-            $comentario_merge .= "Assunto: " . $info['titulo'] . "\n";
-            $comentario_merge .= "Descrição: " . $info['descricao'] . "\n\n";
+            $comentario_merge .= "Assunto: " . htmlspecialchars((string) $info['titulo'], ENT_QUOTES, 'UTF-8') . "\n";
+            $comentario_merge .= "Descrição: " . strip_tags((string) $info['descricao']) . "\n\n";
         }
 
         $query = "INSERT INTO comentarios (ticket_id, usuario_id, comentario) VALUES (:ticket_id, :usuario_id, :comentario)";
@@ -142,19 +134,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $stmt->bindParam(':id', $ticket_id);
             $stmt->execute();
 
-            // Adicionar ao histórico do ticket secundário
-            $query = "INSERT INTO historico (ticket_id, usuario_id, acao, valor_anterior, valor_novo) VALUES (:ticket_id, :usuario_id, 'merge', '', :valor_novo)";
-            $stmt = $db->prepare($query);
-            $stmt->bindParam(':ticket_id', $ticket_id);
-            $stmt->bindParam(':usuario_id', $user['id']);
             $principal_formatted = str_pad($ticket_principal, 5, '0', STR_PAD_LEFT);
-            $stmt->bindParam(':valor_novo', $principal_formatted);
-            $stmt->execute();
 
             // Linha do tempo da demanda mesclada + fechamento das janelas de setor/responsável
             $db->prepare("INSERT INTO ticket_historico (ticket_id, usuario_id, acao, valor_anterior, valor_novo) VALUES (?, ?, 'merge', NULL, ?)")
                ->execute([$ticket_id, $user['id'], $principal_formatted]);
             AcessoService::fecharJanelasDaDemanda($db, (int) $ticket_id);
+            require_once __DIR__ . '/../services/lembrete-service.php';
+            LembreteService::cancelarPendentes($db, (int) $ticket_id, 'Demanda mesclada à #' . $principal_formatted);
 
             // Adicionar comentário detalhado nos tickets fechados
             $ticket_num = str_pad($ticket_id, 5, '0', STR_PAD_LEFT);

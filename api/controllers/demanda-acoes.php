@@ -60,13 +60,19 @@ if ($comentario_texto === '') {
 }
 
 try {
-    $ticket_stmt = $db->prepare("SELECT id, setor_id, agente_id, status, usuario_id, categoria_id FROM tickets WHERE id = ?");
+    $ticket_stmt = $db->prepare("SELECT id, setor_id, agente_id, status, usuario_id, categoria_id, excluido_em FROM tickets WHERE id = ?");
     $ticket_stmt->execute([$ticket_id]);
     $ticket = $ticket_stmt->fetch(PDO::FETCH_ASSOC);
 
     if (!$ticket) {
         http_response_code(404);
         echo json_encode(['error' => 'Demanda não encontrada']);
+        exit;
+    }
+
+    if (!empty($ticket['excluido_em'])) {
+        http_response_code(400);
+        echo json_encode(['error' => 'A demanda está na lixeira. Restaure-a para continuar.']);
         exit;
     }
 

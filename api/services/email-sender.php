@@ -440,8 +440,12 @@ class EmailSender {
             $stmt->execute([$comentario_id, $ticket_id]);
             $dados = $stmt->fetch();
             
-            if (!$dados || !$dados['usuario_email']) return false;
-            
+            // Destinatário: o solicitante informado na demanda; senão, o e-mail do usuário dela
+            $destino_solicitante = trim((string) ($dados['email_solicitante'] ?? '')) ?: trim((string) ($dados['usuario_email'] ?? ''));
+            if (!$dados || $destino_solicitante === '') return false;
+            $dados['usuario_email'] = $destino_solicitante;
+            $esc = function ($t) { return htmlspecialchars((string) $t, ENT_QUOTES, 'UTF-8'); };
+
             $assunto = "🎫 [#" . str_pad($ticket_id, 5, '0', STR_PAD_LEFT) . "] Resposta da Equipe - " . $dados['titulo'];
 
             // Remove imagens base64 inline (inseridas no editor Quill) para não "estourar" o e-mail.
@@ -458,7 +462,7 @@ class EmailSender {
 
             $html_solicitante = str_replace(
                 ['{{NOME_USUARIO}}', '{{NUMERO_TICKET}}', '{{TITULO_TICKET}}', '{{NOME_AGENTE}}', '{{DATA_RESPOSTA}}', '{{COMENTARIO_AGENTE}}', '{{ASSINATURA_EMAIL}}'],
-                [$dados['usuario_nome'], str_pad($ticket_id, 5, '0', STR_PAD_LEFT), $dados['titulo'], $dados['comentario_autor'], date('d/m/Y H:i'), $comentario_email, $assinatura],
+                [$esc($dados['usuario_nome']), str_pad($ticket_id, 5, '0', STR_PAD_LEFT), $esc($dados['titulo']), $esc($dados['comentario_autor']), date('d/m/Y H:i'), $comentario_email, $assinatura],
                 $template_solicitante
             );
 
@@ -473,8 +477,8 @@ class EmailSender {
                 error_log('Erro ao buscar anexos: ' . $e->getMessage());
             }
 
-            // Enviar para o solicitante
-            $this->enviarEmailComAnexos($dados['usuario_email'], $assunto, $html_solicitante, $anexos);
+            // Enviar para o solicitante (o resultado real do envio é devolvido)
+            $enviado = $this->enviarEmailComAnexos($dados['usuario_email'], $assunto, $html_solicitante, $anexos);
 
             // Enviar cópia se fornecido
             if ($com_copia) {
@@ -482,17 +486,20 @@ class EmailSender {
 
                 $html_copia = str_replace(
                     ['{{NUMERO_TICKET}}', '{{TITULO_TICKET}}', '{{NOME_AGENTE}}', '{{DATA_RESPOSTA}}', '{{COMENTARIO_AGENTE}}', '{{ASSINATURA_EMAIL}}'],
-                    [str_pad($ticket_id, 5, '0', STR_PAD_LEFT), $dados['titulo'], $dados['comentario_autor'], date('d/m/Y H:i'), $comentario_email, $assinatura],
+                    [str_pad($ticket_id, 5, '0', STR_PAD_LEFT), $esc($dados['titulo']), $esc($dados['comentario_autor']), date('d/m/Y H:i'), $comentario_email, $assinatura],
                     $template_copia
                 );
 
                 // Adicionar info do solicitante no template de cópia
-                $html_copia = str_replace('<strong>Solicitante:</strong> <br>', '<strong>Solicitante:</strong> ' . $dados['usuario_nome'] . ' (' . $dados['usuario_email'] . ')<br>', $html_copia);
+                $html_copia = str_replace('<strong>Solicitante:</strong> <br>', '<strong>Solicitante:</strong> ' . $esc($dados['usuario_nome']) . ' (' . $esc($dados['usuario_email']) . ')<br>', $html_copia);
 
-                $this->enviarEmailComAnexos($com_copia, $assunto, $html_copia, $anexos);
+                // Cópia para cada endereço informado
+                foreach (preg_split('/[,;\s]+/', (string) $com_copia, -1, PREG_SPLIT_NO_EMPTY) as $endereco_copia) {
+                    $this->enviarEmailComAnexos($endereco_copia, $assunto, $html_copia, $anexos);
+                }
             }
-            
-            return true;
+
+            return (bool) $enviado;
             
         } catch (Exception $e) {
             error_log('Erro ao enviar comentário para solicitante: ' . $e->getMessage());

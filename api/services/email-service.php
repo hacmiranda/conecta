@@ -322,13 +322,13 @@ class EmailService {
      * e o remetente é o solicitante, alguém que recebeu cópia, ou a equipe do setor atual.
      */
     private function motivoRecusaComentario(int $ticket_id, string $remetente): ?string {
-        $stmt = $this->db->prepare("SELECT t.id, t.setor_id, t.email_solicitante, u.email AS usuario_email
+        $stmt = $this->db->prepare("SELECT t.id, t.setor_id, t.email_solicitante, t.excluido_em, u.email AS usuario_email
                                     FROM tickets t LEFT JOIN usuarios u ON u.id = t.usuario_id
                                     WHERE t.id = ?");
         $stmt->execute([$ticket_id]);
         $ticket = $stmt->fetch(PDO::FETCH_ASSOC);
-        if (!$ticket) {
-            return 'a demanda não existe';
+        if (!$ticket || !empty($ticket['excluido_em'])) {
+            return 'a demanda não existe ou foi excluída';
         }
 
         if ($this->setorAtualId !== null && (int) $ticket['setor_id'] !== (int) $this->setorAtualId) {

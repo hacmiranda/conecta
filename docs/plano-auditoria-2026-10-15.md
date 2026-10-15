@@ -158,7 +158,7 @@ Pela regra "não remover função sem perguntar", estes pontos precisam da sua r
 
 Cada fase termina com o sistema funcionando, um commit próprio, testes de API por papel e um teste rápido no navegador (admin, gestor e operador), como nas fases 1 a 7.
 
-### Fase 8: segurança crítica (antes de qualquer implantação)
+### Fase 8: segurança crítica (concluída em 15/10/2026)
 1. **S3**: `APP_ENV` no `.env` e no `.env.example`, com padrão production.
 2. **S1 e S2**: HTML Purifier (composer) em `api/services/html-sanitizer.php`, aplicado em `tickets.php`, `comentarios.php`, `macros.php`, `integracoes/abrir_chamado.php` e `email-service.php`. Títulos como texto puro. No frontend, `sanitizeHTML` nos títulos e nomes e DOMPurify (versão fixa e SRI) em descrição e comentários.
 3. **S5**: `backend/.htaccess` (deny, exceto avatares), nomes aleatórios e `basename()` nos anexos de e-mail.
@@ -171,13 +171,13 @@ Cada fase termina com o sistema funcionando, um commit próprio, testes de API p
 
 **Teste:** e-mail simulado com assunto e corpo maliciosos, inseridos direto pelo `EmailService`, exibidos sem executar; download direto de `backend/anexos/x` com 403; cron via HTTP com 403; matriz de lembretes por papel.
 
-### Fase 9: sessão, senha e contas
+### Fase 9: sessão, senha e contas (concluída em 15/10/2026)
 1. **S10**: `usuarios.token_versao` (migração 19), conferida no middleware e incrementada no logout, na troca e na redefinição de senha.
 2. **S11, S12, S17**: recuperação de senha sem enumeração, com limite de tentativas e `SenhaService`; bloqueio de `cliente` (D1); login sem a senha legada (D3).
 3. **N12, U4**: validação de papel e e-mail, proteção do último admin, "Redefinir senha" pelo admin e gestor, troca obrigatória no primeiro acesso.
 4. **N6, U6**: ao desativar ou mover um operador, devolver as demandas ao gestor.
 
-### Fase 10: regras de negócio e integridade de dados
+### Fase 10: regras de negócio e integridade de dados (concluída em 15/10/2026)
 1. **N1**: `criarTicketPorEmail` com retorno e exceções reais; e-mail marcado só depois de criar a demanda.
 2. **N2, U1**: `podeVerHistorico()` e detalhe somente leitura.
 3. **N4, N5**: validação por setor; `tickets.status` como VARCHAR (migração).

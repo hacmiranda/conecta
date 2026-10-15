@@ -38,7 +38,7 @@ $camposLista = "l.id, l.ticket_id, l.data_lembrete, l.hora_lembrete, l.descricao
 try {
     if ($method === 'GET') {
         if (isset($_GET['ticket_id'])) {
-            $ticket = AcessoService::exigirVerTicket($db, $user, $_GET['ticket_id']);
+            $ticket = AcessoService::exigirLerTicket($db, $user, $_GET['ticket_id']);
             $stmt = $db->prepare("SELECT $camposLista
                                   FROM lembretes l
                                   LEFT JOIN usuarios u ON l.agente_id = u.id
@@ -53,7 +53,7 @@ try {
                                   INNER JOIN tickets t ON l.ticket_id = t.id
                                   LEFT JOIN usuarios u ON l.agente_id = u.id
                                   LEFT JOIN usuarios c ON l.criado_por = c.id
-                                  WHERE l.notificado = 0 AND l.cancelado_em IS NULL
+                                  WHERE l.notificado = 0 AND l.cancelado_em IS NULL AND t.excluido_em IS NULL
                                     AND (l.agente_id = :eu OR l.criado_por = :eu2)
                                     AND TIMESTAMP(l.data_lembrete, l.hora_lembrete) >= NOW()
                                   ORDER BY l.data_lembrete ASC, l.hora_lembrete ASC");

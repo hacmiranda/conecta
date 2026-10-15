@@ -23,7 +23,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
     // Escopo por papel: admin vê tudo; gestor só o próprio setor; usuario/cliente só o que é seu.
     // Interpolado direto (não bindParam) pois setor_id/id vêm do JWT já validado, não de input do usuário.
     $tipo = $user['tipo'] ?? '';
-    $filtroT = ''; // aplica-se a queries que usam alias "t" para tickets
+    $filtroT = ' AND t.excluido_em IS NULL'; // aplica-se a queries que usam alias "t" (lixeira fica de fora)
 
     // Setor do recorte: o do gestor, ou o escolhido pelo admin no cabeçalho (?setor_id; vazio = todos)
     $setorFiltro = null;
@@ -34,11 +34,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
     }
 
     if ($setorFiltro !== null) {
-        $filtroT = ' AND t.setor_id = ' . $setorFiltro;
+        $filtroT .= ' AND t.setor_id = ' . $setorFiltro;
     } elseif ($tipo === 'operador') {
-        $filtroT = ' AND (t.agente_id = ' . (int) $user['id'] . ' OR t.usuario_id = ' . (int) $user['id'] . ')';
+        $filtroT .= ' AND (t.agente_id = ' . (int) $user['id'] . ' OR t.usuario_id = ' . (int) $user['id'] . ')';
     } elseif ($tipo === 'cliente') {
-        $filtroT = ' AND t.usuario_id = ' . (int) $user['id'];
+        $filtroT .= ' AND t.usuario_id = ' . (int) $user['id'];
     }
     // admin sem setor escolhido: $filtroT permanece vazio (enxerga tudo)
 
@@ -103,7 +103,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
 
         // Tickets por agente (apenas tickets ativos) — escopo aplicado na condição do LEFT JOIN,
         // não no WHERE, para não excluir agentes sem nenhum ticket no recorte (ficam com total 0)
-        $filtroAgenteJoin = $setorFiltro !== null ? (' AND t.setor_id = ' . $setorFiltro) : '';
+        $filtroAgenteJoin = ' AND t.excluido_em IS NULL' . ($setorFiltro !== null ? (' AND t.setor_id = ' . $setorFiltro) : '');
         $filtroAgenteWhere = $tipo === 'operador' ? (' AND u.id = ' . (int) $user['id']) : '';
         // Com recorte por setor, a lista de agentes é a equipe daquele setor
         if ($setorFiltro !== null) {

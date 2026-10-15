@@ -39,7 +39,7 @@ class LembreteService {
     public static function dispararVencidos(PDO $db, $emailSender): array {
         $resumo = ['enviados' => 0, 'cancelados' => 0, 'erros' => 0];
 
-        $stmt = $db->query("SELECT l.*, t.titulo AS ticket_titulo, t.status AS ticket_status,
+        $stmt = $db->query("SELECT l.*, t.titulo AS ticket_titulo, t.status AS ticket_status, t.excluido_em AS ticket_excluido,
                                    t.setor_id AS ticket_setor_id, t.agente_id AS ticket_agente_id,
                                    u.nome AS agente_nome, u.email AS agente_email, u.ativo AS agente_ativo,
                                    u.setor_id AS agente_setor_id
@@ -54,9 +54,9 @@ class LembreteService {
             $id = (int) $lembrete['id'];
             $ticketId = (int) $lembrete['ticket_id'];
 
-            // Demanda arquivada: cancela em vez de avisar
-            if (in_array($lembrete['ticket_status'], AcessoService::STATUS_ARQUIVO, true)) {
-                if (self::cancelar($db, $id, 'Demanda encerrada ou cancelada antes do lembrete')) {
+            // Demanda arquivada ou excluída: cancela em vez de avisar
+            if (in_array($lembrete['ticket_status'], AcessoService::STATUS_ARQUIVO, true) || !empty($lembrete['ticket_excluido'])) {
+                if (self::cancelar($db, $id, 'Demanda encerrada, cancelada ou excluída antes do lembrete')) {
                     $resumo['cancelados']++;
                 }
                 continue;

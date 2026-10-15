@@ -56,7 +56,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
             exit;
         }
         header('Content-Type: application/json');
-        AcessoService::exigirVerTicket($db, $user, $ticket_do_anexo);
+        AcessoService::exigirLerTicket($db, $user, $ticket_do_anexo);
         header_remove('Content-Type');
 
         // Diretório base de anexos (caminho absoluto e normalizado)

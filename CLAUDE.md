@@ -29,7 +29,8 @@ php api/cron/verificar-emails-perdidos.php 30   # reprocess the last N days (max
 # Banco local: db_conecta (credenciais em api/config/.env). MySQL 8.4:
 # "C:\Program Files\MySQL\MySQL Server 8.4\bin\mysql.exe" -u root -p db_conecta
 # Esquema base: database/squema_crpdesk.sql (sem as tabelas de setores)
-# Depois aplicar, em ordem e uma única vez cada: database/9_*.sql até database/20_*.sql
+# Depois aplicar as migrações pendentes (9..N) com o runner — controla o que já rodou na tabela `migracoes`:
+php database/migrar.php            # aplica as pendentes; --status lista; --marcar-ate=20 marca sem executar
 # Primeiro administrador (senha pedida no terminal):
 php database/seed_admin.php "email@crprs.org.br" "Nome Completo"
 ```
@@ -54,6 +55,9 @@ All API requests go through `api/middleware/auth.php` for JWT verification and r
 
 ### Access rules (sectors)
 - `api/services/acesso-service.php` (`AcessoService`) is the single place that decides who can see/operate a demand: admin = all, gestor = demands of own sector, operador = demands where he is the responsible (or opened). Always use it; never filter by role ad hoc
+- Three levels: `podeVerTicket` (current participation), `podeOperarTicket` (change it) and `podeLerTicket` (adds history: a gestor whose sector had the demand, an operador who handled it). History readers get `acesso_historico`/`somente_leitura` flags and the UI is read-only
+- Trash: any profile that can operate a demand sends it to the trash (`DELETE tickets.php?id=`, `tickets.excluido_em`); only admin sees it (`?escopo=lixeira`), restores (`PUT ?acao=restaurar`) or deletes for good (`DELETE ?definitivo=1`, removes files). Every listing/report/dashboard filters `excluido_em IS NULL`
+- Status and priority are validated server-side against the catalog **and** the sector's activation (`CatalogoService`); `tickets.status` is a free VARCHAR
 - `AcessoService::setorEscopo($user)`: admin may pass `?setor_id=` (empty = all sectors); everyone else is forced to own sector regardless of the parameter
 - Demand flow actions (encaminhar, devolver, repassar, transferir de setor) go through `api/controllers/demanda-acoes.php` and require a comment
 - Timeline of a demand is built by `api/services/timeline-service.php` (comments + `ticket_historico`); sector/responsible passages live in `ticket_setor_log` / `ticket_agente_log`
@@ -64,6 +68,8 @@ All API requests go through `api/middleware/auth.php` for JWT verification and r
 - `api/middleware/auth.php` — JWT validation, role checks, CSRF
 - `api/services/` — Business logic: access rules, timeline, SLA calculation, email sending, audit logging, crypto of mailbox passwords
 - `api/cron/` — Scheduled jobs for email polling and reminders
+
+Time zone: PHP `America/Sao_Paulo` and MySQL session `-03:00` (set in `Database::getConnection()`), so `NOW()` and `date()` agree.
 
 Environment comes from `APP_ENV` in `api/config/.env` (`local` | `production`; missing = production) — never from the Host header. Credentials and keys come only from `api/config/.env` (`*_LOCAL` / `*_PROD`); see `.env.example` (DB, IMAP/SMTP, JWT/CSRF, CORS, SSO, `SETOR_EMAIL_ENCRYPTION_KEY_*`, `INTEGRATION_API_KEY_*`).
 
@@ -76,7 +82,7 @@ Single HTML shell (`frontend/index.html`) with no framework router. JavaScript i
 | `cabecalho-setor.js` | Header: sector name (gestor/operador) or sector selector (admin); sector context sent to the API |
 | `graficos-dashboard.js` | Chart.js analytics/dashboard |
 | `notificacoes.js` | Real-time notifications via SSE (`EventSource`) |
-| `macros.js` | Quick response templates |
+| `macros.js` | Quick response templates (per sector; `setor_id` NULL = all sectors) |
 | `alpine-components.js` | Alpine.js + Quill.js WYSIWYG editor components |
 | `status-sla.js` | SLA badge rendering (uses each demand's sector hours via `horarios-sla.php?mapa=1`) |
 | `lembretes.js` | Reminder management |
@@ -90,11 +96,11 @@ CSS follows a per-feature file convention (`tickets-melhorias.css`, `status-sla.
 - `categorias` / `macrocategorias` — Owned by a sector (`setor_id`, name unique per sector)
 - `horarios_uteis` + `feriados` — Business hours and holidays **per sector** (SLA of a demand uses its sector)
 - `comentarios` — Comments; `comentario` is LONGTEXT (supports base64 images from Quill)
-- `ticket_historico` — Timeline events (status, prioridade, categoria, atribuicao, transferencia_setor, abertura...); `historico` is legacy (merge only)
+- `ticket_historico` — Timeline events (status, prioridade, categoria, atribuicao, transferencia_setor, abertura...); merges are recorded here too (`acao = merge`); the legacy `historico` table was dropped in migration 21
 - `ticket_setor_log` / `ticket_agente_log` — Sector/responsible passage windows; closed on encerrar/cancelar
 - `auditoria` — General action log with IP, user agent, session
 - `notificacoes` — Internal alert queue polled/streamed to frontend
-- `macros` — WYSIWYG quick-reply templates
+- `macros` — WYSIWYG quick-reply templates, per sector (`setor_id` NULL = visible to all sectors; author, sector gestor or admin manage)
 - `email_logs` — Delivery tracking for all outbound emails (records the sender)
 
 ### Untrusted content (XSS)
@@ -117,7 +123,7 @@ Attachments stored in `backend/anexos/`. Max 5 files, 20MB each. Allowed: pdf, d
 `api/services/sla-service.php` computes business seconds using the hours (`horarios_uteis`) and holidays (`feriados`) of the demand's sector (sector without hours falls back to "Geral"). Some statuses (`congela_sla`) pause the SLA timer.
 
 ### Database Migrations
-`database/9_*.sql` … `20_*.sql` build on the base schema, in order: 9 sectors/roles, 10 sector log, 11 per-sector status/priorities, 12 sector mailboxes, 13 responsible log, 14 roles gestor/operador, 15 initial seed, 16 categories per sector, 17 hours/holidays per sector, 18 SMTP per sector, 19 reminder cancellation + ignored e-mails, 20 sessions and passwords (token_versao, trocar_senha, sessoes_revogadas). Each runs once (MySQL 8.4 has no `ADD COLUMN IF NOT EXISTS`).
+`database/9_*.sql` … `21_*.sql` build on the base schema, in order: 9 sectors/roles, 10 sector log, 11 per-sector status/priorities, 12 sector mailboxes, 13 responsible log, 14 roles gestor/operador, 15 initial seed, 16 categories per sector, 17 hours/holidays per sector, 18 SMTP per sector, 19 reminder cancellation + ignored e-mails, 20 sessions and passwords (token_versao, trocar_senha, sessoes_revogadas), 21 integrity (foreign keys, utf8mb4, free `tickets.status`, trash columns, macros per sector, legacy tables dropped). Each runs once (MySQL 8.4 has no `ADD COLUMN IF NOT EXISTS`).
 
 ---
 

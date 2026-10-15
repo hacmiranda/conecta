@@ -37,7 +37,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
                   LEFT JOIN usuarios u ON t.usuario_id = u.id
                   LEFT JOIN usuarios a ON t.agente_id = a.id
                   LEFT JOIN categorias c ON t.categoria_id = c.id
-                  WHERE 1=1";
+                  WHERE t.excluido_em IS NULL";
         
         $params = [];
         
