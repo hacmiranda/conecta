@@ -4,15 +4,13 @@
  * agregador por um JWT interno do Conecta CRPRS (mesmo formato do login normal).
  *
  * Contrato esperado do token recebido (JWT HS256, assinado com SSO_SHARED_SECRET):
- *   - email  (string, obrigatório) — usado para localizar/provisionar o usuário local
- *   - nome   (string, obrigatório na primeira vez que o usuário aparece)
- *   - role   (string, opcional)    — mapeado para o enum local `tipo` (ver mapearTipo())
- *   - setor_id (int, opcional)     — setor local a vincular no primeiro acesso (fica NULL se omitido;
- *                                    um admin precisa atribuir um setor depois para papéis operador/gestor)
+ *   - email  (string, obrigatório) — usado para localizar o usuário local
  *   - exp    (int, obrigatório)    — expiração padrão do JWT
+ *   (nome, role e setor_id são lidos, mas não criam nem alteram usuários)
  *
- * Após validar o token central, este endpoint cria o usuário local se ainda não existir
- * (find-or-create por email) e devolve a MESMA estrutura de resposta do login tradicional
+ * Após validar o token central, este endpoint localiza o usuário local pelo e-mail.
+ * Só entra quem já foi cadastrado por um administrador ou gestor (não há criação automática)
+ * e nunca um solicitante externo. Devolve a MESMA estrutura de resposta do login tradicional
  * (api/controllers/auth.php), para que o restante do app funcione sem nenhuma alteração.
  */
 
@@ -104,58 +102,20 @@ try {
 
     $auditoriaService = new AuditoriaService($db);
 
-    if (!$usuario) {
-        // Provisionamento automático (find-or-create): primeira vez que este usuário
-        // acessa o Conecta CRPRS via SSO. Senha aleatória e inutilizável — o acesso
-        // por senha local nunca será usado por contas provisionadas via SSO.
-        if (empty($nome)) {
-            http_response_code(400);
-            echo json_encode(['error' => 'Token SSO não contém nome do usuário (obrigatório no primeiro acesso)']);
-            exit;
-        }
-
-        $senhaAleatoria = bin2hex(random_bytes(32));
-        $algoHash = defined('PASSWORD_ARGON2ID') ? PASSWORD_ARGON2ID : PASSWORD_DEFAULT;
-        $senhaHash = password_hash($senhaAleatoria, $algoHash);
-
-        $insert = $db->prepare(
-            "INSERT INTO usuarios (nome, email, tipo, ativo, senha, setor_id) VALUES (:nome, :email, :tipo, 1, :senha, :setor_id)"
-        );
-        $insert->execute([
-            ':nome'     => $nome,
-            ':email'    => $email,
-            ':tipo'     => $tipo,
-            ':senha'    => $senhaHash,
-            ':setor_id' => $setorIdSso,
-        ]);
-
-        $setorNomeSso = null;
-        if ($setorIdSso) {
-            $setorStmt = $db->prepare("SELECT nome FROM setores WHERE id = :id");
-            $setorStmt->execute([':id' => $setorIdSso]);
-            $setorNomeSso = $setorStmt->fetchColumn() ?: null;
-        }
-
-        $usuario = [
-            'id'         => (int) $db->lastInsertId(),
-            'nome'       => $nome,
-            'email'      => $email,
-            'tipo'       => $tipo,
-            'avatar'     => null,
-            'cargo'      => null,
-            'setor_id'   => $setorIdSso,
-            'setor_nome' => $setorNomeSso,
-        ];
-
-        $auditoriaService->registrarLogin($usuario['id'], $email, 'login_sucesso');
-    } else {
-        if (isset($usuario['ativo']) && $usuario['ativo'] == 0) {
-            http_response_code(403);
-            echo json_encode(['error' => 'Usuário desativado. Entre em contato com o administrador.']);
-            exit;
-        }
-        $auditoriaService->registrarLogin($usuario['id'], $email, 'login_sucesso');
+    // Somente usuários já cadastrados por um administrador ou gestor entram (sem criação automática).
+    // Solicitantes externos (cliente) nunca entram.
+    if (!$usuario || $usuario['tipo'] === 'cliente') {
+        $auditoriaService->registrarLogin($usuario['id'] ?? null, $email, 'login_falha');
+        http_response_code(403);
+        echo json_encode(['error' => 'Usuário não cadastrado no Conecta CRPRS. Procure o gestor do seu setor.']);
+        exit;
     }
+    if ((int) ($usuario['ativo'] ?? 1) === 0) {
+        http_response_code(403);
+        echo json_encode(['error' => 'Usuário desativado. Entre em contato com o administrador.']);
+        exit;
+    }
+    $auditoriaService->registrarLogin($usuario['id'], $email, 'login_sucesso');
 
     // Reaproveita o mesmo emissor de token do login tradicional — a partir daqui,
     // o restante do app (verificarAuth, CSRF, etc.) funciona sem nenhuma alteração.
@@ -178,6 +138,7 @@ try {
             'cargo'      => $usuario['cargo'] ?? null,
             'setor_id'   => $usuario['setor_id'] ?? null,
             'setor_nome' => $usuario['setor_nome'] ?? null,
+            'trocar_senha' => (int) ($usuario['trocar_senha'] ?? 0) === 1,
         ],
     ]);
 

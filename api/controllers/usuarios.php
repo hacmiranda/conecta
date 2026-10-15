@@ -5,6 +5,7 @@ require_once __DIR__ . '/../config/database.php';
 require_once __DIR__ . '/../middleware/auth.php';
 require_once __DIR__ . '/../services/senha-service.php';
 require_once __DIR__ . '/../services/auditoria-service.php';
+require_once __DIR__ . '/../services/acesso-service.php';
 
 AuthMiddleware::configurarCORS(['GET', 'POST', 'PUT', 'DELETE']);
 
@@ -47,7 +48,109 @@ function gerarUsernameUnico(PDO $db, string $nomeCompleto): string {
     return $candidato;
 }
 
-// GET - Listar usuários (admin vê todos / pode filtrar por setor_id; gestor só vê o próprio setor)
+/**
+ * Papéis que quem está logado pode atribuir: admin (admin, gestor, operador); gestor (operador).
+ * Solicitante externo (cliente) nunca é cadastrado por aqui.
+ */
+function papeisPermitidos(array $user): array {
+    return $user['tipo'] === 'admin' ? ['admin', 'gestor', 'operador'] : ['operador'];
+}
+
+/**
+ * Quantos administradores ativos existem além do usuário informado.
+ */
+function outrosAdminsAtivos(PDO $db, int $exceto): int {
+    $stmt = $db->prepare("SELECT COUNT(*) FROM usuarios WHERE tipo = 'admin' AND ativo = 1 AND id <> ?");
+    $stmt->execute([$exceto]);
+    return (int) $stmt->fetchColumn();
+}
+
+/**
+ * Confere se quem está logado pode administrar o usuário alvo (403 se não puder):
+ * admin administra todos; gestor só os operadores do próprio setor.
+ */
+function exigirAdministrarUsuario(array $user, array $alvo): void {
+    if ($user['tipo'] === 'admin') {
+        return;
+    }
+    if ($alvo['tipo'] !== 'operador' || !AuthMiddleware::mesmoSetor($user, $alvo['setor_id'] !== null ? (int) $alvo['setor_id'] : null)) {
+        http_response_code(403);
+        echo json_encode(['error' => 'Gestores só administram operadores do próprio setor']);
+        exit;
+    }
+}
+
+function carregarUsuarioAlvo(PDO $db, int $id): array {
+    $stmt = $db->prepare("SELECT id, nome, username, email, tipo, cargo, setor_id, ativo FROM usuarios WHERE id = ?");
+    $stmt->execute([$id]);
+    $alvo = $stmt->fetch(PDO::FETCH_ASSOC);
+    if (!$alvo) {
+        http_response_code(404);
+        echo json_encode(['error' => 'Usuário não encontrado']);
+        exit;
+    }
+    return $alvo;
+}
+
+// GET ?demandas_abertas=ID — quantas demandas abertas o usuário tem como responsável
+if ($_SERVER['REQUEST_METHOD'] === 'GET' && isset($_GET['demandas_abertas'])) {
+    $user = AuthMiddleware::verificarAuth();
+    AuthMiddleware::verificarGestor($user);
+    $alvo = carregarUsuarioAlvo($db, (int) $_GET['demandas_abertas']);
+    exigirAdministrarUsuario($user, $alvo);
+    echo json_encode(['total' => AcessoService::contarDemandasAbertasDoResponsavel($db, (int) $alvo['id'])]);
+    exit;
+}
+
+// POST ?acao=redefinir_senha — admin/gestor define uma senha nova; o usuário troca no próximo acesso
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_GET['acao'] ?? '') === 'redefinir_senha') {
+    $user = AuthMiddleware::verificarAuth();
+    AuthMiddleware::verificarGestor($user);
+    AuthMiddleware::verificarCSRF();
+
+    $input = json_decode(file_get_contents('php://input'), true) ?? [];
+    $alvo = carregarUsuarioAlvo($db, (int) ($input['usuario_id'] ?? 0));
+    exigirAdministrarUsuario($user, $alvo);
+
+    if ($alvo['tipo'] === 'cliente') {
+        http_response_code(400);
+        echo json_encode(['error' => 'Solicitantes externos não têm acesso ao sistema']);
+        exit;
+    }
+    if ((int) $alvo['id'] === (int) $user['id']) {
+        http_response_code(400);
+        echo json_encode(['error' => 'Para trocar a sua própria senha, use "Alterar senha"']);
+        exit;
+    }
+
+    $senha = (string) ($input['senha'] ?? '');
+    $erro = SenhaService::validar($senha);
+    if ($erro !== null) {
+        http_response_code(400);
+        echo json_encode(['error' => $erro]);
+        exit;
+    }
+
+    try {
+        $db->beginTransaction();
+        $db->prepare("UPDATE usuarios SET senha = ?, trocar_senha = 1 WHERE id = ?")->execute([SenhaService::hash($senha), $alvo['id']]);
+        $db->prepare("DELETE FROM tokens_recuperacao WHERE usuario_id = ?")->execute([$alvo['id']]);
+        AuthMiddleware::encerrarTodasAsSessoes($db, (int) $alvo['id']);
+        $db->commit();
+        (new AuditoriaService($db))->registrar($user['id'], 'redefinir_senha_usuario', 'usuarios', $alvo['id'], null, null);
+        echo json_encode(['success' => true]);
+    } catch (Exception $e) {
+        if ($db->inTransaction()) {
+            $db->rollBack();
+        }
+        error_log('[USUARIOS REDEFINIR-SENHA] Erro: ' . $e->getMessage());
+        http_response_code(500);
+        echo json_encode(['error' => 'Erro ao redefinir a senha']);
+    }
+    exit;
+}
+
+// GET - Listar usuários(admin vê todos / pode filtrar por setor_id; gestor só vê o próprio setor)
 if ($_SERVER['REQUEST_METHOD'] === 'GET') {
     $user = AuthMiddleware::verificarAuth();
     AuthMiddleware::verificarGestor($user);
@@ -91,9 +194,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     AuthMiddleware::verificarGestor($user);
     AuthMiddleware::verificarCSRF();
 
-    $input = json_decode(file_get_contents('php://input'), true);
+    $input = json_decode(file_get_contents('php://input'), true) ?? [];
     $nome = trim($input['nome'] ?? '');
-    $email = trim($input['email'] ?? '');
+    $email = strtolower(trim($input['email'] ?? ''));
     $tipo = $input['tipo'] ?? 'operador';
     $cargo = trim($input['cargo'] ?? '') ?: null;
     $username = trim($input['username'] ?? '');
@@ -105,8 +208,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         echo json_encode(['error' => 'Nome e email são obrigatórios']);
         exit;
     }
+    if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
+        http_response_code(400);
+        echo json_encode(['error' => 'E-mail inválido']);
+        exit;
+    }
+    if (!in_array($tipo, papeisPermitidos($user), true)) {
+        http_response_code(403);
+        echo json_encode(['error' => $user['tipo'] === 'gestor' ? 'Gestores só podem cadastrar usuários com papel "operador"' : 'Papel inválido']);
+        exit;
+    }
 
-    // Senha inicial definida por quem cadastra (mesmas regras da troca de senha)
+    // Senha inicial definida por quem cadastra(mesmas regras da troca de senha)
     if ($senha === '') {
         http_response_code(400);
         echo json_encode(['error' => 'Informe a senha inicial do usuário']);
@@ -127,6 +240,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             exit;
         }
         $setor_id = $user['setor_id'];
+    }
+    if ($tipo === 'admin') {
+        $setor_id = null; // administrador não pertence a setor
     }
 
     if (in_array($tipo, ['operador', 'gestor'], true) && empty($setor_id)) {
@@ -161,8 +277,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         $senha_hash = SenhaService::hash($senha);
 
-        $query = "INSERT INTO usuarios (nome, username, email, tipo, cargo, setor_id, senha)
-                  VALUES (:nome, :username, :email, :tipo, :cargo, :setor_id, :senha)";
+        // trocar_senha = 1: a senha inicial é trocada pelo próprio usuário no primeiro acesso
+        $query = "INSERT INTO usuarios (nome, username, email, tipo, cargo, setor_id, senha, trocar_senha)
+                  VALUES (:nome, :username, :email, :tipo, :cargo, :setor_id, :senha, 1)";
         $stmt = $db->prepare($query);
         $stmt->bindParam(':nome', $nome);
         $stmt->bindParam(':username', $username);
@@ -184,6 +301,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $select_stmt->execute();
         echo json_encode($select_stmt->fetch());
     } catch (Exception $e) {
+        error_log('[USUARIOS POST] Erro: ' . $e->getMessage());
         http_response_code(500);
         echo json_encode(['error' => 'Erro ao criar usuário']);
     }
@@ -229,27 +347,51 @@ if ($_SERVER['REQUEST_METHOD'] === 'PUT') {
     if (isset($input['ativo'])) {
         $ativo = $input['ativo'] ? 1 : 0;
 
+        if (!$ativo && $usuario_id === (int) $user['id']) {
+            http_response_code(400);
+            echo json_encode(['error' => 'Você não pode desativar o próprio usuário']);
+            exit;
+        }
+        if (!$ativo && $alvo['tipo'] === 'admin' && outrosAdminsAtivos($db, $usuario_id) === 0) {
+            http_response_code(400);
+            echo json_encode(['error' => 'Não é possível desativar o último administrador ativo']);
+            exit;
+        }
+
         try {
+            $db->beginTransaction();
             $stmt = $db->prepare("UPDATE usuarios SET ativo = ? WHERE id = ?");
             $stmt->execute([$ativo, $usuario_id]);
+
+            // Desativado: as demandas abertas dele voltam para o setor e as sessões dele são encerradas
+            $devolvidas = 0;
+            if (!$ativo) {
+                $devolvidas = AcessoService::devolverDemandasDoResponsavel($db, $usuario_id, (int) $user['id'], 'responsável desativado');
+                AuthMiddleware::encerrarTodasAsSessoes($db, $usuario_id);
+            }
+            $db->commit();
 
             $auditoria = new AuditoriaService($db);
             $acao = $ativo ? 'ativar_usuario' : 'desativar_usuario';
             $dados_novos = $alvo;
             $dados_novos['ativo'] = $ativo;
+            $dados_novos['demandas_devolvidas'] = $devolvidas;
             $auditoria->registrar($user['id'], $acao, 'usuarios', $usuario_id, json_encode($alvo), json_encode($dados_novos));
 
-            echo json_encode(['success' => true]);
+            echo json_encode(['success' => true, 'demandas_devolvidas' => $devolvidas]);
         } catch (Exception $e) {
-            http_response_code(500);
+            if ($db->inTransaction()) {
+                $db->rollBack();
+            }
             error_log('[USUARIOS PUT] Erro: ' . $e->getMessage());
+            http_response_code(500);
             echo json_encode(['error' => 'Erro ao atualizar usuário']);
         }
         exit;
     }
 
     $nome = trim($input['nome'] ?? '');
-    $email = trim($input['email'] ?? '');
+    $email = strtolower(trim($input['email'] ?? ''));
     $tipo = $input['tipo'] ?? '';
     $cargo = trim($input['cargo'] ?? '') ?: null;
     $username = trim($input['username'] ?? '');
@@ -265,14 +407,44 @@ if ($_SERVER['REQUEST_METHOD'] === 'PUT') {
         exit;
     }
 
-    // Gestor não pode promover para gestor/admin nem mudar o setor do usuário
+    if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
+        http_response_code(400);
+        echo json_encode(['error' => 'E-mail inválido']);
+        exit;
+    }
+    $dup = $db->prepare("SELECT 1 FROM usuarios WHERE LOWER(email) = ? AND id <> ?");
+    $dup->execute([$email, $usuario_id]);
+    if ($dup->fetchColumn()) {
+        http_response_code(400);
+        echo json_encode(['error' => 'Email já existe']);
+        exit;
+    }
+
+    // Papel: só os permitidos a quem edita (solicitante externo continua como está)
+    if ($alvo['tipo'] === 'cliente' && $tipo === 'cliente') {
+        // edição de dados de um solicitante externo (sem mudar o papel)
+    } elseif (!in_array($tipo, papeisPermitidos($user), true)) {
+        http_response_code(403);
+        echo json_encode(['error' => $user['tipo'] === 'gestor' ? 'Gestores não podem alterar o papel para gestor/admin' : 'Papel inválido']);
+        exit;
+    }
+
+    // Gestor não pode mudar o setor do usuário
     if ($user['tipo'] === 'gestor') {
-        if (!in_array($tipo, ['operador'], true)) {
-            http_response_code(403);
-            echo json_encode(['error' => 'Gestores não podem alterar o papel para gestor/admin']);
-            exit;
-        }
         $setor_id = $alvo['setor_id'];
+    }
+    if ($tipo === 'admin') {
+        $setor_id = null; // administrador não pertence a setor
+    }
+    if (in_array($tipo, ['operador', 'gestor'], true) && empty($setor_id)) {
+        http_response_code(400);
+        echo json_encode(['error' => 'Setor é obrigatório para os papéis operador/gestor']);
+        exit;
+    }
+    if ($alvo['tipo'] === 'admin' && $tipo !== 'admin' && outrosAdminsAtivos($db, $usuario_id) === 0) {
+        http_response_code(400);
+        echo json_encode(['error' => 'Não é possível retirar o papel do último administrador ativo']);
+        exit;
     }
 
     if (empty($username)) {
@@ -288,6 +460,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'PUT') {
     }
 
     try {
+        $db->beginTransaction();
         $query = "UPDATE usuarios SET nome = :nome, username = :username, email = :email, tipo = :tipo, cargo = :cargo, setor_id = :setor_id WHERE id = :id";
         $stmt = $db->prepare($query);
         $stmt->bindParam(':nome', $nome);
@@ -299,11 +472,22 @@ if ($_SERVER['REQUEST_METHOD'] === 'PUT') {
         $stmt->bindParam(':id', $usuario_id);
         $stmt->execute();
 
-        $auditoria = new AuditoriaService($db);
-        $auditoria->registrar($user['id'], 'atualizar_usuario', 'usuarios', $usuario_id, json_encode($alvo), json_encode(['nome' => $nome, 'username' => $username, 'email' => $email, 'tipo' => $tipo, 'cargo' => $cargo, 'setor_id' => $setor_id]));
+        // Mudou de setor (ou passou a admin): as demandas abertas dele no setor antigo voltam para o setor
+        $devolvidas = 0;
+        if ((string) $alvo['setor_id'] !== (string) $setor_id) {
+            $devolvidas = AcessoService::devolverDemandasDoResponsavel($db, $usuario_id, (int) $user['id'], 'responsável mudou de setor');
+        }
+        $db->commit();
 
-        echo json_encode(['success' => true]);
+        $auditoria = new AuditoriaService($db);
+        $auditoria->registrar($user['id'], 'atualizar_usuario','usuarios', $usuario_id, json_encode($alvo), json_encode(['nome' => $nome, 'username' => $username, 'email' => $email, 'tipo' => $tipo, 'cargo' => $cargo, 'setor_id' => $setor_id]));
+
+        echo json_encode(['success' => true, 'demandas_devolvidas' => $devolvidas]);
     } catch (Exception $e) {
+        if ($db->inTransaction()) {
+            $db->rollBack();
+        }
+        error_log('[USUARIOS PUT] Erro: ' . $e->getMessage());
         http_response_code(500);
         echo json_encode(['error' => 'Erro ao atualizar usuário']);
     }
@@ -334,6 +518,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'DELETE') {
         if ($usuario_id <= 0) {
             http_response_code(400);
             echo json_encode(['error' => 'ID do usuário inválido']);
+            exit;
+        }
+        if ($usuario_id === (int) $user['id']) {
+            http_response_code(400);
+            echo json_encode(['error' => 'Você não pode excluir o próprio usuário']);
+            exit;
+        }
+        $tipoAlvo = $db->prepare("SELECT tipo FROM usuarios WHERE id = ?");
+        $tipoAlvo->execute([$usuario_id]);
+        if ($tipoAlvo->fetchColumn() === 'admin' && outrosAdminsAtivos($db, $usuario_id) === 0) {
+            http_response_code(400);
+            echo json_encode(['error' => 'Não é possível excluir o último administrador ativo']);
             exit;
         }
 

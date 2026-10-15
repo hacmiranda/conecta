@@ -29,7 +29,7 @@ php api/cron/verificar-emails-perdidos.php 30   # reprocess the last N days (max
 # Banco local: db_conecta (credenciais em api/config/.env). MySQL 8.4:
 # "C:\Program Files\MySQL\MySQL Server 8.4\bin\mysql.exe" -u root -p db_conecta
 # Esquema base: database/squema_crpdesk.sql (sem as tabelas de setores)
-# Depois aplicar, em ordem e uma única vez cada: database/9_*.sql até database/19_*.sql
+# Depois aplicar, em ordem e uma única vez cada: database/9_*.sql até database/20_*.sql
 # Primeiro administrador (senha pedida no terminal):
 php database/seed_admin.php "email@crprs.org.br" "Nome Completo"
 ```
@@ -43,8 +43,12 @@ All API requests go through `api/middleware/auth.php` for JWT verification and r
 
 ### Authentication
 - JWT tokens stored in `localStorage` (`cd_token`, `cd_usuario`, `cd_csrf_token`)
-- No expiration: tokens carry no `exp` claim. `AuthMiddleware::verificarAuth()` rereads `tipo`, `setor_id` and `ativo` from the database on every request, so role/sector changes and deactivation apply immediately
-- Four roles: `cliente`, `operador`, `gestor`, `admin`. Gestor/operador belong to one sector (`usuarios.setor_id`); admin has none and picks a sector in the header
+- No expiration: tokens carry no `exp` claim. `AuthMiddleware::verificarAuth()` rereads `tipo`, `setor_id`, `ativo`, `token_versao` and `trocar_senha` from the database on every request, so role/sector changes and deactivation apply immediately
+- Session revocation: "Sair" stores the token `jti` in `sessoes_revogadas` (only that session ends); password change/reset and deactivation bump `usuarios.token_versao` (claim `tv`), ending all sessions of the user
+- `usuarios.trocar_senha = 1` (new users, passwords reset by admin/gestor): every API except `alterar-senha.php`/`logout.php` answers 403 `trocar_senha` until the user changes it; the frontend shows only "Alterar senha"
+- Four roles: `cliente`, `operador`, `gestor`, `admin`. Gestor/operador belong to one sector (`usuarios.setor_id`); admin has none and picks a sector in the header. `cliente` = external requester created from incoming e-mail: never logs in (login, SSO and password recovery refuse it). Only users registered by admin/gestor log in (SSO does not auto-create users)
+- Passwords: only hashes are accepted (`SenhaService`: min. 10 chars, upper, lower, digit, special; Argon2id). Login is rate-limited per IP and per account
+- Deactivating a user or moving him to another sector returns his open demands to the sector (`AcessoService::devolverDemandasDoResponsavel`)
 - Turnstile CAPTCHA on login (`api/config/turnstile.php`, only in production)
 - Every API call requires `Authorization: Bearer <token>` and `X-CSRF-Token` headers
 
@@ -113,7 +117,7 @@ Attachments stored in `backend/anexos/`. Max 5 files, 20MB each. Allowed: pdf, d
 `api/services/sla-service.php` computes business seconds using the hours (`horarios_uteis`) and holidays (`feriados`) of the demand's sector (sector without hours falls back to "Geral"). Some statuses (`congela_sla`) pause the SLA timer.
 
 ### Database Migrations
-`database/9_*.sql` … `19_*.sql` build on the base schema, in order: 9 sectors/roles, 10 sector log, 11 per-sector status/priorities, 12 sector mailboxes, 13 responsible log, 14 roles gestor/operador, 15 initial seed, 16 categories per sector, 17 hours/holidays per sector, 18 SMTP per sector, 19 reminder cancellation + ignored e-mails. Each runs once (MySQL 8.4 has no `ADD COLUMN IF NOT EXISTS`).
+`database/9_*.sql` … `20_*.sql` build on the base schema, in order: 9 sectors/roles, 10 sector log, 11 per-sector status/priorities, 12 sector mailboxes, 13 responsible log, 14 roles gestor/operador, 15 initial seed, 16 categories per sector, 17 hours/holidays per sector, 18 SMTP per sector, 19 reminder cancellation + ignored e-mails, 20 sessions and passwords (token_versao, trocar_senha, sessoes_revogadas). Each runs once (MySQL 8.4 has no `ADD COLUMN IF NOT EXISTS`).
 
 ---
 

@@ -81,13 +81,69 @@ window.setSecurityHeaders = function (xhr) {
     }
 };
 
-// Função de logout
+// Limpa os dados da sessão no navegador e volta ao login (motivo opcional exibido lá)
+function encerrarSessaoLocal(motivo) {
+    ['cd_usuario', 'cd_token', 'cd_token_exp', 'cd_csrf_token'].forEach(chave => localStorage.removeItem(chave));
+    window.location.href = './login.html' + (motivo ? '?sessao=' + encodeURIComponent(motivo) : '');
+}
+
+// Função de logout: encerra a sessão no servidor (o token deixa de valer) e no navegador
 function fazerLogout() {
-    localStorage.removeItem('cd_usuario');
-    localStorage.removeItem('cd_token');
-    localStorage.removeItem('cd_token_exp');
-    localStorage.removeItem('cd_csrf_token');
-    window.location.href = './login.html';
+    const token = localStorage.getItem('cd_token');
+    if (!token) {
+        encerrarSessaoLocal();
+        return;
+    }
+    const controle = new AbortController();
+    setTimeout(() => controle.abort(), 3000);
+    fetch(window.APP_CONFIG.apiBase + 'logout.php', { method: 'POST', headers: getAuthHeaders(), signal: controle.signal, keepalive: true })
+        .catch(() => { })
+        .finally(() => encerrarSessaoLocal());
+}
+
+// Respostas da API que mudam o estado da sessão, vindas de qualquer chamada (XHR ou fetch)
+function tratarRespostaDeSessao(status, textoResposta, url) {
+    if (!url || url.indexOf(window.APP_CONFIG.apiBase) === -1 || /\/(logout|auth)\.php/.test(url)) return;
+    if (status === 401) {
+        encerrarSessaoLocal('encerrada');
+        return;
+    }
+    if (status === 403 && textoResposta && textoResposta.indexOf('trocar_senha') !== -1) {
+        ativarTrocaObrigatoriaSenha();
+    }
+}
+
+(function monitorarSessao() {
+    const abrirOriginal = XMLHttpRequest.prototype.open;
+    XMLHttpRequest.prototype.open = function (metodo, url) {
+        this._urlConecta = String(url);
+        this.addEventListener('load', () => {
+            let texto = '';
+            try { texto = this.responseType === '' || this.responseType === 'text' ? this.responseText : ''; } catch (e) { /* sem texto */ }
+            tratarRespostaDeSessao(this.status, texto, this._urlConecta);
+        });
+        return abrirOriginal.apply(this, arguments);
+    };
+    const fetchOriginal = window.fetch.bind(window);
+    window.fetch = function (recurso, opcoes) {
+        return fetchOriginal(recurso, opcoes).then(resposta => {
+            if (resposta.status === 401 || resposta.status === 403) {
+                resposta.clone().text().then(texto => tratarRespostaDeSessao(resposta.status, texto, resposta.url)).catch(() => { });
+            }
+            return resposta;
+        });
+    };
+})();
+
+// Troca de senha obrigatória (senha inicial ou redefinida por admin/gestor):
+// só a tela "Alterar senha" fica disponível até a troca.
+function ativarTrocaObrigatoriaSenha() {
+    if (document.body.classList.contains('troca-senha-obrigatoria')) return;
+    document.body.classList.add('troca-senha-obrigatoria');
+    const aviso = document.getElementById('aviso-troca-obrigatoria');
+    if (aviso) aviso.hidden = false;
+    if (typeof mostrarAlterarSenha === 'function') mostrarAlterarSenha();
+    setTimeout(() => document.getElementById('senha-atual')?.focus(), 150);
 }
 
 
@@ -264,6 +320,10 @@ document.addEventListener('keydown', (e) => {
 
 // Navegação entre seções
 function mostrarSecao(secaoId) {
+    // Troca de senha pendente: nenhuma outra tela abre
+    if (document.body.classList.contains('troca-senha-obrigatoria') && secaoId !== 'alterar-senha-secao') {
+        secaoId = 'alterar-senha-secao';
+    }
     document.querySelectorAll('.secao').forEach(secao => {
         secao.classList.remove('active');
     });
@@ -3004,7 +3064,14 @@ function mostrarListaUsuarios(usuarios, setores) {
         if (tipo === 'admin') return 'Administrador';
         if (tipo === 'gestor') return 'Gestor';
         if (tipo === 'operador' || !tipo) return 'Operador';
+        if (tipo === 'cliente') return 'Solicitante externo (sem acesso ao sistema)';
         return tipo;
+    }
+
+    // Admin redefine a senha de qualquer membro da equipe; gestor, só dos operadores do setor
+    function podeRedefinirSenha(usuario) {
+        if (Number(usuario.id) === Number(usuarioLogado.id) || usuario.tipo === 'cliente') return false;
+        return ehAdmin || usuario.tipo === 'operador';
     }
 
     function gerarCardUsuario(usuario) {
@@ -3024,6 +3091,7 @@ function mostrarListaUsuarios(usuarios, setores) {
                         ${statusAtivo ? 'Desativar' : 'Ativar'}
                     </button>
                     <button class="btn-editar" onclick="editarUsuario(${usuario.id})">Editar</button>
+                    ${podeRedefinirSenha(usuario) ? `<button class="btn-redefinir-senha" onclick="redefinirSenhaUsuario(${Number(usuario.id)}, decodeURIComponent('${argJs(usuario.nome)}'))">Redefinir senha</button>` : ''}
                     ${ehAdmin ? `<button class="btn-excluir" onclick="excluirUsuario(${usuario.id})">Excluir</button>` : ''}
                 </div>
             </div>
@@ -3042,7 +3110,7 @@ function mostrarListaUsuarios(usuarios, setores) {
         secoes += `<h3>👥 Operadores (${usuariosComuns.length})</h3><div class="usuarios-grid">${usuariosComuns.map(gerarCardUsuario).join('')}</div>`;
     }
     if (outrosTipos.length > 0) {
-        secoes += `<h3>🔄 Outros Papéis (${outrosTipos.length})</h3><div class="usuarios-grid">${outrosTipos.map(gerarCardUsuario).join('')}</div>`;
+        secoes += `<h3>✉️ Solicitantes externos (${outrosTipos.length})</h3><div class="usuarios-grid">${outrosTipos.map(gerarCardUsuario).join('')}</div>`;
     }
 
     // Opções de papel: gestor só pode cadastrar "usuario"; admin pode tudo
@@ -3327,10 +3395,13 @@ function executarEdicaoUsuario(usuarioId, nome, email, tipo, username, cargo, se
     setSecurityHeaders(xhr);
 
     xhr.onload = function () {
-        console.log('📞 Resposta edição Usuário:', xhr.status, xhr.responseText);
         if (xhr.status === 200) {
+            const resposta = xhr.responseText ? JSON.parse(xhr.responseText) : {};
             carregarUsuarios();
-            mostrarToast('Sucesso', 'Usuário atualizado com sucesso!', 'success');
+            const devolvidas = resposta.demandas_devolvidas || 0;
+            mostrarToast('Sucesso', devolvidas > 0
+                ? `Usuário atualizado. ${devolvidas} demanda(s) dele voltaram para o setor anterior.`
+                : 'Usuário atualizado com sucesso!', 'success');
         } else {
             const response = xhr.responseText ? JSON.parse(xhr.responseText) : {};
             mostrarAlert('Erro', response.error || 'Erro ao atualizar usuário');
@@ -6184,7 +6255,18 @@ function alterarSenha(event) {
 
     xhr.onload = function () {
         if (xhr.status === 200) {
-            mostrarToast('Sucesso', 'Senha alterada com sucesso!', 'success');
+            const resposta = JSON.parse(xhr.responseText);
+            if (resposta.token) {
+                localStorage.setItem('cd_token', resposta.token);
+                localStorage.setItem('cd_csrf_token', resposta.csrf_token || '');
+            }
+            if (usuario && usuario.trocar_senha) {
+                usuario.trocar_senha = false;
+                localStorage.setItem('cd_usuario', JSON.stringify(usuario));
+                mostrarAlert('Senha alterada', 'Senha alterada com sucesso! O sistema será carregado.', () => window.location.reload());
+                return;
+            }
+            mostrarToast('Sucesso', 'Senha alterada com sucesso! As outras sessões abertas foram encerradas.', 'success');
             document.getElementById('form-alterar-senha').reset();
             document.querySelectorAll('.check-item').forEach(item => {
                 item.innerHTML = item.innerHTML.replace('✅', '❌');
@@ -6201,7 +6283,6 @@ function alterarSenha(event) {
     };
 
     xhr.send(JSON.stringify({
-        usuario_id: usuario.id,
         senha_atual: senhaAtual,
         nova_senha: novaSenha
     }));
@@ -6279,6 +6360,12 @@ document.addEventListener('DOMContentLoaded', function () {
 
     // Mostrar/ocultar menu Configurações e seus itens conforme o papel do usuário
     aplicarVisibilidadePorPapel(dadosUsuario.tipo);
+
+    // Primeiro acesso / senha redefinida: troca obrigatória antes de qualquer outra tela
+    if (dadosUsuario.trocar_senha) {
+        ativarTrocaObrigatoriaSenha();
+        return;
+    }
 
     // Inicializar sistema de SLA
     if (typeof inicializarSistemaSLA === 'function') {
@@ -7853,10 +7940,17 @@ function verificarPrimeiraVisita() {
 
 // Desativar usuário
 function desativarUsuario(usuarioId) {
-    mostrarConfirm(
-        'Desativar Usuário',
-        'Tem certeza que deseja desativar este usuário? Ele não aparecerá mais na lista de atribuição.',
-        function (confirmado) {
+    // Primeiro descobre quantas demandas abertas ele tem, para avisar antes de confirmar
+    const consulta = new XMLHttpRequest();
+    consulta.open('GET', `${window.APP_CONFIG.apiBase}usuarios.php?demandas_abertas=${Number(usuarioId)}`, true);
+    setSecurityHeaders(consulta);
+    consulta.onload = function () {
+        const total = consulta.status === 200 ? (JSON.parse(consulta.responseText).total || 0) : 0;
+        const aviso = total > 0
+            ? `Este usuário é responsável por ${total} demanda(s) aberta(s). Ao desativá-lo, elas voltam para o setor (sem responsável) e os gestores são avisados. Ele também será desconectado. Deseja continuar?`
+            : 'Tem certeza que deseja desativar este usuário? Ele será desconectado e não aparecerá mais na lista de atribuição.';
+
+        mostrarConfirm('Desativar Usuário', aviso, function (confirmado) {
             if (!confirmado) return;
 
             const xhr = new XMLHttpRequest();
@@ -7865,17 +7959,95 @@ function desativarUsuario(usuarioId) {
             setSecurityHeaders(xhr);
 
             xhr.onload = function () {
+                let resposta = {};
+                try { resposta = JSON.parse(xhr.responseText); } catch (e) { /* sem JSON */ }
                 if (xhr.status === 200) {
-                    mostrarToast('Sucesso', 'Usuário desativado com sucesso!', 'success');
+                    const devolvidas = resposta.demandas_devolvidas || 0;
+                    mostrarToast('Sucesso', devolvidas > 0
+                        ? `Usuário desativado. ${devolvidas} demanda(s) voltaram para o setor.`
+                        : 'Usuário desativado com sucesso!', 'success');
                     carregarUsuarios();
                 } else {
-                    mostrarAlert('Erro', 'Erro ao desativar usuário');
+                    mostrarAlert('Erro', resposta.error || 'Erro ao desativar usuário');
                 }
             };
 
             xhr.send(JSON.stringify({ ativo: false }));
+        }, true);
+    };
+    consulta.send();
+}
+
+// Admin/gestor define uma senha nova; o usuário é obrigado a trocá-la no próximo acesso
+function redefinirSenhaUsuario(usuarioId, nome) {
+    const content = `
+        <form id="form-redefinir-senha" onsubmit="event.preventDefault(); window.submeterRedefinicaoSenha();">
+            <p>Defina uma senha provisória para <strong>${sanitizeHTML(nome)}</strong>. Ele será desconectado e precisará trocá-la no próximo acesso.</p>
+            <div class="form-group">
+                <label for="redefinir-senha-nova">Nova senha:</label>
+                <input type="password" id="redefinir-senha-nova" required minlength="10" autocomplete="new-password" aria-describedby="redefinir-senha-ajuda">
+            </div>
+            <div class="form-group">
+                <label for="redefinir-senha-confirma">Confirmar senha:</label>
+                <input type="password" id="redefinir-senha-confirma" required minlength="10" autocomplete="new-password">
+            </div>
+            <p id="redefinir-senha-ajuda" class="ajuda-senha-usuario">Mínimo de 10 caracteres, com letra maiúscula, minúscula, número e caractere especial. Informe a senha ao usuário por um canal seguro.</p>
+            <div style="display:flex; justify-content:flex-end; gap: 10px; margin-top: 15px;">
+                <button type="button" class="btn-voltar" onclick="promptModal(null)">Cancelar</button>
+                <button type="submit" class="btn-primary">Redefinir senha</button>
+            </div>
+        </form>
+    `;
+
+    document.getElementById('modal-prompt-message').innerHTML = content;
+    document.getElementById('modal-prompt-title').textContent = '🔑 Redefinir senha';
+    document.getElementById('modal-prompt-input').style.display = 'none';
+    const modalFooter = document.querySelector('#modal-prompt .modal-footer');
+    if (modalFooter) modalFooter.style.display = 'none';
+    document.getElementById('modal-overlay').classList.add('show');
+    document.getElementById('modal-prompt').classList.add('show');
+    setTimeout(() => document.getElementById('redefinir-senha-nova')?.focus(), 100);
+
+    const restaurarModal = () => {
+        document.getElementById('modal-prompt-input').style.display = 'block';
+        document.getElementById('modal-prompt-message').innerHTML = '';
+        if (modalFooter) modalFooter.style.display = 'flex';
+        delete window.submeterRedefinicaoSenha;
+    };
+
+    window.submeterRedefinicaoSenha = function () {
+        const senha = document.getElementById('redefinir-senha-nova').value;
+        const confirma = document.getElementById('redefinir-senha-confirma').value;
+        if (senha !== confirma) {
+            mostrarToast('Atenção', 'As senhas não coincidem.', 'error');
+            return;
         }
-    );
+        const erro = validarSenhaNova(senha);
+        if (erro) {
+            mostrarToast('Senha inválida', erro, 'error');
+            return;
+        }
+
+        const xhr = new XMLHttpRequest();
+        xhr.open('POST', window.APP_CONFIG.apiBase + 'usuarios.php?acao=redefinir_senha', true);
+        xhr.setRequestHeader('Content-Type', 'application/json');
+        setSecurityHeaders(xhr);
+        xhr.onload = function () {
+            let resposta = {};
+            try { resposta = JSON.parse(xhr.responseText); } catch (e) { /* sem JSON */ }
+            if (xhr.status === 200) {
+                promptModal(null);
+                mostrarToast('Sucesso', 'Senha redefinida. O usuário deverá trocá-la no próximo acesso.', 'success');
+            } else {
+                mostrarToast('Erro', resposta.error || 'Erro ao redefinir a senha', 'error');
+            }
+        };
+        xhr.send(JSON.stringify({ usuario_id: usuarioId, senha }));
+    };
+
+    modalCallback = function () {
+        restaurarModal();
+    };
 }
 
 // Ativar usuário

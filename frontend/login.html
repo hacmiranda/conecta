@@ -1261,6 +1261,11 @@
             document.getElementById('email-recuperar').value = '';
         }
 
+        // Sessão encerrada pelo servidor: explica por que voltou ao login
+        if (new URLSearchParams(window.location.search).get('sessao') === 'encerrada') {
+            window.addEventListener('load', () => mostrarAlert('Sessão encerrada', 'Sua sessão foi encerrada (por exemplo, a senha foi alterada ou o acesso foi desativado). Entre novamente.'));
+        }
+
         // Submit recuperar senha
         document.getElementById('form-recuperar').addEventListener('submit', function (e) {
             e.preventDefault();
@@ -1269,10 +1274,12 @@
             xhr.open('POST', window.APP_CONFIG.apiBase + 'recuperar-senha.php', true);
             xhr.setRequestHeader('Content-Type', 'application/json');
             xhr.onload = function () {
+                let resposta = {};
+                try { resposta = JSON.parse(xhr.responseText); } catch (err) { /* sem JSON */ }
                 if (xhr.status === 200) {
-                    mostrarAlert('Sucesso', 'Link de recuperação enviado para seu email!', voltarLogin);
+                    mostrarAlert('Verifique seu e-mail', resposta.message || 'Se o e-mail estiver cadastrado, você receberá um link para redefinir a senha.', voltarLogin);
                 } else {
-                    mostrarAlert('Erro', 'Email não encontrado no sistema.');
+                    mostrarAlert('Atenção', resposta.error || 'Não foi possível processar o pedido agora.');
                 }
             };
             xhr.onerror = function () { mostrarAlert('Erro', 'Erro de conexão'); };
@@ -1332,8 +1339,16 @@
                     btnEntrar.innerHTML = '<span class="material-symbols-outlined" aria-hidden="true">login</span> Entrar';
                     if (typeof turnstile !== 'undefined') turnstile.reset();
                     mostrarAlert('Atenção', 'Verificação de segurança falhou ou expirou. Resolva o captcha novamente.');
+                } else if (xhr.status === 403 || xhr.status === 429) {
+                    // Conta desativada ou limite de tentativas do servidor: mostra a mensagem dele
+                    btnEntrar.disabled = false;
+                    btnEntrar.innerHTML = '<span class="material-symbols-outlined" aria-hidden="true">login</span> Entrar';
+                    if (typeof turnstile !== 'undefined') turnstile.reset();
+                    let erro = 'Acesso não permitido.';
+                    try { erro = JSON.parse(xhr.responseText).error || erro; } catch (err) { /* sem JSON */ }
+                    mostrarAlert('Atenção', erro);
                 } else {
-                    // 401, 403 etc. — credenciais inválidas, conta como tentativa
+                    // 401 — credenciais inválidas, conta como tentativa
                     btnEntrar.disabled = false;
                     btnEntrar.innerHTML = '<span class="material-symbols-outlined" aria-hidden="true">login</span> Entrar';
                     if (typeof turnstile !== 'undefined') turnstile.reset();

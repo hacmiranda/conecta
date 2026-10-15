@@ -62,10 +62,9 @@ class AuthMiddleware {
      */
     public static function configurarCORS(array $metodos = ['GET', 'POST', 'OPTIONS']): void {
         $origin = $_SERVER['HTTP_ORIGIN'] ?? '';
-        if (in_array($origin, self::origensPermitidas(), true)) {
+        if ($origin !== '' && in_array($origin, self::origensPermitidas(), true)) {
             header('Access-Control-Allow-Origin: ' . $origin);
-        } else {
-            header('Access-Control-Allow-Origin: null');
+            header('Vary: Origin');
         }
         $metodosStr = implode(', ', array_map('strtoupper', $metodos));
         header('Access-Control-Allow-Methods: ' . $metodosStr . ', OPTIONS');
@@ -119,19 +118,33 @@ class AuthMiddleware {
         return self::sincronizarComBanco($payload);
     }
 
+    /** Endpoints liberados enquanto o usuário precisa trocar a senha */
+    const LIBERADOS_TROCA_SENHA = ['alterar-senha.php', 'logout.php'];
+
     /**
      * O JWT não expira e guarda papel/setor no momento do login. Para que mudança de setor,
      * de papel ou desativação do usuário valham imediatamente, o estado atual é relido do
-     * banco a cada requisição. Usuário inexistente ou inativo recebe 401.
+     * banco a cada requisição. Também encerra a sessão quando:
+     * - a versão de sessões do usuário mudou (troca/redefinição de senha, desativação);
+     * - esta sessão foi encerrada pelo botão "Sair" (sessoes_revogadas);
+     * - o usuário é um solicitante externo (cliente), que não entra no sistema.
+     * Com troca de senha pendente, só alterar-senha e logout respondem (403 nos demais).
      */
     private static function sincronizarComBanco(array $payload): array {
         try {
             require_once __DIR__ . '/../config/database.php';
             $database = new Database();
             $db = $database->getConnection();
-            $stmt = $db->prepare("SELECT nome, tipo, setor_id, ativo FROM usuarios WHERE id = ?");
+            $stmt = $db->prepare("SELECT nome, tipo, setor_id, ativo, token_versao, trocar_senha FROM usuarios WHERE id = ?");
             $stmt->execute([(int) ($payload['id'] ?? 0)]);
             $atual = $stmt->fetch(PDO::FETCH_ASSOC);
+
+            $revogada = false;
+            if (!empty($payload['jti'])) {
+                $rev = $db->prepare("SELECT 1 FROM sessoes_revogadas WHERE jti = ?");
+                $rev->execute([(string) $payload['jti']]);
+                $revogada = (bool) $rev->fetchColumn();
+            }
         } catch (Exception $e) {
             error_log('[AUTH] Falha ao sincronizar usuário com o banco: ' . $e->getMessage());
             http_response_code(500);
@@ -139,16 +152,51 @@ class AuthMiddleware {
             exit;
         }
 
-        if (!$atual || (int) $atual['ativo'] !== 1) {
+        if (!$atual || (int) $atual['ativo'] !== 1 || $atual['tipo'] === 'cliente') {
             http_response_code(401);
-            echo json_encode(['error' => 'Usuário inativo ou inexistente']);
+            echo json_encode(['error' => 'Usuário inativo ou inexistente', 'sessao_encerrada' => true]);
             exit;
         }
 
-        $payload['nome']     = $atual['nome'];
-        $payload['tipo']     = $atual['tipo'];
-        $payload['setor_id'] = $atual['setor_id'] !== null ? (int) $atual['setor_id'] : null;
+        if ($revogada || (int) ($payload['tv'] ?? 0) !== (int) $atual['token_versao']) {
+            http_response_code(401);
+            echo json_encode(['error' => 'Sua sessão foi encerrada. Entre novamente.', 'sessao_encerrada' => true]);
+            exit;
+        }
+
+        $payload['nome']         = $atual['nome'];
+        $payload['tipo']         = $atual['tipo'];
+        $payload['setor_id']     = $atual['setor_id'] !== null ? (int) $atual['setor_id'] : null;
+        $payload['trocar_senha'] = (int) $atual['trocar_senha'] === 1;
+
+        $script = basename($_SERVER['SCRIPT_FILENAME'] ?? '');
+        if ($payload['trocar_senha'] && !in_array($script, self::LIBERADOS_TROCA_SENHA, true)) {
+            http_response_code(403);
+            echo json_encode(['error' => 'Troque sua senha para continuar.', 'trocar_senha' => true]);
+            exit;
+        }
         return $payload;
+    }
+
+    /**
+     * Encerra a sessão atual (botão "Sair"): o identificador do token passa a ser recusado.
+     */
+    public static function revogarSessao(PDO $db, array $user): void {
+        if (!empty($user['jti'])) {
+            $db->prepare("INSERT IGNORE INTO sessoes_revogadas (jti, usuario_id) VALUES (?, ?)")
+               ->execute([(string) $user['jti'], (int) $user['id']]);
+        }
+    }
+
+    /**
+     * Encerra todas as sessões do usuário (troca/redefinição de senha, desativação).
+     * Devolve a nova versão.
+     */
+    public static function encerrarTodasAsSessoes(PDO $db, int $usuarioId): int {
+        $db->prepare("UPDATE usuarios SET token_versao = token_versao + 1 WHERE id = ?")->execute([$usuarioId]);
+        $stmt = $db->prepare("SELECT token_versao FROM usuarios WHERE id = ?");
+        $stmt->execute([$usuarioId]);
+        return (int) $stmt->fetchColumn();
     }
 
     /**
@@ -295,6 +343,7 @@ class AuthMiddleware {
      * Gera um token JWT para o usuário autenticado.
      * Inclui claim 'csrf' para validação stateless (sem sessão PHP).
      * Sem 'exp': a sessão não expira (firebase/php-jwt só valida expiração quando o claim existe).
+     * 'tv' = versão de sessões do usuário; 'jti' = identificador desta sessão (para o "Sair").
      */
     public static function gerarToken(array $user_data): string {
         $payload = [
@@ -302,6 +351,8 @@ class AuthMiddleware {
             'email'    => $user_data['email'],
             'tipo'     => $user_data['tipo'],
             'setor_id' => $user_data['setor_id'] ?? null,
+            'tv'       => (int) ($user_data['token_versao'] ?? 0),
+            'jti'      => bin2hex(random_bytes(16)),
             'csrf'     => bin2hex(random_bytes(16)),
             'iat'      => time(),
         ];
