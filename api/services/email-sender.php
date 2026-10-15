@@ -3,6 +3,7 @@ date_default_timezone_set('America/Sao_Paulo');
 require_once __DIR__ . '/../config/email-config.php';
 require_once __DIR__ . '/../vendor/autoload.php';
 require_once __DIR__ . '/acesso-service.php';
+require_once __DIR__ . '/crypto-service.php';
 
 use PHPMailer\PHPMailer\PHPMailer;
 use PHPMailer\PHPMailer\Exception;
@@ -12,6 +13,8 @@ class EmailSender {
     private $mailer;
     // Contexto atual de envio (preenchido automaticamente ou via setEmailContext)
     private $logContext = ['ticket_id' => null, 'tipo' => null];
+    // Remetente do setor da demanda (null = remetente global do sistema, definido no .env)
+    private $remetenteSetor = null;
     
     public function __construct($db) {
         $this->db = $db;
@@ -33,7 +36,8 @@ class EmailSender {
     private function configurarMailer() {
         $this->mailer = new PHPMailer(true);
         $this->mailer->isSMTP();
-        $this->mailer->SMTPDebug = 2;
+        // Nível 0: o debug do PHPMailer registraria as credenciais (AUTH) no log de erros
+        $this->mailer->SMTPDebug = 0;
         $this->mailer->Debugoutput = function($str, $level) {
             error_log("[PHPMAILER] $str");
         };
@@ -53,9 +57,88 @@ class EmailSender {
             )
         );
         $this->mailer->setFrom(EmailConfig::get('FROM_EMAIL'), EmailConfig::get('FROM_NAME'));
+
+        // Setor com caixa própria: envia e responde pelo endereço do setor
+        if ($this->remetenteSetor !== null) {
+            $r = $this->remetenteSetor;
+            $this->mailer->Host = $r['host'];
+            $this->mailer->Port = $r['port'];
+            $this->mailer->Username = $r['user'];
+            $this->mailer->Password = $r['pass'];
+            $this->mailer->SMTPSecure = $r['seguranca'] === 'tls' ? PHPMailer::ENCRYPTION_STARTTLS : PHPMailer::ENCRYPTION_SMTPS;
+            $this->mailer->setFrom($r['email'], $r['nome']);
+            $this->mailer->addReplyTo($r['email'], $r['nome']);
+        }
+    }
+
+    /**
+     * Passa a enviar pelo endereço de e-mail do setor (caixa ativa em setor_emails).
+     * Sem setor, sem caixa ou com falha ao ler as credenciais, usa o remetente global do sistema.
+     */
+    public function usarRemetenteDoSetor(?int $setorId): void {
+        $this->remetenteSetor = null;
+
+        if ($setorId) {
+            try {
+                $stmt = $this->db->prepare("SELECT se.*, s.nome AS setor_nome
+                                            FROM setor_emails se
+                                            INNER JOIN setores s ON s.id = se.setor_id
+                                            WHERE se.setor_id = ? AND se.ativo = 1
+                                            ORDER BY se.id LIMIT 1");
+                $stmt->execute([$setorId]);
+                $caixa = $stmt->fetch(PDO::FETCH_ASSOC);
+
+                if ($caixa) {
+                    $senhaImap = CryptoService::decrypt($caixa['imap_pass_cifrada']);
+                    $senhaSmtp = !empty($caixa['smtp_pass_cifrada']) ? CryptoService::decrypt($caixa['smtp_pass_cifrada']) : $senhaImap;
+
+                    $this->remetenteSetor = [
+                        'host'      => $caixa['smtp_host'] !== '' ? $caixa['smtp_host'] : (string) EmailConfig::get('SMTP_HOST'),
+                        'port'      => (int) $caixa['smtp_port'] ?: 465,
+                        'seguranca' => $caixa['smtp_seguranca'],
+                        'user'      => !empty($caixa['smtp_user']) ? $caixa['smtp_user'] : $caixa['imap_user'],
+                        'pass'      => $senhaSmtp,
+                        'email'     => $caixa['email'],
+                        'nome'      => !empty($caixa['nome_remetente']) ? $caixa['nome_remetente'] : 'Conecta CRPRS - ' . $caixa['setor_nome'],
+                    ];
+                }
+            } catch (Exception $e) {
+                // Cai no remetente global; o motivo fica no log (sem credenciais)
+                error_log('[EMAIL-SENDER] Caixa do setor ' . $setorId . ' indisponível, usando remetente global: ' . $e->getMessage());
+                $this->remetenteSetor = null;
+            }
+        }
+
+        $this->configurarMailer();
+    }
+
+    /**
+     * Seleciona o remetente conforme o setor da demanda (e-mails enviados ao solicitante).
+     */
+    private function prepararRemetenteDoTicket($ticket_id): void {
+        $setorId = null;
+        try {
+            $stmt = $this->db->prepare("SELECT setor_id FROM tickets WHERE id = ?");
+            $stmt->execute([(int) $ticket_id]);
+            $valor = $stmt->fetchColumn();
+            $setorId = $valor ? (int) $valor : null;
+        } catch (Exception $e) {
+            error_log('[EMAIL-SENDER] Erro ao localizar o setor da demanda: ' . $e->getMessage());
+        }
+        $this->usarRemetenteDoSetor($setorId);
+    }
+
+    /**
+     * Volta ao remetente global (notificações internas, recuperação de senha, lembretes).
+     */
+    private function usarRemetenteGlobal(): void {
+        if ($this->remetenteSetor !== null) {
+            $this->usarRemetenteDoSetor(null);
+        }
     }
     
     public function enviarEmailNovoTicket($ticket_id, $anexos_rejeitados = []) {
+        $this->prepararRemetenteDoTicket($ticket_id);
         try {
             error_log("[EMAIL-SENDER] Iniciando envio para ticket #$ticket_id");
             
@@ -115,6 +198,7 @@ class EmailSender {
     }
     
     public function notificarAgentesNovoTicket($ticket_id) {
+        $this->usarRemetenteGlobal();
         try {
             $query = "SELECT t.*, u.nome as usuario_nome, u.email as usuario_email 
                      FROM tickets t 
@@ -180,7 +264,9 @@ class EmailSender {
         try {
             $this->configurarMailer();
             
-            $this->mailer->setFrom(EmailConfig::get('SMTP_USERNAME'), 'Suporte CRPRS');
+            if ($this->remetenteSetor === null) {
+                $this->mailer->setFrom(EmailConfig::get('SMTP_USERNAME'), 'Suporte CRPRS');
+            }
             $this->mailer->addAddress($para);
             $this->mailer->Subject = $assunto;
             $this->mailer->Body    = $html;
@@ -251,10 +337,15 @@ class EmailSender {
                 };
             }
 
-            $q = "INSERT INTO email_logs (destinatario, assunto, tipo, ticket_id, status, erro)
-                  VALUES (:destinatario, :assunto, :tipo, :ticket_id, :status, :erro)";
+            $remetente = $this->remetenteSetor !== null
+                ? $this->remetenteSetor['email']
+                : (string) EmailConfig::get('FROM_EMAIL');
+
+            $q = "INSERT INTO email_logs (destinatario, remetente, assunto, tipo, ticket_id, status, erro)
+                  VALUES (:destinatario, :remetente, :assunto, :tipo, :ticket_id, :status, :erro)";
             $s = $this->db->prepare($q);
             $s->bindParam(':destinatario', $destinatario);
+            $s->bindParam(':remetente',    $remetente);
             $s->bindParam(':assunto',      $assunto);
             $s->bindParam(':tipo',         $tipo);
             $s->bindParam(':ticket_id',    $ticket_id);
@@ -328,6 +419,7 @@ class EmailSender {
     }
     
     public function enviarComentarioParaSolicitante($ticket_id, $comentario_id, $com_copia = null) {
+        $this->prepararRemetenteDoTicket($ticket_id);
         try {
             $query = "SELECT t.*, u.nome as usuario_nome, u.email as usuario_email,
                              c.comentario, uc.nome as comentario_autor, a.nome as agente_nome
@@ -403,6 +495,7 @@ class EmailSender {
     }
     
     public function notificarNovoComentario($ticket_id, $comentario_id) {
+        $this->usarRemetenteGlobal();
         try {
             $query = "SELECT t.*, u.nome as usuario_nome, u.email as usuario_email,
                              a.nome as agente_nome, a.email as agente_email,
@@ -478,6 +571,7 @@ class EmailSender {
 
     
     public function confirmarComentarioParaRemetente($ticket_id, $email_remetente, $anexos_rejeitados = []) {
+        $this->prepararRemetenteDoTicket($ticket_id);
         try {
             $query = "SELECT t.*, u.nome as usuario_nome 
                      FROM tickets t 
@@ -539,6 +633,7 @@ class EmailSender {
     }
     
     public function notificarFechamentoTicket($ticket_id) {
+        $this->prepararRemetenteDoTicket($ticket_id);
         try {
             $query = "SELECT t.*, u.nome as usuario_nome, u.email as usuario_email,
                              f.nome as fechado_por_nome
@@ -613,6 +708,7 @@ class EmailSender {
     }
     
     public function notificarReaberturaTicket($ticket_id) {
+        $this->usarRemetenteGlobal();
         try {
             $query = "SELECT t.*, u.nome as usuario_nome, u.email as usuario_email,
                              a.email as agente_email, a.nome as agente_nome
@@ -646,6 +742,7 @@ class EmailSender {
     }
     
     public function notificarReaberturaParaSolicitante($ticket_id) {
+        $this->prepararRemetenteDoTicket($ticket_id);
         try {
             $query = "SELECT t.*, u.nome as usuario_nome, u.email as usuario_email
                      FROM tickets t 
@@ -683,6 +780,7 @@ class EmailSender {
     }
     
     public function notificarAtribuicaoTicket($ticket_id, $agente_id, $atribuido_por_nome, $era_sem_atribuicao = false) {
+        $this->usarRemetenteGlobal();
         try {
             // Buscar agente
             $query_agente = "SELECT nome, email FROM usuarios WHERE id = :agente_id";
@@ -730,6 +828,7 @@ class EmailSender {
     }
     
     public function enviarPrimeiraRespostaAoSolicitante($ticket_id, $nome_agente) {
+        $this->prepararRemetenteDoTicket($ticket_id);
         try {
             $query = "SELECT t.*, u.nome as usuario_nome, u.email as usuario_email
                      FROM tickets t 
@@ -775,6 +874,7 @@ class EmailSender {
      * Também altera status para 'nova_resposta'.
      */
     public function notificarComentarioEntreAgentes($ticket_id, $comentario_id, $autor_nome, $agente_responsavel_id) {
+        $this->usarRemetenteGlobal();
         try {
             // Buscar dados do agente responsável
             $q_agente = "SELECT nome, email FROM usuarios WHERE id = :id";
