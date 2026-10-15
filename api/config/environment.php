@@ -5,6 +5,9 @@
  * Credenciais sensíveis são carregadas exclusivamente do arquivo .env.
  */
 
+// Fuso único da aplicação (todos os cálculos de data/hora, SLA e lembretes)
+date_default_timezone_set('America/Sao_Paulo');
+
 class Environment {
     private static $isProduction = null;
     private static $envCache = null;

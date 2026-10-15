@@ -19,6 +19,9 @@ class AcessoService {
         if ($tipo === 'admin') {
             return true;
         }
+        if (!empty($ticket['excluido_em'])) {
+            return false; // na lixeira: só o administrador
+        }
         if ($tipo === 'gestor') {
             return AuthMiddleware::mesmoSetor($user, isset($ticket['setor_id']) ? (int) $ticket['setor_id'] : null);
         }
@@ -36,6 +39,9 @@ class AcessoService {
      */
     public static function podeOperarTicket(array $user, array $ticket): bool {
         $tipo = $user['tipo'] ?? '';
+        if (!empty($ticket['excluido_em'])) {
+            return false; // na lixeira: restaurar antes de alterar
+        }
         if ($tipo === 'admin') {
             return true;
         }
@@ -52,13 +58,59 @@ class AcessoService {
      * Carrega a demanda (campos de controle de acesso) ou encerra com 404.
      */
     public static function carregarTicketOuFalhar(PDO $db, $ticketId): array {
-        $stmt = $db->prepare("SELECT id, titulo, status, prioridade, categoria_id, setor_id, agente_id, usuario_id
+        $stmt = $db->prepare("SELECT id, titulo, status, prioridade, categoria_id, setor_id, agente_id, usuario_id,
+                                     fechado_por, excluido_em
                               FROM tickets WHERE id = ?");
         $stmt->execute([(int) $ticketId]);
         $ticket = $stmt->fetch(PDO::FETCH_ASSOC);
         if (!$ticket) {
             http_response_code(404);
             echo json_encode(['error' => 'Demanda não encontrada']);
+            exit;
+        }
+        return $ticket;
+    }
+
+    /**
+     * Quem pode LER a demanda (inclui o histórico de quem já passou por ela):
+     * - quem pode vê-la hoje (podeVerTicket);
+     * - gestor cujo setor teve a demanda (ticket_setor_log), mesmo depois de transferida;
+     * - operador que já foi responsável por ela (ticket_agente_log) ou que a encerrou.
+     * Demanda na lixeira: só o administrador. Leitura apenas — para agir, use podeOperarTicket.
+     */
+    public static function podeLerTicket(PDO $db, array $user, array $ticket): bool {
+        if (self::podeVerTicket($user, $ticket)) {
+            return true;
+        }
+        if (!empty($ticket['excluido_em'])) {
+            return false;
+        }
+        $tipo = $user['tipo'] ?? '';
+        $ticketId = (int) ($ticket['id'] ?? 0);
+        if ($tipo === 'gestor' && !empty($user['setor_id'])) {
+            $stmt = $db->prepare("SELECT 1 FROM ticket_setor_log WHERE ticket_id = ? AND setor_id = ? LIMIT 1");
+            $stmt->execute([$ticketId, (int) $user['setor_id']]);
+            return (bool) $stmt->fetchColumn();
+        }
+        if ($tipo === 'operador') {
+            if ((int) ($ticket['fechado_por'] ?? 0) === (int) $user['id']) {
+                return true;
+            }
+            $stmt = $db->prepare("SELECT 1 FROM ticket_agente_log WHERE ticket_id = ? AND usuario_id = ? LIMIT 1");
+            $stmt->execute([$ticketId, (int) $user['id']]);
+            return (bool) $stmt->fetchColumn();
+        }
+        return false;
+    }
+
+    /**
+     * Carrega a demanda e exige permissão de leitura, inclusive histórica (404/403).
+     */
+    public static function exigirLerTicket(PDO $db, array $user, $ticketId): array {
+        $ticket = self::carregarTicketOuFalhar($db, $ticketId);
+        if (!self::podeLerTicket($db, $user, $ticket)) {
+            http_response_code(403);
+            echo json_encode(['error' => 'Acesso não autorizado a esta demanda']);
             exit;
         }
         return $ticket;

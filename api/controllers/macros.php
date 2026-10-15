@@ -27,17 +27,45 @@ try {
     exit;
 }
 
+require_once __DIR__ . '/../services/acesso-service.php';
+
 $database = new Database();
 $db = $database->getConnection();
+
+/**
+ * Macros são por setor (setor_id NULL = visível a todos os setores, criada pelo administrador).
+ * Gerencia (editar/excluir): o autor, o gestor do setor da macro ou o administrador.
+ */
+function podeGerirMacro(array $user, array $macro): bool {
+    if (($user['tipo'] ?? '') === 'admin') {
+        return true;
+    }
+    if ((int) $macro['usuario_id'] === (int) $user['id']) {
+        return true;
+    }
+    return ($user['tipo'] ?? '') === 'gestor' && $macro['setor_id'] !== null
+        && (int) $macro['setor_id'] === (int) ($user['setor_id'] ?? 0);
+}
 
 $method = $_SERVER['REQUEST_METHOD'];
 
 // GET: List macros
 if ($method === 'GET') {
     try {
-        // Can list global macros + user macros if desired. For now, all macros exist for all agents
-        $query = "SELECT m.*, u.nome as autor FROM macros m LEFT JOIN usuarios u ON m.usuario_id = u.id ORDER BY titulo ASC";
-        $stmt = $db->query($query);
+        // Admin: todas (ou as do setor escolhido + as de todos os setores). Demais: as do próprio setor + as de todos os setores.
+        $query = "SELECT m.*, u.nome as autor, s.nome as setor_nome
+                  FROM macros m
+                  LEFT JOIN usuarios u ON m.usuario_id = u.id
+                  LEFT JOIN setores s ON m.setor_id = s.id";
+        $params = [];
+        $escopo = AcessoService::setorEscopo($user);
+        if ($escopo !== null || !$is_admin) {
+            $query .= " WHERE (m.setor_id = :setor OR m.setor_id IS NULL)";
+            $params[':setor'] = $escopo ?? 0;
+        }
+        $query .= " ORDER BY m.titulo ASC";
+        $stmt = $db->prepare($query);
+        $stmt->execute($params);
         $macros = $stmt->fetchAll(PDO::FETCH_ASSOC);
         echo json_encode($macros);
     } catch(Exception $e) {
@@ -57,11 +85,26 @@ if ($method === 'POST') {
     }
     if(!empty($data->titulo) && !empty($data->texto)) {
         try {
-            $query = "INSERT INTO macros(titulo, texto, usuario_id) VALUES (:titulo, :texto, :usuario_id)";
+            // Setor da macro: o do autor; admin escolhe (vazio = todos os setores)
+            $setor_macro = $user['setor_id'] ?? null;
+            if ($is_admin) {
+                $setor_macro = !empty($data->setor_id) ? (int) $data->setor_id : null;
+                if ($setor_macro !== null) {
+                    $chk = $db->prepare("SELECT 1 FROM setores WHERE id = ?");
+                    $chk->execute([$setor_macro]);
+                    if (!$chk->fetchColumn()) {
+                        http_response_code(400);
+                        echo json_encode(['error' => 'Setor inválido']);
+                        exit;
+                    }
+                }
+            }
+            $query = "INSERT INTO macros (titulo, texto, usuario_id, setor_id) VALUES (:titulo, :texto, :usuario_id, :setor_id)";
             $stmt = $db->prepare($query);
             $stmt->bindParam(':titulo', $data->titulo);
             $stmt->bindParam(':texto', $data->texto);
             $stmt->bindParam(':usuario_id', $usuario_id);
+            $stmt->bindValue(':setor_id', $setor_macro, $setor_macro === null ? PDO::PARAM_NULL : PDO::PARAM_INT);
             if ($stmt->execute()) {
                 echo json_encode(['message' => 'Macro criada com sucesso', 'id' => $db->lastInsertId()]);
             } else {
@@ -86,7 +129,7 @@ if ($method === 'PUT') {
     $data = json_decode(file_get_contents("php://input"));
     
     // Check permission - admin or owner
-    $check_query = "SELECT usuario_id FROM macros WHERE id = :id";
+    $check_query = "SELECT usuario_id, setor_id FROM macros WHERE id = :id";
     $check_stmt = $db->prepare($check_query);
     $check_stmt->bindParam(':id', $id);
     $check_stmt->execute();
@@ -96,7 +139,7 @@ if ($method === 'PUT') {
         echo json_encode(['error' => 'Macro não encontrada']);
         exit;
     }
-    if(!$is_admin && $macro['usuario_id'] != $usuario_id) {
+    if (!podeGerirMacro($user, $macro)) {
         http_response_code(403);
         echo json_encode(['error' => 'Sem permissão para editar esta macro']);
         exit;
@@ -108,7 +151,7 @@ if ($method === 'PUT') {
     }
     if(!empty($data->titulo) && !empty($data->texto)) {
         try {
-            $query = "UPDATE macrosSET titulo = :titulo, texto = :texto WHERE id = :id";
+            $query = "UPDATE macros SET titulo = :titulo, texto = :texto WHERE id = :id";
             $stmt = $db->prepare($query);
             $stmt->bindParam(':titulo', $data->titulo);
             $stmt->bindParam(':texto', $data->texto);
@@ -134,7 +177,7 @@ if ($method === 'DELETE') {
     AuthMiddleware::verificarCSRF();
     $id = isset($_GET['id']) ? $_GET['id'] : die();
     // Check permission - admin or owner
-    $check_query = "SELECT usuario_id FROM macros WHERE id = :id";
+    $check_query = "SELECT usuario_id, setor_id FROM macros WHERE id = :id";
     $check_stmt = $db->prepare($check_query);
     $check_stmt->bindParam(':id', $id);
     $check_stmt->execute();
@@ -144,7 +187,7 @@ if ($method === 'DELETE') {
         echo json_encode(['error' => 'Macro não encontrada']);
         exit;
     }
-    if(!$is_admin && $macro['usuario_id'] != $usuario_id) {
+    if (!podeGerirMacro($user, $macro)) {
         http_response_code(403);
         echo json_encode(['error' => 'Sem permissão para deletar esta macro']);
         exit;

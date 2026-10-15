@@ -20,8 +20,9 @@ function carregarMacros() {
     const lista = document.getElementById('lista-macros-container');
     lista.innerHTML = '<p>Carregando...</p>';
 
+    // Administrador: macros do setor escolhido no cabeçalho (mais as de todos os setores)
     const xhr = new XMLHttpRequest();
-    xhr.open('GET', window.APP_CONFIG.apiBase + 'macros.php', true);
+    xhr.open('GET', typeof urlComSetor === 'function' ? urlComSetor(window.APP_CONFIG.apiBase + 'macros.php') : window.APP_CONFIG.apiBase + 'macros.php', true);
     setSecurityHeaders(xhr);
 
     xhr.onload = function () {
@@ -46,13 +47,14 @@ function renderizarListaMacros() {
 
     let html = '';
     todasMacros.forEach(macro => {
-        // Apenas dono ou admin pode editar/excluir
-        const podeEditar = usuarioLogado.tipo === 'admin' || macro.usuario_id == usuarioLogado.id;
+        // Edita/exclui: o autor, o gestor do setor da macro ou o administrador
+        const podeEditar = usuarioLogado.tipo === 'admin' || macro.usuario_id == usuarioLogado.id
+            || (usuarioLogado.tipo === 'gestor' && macro.setor_id && macro.setor_id == usuarioLogado.setor_id);
 
         html += `
             <div style="background: #fff; padding: 1rem; border-radius: 8px; margin-bottom: 0.5rem; border: 1px solid #ddd; display: flex; justify-content: space-between; align-items: flex-start;">
                 <div style="flex: 1; padding-right: 1rem;">
-                    <h4 style="margin: 0 0 0.5rem 0; color: var(--azul-primario);">${sanitizeHTML(macro.titulo)}</h4>
+                    <h4 style="margin: 0 0 0.5rem 0; color: var(--azul-primario);">${sanitizeHTML(macro.titulo)} <small style="font-weight: normal; color: #666;">· ${macro.setor_nome ? sanitizeHTML(macro.setor_nome) : 'Todos os setores'}</small></h4>
                     <div style="font-size: 0.9rem; color: #555; max-height: 40px; overflow: hidden; text-overflow: ellipsis;">
                         ${sanitizeHTML(macro.texto.replace(/<[^>]*>?/gm, '').substring(0, 100))}...
                     </div>
@@ -125,6 +127,9 @@ function salvarMacro() {
     }
 
     const payload = { titulo, texto };
+    // Administrador: a macro nasce no setor escolhido no cabeçalho (sem setor = vale para todos)
+    const ctx = window.CabecalhoSetor ? window.CabecalhoSetor.obterSetorContexto() : null;
+    if (!id && ctx) payload.setor_id = ctx;
     const method = id ? 'PUT' : 'POST';
     const url = id ? `${window.APP_CONFIG.apiBase}macros.php?id=${id}` : window.APP_CONFIG.apiBase + 'macros.php';
 
@@ -181,8 +186,10 @@ function carregarSeletorMacros() {
         <option value="__gerenciar__">⚙️ Gerenciar Respostas Rápidas...</option>
     `;
 
+    // No atendimento, as macros são as do setor da demanda aberta
+    const setorDemanda = typeof setorDaDemandaAtual === 'function' ? setorDaDemandaAtual() : null;
     const xhr = new XMLHttpRequest();
-    xhr.open('GET', window.APP_CONFIG.apiBase + 'macros.php', true);
+    xhr.open('GET', window.APP_CONFIG.apiBase + 'macros.php' + (setorDemanda ? `?setor_id=${setorDemanda}` : ''), true);
     setSecurityHeaders(xhr);
 
     xhr.onload = function () {

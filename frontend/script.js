@@ -341,6 +341,7 @@ function mostrarSecao(secaoId) {
     const mapaBotoes = {
         'tickets': 'btn-nav-tickets',
         'fechados': 'btn-nav-arquivo',
+        'lixeira': 'btn-nav-lixeira',
         'dashboard': 'btn-nav-dashboard',
         'relatorios': 'btn-nav-relatorios',
         'ajuda': 'btn-nav-ajuda',
@@ -1807,6 +1808,10 @@ function formatarAcaoHistorico(acao, valorAnterior, valorNovo) {
             return `devolveu a demanda ao gestor (estava com <strong>${valorAnterior}</strong>)`;
         case 'reatribuicao_colega':
             return `repassou a demanda de <strong>${valorAnterior}</strong> para <strong>${valorNovo}</strong>`;
+        case 'exclusao':
+            return 'enviou a demanda para a <strong>lixeira</strong>';
+        case 'restauracao':
+            return 'restaurou a demanda da <strong>lixeira</strong>';
         case 'transferencia_setor':
             return `transferiu a demanda do setor <strong>${valorAnterior}</strong> para <strong>${valorNovo}</strong>`;
         default:
@@ -1951,17 +1956,33 @@ function mostrarDetalhesTicket(ticket) {
     const usuario = JSON.parse(localStorage.getItem('cd_usuario'));
     const isAdmin = usuario && usuario.tipo === 'admin';
 
+    // Botões do topo e faixa de aviso conforme o tipo de acesso
+    let botoesTopo = '';
+    let faixaAviso = '';
+    if (ticket.na_lixeira) {
+        faixaAviso = `<div class="faixa-aviso-demanda faixa-lixeira" role="status">🗑️ Esta demanda está na <strong>lixeira</strong> desde ${ticket.excluido_em ? new Date(ticket.excluido_em.replace(' ', 'T')).toLocaleString('pt-BR') : ''}${ticket.excluido_por_nome ? ' (excluída por ' + sanitizeHTML(ticket.excluido_por_nome) + ')' : ''}. Restaure-a para voltar a trabalhar nela.</div>`;
+        botoesTopo = `<button class="btn-reabrir" onclick="restaurarDemanda(${Number(ticket.id)})" style="margin-left: 1rem; background-color: #28a745;">♻️ Restaurar</button>
+            <button class="btn-excluir" onclick="excluirDefinitivo(${Number(ticket.id)})" style="margin-left: 1rem; background-color: var(--vermelho);">🗑️ Excluir definitivamente</button>`;
+    } else if (ticket.acesso_historico) {
+        faixaAviso = `<div class="faixa-aviso-demanda" role="status">👁️ Você está vendo o <strong>histórico</strong> desta demanda, que passou pelo seu atendimento. Ela está hoje no setor <strong>${sanitizeHTML(ticket.setor_nome || '—')}</strong>${ticket.agente_nome ? ' com <strong>' + sanitizeHTML(ticket.agente_nome) + '</strong>' : ' sem responsável'}. Somente leitura.</div>`;
+    } else if (ticket.somente_leitura) {
+        faixaAviso = `<div class="faixa-aviso-demanda" role="status">👁️ Você pode acompanhar esta demanda e comentar, mas só o responsável ou a gestão do setor altera status, prioridade e responsável.</div>`;
+    } else {
+        botoesTopo = `${ticket.status === 'encerrado' || ticket.status === 'fechado' ?
+            `<button class="btn-reabrir" onclick="reabrirTicket(${ticket.id})" style="margin-left: 1rem; background-color: #28a745;">🔄 Reabrir</button>` : ''}
+            <button class="btn-excluir" onclick="excluirTicket(${ticket.id})" style="margin-left: 1rem; background-color: var(--vermelho);">🗑️ Excluir</button>`;
+    }
+    const classeAcesso = (ticket.na_lixeira || ticket.acesso_historico) ? 'detalhe-somente-leitura detalhe-sem-comentar'
+        : (ticket.somente_leitura ? 'detalhe-somente-leitura' : '');
+
     detalhesDiv.innerHTML = `
-        <div style="margin-top: 100px; margin-bottom: 2rem; padding: 1rem 0; position: relative; z-index: 999;">
+        <div style="margin-top: 100px; margin-bottom: 1rem; padding: 1rem 0; position: relative; z-index: 999;">
             <button class="btn-voltar" onclick="voltarParaOrigem()">← Voltar</button>
-            ${ticket.status === 'encerrado' || ticket.status === 'fechado' ?
-            `<button class="btn-reabrir" onclick="reabrirTicket(${ticket.id})" style="margin-left: 1rem; background-color: #28a745;">🔄 Reabrir</button>` :
-            ''
-        }
-            <button class="btn-excluir" onclick="excluirTicket(${ticket.id})" style="margin-left: 1rem; background-color: var(--vermelho);">🗑️ Excluir</button>
+            ${botoesTopo}
         </div>
-        
-        <div class="ticket-detalhes">
+        ${faixaAviso}
+
+        <div class="ticket-detalhes ${classeAcesso}">
             <div class="ticket-header">
                 <div style="display: flex; align-items: center; gap: 1rem;">
                     <span class="ticket-id" style="font-size: 1.5rem;">#${String(ticket.id).padStart(5, '0')}</span>
@@ -2356,14 +2377,22 @@ function adicionarComentario(event, ticketId) {
         },
         body: formData
     })
-        .then(response => response.json())
-        .then(data => {
+        .then(response => response.json().then(corpo => ({ ok: response.ok, corpo })))
+        .then(({ ok, corpo: data }) => {
             ocultarLoader();
+            if (!ok) {
+                mostrarAlert('Erro', data.error || 'Não foi possível adicionar o comentário.');
+                return;
+            }
             const mensagem = enviarEmail ?
                 (comCopia ? 'Comentário adicionado e e-mails enviados!' : 'Comentário adicionado e e-mail enviado!') :
                 'Comentário adicionado com sucesso!';
 
-            mostrarToast('Sucesso', mensagem, 'success');
+            if (enviarEmail && data.email_enviado === false) {
+                mostrarAlert('Atenção', 'O comentário foi salvo, mas o e-mail para o solicitante NÃO foi enviado. Verifique o endereço do solicitante e a configuração de e-mail do setor.');
+            } else {
+                mostrarToast('Sucesso', mensagem, 'success');
+            }
 
             // Limpar formulário
             document.getElementById('novo-comentario').value = '';
@@ -2963,6 +2992,10 @@ function alternarAtivoSetor(setorId, ativo) {
 // admin: vê tudo. gestor: vê só "Gerenciar Usuários" (escopado ao próprio setor).
 // usuario/cliente: menu Configurações fica oculto por completo.
 function aplicarVisibilidadePorPapel(tipo) {
+    // Lixeira: somente administrador
+    const itemLixeira = document.getElementById('nav-lixeira-item');
+    if (itemLixeira) itemLixeira.hidden = tipo !== 'admin';
+
     const menuConfigWrapper = document.getElementById('nav-config-wrapper');
     if (!menuConfigWrapper) return;
 
@@ -3449,23 +3482,111 @@ function executarExclusaoUsuario(usuarioId) {
 function excluirTicket(ticketId) {
     mostrarConfirm(
         'Excluir Demanda',
-        'Tem certeza que deseja excluir esta demanda? Esta ação não pode ser desfeita.',
+        'A demanda será enviada para a lixeira e deixará de aparecer nas listas. Somente o administrador poderá restaurá-la ou excluí-la definitivamente. Deseja continuar?',
         function (confirmado) {
             if (!confirmado) return;
-
-            // Segunda confirmação com cabeçalho vermelho
-            mostrarConfirm(
-                'Confirmação Final',
-                'ATENÇÃO: A demanda e todos os seus comentários serão excluídos permanentemente. Confirma?',
-                function (confirmadoFinal) {
-                    if (!confirmadoFinal) return;
-
-                    executarExclusaoTicket(ticketId);
-                },
-                true // isPerigoso = true
-            );
-        }
+            executarExclusaoTicket(ticketId);
+        },
+        true // isPerigoso = true
     );
+}
+
+// ======================================================
+// 🗑️ LIXEIRA (somente administrador)
+// ======================================================
+function mostrarLixeira() {
+    mostrarSecao('lixeira');
+    carregarLixeira();
+}
+
+function carregarLixeira() {
+    const lista = document.getElementById('lista-lixeira');
+    if (!lista) return;
+    lista.innerHTML = '<p>Carregando...</p>';
+
+    const xhr = new XMLHttpRequest();
+    xhr.open('GET', urlComSetor(window.APP_CONFIG.apiBase + 'tickets.php?escopo=lixeira'), true);
+    setSecurityHeaders(xhr);
+    xhr.onload = function () {
+        if (xhr.status !== 200) {
+            lista.innerHTML = '<p>Erro ao carregar a lixeira.</p>';
+            return;
+        }
+        const demandas = JSON.parse(xhr.responseText);
+        if (demandas.length === 0) {
+            lista.innerHTML = '<div style="text-align:center; padding: 3rem 1rem; color: #64748b;"><span class="material-symbols-outlined" style="font-size:3rem; opacity:0.4;" aria-hidden="true">delete</span><p>A lixeira está vazia.</p></div>';
+            return;
+        }
+        let html = `<table class="tickets-tabela">
+            <caption class="sr-only">Demandas na lixeira</caption>
+            <thead><tr>
+                <th scope="col">Nº Demanda</th><th scope="col">Assunto</th><th scope="col">Setor</th>
+                <th scope="col">Status</th><th scope="col">Excluída em</th><th scope="col">Excluída por</th><th scope="col">Ações</th>
+            </tr></thead><tbody>`;
+        demandas.forEach(d => {
+            const quando = d.excluido_em ? new Date(d.excluido_em.replace(' ', 'T')).toLocaleString('pt-BR') : '—';
+            html += `<tr data-ticket-id="${Number(d.id)}">
+                <td data-label="Nº Demanda">#${String(d.id).padStart(5, '0')}</td>
+                <td data-label="Assunto">${sanitizeHTML(d.titulo)}</td>
+                <td data-label="Setor">${sanitizeHTML(d.setor_nome || '—')}</td>
+                <td data-label="Status">${sanitizeHTML(typeof formatarNomeStatus === 'function' ? formatarNomeStatus(d.status) : d.status)}</td>
+                <td data-label="Excluída em">${quando}</td>
+                <td data-label="Excluída por">${sanitizeHTML(d.excluido_por_nome || '—')}</td>
+                <td data-label="Ações" class="lixeira-acoes">
+                    <button class="btn-compact" onclick="secaoOrigem = 'lixeira'; verDetalhes(${Number(d.id)})">Ver</button>
+                    <button class="btn-compact lixeira-restaurar" onclick="restaurarDemanda(${Number(d.id)})">Restaurar</button>
+                    <button class="btn-compact lixeira-excluir" onclick="excluirDefinitivo(${Number(d.id)})">Excluir definitivamente</button>
+                </td></tr>`;
+        });
+        html += '</tbody></table>';
+        lista.innerHTML = html;
+    };
+    xhr.send();
+}
+
+function restaurarDemanda(ticketId) {
+    mostrarConfirm('Restaurar Demanda', 'A demanda volta para as listas do setor, com o histórico preservado. Deseja restaurá-la?', function (confirmado) {
+        if (!confirmado) return;
+        const xhr = new XMLHttpRequest();
+        xhr.open('PUT', `${window.APP_CONFIG.apiBase}tickets.php?id=${Number(ticketId)}&acao=restaurar`, true);
+        xhr.setRequestHeader('Content-Type', 'application/json');
+        setSecurityHeaders(xhr);
+        xhr.onload = function () {
+            if (xhr.status === 200) {
+                mostrarToast('Sucesso', 'Demanda restaurada.', 'success');
+                localStorage.removeItem('cd_ticketAtual');
+                mostrarLixeira();
+            } else {
+                let erro = 'Erro ao restaurar a demanda';
+                try { erro = JSON.parse(xhr.responseText).error || erro; } catch (e) { /* sem JSON */ }
+                mostrarAlert('Erro', erro);
+            }
+        };
+        xhr.send('{}');
+    });
+}
+
+function excluirDefinitivo(ticketId) {
+    mostrarConfirm('Excluir definitivamente',
+        'ATENÇÃO: a demanda, os comentários, os anexos e o histórico serão apagados para sempre e não poderão ser recuperados. Confirma?',
+        function (confirmado) {
+            if (!confirmado) return;
+            const xhr = new XMLHttpRequest();
+            xhr.open('DELETE', `${window.APP_CONFIG.apiBase}tickets.php?id=${Number(ticketId)}&definitivo=1`, true);
+            setSecurityHeaders(xhr);
+            xhr.onload = function () {
+                if (xhr.status === 200) {
+                    mostrarToast('Sucesso', 'Demanda excluída definitivamente.', 'success');
+                    localStorage.removeItem('cd_ticketAtual');
+                    mostrarLixeira();
+                } else {
+                    let erro = 'Erro ao excluir a demanda';
+                    try { erro = JSON.parse(xhr.responseText).error || erro; } catch (e) { /* sem JSON */ }
+                    mostrarAlert('Erro', erro);
+                }
+            };
+            xhr.send();
+        }, true);
 }
 
 // Executar exclusão do ticket
@@ -3503,7 +3624,7 @@ function executarExclusaoTicket(ticketId, callback) {
                 row.classList.add('ticket-removendo');
             }
 
-            mostrarToast('Sucesso', 'Demanda removida com sucesso!', 'success');
+            mostrarToast('Sucesso', 'Demanda enviada para a lixeira.', 'success');
 
             // Aguardar um pouco e redirecionar
             setTimeout(() => {
@@ -5280,6 +5401,8 @@ function voltarParaOrigem() {
 
     if (secaoOrigem === 'fechados') {
         mostrarTicketsFechados();
+    } else if (secaoOrigem === 'lixeira') {
+        mostrarLixeira();
     } else {
         mostrarTicketsComAtualizacao();
     }
@@ -5754,6 +5877,8 @@ function restaurarSecaoAtiva() {
         mostrarDashboard();
     } else if (secaoSalva === 'fechados') {
         mostrarTicketsFechados();
+    } else if (secaoSalva === 'lixeira' && JSON.parse(localStorage.getItem('cd_usuario') || '{}').tipo === 'admin') {
+        mostrarLixeira();
     } else if (secaoSalva === 'relatorios') {
         mostrarRelatorios();
     } else if (secaoSalva === 'sobre') {
@@ -7366,10 +7491,10 @@ function mostrarSobre() {
                             <span>🔔</span> Notificações em Tempo Real (SSE)
                         </div>
                         <ul style="margin: 0; padding-left: 1.4rem; font-size: 0.88rem; color: var(--text-secondary, #555); line-height: 1.8;">
-                            <li>Migração de polling AJAX para <strong>Server-Sent Events</strong> (EventSource) — menor latência e carga no servidor.</li>
+                            <li>Notificações atualizadas automaticamente a cada 30 segundos, sem recarregar a página.</li>
                             <li>Badge pulsante com contador de alertas não lidos sobre o ícone do sino.</li>
                             <li>Dropdown de feed com histórico; clicar na notificação abre a demanda correspondente e marca como lida.</li>
-                            <li>Triggers em <code>tickets.php</code> e <code>comentarios.php</code>: nova atribuição, nova demanda e novos comentários.</li>
+                            <li>Triggers em sistema: nova atribuição, nova demanda, novos comentários e lembretes.</li>
                         </ul>
                     </div>
 

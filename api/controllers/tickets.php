@@ -9,6 +9,8 @@ require_once __DIR__ . '/../services/acesso-service.php';
 require_once __DIR__ . '/../services/timeline-service.php';
 require_once __DIR__ . '/../services/html-sanitizer.php';
 require_once __DIR__ . '/../services/lembrete-service.php';
+require_once __DIR__ . '/../services/catalogo-service.php';
+require_once __DIR__ . '/../services/demanda-service.php';
 
 AuthMiddleware::configurarCORS(['GET', 'POST', 'PUT', 'DELETE']);
 
@@ -18,14 +20,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
 
 $database = new Database();
 $db = $database->getConnection();
-
-/**
- * Verifica se o usuário logado pode visualizar a demanda informada
- * (regra centralizada em AcessoService).
- */
-function usuarioPodeVerTicket(array $user, array $ticket): bool {
-    return AcessoService::podeVerTicket($user, $ticket);
-}
 
 // GET - Listar tickets ou buscar ticket específico
 if ($_SERVER['REQUEST_METHOD'] === 'GET') {
@@ -40,14 +34,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
                              a.nome as agente_nome,
                              c.nome as categoria_nome,
                              f.nome as fechado_por_nome,
+                             ex.nome as excluido_por_nome,
                              st.nome as setor_nome,
-                             (SELECT COUNT(*) FROM historico WHERE ticket_id = t.id AND acao = 'merge') as eh_mesclado,
-                             (SELECT valor_novo FROM historico WHERE ticket_id = t.id AND acao = 'merge' LIMIT 1) as tickets_mesclados
+                             (SELECT COUNT(*) FROM ticket_historico WHERE ticket_id = t.id AND acao = 'merge') as eh_mesclado,
+                             (SELECT valor_novo FROM ticket_historico WHERE ticket_id = t.id AND acao = 'merge' LIMIT 1) as tickets_mesclados
                       FROM tickets t 
                       LEFT JOIN usuarios u ON t.usuario_id = u.id 
                       LEFT JOIN usuarios a ON t.agente_id = a.id 
                       LEFT JOIN categorias c ON t.categoria_id = c.id 
                       LEFT JOIN usuarios f ON t.fechado_por = f.id
+                      LEFT JOIN usuarios ex ON t.excluido_por = ex.id
                       LEFT JOIN setores st ON t.setor_id = st.id
                       WHERE t.id = :id";
             
@@ -62,11 +58,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
                 exit;
             }
 
-            if (!usuarioPodeVerTicket($user, $ticket)) {
+            // Leitura: quem vê a demanda hoje ou quem passou por ela (histórico). Lixeira: só o admin.
+            if (!AcessoService::podeLerTicket($db, $user, $ticket)) {
                 http_response_code(403);
                 echo json_encode(['error' => 'Acesso não autorizado a esta demanda']);
                 exit;
             }
+            $ticket['na_lixeira'] = !empty($ticket['excluido_em']);
+            $ticket['acesso_historico'] = !AcessoService::podeVerTicket($user, $ticket);   // só leitura do histórico
+            $ticket['somente_leitura'] = !AcessoService::podeOperarTicket($user, $ticket); // não pode alterar
 
             // Linha do tempo cronológica (comentários + histórico + abertura)
             $dados_timeline = TimelineService::montar($db, (int) $ticket_id);
@@ -91,7 +91,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
             $tipo_logado = $user['tipo'] ?? '';
             $escopo = $_GET['escopo'] ?? (isset($_GET['arquivo']) ? 'arquivo' : '');
 
-            if (!in_array($escopo, ['', 'abertas', 'arquivo', 'transferidas', 'repassadas'], true)) {
+            if (!in_array($escopo, ['', 'abertas', 'arquivo', 'transferidas', 'repassadas', 'lixeira'], true)) {
                 http_response_code(400);
                 echo json_encode(['error' => 'Escopo inválido']);
                 exit;
@@ -106,24 +106,38 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
                              a.nome as agente_nome,
                              c.nome as categoria_nome,
                              s.nome as setor_nome,
+                             ex.nome as excluido_por_nome,
                              (SELECT COUNT(*) FROM anexos WHERE ticket_id = t.id) as tem_anexos,
                              0 as criado_por_email,
                              CASE WHEN cnl.ticket_id IS NOT NULL THEN 1 ELSE 0 END as tem_comentario_nao_lido,
                              (SELECT CONCAT(data_lembrete, ' ', hora_lembrete) FROM lembretes WHERE ticket_id = t.id AND notificado = FALSE AND cancelado_em IS NULL ORDER BY data_lembrete ASC, hora_lembrete ASC LIMIT 1) as proximo_lembrete,
-                             (SELECT COUNT(*) FROM historico WHERE ticket_id = t.id AND acao = 'merge') as eh_mesclado,
-                             (SELECT valor_novo FROM historico WHERE ticket_id = t.id AND acao = 'merge' LIMIT 1) as tickets_mesclados
+                             (SELECT COUNT(*) FROM ticket_historico WHERE ticket_id = t.id AND acao = 'merge') as eh_mesclado,
+                             (SELECT valor_novo FROM ticket_historico WHERE ticket_id = t.id AND acao = 'merge' LIMIT 1) as tickets_mesclados
                       FROM tickets t
                       LEFT JOIN usuarios u ON t.usuario_id = u.id
                       LEFT JOIN usuarios a ON t.agente_id = a.id
                       LEFT JOIN categorias c ON t.categoria_id = c.id
                       LEFT JOIN setores s ON t.setor_id = s.id
+                      LEFT JOIN usuarios ex ON t.excluido_por = ex.id
                       LEFT JOIN comentarios_nao_lidos cnl ON t.id = cnl.ticket_id AND cnl.usuario_id = :usuario_id";
 
             $params = [':usuario_id' => $usuario_logado_id];
             $where = [];
 
-            if ($escopo === 'transferidas') {
-                // Demandas que passaram pelo setor e hoje estão em outro (gestor/admin)
+            if ($escopo === 'lixeira') {
+                // Lixeira: demandas excluídas, visíveis só ao administrador (opcionalmente de um setor)
+                if ($tipo_logado !== 'admin') {
+                    http_response_code(403);
+                    echo json_encode(['error' => 'Apenas administradores acessam a lixeira']);
+                    exit;
+                }
+                $where[] = "t.excluido_em IS NOT NULL";
+                if ($setor_escopo !== null) {
+                    $where[] = "t.setor_id = :setor_id";
+                    $params[':setor_id'] = $setor_escopo;
+                }
+            } elseif ($escopo === 'transferidas') {
+                // Demandas que passaram pelo setore hoje estão em outro (gestor/admin)
                 if (!in_array($tipo_logado, ['gestor', 'admin'], true)) {
                     http_response_code(403);
                     echo json_encode(['error' => 'Escopo disponível apenas para gestores e administradores']);
@@ -192,10 +206,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
                 }
             }
 
+            // Demandas na lixeira não aparecem em nenhuma outra lista
+            if ($escopo !== 'lixeira') {
+                array_unshift($where, "t.excluido_em IS NULL");
+            }
             if (!empty($where)) {
                 $query .= " WHERE " . implode(' AND ', $where);
             }
-            $query .= " ORDER BY t.criado_em DESC";
+            $query .= $escopo === 'lixeira' ? " ORDER BY t.excluido_em DESC" : " ORDER BY t.criado_em DESC";
 
             $stmt = $db->prepare($query);
             $stmt->execute($params);
@@ -223,7 +241,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         exit;
     }
     
-    error_log("[DEBUG] Iniciando criação de ticket");
     
     $titulo_raw = $_POST['titulo'] ?? '';
     $descricao_raw = $_POST['descricao'] ?? '';
@@ -245,7 +262,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         exit;
     }
 
-    error_log("[DEBUG] Dados recebidos: titulo=$titulo, prioridade=$prioridade");
     
     if (empty($titulo) || empty($descricao)) {
         http_response_code(400);
@@ -254,15 +270,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
     
     try {
-        error_log("[DEBUG] Preparando inserção no banco");
         
-        // Garantir que prioridade SEMPRE tenha um valor válido
-        if (empty($prioridade) || !in_array($prioridade, ['baixa', 'normal', 'alta', 'urgente'])) {
-            $prioridade = 'normal';
-            error_log("[DEBUG] Prioridade ajustada para: normal");
-        }
-        
-        error_log("[DEBUG] Prioridade final: $prioridade");
+        // Prioridade: valor do catálogo (conferido abaixo contra o setor); vazio = normal
+        $prioridade = trim((string) $prioridade) !== '' ? trim((string) $prioridade) : 'normal';
+
 
         // Determinar setor de destino: quem cria já vinculado a um setor (operador/gestor)
         // abre a demanda direto no próprio setor; sem setor (cliente/admin), a demanda cai no
@@ -280,6 +291,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $setor_stmt = $db->prepare("SELECT id FROM setores WHERE nome = 'Geral' AND ativo = 1 LIMIT 1");
             $setor_stmt->execute();
             $setor_id = $setor_stmt->fetchColumn() ?: null;
+        }
+
+        // A prioridade precisa estar ativa para o setor em que a demanda nasce (senão vira "normal")
+        if (!CatalogoService::prioridadePermitida($db, $prioridade, $setor_id ? (int) $setor_id : null)) {
+            $prioridade = 'normal';
         }
 
         // A categoria informada precisa ser do setor em que a demanda nasce (senão fica sem categoria)
@@ -309,7 +325,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $ticket_id = $db->lastInsertId();
         AcessoService::registrarAbertura($db, (int) $ticket_id, $setor_id ? (int) $setor_id : null, (int) $user['id'], 'no sistema');
 
-        error_log("[DEBUG] Ticket criado com ID: $ticket_id");
         
         // Processar anexos se houver
         if (isset($_FILES['anexos']) && is_array($_FILES['anexos']['name'])) {
@@ -404,9 +419,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $select_stmt->execute();
         $ticket = $select_stmt->fetch();
         
-        error_log("[DEBUG] Enviando resposta final");
         echo json_encode($ticket);
-        error_log("[DEBUG] Resposta enviada com sucesso");
         
     } catch (Exception $e) {
         error_log("[ERROR] Erro ao criar ticket: " . $e->getMessage());
@@ -415,80 +428,83 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 }
 
-// PUT - Atualizar ticket
+// PUT - Atualizar demanda (ou ?acao=restaurar: tirar da lixeira, só administrador)
 if ($_SERVER['REQUEST_METHOD'] === 'PUT') {
-    // Autenticação
-    try {
-        $user = AuthMiddleware::verificarAuth();
-        AuthMiddleware::verificarCSRF();
-    } catch (Exception $e) {
-        http_response_code(401);
-        echo json_encode(['error' => 'Acesso não autorizado']);
-        exit;
-    }
-    
-    $ticket_id = $_GET['id'] ?? null;
-    
+    $user = AuthMiddleware::verificarAuth();
+    AuthMiddleware::verificarCSRF();
+
+    $ticket_id = (int) ($_GET['id'] ?? 0);
     if (!$ticket_id) {
         http_response_code(400);
         echo json_encode(['error' => 'ID da demanda é obrigatório']);
         exit;
     }
-    
-    // Obter dados do input
-    $input = json_decode(file_get_contents('php://input'), true);
-    
-    // Usuário que realiza a ação é o logado
-    $usuario_id = $user['id'];
-    
-    // Log para debug
-    error_log("[ATRIBUICAO] Ticket ID: $ticket_id");
-    error_log("[ATRIBUICAO] Input: " . json_encode($input));
-    
+
+    $usuario_id = (int) $user['id'];
+
+    if (($_GET['acao'] ?? '') === 'restaurar') {
+        AuthMiddleware::verificarAdmin($user);
+        $ticket_lixeira = AcessoService::carregarTicketOuFalhar($db, $ticket_id);
+        if (empty($ticket_lixeira['excluido_em'])) {
+            http_response_code(400);
+            echo json_encode(['error' => 'A demanda não está na lixeira']);
+            exit;
+        }
+        try {
+            DemandaService::restaurar($db, $ticket_lixeira, $usuario_id);
+            echo json_encode(['success' => true]);
+        } catch (Exception $e) {
+            error_log('[TICKETS RESTAURAR] Erro: ' . $e->getMessage());
+            http_response_code(500);
+            echo json_encode(['error' => 'Erro ao restaurar a demanda']);
+        }
+        exit;
+    }
+
+    $input = json_decode(file_get_contents('php://input'), true) ?? [];
+
+    // E-mails e avisos só depois do commit
+    $pos_commit = ['atribuicao' => null, 'encerrado' => false, 'reaberto' => false];
+
     try {
         $updates = [];
         $params = [':id' => $ticket_id];
-        
-        // Buscar dados atuais ANTES da atualização
-        $current_query = "SELECT titulo, descricao, status, prioridade, categoria_id, agente_id, setor_id, usuario_id FROM tickets WHERE id = ?";
-        $current_stmt = $db->prepare($current_query);
+
+        // Dados atuais ANTES da atualização
+        $current_stmt = $db->prepare("SELECT titulo, descricao, status, prioridade, categoria_id, agente_id, setor_id, usuario_id, excluido_em
+                                      FROM tickets WHERE id = ?");
         $current_stmt->execute([$ticket_id]);
         $current_data = $current_stmt->fetch(PDO::FETCH_ASSOC);
-        
+
         if (!$current_data) {
-            error_log("[ATRIBUICAO ERRO] Ticket $ticket_id não encontrado");
             http_response_code(404);
             echo json_encode(['error' => 'Demanda não encontrada']);
             exit;
         }
-        
-        // Isolamento: admin, gestor do setor da demanda ou operador responsável
+
+        // Isolamento: admin, gestor do setor da demanda ou operador responsável (lixeira: ninguém)
         if (!AcessoService::podeOperarTicket($user, $current_data)) {
             http_response_code(403);
-            echo json_encode(['error' => 'Você não tem permissão para alterar esta demanda']);
+            echo json_encode(['error' => !empty($current_data['excluido_em'])
+                ? 'A demanda está na lixeira. Restaure-a para alterar.'
+                : 'Você não tem permissão para alterar esta demanda']);
             exit;
         }
 
-        error_log("[ATRIBUICAO] Status atual: {$current_data['status']}");
+        $setor_da_demanda = $current_data['setor_id'] ? (int) $current_data['setor_id'] : null;
 
-        // Valida status e prioridade contra o catálogo (somente valores ativos)
-        if (isset($input['status'])) {
-            $chk = $db->prepare("SELECT 1 FROM ticket_status WHERE nome = ? AND ativo = 1");
-            $chk->execute([$input['status']]);
-            if (!$chk->fetchColumn()) {
-                http_response_code(400);
-                echo json_encode(['error' => 'Status inválido']);
-                exit;
-            }
+        // Status e prioridade: do catálogo e ativos para o setor da demanda (manter o valor atual é sempre válido)
+        if (isset($input['status']) && $input['status'] !== $current_data['status']
+            && !CatalogoService::statusPermitido($db, (string) $input['status'], $setor_da_demanda)) {
+            http_response_code(400);
+            echo json_encode(['error' => 'Status inválido para o setor desta demanda']);
+            exit;
         }
-        if (isset($input['prioridade'])) {
-            $chk = $db->prepare("SELECT 1 FROM ticket_prioridades WHERE nome = ? AND ativo = 1");
-            $chk->execute([$input['prioridade']]);
-            if (!$chk->fetchColumn()) {
-                http_response_code(400);
-                echo json_encode(['error' => 'Prioridade inválida']);
-                exit;
-            }
+        if (isset($input['prioridade']) && $input['prioridade'] !== $current_data['prioridade']
+            && !CatalogoService::prioridadePermitida($db, (string) $input['prioridade'], $setor_da_demanda)) {
+            http_response_code(400);
+            echo json_encode(['error' => 'Prioridade inválida para o setor desta demanda']);
+            exit;
         }
 
         // A categoria precisa pertencer ao setor da demanda
@@ -521,26 +537,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'PUT') {
             }
         }
 
-        // Registrar auditoria para cancelamento ANTES da alteração
+        $db->beginTransaction();
+
+        // Auditoria do cancelamento ANTES da alteração
         if (isset($input['status']) && $input['status'] === 'cancelado') {
-            $auditoria = new AuditoriaService($db);
             $dados_novos = $current_data;
             $dados_novos['status'] = 'cancelado';
-            $auditoria->registrar($usuario_id, 'cancelar_ticket', 'tickets', $ticket_id, json_encode($current_data), json_encode($dados_novos));
+            (new AuditoriaService($db))->registrar($usuario_id, 'cancelar_ticket', 'tickets', $ticket_id, json_encode($current_data), json_encode($dados_novos));
         }
-        
-        // Processar todas as alterações
+
         if (isset($input['status'])) {
-            // Validação de fechamento removida: permite encerrar tickets sem categoria e sem responsável
-            /*
-            if ($input['status'] === 'encerrado') {
-                // ... validação removida ...
-            }
-            */
-            
             $updates[] = 'status = :status';
             $params[':status'] = $input['status'];
-            
+
             if ($input['status'] === 'encerrado' || $input['status'] === 'cancelado') {
                 $updates[] = 'fechado_em = NOW()';
                 // Quem encerrou vem sempre do token, nunca do corpo da requisição
@@ -548,346 +557,235 @@ if ($_SERVER['REQUEST_METHOD'] === 'PUT') {
                 $params[':fechado_por'] = $usuario_id;
             }
         }
-        
+
         if (isset($input['prioridade'])) {
             $updates[] = 'prioridade = :prioridade';
             $params[':prioridade'] = $input['prioridade'];
         }
-        
+
         if (isset($input['categoria_id'])) {
             $updates[] = 'categoria_id = :categoria_id';
-            $params[':categoria_id'] = $input['categoria_id'];
+            $params[':categoria_id'] = $input['categoria_id'] ?: null;
         }
-        
-        if (isset($input['agente_id'])) {
-            error_log("[ATRIBUICAO] Atribuindo agente ID: {$input['agente_id']}");
+
+        if (array_key_exists('agente_id', $input)) {
             $updates[] = 'agente_id = :agente_id';
-            $params[':agente_id'] = $input['agente_id'];
+            $params[':agente_id'] = $input['agente_id'] ?: null;
             $updates[] = 'atribuido_em = ' . ($input['agente_id'] ? 'NOW()' : 'NULL');
 
-            // Se está atribuindo agente e ticket está em 'novo', mudar para 'em_atendimento'
+            // Atribuir responsável a uma demanda "novo" a põe em atendimento
             if ($input['agente_id'] && $current_data['status'] === 'novo') {
-                error_log("[ATRIBUICAO] Mudando status de 'novo' para 'em_atendimento'");
                 $updates[] = 'status = :status_atendimento';
                 $params[':status_atendimento'] = 'em_atendimento';
-                $input['status'] = 'em_atendimento'; // Para registrar no histórico
+                $input['status'] = 'em_atendimento'; // para o histórico
             }
         }
 
-        // Executar UPDATE se houver alterações
         if (!empty($updates)) {
-            $query = "UPDATE tickets SET " . implode(', ', $updates) . " WHERE id = :id";
-            $stmt = $db->prepare($query);
+            $stmt = $db->prepare("UPDATE tickets SET " . implode(', ', $updates) . " WHERE id = :id");
             $stmt->execute($params);
-            
-            // === LÓGICA DE SLA (substituindo triggers) ===
-            if (isset($input['status']) && $input['status'] !== $current_data['status']) {
-                // Buscar configuração de status
-                $status_query = "SELECT congela_sla FROM ticket_status WHERE nome = ?";
-                $status_stmt = $db->prepare($status_query);
-                
-                // Status novo
-                $status_stmt->execute([$input['status']]);
-                $status_novo = $status_stmt->fetch(PDO::FETCH_ASSOC);
-                $congela_novo = $status_novo['congela_sla'] ?? false;
-                
-                // Status anterior
-                $status_stmt->execute([$current_data['status']]);
-                $status_anterior = $status_stmt->fetch(PDO::FETCH_ASSOC);
-                $congela_anterior = $status_anterior['congela_sla'] ?? false;
-                
-                // Pausar SLA
-                if ($congela_novo && !$congela_anterior) {
-                    $sla_update = "UPDATE ticket_sla SET pausado = TRUE, pausado_em = NOW() WHERE ticket_id = ?";
-                    $sla_stmt = $db->prepare($sla_update);
-                    $sla_stmt->execute([$ticket_id]);
-                }
-                
-                // Retomar SLA
-                if (!$congela_novo && $congela_anterior) {
-                    // Buscar tempo pausado atual
-                    $sla_select = "SELECT COALESCE(tempo_pausado_segundos, 0) as tempo_pausado, pausado_em FROM ticket_sla WHERE ticket_id = ?";
-                    $sla_select_stmt = $db->prepare($sla_select);
-                    $sla_select_stmt->execute([$ticket_id]);
-                    $sla_data = $sla_select_stmt->fetch(PDO::FETCH_ASSOC);
-                    
-                    if ($sla_data && $sla_data['pausado_em']) {
-                        // Calcular segundos úteis pausados
-                        $slaService = new SLAService($db);
-                        $segundos_pausados = $slaService->calcularSegundosUteis($sla_data['pausado_em'], date('Y-m-d H:i:s'), $current_data['setor_id']);
-                        
-                        $novo_tempo_pausado = $sla_data['tempo_pausado'] + $segundos_pausados;
-                        
-                        $sla_update = "UPDATE ticket_sla SET pausado = FALSE, tempo_pausado_segundos = ?, pausado_em = NULL WHERE ticket_id = ?";
-                        $sla_stmt = $db->prepare($sla_update);
-                        $sla_stmt->execute([$novo_tempo_pausado, $ticket_id]);
-                    }
-                }
-                
-                // Primeira resposta (quando sai de 'novo')
-                if ($current_data['status'] === 'novo' && $input['status'] !== 'novo') {
-                    $ticket_query = "SELECT criado_em FROM tickets WHERE id = ?";
-                    $ticket_stmt = $db->prepare($ticket_query);
-                    $ticket_stmt->execute([$ticket_id]);
-                    $ticket_info = $ticket_stmt->fetch(PDO::FETCH_ASSOC);
-                    
-                    if ($ticket_info) {
-                        $slaService = new SLAService($db);
-                        $segundos_resposta = $slaService->calcularSegundosUteis($ticket_info['criado_em'], date('Y-m-d H:i:s'), $current_data['setor_id']);
-                        
-                        $sla_update = "UPDATE ticket_sla SET primeira_resposta_em = NOW(), tempo_primeira_resposta_segundos = ? WHERE ticket_id = ?";
-                        $sla_stmt = $db->prepare($sla_update);
-                        $sla_stmt->execute([$segundos_resposta, $ticket_id]);
-                    }
-                }
-                
-                // Resolução (quando fecha/encerra)
-                if (in_array($input['status'], ['resolvido', 'encerrado'])) {
-                    $ticket_query = "SELECT criado_em FROM tickets WHERE id = ?";
-                    $ticket_stmt = $db->prepare($ticket_query);
-                    $ticket_stmt->execute([$ticket_id]);
-                    $ticket_info = $ticket_stmt->fetch(PDO::FETCH_ASSOC);
-                    
-                    // Buscar tempo pausado
-                    $sla_select = "SELECT COALESCE(tempo_pausado_segundos, 0) as tempo_pausado FROM ticket_sla WHERE ticket_id = ?";
-                    $sla_select_stmt = $db->prepare($sla_select);
-                    $sla_select_stmt->execute([$ticket_id]);
-                    $sla_data = $sla_select_stmt->fetch(PDO::FETCH_ASSOC);
-                    $tempo_pausado = $sla_data['tempo_pausado'] ?? 0;
-                    
-                    if ($ticket_info) {
-                        $slaService = new SLAService($db);
-                        $segundos_totais = $slaService->calcularSegundosUteis($ticket_info['criado_em'], date('Y-m-d H:i:s'), $current_data['setor_id']);
-                        
-                        $tempo_resolucao = $segundos_totais - $tempo_pausado;
-                        
-                        $sla_update = "UPDATE ticket_sla SET resolvido_em = NOW(), tempo_resolucao_segundos = ? WHERE ticket_id = ?";
-                        $sla_stmt = $db->prepare($sla_update);
-                        $sla_stmt->execute([$tempo_resolucao, $ticket_id]);
-                    }
-                }
-            }
-            
-            // Registrar histórico e auditoria
-            // $usuario_id já é definido pelo token JWT agora
+
             $auditoria = new AuditoriaService($db);
-            
-            try {
-                if (isset($input['status']) && $input['status'] !== $current_data['status']) {
-                    $hist_query = "INSERT INTO ticket_historico (ticket_id, usuario_id, acao, valor_anterior, valor_novo) VALUES (?, ?, 'status', ?, ?)";
-                    $hist_stmt = $db->prepare($hist_query);
-                    $hist_stmt->execute([$ticket_id, $usuario_id, $current_data['status'], $input['status']]);
-                    error_log("[HISTORICO] Status alterado: {$current_data['status']} -> {$input['status']}");
-                    
-                    // Auditoria
-                    $auditoria->registrarTicket($ticket_id, $usuario_id, 'status', $current_data['status'], $input['status']);
+            $mudou_status = isset($input['status']) && $input['status'] !== $current_data['status'];
 
-                    // Encerrar/cancelar fecha as janelas de setor e responsável; reabrir as reabre
-                    $era_arquivada = in_array($current_data['status'], AcessoService::STATUS_ARQUIVO, true);
-                    $vai_arquivar  = in_array($input['status'], AcessoService::STATUS_ARQUIVO, true);
-                    if ($vai_arquivar && !$era_arquivada) {
-                        AcessoService::fecharJanelasDaDemanda($db, (int) $ticket_id);
-                        LembreteService::cancelarPendentes($db, (int) $ticket_id, 'Demanda ' . ($input['status'] === 'cancelado' ? 'cancelada' : 'encerrada'));
-                    } elseif ($era_arquivada && !$vai_arquivar) {
-                        // Se a mesma requisição troca o responsável, a janela dele é aberta mais abaixo
-                        $troca_agente = array_key_exists('agente_id', $input) && $input['agente_id'] != $current_data['agente_id'];
-                        $agente_atual = $troca_agente ? null : $current_data['agente_id'];
-                        AcessoService::reabrirJanelasDaDemanda($db, (int) $ticket_id,
-                            $current_data['setor_id'] ? (int) $current_data['setor_id'] : null,
-                            $agente_atual ? (int) $agente_atual : null);
-                    }
-                }
-                
-                if (isset($input['prioridade']) && $input['prioridade'] !== $current_data['prioridade']) {
-                    $hist_query = "INSERT INTO ticket_historico (ticket_id, usuario_id, acao, valor_anterior, valor_novo) VALUES (?, ?, 'prioridade', ?, ?)";
-                    $hist_stmt = $db->prepare($hist_query);
-                    $hist_stmt->execute([$ticket_id, $usuario_id, $current_data['prioridade'], $input['prioridade']]);
-                    error_log("[HISTORICO] Prioridade alterada: {$current_data['prioridade']} -> {$input['prioridade']}");
-                    
-                    // Auditoria
-                    $auditoria->registrarTicket($ticket_id, $usuario_id, 'prioridade', $current_data['prioridade'], $input['prioridade']);
-                }
-                
-                if (isset($input['categoria_id']) && $input['categoria_id'] != $current_data['categoria_id']) {
-                    // Buscar nomes das categorias
-                    $cat_ant_nome = 'Sem subcategoria';
-                    if ($current_data['categoria_id']) {
-                        $cat_query = "SELECT nome FROM categorias WHERE id = ?";
-                        $cat_stmt = $db->prepare($cat_query);
-                        $cat_stmt->execute([$current_data['categoria_id']]);
-                        $cat_data = $cat_stmt->fetch();
-                        $cat_ant_nome = $cat_data['nome'] ?? $current_data['categoria_id'];
-                    }
-                    
-                    $cat_nova_nome = $input['categoria_id'];
-                    if ($input['categoria_id']) {
-                        $cat_query = "SELECT nome FROM categorias WHERE id = ?";
-                        $cat_stmt = $db->prepare($cat_query);
-                        $cat_stmt->execute([$input['categoria_id']]);
-                        $cat_data = $cat_stmt->fetch();
-                        $cat_nova_nome = $cat_data['nome'] ?? $input['categoria_id'];
-                    }
-                    
-                    $hist_query = "INSERT INTO ticket_historico (ticket_id, usuario_id, acao, valor_anterior, valor_novo) VALUES (?, ?, 'categoria', ?, ?)";
-                    $hist_stmt = $db->prepare($hist_query);
-                    $hist_stmt->execute([$ticket_id, $usuario_id, $cat_ant_nome, $cat_nova_nome]);
-                    error_log("[HISTORICO] Categoria alterada: {$cat_ant_nome} -> {$cat_nova_nome}");
-                    
-                    // Auditoria
-                    $auditoria->registrarTicket($ticket_id, $usuario_id, 'categoria', $cat_ant_nome, $cat_nova_nome);
-                }
-                
-                if (isset($input['agente_id']) && $input['agente_id'] != $current_data['agente_id']) {
-                    // Buscar nomes dos agentes
-                    $agente_ant_nome = 'Não atribuído';
-                    if ($current_data['agente_id']) {
-                        $ag_query = "SELECT nome FROM usuarios WHERE id = ?";
-                        $ag_stmt = $db->prepare($ag_query);
-                        $ag_stmt->execute([$current_data['agente_id']]);
-                        $ag_data = $ag_stmt->fetch();
-                        $agente_ant_nome = $ag_data['nome'] ?? $current_data['agente_id'];
-                    }
-                    
-                    $agente_novo_nome = 'Não atribuído';
-                    if ($input['agente_id']) {
-                        $ag_query = "SELECT nome FROM usuarios WHERE id = ?";
-                        $ag_stmt = $db->prepare($ag_query);
-                        $ag_stmt->execute([$input['agente_id']]);
-                        $ag_data = $ag_stmt->fetch();
-                        $agente_novo_nome = $ag_data['nome'] ?? $input['agente_id'];
-                    }
-                    
-                    $era_sem_atribuicao = empty($current_data['agente_id']);
+            // === SLA ===
+            if ($mudou_status) {
+                $status_stmt = $db->prepare("SELECT congela_sla FROM ticket_status WHERE nome = ?");
+                $status_stmt->execute([$input['status']]);
+                $congela_novo = (bool) ($status_stmt->fetchColumn() ?: false);
+                $status_stmt->execute([$current_data['status']]);
+                $congela_anterior = (bool) ($status_stmt->fetchColumn() ?: false);
 
-                    $hist_query = "INSERT INTO ticket_historico (ticket_id, usuario_id, acao, valor_anterior, valor_novo) VALUES (?, ?, 'atribuicao', ?, ?)";
-                    $hist_stmt = $db->prepare($hist_query);
-                    $hist_stmt->execute([$ticket_id, $usuario_id, $agente_ant_nome, $agente_novo_nome]);
-                    error_log("[HISTORICO] Atribuição alterada: {$agente_ant_nome} -> {$agente_novo_nome}");
+                $slaService = new SLAService($db);
 
-                    // Auditoria
-                    $auditoria->registrarTicket($ticket_id, $usuario_id, 'agente', $agente_ant_nome, $agente_novo_nome);
-
-                    // Histórico de responsáveis: fecha a janela do agente anterior e abre a do novo
-                    if ($current_data['agente_id']) {
-                        $db->prepare("UPDATE ticket_agente_log SET saiu_em = NOW() WHERE ticket_id = ? AND usuario_id = ? AND saiu_em IS NULL")
-                           ->execute([$ticket_id, $current_data['agente_id']]);
-                    }
-                    if ($input['agente_id']) {
-                        $db->prepare("INSERT INTO ticket_agente_log (ticket_id, usuario_id) VALUES (?, ?)")
-                           ->execute([$ticket_id, $input['agente_id']]);
-                    }
-                    
-                    // Notificar atribuição
-                    try {
-                        require_once __DIR__ . '/../services/email-sender.php';
-                        $emailSender = new EmailSender($db);
-                        $user_query = "SELECT nome FROM usuarios WHERE id = ?";
-                        $user_stmt = $db->prepare($user_query);
-                        $user_stmt->execute([$usuario_id]);
-                        $user_data = $user_stmt->fetch();
-                        $emailSender->notificarAtribuicaoTicket($ticket_id, $input['agente_id'], $user_data['nome'] ?? 'Sistema', $era_sem_atribuicao);
-                        
-                        // Push Notificação Interna
-                        $msg_notificacao = "O ticket (#" . str_pad($ticket_id, 5, '0', STR_PAD_LEFT) . ") foi atribuído a você por " . ($user_data['nome'] ?? 'Sistema') . ".";
-                        $notif_query = "INSERT INTO notificacoes (usuario_id, titulo, mensagem, ticket_id) VALUES (?, ?, ?, ?)";
-                        $notif_stmt = $db->prepare($notif_query);
-                        $notif_stmt->execute([$input['agente_id'], 'Ticket Atribuído', $msg_notificacao, $ticket_id]);
-                        
-                    } catch (Exception $emailError) {
-                        error_log("[WARNING] Erro no envio de email/notificacao de atribuição: " . $emailError->getMessage());
-                    }
+                if ($congela_novo && !$congela_anterior) {
+                    $db->prepare("UPDATE ticket_sla SET pausado = TRUE, pausado_em = NOW() WHERE ticket_id = ?")->execute([$ticket_id]);
                 }
-            } catch (Exception $e) {
-                error_log("[ERROR] Erro ao inserir histórico: " . $e->getMessage());
-            }
-            
-            // Notificar encerramento por email se necessário
-            if (isset($input['status']) && $input['status'] === 'encerrado') {
-                try {
-                    require_once __DIR__ . '/../services/email-sender.php';
-                    $emailSender = new EmailSender($db);
-                    $emailSender->notificarFechamentoTicket($ticket_id);
-                } catch (Exception $emailError) {
-                    error_log("[WARNING] Erro no envio de email: " . $emailError->getMessage());
+                if (!$congela_novo && $congela_anterior) {
+                    $slaService->retomarPausa($ticket_id, $setor_da_demanda);
+                }
+
+                $criado = $db->prepare("SELECT criado_em FROM tickets WHERE id = ?");
+                $criado->execute([$ticket_id]);
+                $criado_em = $criado->fetchColumn();
+
+                // Primeira resposta (quando sai de 'novo')
+                if ($criado_em && $current_data['status'] === 'novo' && $input['status'] !== 'novo') {
+                    $segundos = $slaService->calcularSegundosUteis($criado_em, date('Y-m-d H:i:s'), $setor_da_demanda);
+                    $db->prepare("UPDATE ticket_sla SET primeira_resposta_em = NOW(), tempo_primeira_resposta_segundos = ? WHERE ticket_id = ?")
+                       ->execute([$segundos, $ticket_id]);
+                }
+
+                // Resolução (resolvido/encerrado)
+                if ($criado_em && in_array($input['status'], ['resolvido', 'encerrado'], true)) {
+                    $pz = $db->prepare("SELECT COALESCE(tempo_pausado_segundos, 0) FROM ticket_sla WHERE ticket_id = ?");
+                    $pz->execute([$ticket_id]);
+                    $tempo_pausado = (int) $pz->fetchColumn();
+                    $totais = $slaService->calcularSegundosUteis($criado_em, date('Y-m-d H:i:s'), $setor_da_demanda);
+                    $db->prepare("UPDATE ticket_sla SET resolvido_em = NOW(), tempo_resolucao_segundos = ? WHERE ticket_id = ?")
+                       ->execute([max(0, $totais - $tempo_pausado), $ticket_id]);
                 }
             }
-            
-            // Notificar reabertura
-            if (isset($input['status']) && ($input['status'] === 'reaberto' || $input['status'] === 'aberto' || $input['status'] === 'atendimento') && ($current_data['status'] === 'encerrado' || $current_data['status'] === 'fechado')) {
-                try {
-                    require_once __DIR__ . '/../services/email-sender.php';
-                    $emailSender = new EmailSender($db);
-                    $emailSender->notificarReaberturaTicket($ticket_id);
-                } catch (Exception $emailError) {
-                    error_log("[WARNING] Erro no envio de email de reabertura: " . $emailError->getMessage());
+
+            // === Histórico, auditoria e janelas ===
+            $hist = $db->prepare("INSERT INTO ticket_historico (ticket_id, usuario_id, acao, valor_anterior, valor_novo) VALUES (?, ?, ?, ?, ?)");
+
+            if ($mudou_status) {
+                $hist->execute([$ticket_id, $usuario_id, 'status', $current_data['status'], $input['status']]);
+                $auditoria->registrarTicket($ticket_id, $usuario_id, 'status', $current_data['status'], $input['status']);
+
+                // Encerrar/cancelar fecha as janelas de setor e responsável e os lembretes; reabrir as reabre
+                $era_arquivada = in_array($current_data['status'], AcessoService::STATUS_ARQUIVO, true);
+                $vai_arquivar  = in_array($input['status'], AcessoService::STATUS_ARQUIVO, true);
+                if ($vai_arquivar && !$era_arquivada) {
+                    AcessoService::fecharJanelasDaDemanda($db, $ticket_id);
+                    LembreteService::cancelarPendentes($db, $ticket_id, 'Demanda ' . ($input['status'] === 'cancelado' ? 'cancelada' : 'encerrada'));
+                } elseif ($era_arquivada && !$vai_arquivar) {
+                    // Se a mesma requisição troca o responsável, a janela dele é aberta mais abaixo
+                    $troca_agente = array_key_exists('agente_id', $input) && $input['agente_id'] != $current_data['agente_id'];
+                    $agente_atual = $troca_agente ? null : $current_data['agente_id'];
+                    AcessoService::reabrirJanelasDaDemanda($db, $ticket_id, $setor_da_demanda, $agente_atual ? (int) $agente_atual : null);
+                    $pos_commit['reaberto'] = true;
+                }
+                if ($input['status'] === 'encerrado') {
+                    $pos_commit['encerrado'] = true;
+                }
+            }
+
+            if (isset($input['prioridade']) && $input['prioridade'] !== $current_data['prioridade']) {
+                $hist->execute([$ticket_id, $usuario_id, 'prioridade', $current_data['prioridade'], $input['prioridade']]);
+                $auditoria->registrarTicket($ticket_id, $usuario_id, 'prioridade', $current_data['prioridade'], $input['prioridade']);
+            }
+
+            if (isset($input['categoria_id']) && (int) $input['categoria_id'] !== (int) $current_data['categoria_id']) {
+                $nomeCategoria = function ($id) use ($db) {
+                    if (!$id) {
+                        return 'Sem subcategoria';
+                    }
+                    $c = $db->prepare("SELECT nome FROM categorias WHERE id = ?");
+                    $c->execute([(int) $id]);
+                    return $c->fetchColumn() ?: (string) $id;
+                };
+                $cat_ant = $nomeCategoria($current_data['categoria_id']);
+                $cat_nova = $nomeCategoria($input['categoria_id']);
+                $hist->execute([$ticket_id, $usuario_id, 'categoria', $cat_ant, $cat_nova]);
+                $auditoria->registrarTicket($ticket_id, $usuario_id, 'categoria', $cat_ant, $cat_nova);
+            }
+
+            if (array_key_exists('agente_id', $input) && (int) $input['agente_id'] !== (int) $current_data['agente_id']) {
+                $nomeUsuario = function ($id) use ($db) {
+                    if (!$id) {
+                        return 'Não atribuído';
+                    }
+                    $u = $db->prepare("SELECT nome FROM usuarios WHERE id = ?");
+                    $u->execute([(int) $id]);
+                    return $u->fetchColumn() ?: (string) $id;
+                };
+                $agente_ant = $nomeUsuario($current_data['agente_id']);
+                $agente_novo = $nomeUsuario($input['agente_id']);
+                $era_sem_atribuicao = empty($current_data['agente_id']);
+
+                $hist->execute([$ticket_id, $usuario_id, 'atribuicao', $agente_ant, $agente_novo]);
+                $auditoria->registrarTicket($ticket_id, $usuario_id, 'agente', $agente_ant, $agente_novo);
+
+                // Histórico de responsáveis: fecha a janela do anterior e abre a do novo
+                if ($current_data['agente_id']) {
+                    $db->prepare("UPDATE ticket_agente_log SET saiu_em = NOW() WHERE ticket_id = ? AND usuario_id = ? AND saiu_em IS NULL")
+                       ->execute([$ticket_id, $current_data['agente_id']]);
+                }
+                if ($input['agente_id']) {
+                    $db->prepare("INSERT INTO ticket_agente_log (ticket_id, usuario_id) VALUES (?, ?)")
+                       ->execute([$ticket_id, (int) $input['agente_id']]);
+                    $pos_commit['atribuicao'] = ['agente_id' => (int) $input['agente_id'], 'era_sem_atribuicao' => $era_sem_atribuicao];
                 }
             }
         }
-        
+
+        $db->commit();
+
+        // === Avisos (fora da transação: falha de e-mail não desfaz a alteração) ===
+        try {
+            if ($pos_commit['atribuicao'] || $pos_commit['encerrado'] || $pos_commit['reaberto']) {
+                require_once __DIR__ . '/../services/email-sender.php';
+                $emailSender = new EmailSender($db);
+
+                if ($pos_commit['atribuicao']) {
+                    $autor = $db->prepare("SELECT nome FROM usuarios WHERE id = ?");
+                    $autor->execute([$usuario_id]);
+                    $autor_nome = $autor->fetchColumn() ?: 'Sistema';
+                    $dest_id = $pos_commit['atribuicao']['agente_id'];
+                    $emailSender->notificarAtribuicaoTicket($ticket_id, $dest_id, $autor_nome, $pos_commit['atribuicao']['era_sem_atribuicao']);
+                    $db->prepare("INSERT INTO notificacoes (usuario_id, titulo, mensagem, ticket_id) VALUES (?, ?, ?, ?)")
+                       ->execute([$dest_id, 'Demanda atribuída',
+                           'A demanda (#' . str_pad($ticket_id, 5, '0', STR_PAD_LEFT) . ') foi atribuída a você por ' . $autor_nome . '.', $ticket_id]);
+                }
+                if ($pos_commit['encerrado']) {
+                    $emailSender->notificarFechamentoTicket($ticket_id);
+                }
+                if ($pos_commit['reaberto']) {
+                    $emailSender->notificarReaberturaTicket($ticket_id);
+                }
+            }
+        } catch (Exception $avisoErro) {
+            error_log('[TICKETS PUT] Alteração salva; falha nos avisos: ' . $avisoErro->getMessage());
+        }
+
         echo json_encode(['success' => true]);
-        
+
     } catch (Exception $e) {
-        error_log("[ATRIBUICAO ERRO] Exceção: " . $e->getMessage());
-        error_log("[ATRIBUICAO ERRO] Stack trace: " . $e->getTraceAsString());
+        if ($db->inTransaction()) {
+            $db->rollBack();
+        }
+        error_log('[TICKETS PUT] Erro: ' . $e->getMessage());
         http_response_code(500);
         echo json_encode(['error' => 'Erro ao atualizar demanda']);
     }
 }
 
-// DELETE - Excluir ticket
+// DELETE - Excluir demanda: vai para a lixeira (qualquer perfil que opere a demanda);
+//          ?definitivo=1 apaga de vez (somente administrador, somente o que já está na lixeira)
 if ($_SERVER['REQUEST_METHOD'] === 'DELETE') {
-    try {
-        $user = AuthMiddleware::verificarAuth();
-        AuthMiddleware::verificarAdmin($user); // Apenas admin pode excluir
-        AuthMiddleware::verificarCSRF();
-    } catch (Exception $e) {
-        http_response_code(401);
-        echo json_encode(['error' => 'Acesso não autorizado']);
-        exit;
-    }
-    
-    $ticket_id = $_GET['id'] ?? null;
-    
+    $user = AuthMiddleware::verificarAuth();
+    AuthMiddleware::verificarCSRF();
+
+    $ticket_id = (int) ($_GET['id'] ?? 0);
     if (!$ticket_id) {
         http_response_code(400);
         echo json_encode(['error' => 'ID da demanda é obrigatório']);
         exit;
     }
-    
+
+    $ticket = AcessoService::carregarTicketOuFalhar($db, $ticket_id);
+
     try {
-        // Buscar dados do ticket antes de excluir (incluindo dados do solicitante)
-        $select_query = "SELECT t.titulo, t.descricao, t.status, t.prioridade, t.categoria_id, t.agente_id, 
-                                u.nome as solicitante_nome, u.email as solicitante_email 
-                         FROM tickets t 
-                         LEFT JOIN usuarios u ON t.usuario_id = u.id 
-                         WHERE t.id = :id";
-        $select_stmt = $db->prepare($select_query);
-        $select_stmt->bindParam(':id', $ticket_id);
-        $select_stmt->execute();
-        $ticket_data = $select_stmt->fetch(PDO::FETCH_ASSOC);
-        
-        if (!$ticket_data) {
-            http_response_code(404);
-            echo json_encode(['error' => 'Demanda não encontrada']);
+        if (!empty($_GET['definitivo'])) {
+            AuthMiddleware::verificarAdmin($user);
+            if (empty($ticket['excluido_em'])) {
+                http_response_code(400);
+                echo json_encode(['error' => 'Envie a demanda para a lixeira antes de excluí-la definitivamente']);
+                exit;
+            }
+            DemandaService::excluirDefinitivo($db, $ticket, (int) $user['id']);
+            echo json_encode(['success' => true, 'definitivo' => true]);
             exit;
         }
-        
-        // Registrar auditoria ANTES de excluir
-        $auditoria = new AuditoriaService($db);
-        $auditoria->registrar($user['id'], 'excluir_ticket', 'tickets', $ticket_id, json_encode($ticket_data), null);
-        
-        // Excluir ticket
-        $query = "DELETE FROM tickets WHERE id = :id";
-        $stmt = $db->prepare($query);
-        $stmt->bindParam(':id', $ticket_id);
-        $stmt->execute();
-        
-        echo json_encode(['success' => true]);
-        
+
+        if (!empty($ticket['excluido_em'])) {
+            http_response_code(400);
+            echo json_encode(['error' => 'A demanda já está na lixeira']);
+            exit;
+        }
+        if (!AcessoService::podeOperarTicket($user, $ticket)) {
+            http_response_code(403);
+            echo json_encode(['error' => 'Você não tem permissão para excluir esta demanda']);
+            exit;
+        }
+
+        DemandaService::enviarParaLixeira($db, $ticket, (int) $user['id']);
+        echo json_encode(['success' => true, 'lixeira' => true]);
     } catch (Exception $e) {
-        http_response_code(500);
         error_log('[TICKETS DELETE] Erro: ' . $e->getMessage());
+        http_response_code(500);
         echo json_encode(['error' => 'Erro ao excluir demanda']);
     }
 }
-?>

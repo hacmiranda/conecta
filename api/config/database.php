@@ -29,6 +29,9 @@ class Database {
                     PDO::ATTR_EMULATE_PREPARES => false
                 ]
             );
+            // Mesmo fuso do PHP (America/Sao_Paulo, sem horário de verão): NOW() do MySQL e date() do PHP
+            // passam a concordar, o que importa para SLA, lembretes e registros de data/hora.
+            $this->conn->exec("SET time_zone = '-03:00'");
         } catch(PDOException $e) {
             error_log("Erro de conexão com banco: " . $e->getMessage());
             throw $e;

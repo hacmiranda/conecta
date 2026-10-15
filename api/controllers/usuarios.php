@@ -539,9 +539,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'DELETE') {
             ['tabela' => 'tickets',               'colunas' => ['usuario_id', 'agente_id', 'fechado_por'], 'msg' => 'demandas'],
             ['tabela' => 'comentarios',            'colunas' => ['usuario_id'],                             'msg' => 'comentários'],
             ['tabela' => 'ticket_historico',       'colunas' => ['usuario_id'],                             'msg' => 'histórico'],
-            ['tabela' => 'ticket_historico_status','colunas' => ['usuario_id'],                             'msg' => 'histórico de status'],
-            ['tabela' => 'historico',              'colunas' => ['usuario_id'],                             'msg' => 'registros de histórico'],
-        ];
+];
 
         foreach ($tabelas as $t) {
             $where = implode(' OR ', array_map(fn($col) => "$col = ?", $t['colunas']));
@@ -554,14 +552,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'DELETE') {
             }
         }
 
-        // Verificar histórico de status
-        $check4 = $db->prepare("SELECT COUNT(*) as total FROM ticket_historico_status WHERE usuario_id = ?");
-        $check4->execute([$usuario_id]);
-        if ($check4->fetch()['total'] > 0) {
-            http_response_code(400);
-            echo json_encode(['error' => 'Usuário possui histórico de alterações de status']);
-            exit;
-        }
 
         // Buscar dados do usuário antes de excluir
         $select_query = "SELECT nome, email, tipo FROM usuarios WHERE id = :id";

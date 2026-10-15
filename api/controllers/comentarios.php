@@ -40,7 +40,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'PUT' && isset($_GET['marcar_lido'])) {
         exit;
     }
 
-    AcessoService::exigirVerTicket($db, $user, $ticket_id);
+    AcessoService::exigirLerTicket($db, $user, $ticket_id);
     
     try {
         $query = "DELETE FROM comentarios_nao_lidos WHERE ticket_id = :ticket_id AND usuario_id = :usuario_id";
@@ -115,8 +115,31 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 
     // Isolamento: só comenta quem pode ver a demanda (404/403)
-    AcessoService::exigirVerTicket($db, $user, $ticket_id);
-    
+    $ticket_comentario = AcessoService::exigirVerTicket($db, $user, $ticket_id);
+    if (!empty($ticket_comentario['excluido_em'])) {
+        http_response_code(400);
+        echo json_encode(['error' => 'A demanda está na lixeira']);
+        exit;
+    }
+
+    // Cópia por e-mail: endereços válidos (até 5), separados por vírgula ou ponto e vírgula
+    if (!empty($com_copia)) {
+        $enderecos = array_values(array_filter(array_map('trim', preg_split('/[,;\s]+/', (string) $com_copia))));
+        foreach ($enderecos as $endereco) {
+            if (!filter_var($endereco, FILTER_VALIDATE_EMAIL)) {
+                http_response_code(400);
+                echo json_encode(['error' => 'E-mail de cópia inválido: ' . $endereco]);
+                exit;
+            }
+        }
+        if (count($enderecos) > 5) {
+            http_response_code(400);
+            echo json_encode(['error' => 'Informe no máximo 5 endereços em cópia']);
+            exit;
+        }
+        $com_copia = implode(', ', $enderecos);
+    }
+
     try {
         $query = "INSERT INTO comentarios (ticket_id, usuario_id, comentario) 
                  VALUES (:ticket_id, :usuario_id, :comentario)";
@@ -232,6 +255,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         
         // Não registrar no histórico - o comentário já aparece na timeline
         
+        // Resultado do envio por e-mail ao solicitante (null = não solicitado)
+        $email_resultado = null;
+        $email_destino = null;
+
         // Marcar como não lido para outros agentes
         try {
             require_once __DIR__ . '/../services/email-sender.php';
@@ -326,30 +353,28 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             
             // Enviar email se solicitado
             if ($enviar_email) {
-                error_log('[COMENTARIO] Tentando enviar email para solicitante');
+                $email_resultado = false;
                 try {
-                    $emailSender->enviarComentarioParaSolicitante($ticket_id, $comentario_id, $com_copia);
-                    error_log('[COMENTARIO] Email enviado com sucesso');
+                    $email_resultado = (bool) $emailSender->enviarComentarioParaSolicitante($ticket_id, $comentario_id, $com_copia);
                 } catch (Exception $emailEx) {
                     error_log('[COMENTARIO] Erro ao enviar email: ' . $emailEx->getMessage());
-                    throw $emailEx;
                 }
-                
-                // Registrar envio de email no histórico
+
+                // Registrar envio de email no histórico (só quando de fato saiu)
                 try {
-                    // Buscar email do solicitante
-                    $query_email = "SELECT u.email FROM tickets t LEFT JOIN usuarios u ON t.usuario_id = u.id WHERE t.id = ?";
+                    $query_email = "SELECT COALESCE(NULLIF(t.email_solicitante, ''), u.email) AS destino
+                                    FROM tickets t LEFT JOIN usuarios u ON t.usuario_id = u.id WHERE t.id = ?";
                     $stmt_email = $db->prepare($query_email);
                     $stmt_email->execute([$ticket_id]);
-                    $email_data = $stmt_email->fetch();
-                    
-                    if ($email_data && $email_data['email']) {
+                    $email_destino = $stmt_email->fetchColumn() ?: null;
+
+                    if ($email_resultado && $email_destino) {
                         $hist_query = "INSERT INTO ticket_historico (ticket_id, usuario_id, acao, valor_novo) VALUES (?, ?, 'email_enviado', ?)";
                         $hist_stmt = $db->prepare($hist_query);
-                        $hist_stmt->execute([$ticket_id, $usuario_id, 'O comentário acima foi enviado por e-mail para: ' . $email_data['email']]);
+                        $hist_stmt->execute([$ticket_id, $usuario_id, 'O comentário acima foi enviado por e-mail para: ' . $email_destino]);
                     }
-                    
-                    if ($com_copia) {
+
+                    if ($email_resultado && $com_copia) {
                         $hist_query = "INSERT INTO ticket_historico (ticket_id, usuario_id, acao, valor_novo) VALUES (?, ?, 'email_copia', ?)";
                         $hist_stmt = $db->prepare($hist_query);
                         $hist_stmt->execute([$ticket_id, $usuario_id, 'Cópia do comentário acima enviada por e-mail para: ' . $com_copia]);
@@ -374,7 +399,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             error_log("Erro ao buscar anexos: " . $e->getMessage());
         }
         
-        echo json_encode(['success' => true, 'comentario_id' => $comentario_id, 'comentario' => $comentario_data, 'anexos' => $anexos]);
+        echo json_encode(['success' => true, 'comentario_id' => $comentario_id, 'comentario' => $comentario_data, 'anexos' => $anexos,
+            'email_enviado' => $email_resultado, 'email_destino' => $email_destino]);
         
     } catch (Exception $e) {
         error_log('Erro ao adicionar comentário: ' . $e->getMessage());
