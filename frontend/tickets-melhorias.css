@@ -785,3 +785,80 @@
         color: #94a3b8;
     }
 }
+/* ===== Ações da demanda (encaminhar / devolver / repassar / transferir) ===== */
+.acoes-demanda-section {
+    margin-top: 1.5rem;
+    border-top: 1px solid #e5e7eb;
+    padding-top: 1rem;
+}
+
+.acoes-demanda-titulo {
+    font-size: 1.1rem;
+    font-weight: bold;
+    margin-bottom: 0.75rem;
+}
+
+.acoes-demanda-botoes {
+    display: flex;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+}
+
+.btn-acao-devolver {
+    background-color: #6c757d;
+}
+
+.btn-acao-repassar {
+    background-color: #0e7490;
+}
+
+.btn-acao-transferir {
+    background-color: #c2410c;
+}
+
+.acoes-demanda-botoes button:focus-visible {
+    outline: 2px solid #1e3a8a;
+    outline-offset: 2px;
+}
+
+.modo-escuro .acoes-demanda-section {
+    border-top-color: #334155;
+}
+
+/* ===== Filtro do Arquivo (encerradas / transferidas / repassadas) ===== */
+.filtro-arquivo {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.filtro-arquivo[hidden] {
+    display: none;
+}
+
+.filtro-arquivo-label {
+    font-weight: 600;
+    font-size: 0.9rem;
+    white-space: nowrap;
+}
+
+.filtro-arquivo-select {
+    padding: 0.45rem 0.75rem;
+    border: 1px solid #cbd5e1;
+    border-radius: 8px;
+    background: #fff;
+    color: #1f2937;
+    font-family: inherit;
+    font-size: 0.9rem;
+}
+
+.filtro-arquivo-select:focus-visible {
+    outline: 2px solid #1e3a8a;
+    outline-offset: 2px;
+}
+
+.modo-escuro .filtro-arquivo-select {
+    background: #1e293b;
+    border-color: #334155;
+    color: #e2e8f0;
+}

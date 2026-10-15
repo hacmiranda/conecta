@@ -18,7 +18,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
     $user = AuthMiddleware::verificarAuth();
 
     try {
-        if ($user['tipo'] === 'admin') {
+        if ($user['tipo'] === 'admin' && isset($_GET['setor_id']) && is_numeric($_GET['setor_id'])) {
+            // Admin consultando a equipe de um setor específico (ex.: encaminhar uma demanda)
+            $query = "SELECT id, nome, email, setor_id FROM usuarios WHERE tipo IN ('gestor', 'operador') AND ativo = 1 AND setor_id = :setor_id ORDER BY nome";
+            $stmt = $db->prepare($query);
+            $stmt->bindValue(':setor_id', (int) $_GET['setor_id'], PDO::PARAM_INT);
+            $stmt->execute();
+        } elseif ($user['tipo'] === 'admin') {
             $query = "SELECT id, nome, email, setor_id FROM usuarios WHERE tipo IN ('admin', 'gestor', 'operador') AND ativo = 1 ORDER BY nome";
             $stmt = $db->prepare($query);
             $stmt->execute();

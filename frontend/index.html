@@ -315,6 +315,11 @@
                 <h2 style="color: #6c757d; font-size: 1.8rem; font-weight: bold; margin: 0;">🏁 Demandas Encerradas</h2>
                 <div class="tickets-actions">
                     <div class="busca-avancada" style="display: flex; align-items: center; gap: 2rem;">
+                        <div id="filtro-arquivo-wrapper" class="filtro-arquivo">
+                            <label for="filtro-arquivo-escopo" class="filtro-arquivo-label">Exibir:</label>
+                            <select id="filtro-arquivo-escopo" class="filtro-arquivo-select"
+                                onchange="mudarEscopoArquivo()"></select>
+                        </div>
                         <label class="switch-label"
                             data-vg-tooltip="Altera a visualização para focar apenas em demandas finalizadas por você."
                             data-vg-title="FILTRO HISTÓRICO">
