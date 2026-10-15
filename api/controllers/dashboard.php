@@ -5,6 +5,7 @@ header('Cache-Control: private, max-age=60'); // Cache no navegador por 60s para
 require_once __DIR__ . '/../config/database.php';
 require_once __DIR__ . '/../services/sla-service.php';
 require_once __DIR__ . '/../middleware/auth.php';
+require_once __DIR__ . '/../services/acesso-service.php';
 
 AuthMiddleware::configurarCORS(['GET']);
 
@@ -23,14 +24,23 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
     // Interpolado direto (não bindParam) pois setor_id/id vêm do JWT já validado, não de input do usuário.
     $tipo = $user['tipo'] ?? '';
     $filtroT = ''; // aplica-se a queries que usam alias "t" para tickets
+
+    // Setor do recorte: o do gestor, ou o escolhido pelo admin no cabeçalho (?setor_id; vazio = todos)
+    $setorFiltro = null;
     if ($tipo === 'gestor') {
-        $filtroT = ' AND t.setor_id = ' . (int) ($user['setor_id'] ?? 0);
+        $setorFiltro = (int) ($user['setor_id'] ?? 0);
+    } elseif ($tipo === 'admin') {
+        $setorFiltro = AcessoService::setorEscopo($user);
+    }
+
+    if ($setorFiltro !== null) {
+        $filtroT = ' AND t.setor_id = ' . $setorFiltro;
     } elseif ($tipo === 'operador') {
         $filtroT = ' AND (t.agente_id = ' . (int) $user['id'] . ' OR t.usuario_id = ' . (int) $user['id'] . ')';
     } elseif ($tipo === 'cliente') {
         $filtroT = ' AND t.usuario_id = ' . (int) $user['id'];
     }
-    // admin: $filtroT permanece vazio (sem filtro, enxerga tudo)
+    // admin sem setor escolhido: $filtroT permanece vazio (enxerga tudo)
 
     try {
         $dashboard = [];
@@ -93,8 +103,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
 
         // Tickets por agente (apenas tickets ativos) — escopo aplicado na condição do LEFT JOIN,
         // não no WHERE, para não excluir agentes sem nenhum ticket no recorte (ficam com total 0)
-        $filtroAgenteJoin = $tipo === 'gestor' ? (' AND t.setor_id = ' . (int) ($user['setor_id'] ?? 0)) : '';
+        $filtroAgenteJoin = $setorFiltro !== null ? (' AND t.setor_id = ' . $setorFiltro) : '';
         $filtroAgenteWhere = $tipo === 'operador' ? (' AND u.id = ' . (int) $user['id']) : '';
+        // Com recorte por setor, a lista de agentes é a equipe daquele setor
+        if ($setorFiltro !== null) {
+            $filtroAgenteWhere .= ' AND u.setor_id = ' . $setorFiltro;
+        }
         $query = "SELECT u.nome, COUNT(t.id) as total
                   FROM usuarios u
                   LEFT JOIN tickets t ON u.id = t.agente_id AND t.status NOT IN ('encerrado', 'cancelado'){$filtroAgenteJoin}

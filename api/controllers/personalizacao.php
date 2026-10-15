@@ -46,7 +46,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if ($tipo === 'header') {
             $destinos = [
                 '../../frontend/images/logo_vazado.png',
-                '../../frontend/images/logo_crpdesk.jpg',
                 '../../frontend/images/blocked.png'
             ];
         } else {
@@ -79,25 +78,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         exit;
     }
     
-    // Salvar título
-    $data = json_decode(file_get_contents('php://input'), true);
-    
-    if (isset($data['tipo']) && $data['tipo'] === 'titulo') {
-        $titulo = trim($data['titulo'] ?? '');
-        
-        if (strlen($titulo) > 20) {
-            http_response_code(400);
-            echo json_encode(['error' => 'Título muito longo']);
-            exit;
-        }
-        
-        // Salvar em arquivo de configuração
-        $config = ['titulo' => $titulo];
-        file_put_contents('../../frontend/config.json', json_encode($config));
-        
-        echo json_encode(['success' => true]);
-        exit;
-    }
+    // A opção de título do cabeçalho foi descontinuada: o cabeçalho é fixo (logo + Conecta CRPRS + setor)
 }
 
 http_response_code(400);

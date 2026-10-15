@@ -268,6 +268,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         // abre a demanda direto no próprio setor; sem setor (cliente/admin), a demanda cai no
         // setor "Geral" para triagem — de lá, um gestor a transfere para o setor correto.
         $setor_id = !empty($user['setor_id']) ? (int) $user['setor_id'] : null;
+
+        // Admin pode abrir a demanda direto em um setor (o escolhido no cabeçalho)
+        if ($setor_id === null && ($user['tipo'] ?? '') === 'admin' && !empty($_POST['setor_id']) && is_numeric($_POST['setor_id'])) {
+            $setor_pedido = $db->prepare("SELECT id FROM setores WHERE id = ? AND ativo = 1");
+            $setor_pedido->execute([(int) $_POST['setor_id']]);
+            $setor_id = $setor_pedido->fetchColumn() ?: null;
+        }
+
         if ($setor_id === null) {
             $setor_stmt = $db->prepare("SELECT id FROM setores WHERE nome = 'Geral' AND ativo = 1 LIMIT 1");
             $setor_stmt->execute();

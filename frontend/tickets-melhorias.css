@@ -862,3 +862,56 @@
     border-color: #334155;
     color: #e2e8f0;
 }
+
+/* ===== Personalização ===== */
+.aviso-personalizacao {
+    background: #fff3cd;
+    padding: 0.75rem 1rem;
+    border-radius: 4px;
+    border-left: 4px solid #ffc107;
+    margin: 0 0 2rem 0;
+    color: #664d03;
+}
+
+.aviso-somente-leitura {
+    background: #e0f2fe;
+    padding: 0.75rem 1rem;
+    border-radius: 4px;
+    border-left: 4px solid #0369a1;
+    margin: 0 0 2rem 0;
+    color: #0c4a6e;
+}
+
+.personalizacao-dica {
+    font-weight: normal;
+    color: #666;
+}
+
+.personalizacao-descricao {
+    color: #666;
+    font-size: 0.9rem;
+    margin: 0 0 0.75rem 0;
+}
+
+.personalizacao-upload {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    flex-wrap: wrap;
+}
+
+.personalizacao-upload input:disabled,
+.personalizacao-upload button:disabled {
+    opacity: 0.55;
+    cursor: not-allowed;
+}
+
+.modo-escuro .aviso-personalizacao {
+    background: #3b3320;
+    color: #fde68a;
+}
+
+.modo-escuro .aviso-somente-leitura {
+    background: #0c2a3d;
+    color: #bae6fd;
+}

@@ -4,6 +4,7 @@ header('Content-Type: application/json');
 require_once __DIR__ . '/../config/database.php';
 require_once __DIR__ . '/../services/sla-service.php';
 require_once __DIR__ . '/../middleware/auth.php';
+require_once __DIR__ . '/../services/acesso-service.php';
 
 AuthMiddleware::configurarCORS(['GET']);
 
@@ -76,9 +77,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
 
         // Escopo por papel: admin vê tudo; gestor só o próprio setor; usuario/cliente só o que é seu
         $tipo = $user['tipo'] ?? '';
+        // Admin: recorte pelo setor escolhido no cabeçalho (?setor_id; vazio = todos os setores)
+        $setorAdmin = $tipo === 'admin' ? AcessoService::setorEscopo($user) : null;
         if ($tipo === 'gestor') {
             $query .= " AND t.setor_id = :setor_id_escopo";
             $params[':setor_id_escopo'] = $user['setor_id'] ?? 0;
+        } elseif ($setorAdmin !== null) {
+            $query .= " AND t.setor_id = :setor_id_escopo";
+            $params[':setor_id_escopo'] = $setorAdmin;
         } elseif ($tipo === 'operador') {
             $query .= " AND (t.agente_id = :self_id_escopo OR t.usuario_id = :self_id_escopo2)";
             $params[':self_id_escopo'] = $user['id'];
