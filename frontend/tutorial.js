@@ -28,7 +28,7 @@ const tutorialSteps = [
     {
         target: '.btn-nav:nth-child(4)',
         title: '📈 Relatórios',
-        description: 'Gere relatórios personalizados filtrando por período, status, prioridade, subcategoria ou agente responsável.',
+        description: 'Gere relatórios personalizados filtrando por período, status, prioridade, subcategoria ou responsável.',
         position: 'bottom'
     },
     {
@@ -59,7 +59,7 @@ const tutorialSteps = [
     {
         target: '.tickets-tabela th:nth-child(5)',
         title: '👤 Atribuir Responsável',
-        description: 'Clique no nome do responsável (ou "Não atribuído") para atribuir ou alterar o agente responsável pela demanda.',
+        description: 'Clique no nome do responsável (ou "Não atribuído") para encaminhar ou alterar o responsável pela demanda.',
         position: 'left',
         arrow: 'down'
     },

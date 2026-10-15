@@ -57,7 +57,7 @@ function mostrarModalLembrete(ticketId) {
         if (xhr.status === 200) {
             const agentes = JSON.parse(xhr.responseText);
 
-            let opcoesAgentes = '<option value="">Todos os agentes</option>';
+            let opcoesAgentes = '<option value="">Responsável da demanda (ou gestores do setor)</option>';
             agentes.forEach(agente => {
                 opcoesAgentes += `<option value="${agente.id}">${agente.nome}</option>`;
             });

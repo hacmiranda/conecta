@@ -4,7 +4,9 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project
 
-**CRPDESK** - Sistema de Helpdesk do Conselho Regional de Psicologia do Rio Grande do Sul (CRPRS). PHP/MySQL backend with vanilla JS frontend, no build step required.
+**Conecta CRPRS** - Sistema de gestão de demandas por setor do Conselho Regional de Psicologia do Rio Grande do Sul (CRPRS). PHP/MySQL backend with vanilla JS frontend, no build step required. Originou-se do CRPDESK (helpdesk): cada e-mail recebido na caixa de um setor abre uma demanda naquele setor.
+
+Vocabulário: a entidade de banco continua `tickets` (e `ticket_*`), mas na interface e nos textos é **demanda**. Papéis: `admin` (administrador), `gestor`, `operador`, `cliente`.
 
 ## Commands
 
@@ -24,8 +26,12 @@ php api/cron/verificar-emails-perdidos.php
 
 ### Database
 ```bash
-# Apply migrations in order (run via MySQL client or phpMyAdmin)
-# Files: database/1_*.sql through database/8_*.sql
+# Banco local: db_conecta (credenciais em api/config/.env). MySQL 8.4:
+# "C:\Program Files\MySQL\MySQL Server 8.4\bin\mysql.exe" -u root -p db_conecta
+# Esquema base: database/squema_crpdesk.sql (sem as tabelas de setores)
+# Depois aplicar, em ordem e uma única vez cada: database/9_*.sql até database/18_*.sql
+# Primeiro administrador (senha pedida no terminal):
+php database/seed_admin.php "email@crprs.org.br" "Nome Completo"
 ```
 
 There is no lint command, test suite, or frontend build process.
@@ -36,46 +42,56 @@ There is no lint command, test suite, or frontend build process.
 All API requests go through `api/middleware/auth.php` for JWT verification and role-based access control. Controllers live in `api/controllers/*.php`. The frontend is a single-page application in `frontend/index.html` driven by `frontend/script.js`.
 
 ### Authentication
-- JWT tokens stored in `localStorage` (`token`, `usuario`)
-- No expiration: tokens carry no `exp` claim and there is no inactivity auto-logout
-- Three roles: `cliente`, `agente`, `admin`
-- Turnstile CAPTCHA on login (`api/config/turnstile.php`)
+- JWT tokens stored in `localStorage` (`cd_token`, `cd_usuario`, `cd_csrf_token`)
+- No expiration: tokens carry no `exp` claim. `AuthMiddleware::verificarAuth()` rereads `tipo`, `setor_id` and `ativo` from the database on every request, so role/sector changes and deactivation apply immediately
+- Four roles: `cliente`, `operador`, `gestor`, `admin`. Gestor/operador belong to one sector (`usuarios.setor_id`); admin has none and picks a sector in the header
+- Turnstile CAPTCHA on login (`api/config/turnstile.php`, only in production)
 - Every API call requires `Authorization: Bearer <token>` and `X-CSRF-Token` headers
+
+### Access rules (sectors)
+- `api/services/acesso-service.php` (`AcessoService`) is the single place that decides who can see/operate a demand: admin = all, gestor = demands of own sector, operador = demands where he is the responsible (or opened). Always use it; never filter by role ad hoc
+- `AcessoService::setorEscopo($user)`: admin may pass `?setor_id=` (empty = all sectors); everyone else is forced to own sector regardless of the parameter
+- Demand flow actions (encaminhar, devolver, repassar, transferir de setor) go through `api/controllers/demanda-acoes.php` and require a comment
+- Timeline of a demand is built by `api/services/timeline-service.php` (comments + `ticket_historico`); sector/responsible passages live in `ticket_setor_log` / `ticket_agente_log`
 
 ### Backend Structure
 - `api/config/` — Environment detection, DB connection (PDO), email config
 - `api/controllers/` — One PHP file per resource/feature (~30 endpoints)
 - `api/middleware/auth.php` — JWT validation, role checks, CSRF
-- `api/services/` — Business logic: SLA calculation, email sending, audit logging
+- `api/services/` — Business logic: access rules, timeline, SLA calculation, email sending, audit logging, crypto of mailbox passwords
 - `api/cron/` — Scheduled jobs for email polling and reminders
 
-Environment is auto-detected in `api/config/environment.php` (localhost = dev, else prod). Dev DB: `localhost/root` (no password). Prod DB: `crpdesk.vpshost0269.mysql.dbaas.com.br`.
+Environment is auto-detected in `api/config/environment.php` (localhost = dev, else prod). Credentials and keys come only from `api/config/.env` (`*_LOCAL` / `*_PROD`); see `.env.example` (DB, IMAP/SMTP, JWT/CSRF, CORS, SSO, `SETOR_EMAIL_ENCRYPTION_KEY_*`, `INTEGRATION_API_KEY_*`).
 
 ### Frontend Structure
 Single HTML shell (`frontend/index.html`) with no framework router. JavaScript is split by feature module:
 
 | File | Responsibility |
 |---|---|
-| `script.js` | Core app: tickets CRUD, pagination, modals, session management |
+| `script.js` | Core app: demands CRUD, pagination, modals, session management, settings screens |
+| `cabecalho-setor.js` | Header: sector name (gestor/operador) or sector selector (admin); sector context sent to the API |
 | `graficos-dashboard.js` | Chart.js analytics/dashboard |
 | `notificacoes.js` | Real-time notifications via SSE (`EventSource`) |
 | `macros.js` | Quick response templates |
 | `alpine-components.js` | Alpine.js + Quill.js WYSIWYG editor components |
-| `status-sla.js` | SLA badge rendering |
+| `status-sla.js` | SLA badge rendering (uses each demand's sector hours via `horarios-sla.php?mapa=1`) |
 | `lembretes.js` | Reminder management |
 | `avatar.js` | User profile dropdown |
 
-CSS follows a per-feature file convention (`tickets-melhorias.css`, `status-sla.css`, etc.). The main theme color is `#1e3a8a` (blue gradient header). Dark/light mode is CSS-variable-driven in `style.css`.
+CSS follows a per-feature file convention (`tickets-melhorias.css`, `status-sla.css`, etc.). The main theme color is `#1e3a8a` (blue gradient sidebar). Dark/light mode is CSS-variable-driven in `style.css`.
 
 ### Key Data Models
-- `tickets` — Core entity; `descricao` is LONGTEXT; links to `usuarios`, `categorias`, `agentes`
-- `comentarios` — Comments on tickets; `comentario` is LONGTEXT (supports base64 images from Quill)
-- `historico` — Field-level change log per ticket
+- `tickets` — Core entity (a "demanda"); `descricao` is LONGTEXT; links to `usuarios`, `categorias`, `setores` (`setor_id`) and responsible (`agente_id`)
+- `setores` — Sectors; `setor_emails` (one mailbox per sector: IMAP receive + SMTP send, passwords encrypted), `setor_status` / `setor_prioridades` (per-sector activation of the global catalog)
+- `categorias` / `macrocategorias` — Owned by a sector (`setor_id`, name unique per sector)
+- `horarios_uteis` + `feriados` — Business hours and holidays **per sector** (SLA of a demand uses its sector)
+- `comentarios` — Comments; `comentario` is LONGTEXT (supports base64 images from Quill)
+- `ticket_historico` — Timeline events (status, prioridade, categoria, atribuicao, transferencia_setor, abertura...); `historico` is legacy (merge only)
+- `ticket_setor_log` / `ticket_agente_log` — Sector/responsible passage windows; closed on encerrar/cancelar
 - `auditoria` — General action log with IP, user agent, session
 - `notificacoes` — Internal alert queue polled/streamed to frontend
-- `macros` — WYSIWYG quick-reply templates owned by agents
-- `horarios_sla` + `feriados` — Business hours and holidays for SLA calculation
-- `email_logs` — Delivery tracking for all outbound emails
+- `macros` — WYSIWYG quick-reply templates
+- `email_logs` — Delivery tracking for all outbound emails (records the sender)
 
 ### Real-time Notifications
 `api/controllers/notificacoes-stream.php` streams via Server-Sent Events (SSE). Triggers are inserted directly in `tickets.php` and `comentarios.php` on assignment and reply events.
@@ -84,10 +100,10 @@ CSS follows a per-feature file convention (`tickets-melhorias.css`, `status-sla.
 Attachments stored in `backend/anexos/`. Max 5 files, 20MB each. Allowed: pdf, doc, docx, txt, csv, xls, xlsx, png, jpg, jpeg.
 
 ### SLA
-`api/services/sla-service.php` computes SLA deadlines using business hours from `horarios_sla` and holidays from `feriados`. Ticket `status` can be `pausado_em` to freeze SLA timer.
+`api/services/sla-service.php` computes business seconds using the hours (`horarios_uteis`) and holidays (`feriados`) of the demand's sector (sector without hours falls back to "Geral"). Some statuses (`congela_sla`) pause the SLA timer.
 
 ### Database Migrations
-8 sequential SQL files in `database/`. Must be applied in order. Key changes: migrations 6–8 add LONGTEXT columns, `macros`, `notificacoes` tables, and performance indexes.
+`database/9_*.sql` … `18_*.sql` build on the base schema, in order: 9 sectors/roles, 10 sector log, 11 per-sector status/priorities, 12 sector mailboxes, 13 responsible log, 14 roles gestor/operador, 15 initial seed, 16 categories per sector, 17 hours/holidays per sector, 18 SMTP per sector. Each runs once (MySQL 8.4 has no `ADD COLUMN IF NOT EXISTS`).
 
 ---
 
@@ -144,9 +160,9 @@ Attachments stored in `backend/anexos/`. Max 5 files, 20MB each. Allowed: pdf, d
 - `<html lang="pt-BR">` obrigatório.
 
 ### Acesso ao Banco de Dados Local (DB_ACCESS_LOCAL.md)
-- Executável MySQL: `C:\xampp\mysql\bin\mysql.exe`
-- Conexão: host `localhost`, database `crpdesk`, usuário `root`, senha vazia.
-- Comando padrão: `C:\xampp\mysql\bin\mysql.exe -u root -e "USE crpdesk; SUA_QUERY_AQUI;"`
-- O arquivo `crpdesk.sql` na raiz é um **backup estático e pode estar desatualizado**. Usar o MySQL em execução como fonte da verdade.
-- Para dump atualizado: `C:\xampp\mysql\bin\mysqldump.exe -u root crpdesk > crpdesk_atual.sql`
+- Executável MySQL: `C:\Program Files\MySQL\MySQL Server 8.4\bin\mysql.exe` (o MySQL do XAMPP não é o usado).
+- Conexão: host `localhost`, database `db_conecta`; usuário e senha em `api/config/.env` (`DB_*_LOCAL`).
+- Comando padrão: `"C:\Program Files\MySQL\MySQL Server 8.4\bin\mysql.exe" -u root -p -e "USE db_conecta; SUA_QUERY_AQUI;"`
+- Os dumps em `database/` são **estáticos e podem estar desatualizados**. Usar o MySQL em execução como fonte da verdade.
+- Dump atualizado: `"C:\Program Files\MySQL\MySQL Server 8.4\bin\mysqldump.exe" -u root -p db_conecta > db_conecta_atual.sql` (fora do repositório).
 - UPDATE/DELETE com **EXTREMA CAUTELA**: sempre com `WHERE id = ?`. Scripts temporários de manutenção devem ser removidos após uso.

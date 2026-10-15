@@ -48,7 +48,7 @@ function mostrarDashboardNaTela(dados) {
                 <canvas id="grafico-mensal" width="600" height="250"></canvas>
             </div>
             <div class="dashboard-card">
-                <h3>🥧 Distribuição por Agente</h3>
+                <h3>🥧 Distribuição por Responsável</h3>
                 <canvas id="grafico-agente" width="400" height="250"></canvas>
             </div>
         </div>
@@ -66,7 +66,7 @@ function mostrarDashboardNaTela(dados) {
         
         <div class="dashboard-grid">
             <div class="dashboard-card">
-                <h3>📊 Status por Agente</h3>
+                <h3>📊 Status por Responsável</h3>
                 <canvas id="grafico-status-agente" width="600" height="300"></canvas>
             </div>
             <div class="dashboard-card">

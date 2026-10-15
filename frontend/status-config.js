@@ -1,4 +1,4 @@
-// Configuração de Status - CRPDESK
+// Configuração de Status - Conecta CRPRS
 // Mapeamento de status do banco para exibição no frontend
 
 const STATUS_CONFIG = {

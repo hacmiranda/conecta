@@ -88,7 +88,7 @@ function iniciarMonitoramentoSessao() {
 
 function pingLembretes() {
     if (!localStorage.getItem('cd_token')) return;
-    fetch('/conecta/api/cron/verificar-lembretes.php').catch(() => { });
+    fetch(window.APP_CONFIG.rootBase + 'api/cron/verificar-lembretes.php').catch(() => { });
 }
 
 // ======================================================
@@ -5330,7 +5330,7 @@ function mostrarDashboardNaTela(dados) {
             <div class="dashboard-card">
                 <h3 class="card-title-flex">
                     <div class="title-left">
-                        <span class="material-symbols-outlined" aria-hidden="true">pie_chart</span> Distribuição por Agente <span class="text-caption">(apenas ativos)</span>
+                        <span class="material-symbols-outlined" aria-hidden="true">pie_chart</span> Distribuição por Responsável <span class="text-caption">(apenas ativos)</span>
                     </div>
                     <span class="material-symbols-outlined info-icon" onclick="mostrarInfoGrafico('agente')" title="Clique para mais informações" aria-hidden="true">info</span>
                 </h3>
@@ -5339,7 +5339,7 @@ function mostrarDashboardNaTela(dados) {
             <div class="dashboard-card">
                 <h3 class="card-title-flex">
                     <div class="title-left">
-                        <span class="material-symbols-outlined" aria-hidden="true">stacked_bar_chart</span> Status por Agente <span class="text-caption">(apenas ativos)</span>
+                        <span class="material-symbols-outlined" aria-hidden="true">stacked_bar_chart</span> Status por Responsável <span class="text-caption">(apenas ativos)</span>
                     </div>
                     <span class="material-symbols-outlined info-icon" onclick="mostrarInfoGrafico('status-agente')" title="Clique para mais informações" aria-hidden="true">info</span>
                 </h3>
@@ -7302,7 +7302,7 @@ function mostrarSobre() {
                             <li>Blacklist de remetentes internos (<code>suporte@crprs.org.br</code>) para evitar loops.</li>
                             <li>Log completo de envios na tabela <code>email_logs</code> com filtros, paginação e estatísticas de taxa de sucesso.</li>
                             <li>Alerta visual pulsante 🔴 no botão Configurações quando há falhas de e-mail nas últimas 24h.</li>
-                            <li>Notificação entre agentes: comentário em demanda de outro agente dispara e-mail + muda status para "Nova Resposta".</li>
+                            <li>Notificação entre colegas: comentário em demanda de outro responsável dispara e-mail + muda status para "Nova Resposta".</li>
                         </ul>
                     </div>
 
@@ -7353,7 +7353,7 @@ function mostrarSLA() {
             <h4>📊 Como Funciona o SLA</h4>
             <p>O sistema monitora automaticamente dois tipos de SLA para cada demanda:</p>
             <ul>
-                <li><strong>SLA de 1ª Resposta:</strong> Tempo máximo até o primeiro atendimento do agente</li>
+                <li><strong>SLA de 1ª Resposta:</strong> Tempo máximo até o primeiro atendimento da equipe</li>
                 <li><strong>SLA de Resolução:</strong> Tempo máximo até a resolução completa do problema</li>
             </ul>
             
@@ -7522,15 +7522,15 @@ function mostrarStatusGuia() {
                 <span class="status-badge" style="background:#fff3e0;color:#e65100;">🆕 Novo</span>
                 <div>
                     <strong>Demanda recém-criada</strong><br>
-                    A demanda foi criada (via sistema ou e-mail), mas ainda não foi atribuída nem visualizada por um agente.
+                    A demanda foi criada (via sistema ou e-mail), mas ainda não foi atribuída nem visualizada pela equipe.
                 </div>
             </div>
 
             <div class="status-item">
                 <span class="status-badge" style="background:#e3f2fd;color:#0277bd;">🔧 Em atendimento</span>
                 <div>
-                    <strong>Agente trabalhando ativamente</strong><br>
-                    A demanda está sendo analisada ou trabalhada por um agente responsável.
+                    <strong>Responsável trabalhando ativamente</strong><br>
+                    A demanda está sendo analisada ou trabalhada pelo responsável.
                 </div>
             </div>
 
@@ -7547,7 +7547,7 @@ function mostrarStatusGuia() {
                 <span class="status-badge" style="background:#fff8e1;color:#f57f17;">⏳ Aguardando resposta</span>
                 <div>
                     <strong>Aguardando informações do solicitante</strong><br>
-                    O agente precisa de mais informações do usuário/cliente para continuar.
+                    O responsável precisa de mais informações do solicitante para continuar.
                     <br><em style="color:#e6a817;">⏸️ SLA pausado neste status</em>
                 </div>
             </div>
@@ -7583,7 +7583,7 @@ function mostrarStatusGuia() {
                 <span class="status-badge" style="background:#e3f2fd;color:#1565c0;">💬 Nova Resposta</span>
                 <div>
                     <strong>Solicitante respondeu</strong><br>
-                    O solicitante enviou uma nova resposta ou comentário. A demanda aguarda retomada do atendimento pelo agente.
+                    O solicitante enviou uma nova resposta ou comentário. A demanda aguarda retomada do atendimento pelo responsável.
                 </div>
             </div>
 
@@ -7923,9 +7923,9 @@ function mostrarAuditoria() {
                 <input type="date" id="data-fim-audit">
             </div>
             <div class="filtro-grupo filtro-grupo--expand">
-                <label for="filtro-usuario-audit">Agente/Admin:</label>
+                <label for="filtro-usuario-audit">Usuário:</label>
                 <div class="categoria-container" style="position: relative;">
-                    <input type="text" id="filtro-usuario-audit" placeholder="👤 Digite o nome do agente/admin..." autocomplete="off">
+                    <input type="text" id="filtro-usuario-audit" placeholder="👤 Digite o nome do usuário..." autocomplete="off">
                     <input type="hidden" id="filtro-usuario-id">
                     <div id="lista-usuarios-audit" class="categoria-lista-form" style="display: none;"></div>
                 </div>
@@ -8075,7 +8075,7 @@ function mostrarLogEmails(dados, paginaAtual = 1) {
                 <select id="email-log-tipo" style="${selectStyle}">
                     <option value="">Todos</option>
                     <option value="novo_ticket">📩 Nova Demanda (solicitante)</option>
-                    <option value="notif_agente">👥 Aviso Agente (nova demanda/comentário)</option>
+                    <option value="notif_agente">👥 Aviso à Equipe (nova demanda/comentário)</option>
                     <option value="primeira_resposta">📧 Primeira Resposta (automática)</option>
                     <option value="resposta">✉️ Resposta do Suporte</option>
                     <option value="comentario">💬 Comentário (solicitante)</option>
@@ -8131,7 +8131,7 @@ function mostrarLogEmails(dados, paginaAtual = 1) {
     } else {
         const tipoLabels = {
             novo_ticket:       '📩 Nova Demanda',
-            notif_agente:      '👥 Aviso Agente',
+            notif_agente:      '👥 Aviso à Equipe',
             primeira_resposta: '📧 Primeira Resposta',
             resposta:          '✉️ Resposta do Suporte',
             comentario:        '💬 Comentário',
@@ -8379,7 +8379,7 @@ function limparFiltrosAuditoria() {
     else if (tabAtiva.textContent.includes('Login')) carregarAuditoriaLogin();
 }
 
-// Carregar usuários para filtro (apenas agentes e admins)
+// Carregar usuários para filtro (equipe e administradores)
 let todosUsuariosAudit = [];
 
 function carregarUsuariosFiltroAudit() {
@@ -9210,7 +9210,7 @@ function mostrarInfoGrafico(tipo) {
         },
         'primeiro-atendimento': {
             titulo: '⚡ Tempo Médio 1º Atendimento',
-            descricao: 'Tempo médio até a primeira resposta do agente à demanda.',
+            descricao: 'Tempo médio até a primeira resposta da equipe à demanda.',
             analise: 'Métrica crítica de SLA. Valores altos indicam demora na resposta inicial, afetando a satisfação do usuário.'
         },
         'taxa-conclusao': {
@@ -9239,8 +9239,8 @@ function mostrarInfoGrafico(tipo) {
             analise: 'Identifique tendências: crescimento constante, sazonalidade ou picos específicos que requerem atenção.'
         },
         'agente': {
-            titulo: '🥧 Distribuição por Agente',
-            descricao: 'Gráfico de pizza mostrando a distribuição de demandas entre os agentes.',
+            titulo: '🥧 Distribuição por Responsável',
+            descricao: 'Gráfico de pizza mostrando a distribuição de demandas entre os responsáveis.',
             analise: 'Verifique o balanceamento da carga de trabalho. Desbalanceamento pode indicar necessidade de redistribuição ou treinamento.'
         },
         'resolucao': {
@@ -9251,12 +9251,12 @@ function mostrarInfoGrafico(tipo) {
         'dia-semana': {
             titulo: '📅 Demandas por Dia da Semana',
             descricao: 'Distribuição de demandas criadas por dia da semana (Domingo a Sábado).',
-            analise: 'Identifique padrões: dias com mais demanda podem requerer mais agentes disponíveis ou plantões.'
+            analise: 'Identifique padrões: dias com mais demanda podem requerer mais pessoas disponíveis ou plantões.'
         },
         'status-agente': {
-            titulo: '📊 Status por Agente',
-            descricao: 'Gráfico de barras empilhadas mostrando a distribuição de status das demandas por agente.',
-            analise: 'Compare o desempenho dos agentes: quem tem mais demandas resolvidas, quem tem mais pendentes, etc.'
+            titulo: '📊 Status por Responsável',
+            descricao: 'Gráfico de barras empilhadas mostrando a distribuição de status das demandas por responsável.',
+            analise: 'Compare o desempenho dos responsáveis: quem tem mais demandas resolvidas, quem tem mais pendentes, etc.'
         },
         'sla-vencido': {
             titulo: 'SLA Vencido',

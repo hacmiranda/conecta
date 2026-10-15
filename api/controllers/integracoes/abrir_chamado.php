@@ -125,7 +125,7 @@ try {
     if ($user) {
         $usuario_id = $user['id'];
     } else {
-        // O E-mail nunca existiu no CRPDESK. Forja a conta e libera pra uso em Background.
+        // O e-mail nunca existiu no Conecta CRPRS. Forja a conta e libera pra uso em Background.
         $senha_random = password_hash(bin2hex(random_bytes(10)), PASSWORD_DEFAULT);
         $stmt_create = $db->prepare("INSERT INTO usuarios (nome, email, senha, tipo, ativo) VALUES (?, ?, ?, 'cliente', 1)");
         $stmt_create->execute([$nome_solicitante, $email_solicitante, $senha_random]);

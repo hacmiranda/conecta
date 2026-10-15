@@ -1,6 +1,6 @@
 <?php
 /**
- * CRPDESK - Transmissor Server-Sent Events (SSE)
+ * Conecta CRPRS - Transmissor Server-Sent Events (SSE)
  * Arquivo Long-Lived responsável por mandar Web-Push ao navegador via protocolo HTTP nativo.
  * Otimizado para PHP 8.2 e livre de dependências como Node.js ou daemons paralelos.
  */

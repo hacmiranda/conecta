@@ -1,6 +1,6 @@
 <?php
 /**
- * Serviço de Rate Limiting — CRPDESK
+ * Serviço de Rate Limiting — Conecta CRPRS
  * Controla o número de tentativas por IP usando arquivos JSON.
  * Usado principalmente para proteger o endpoint de login contra força bruta.
  */

@@ -35,7 +35,7 @@
         rel="stylesheet" />
     <link href="https://cdn.quilljs.com/1.3.6/quill.snow.css" rel="stylesheet">
     <!-- Configuração de deploy (base da API) -->
-    <script src="app-config.js"></script>
+    <script src="app-config.js?v=2"></script>
     <!-- Alpine.js - Componentização e Reatividade Leve -->
     <script src="alpine-components.js"></script>
     <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
@@ -502,7 +502,7 @@
                     </div>
 
                     <div class="filtro-grupo">
-                        <label for="filtro-agente">Agente:</label>
+                        <label for="filtro-agente">Responsável:</label>
                         <select id="filtro-agente">
                             <option value="todos">Todos</option>
                         </select>
@@ -699,8 +699,8 @@
                     <div class="dica-item">
                         <div class="dica-icon">👤</div>
                         <div class="dica-content">
-                            <h4>Atribua demandas aos agentes</h4>
-                            <p>Sempre atribua demandas aos agentes responsáveis para melhor organização. Ao iniciar o
+                            <h4>Encaminhe as demandas aos operadores</h4>
+                            <p>Sempre encaminhe as demandas aos operadores responsáveis para melhor organização. Ao iniciar o
                                 atendimento, não esqueça de atribuir a demanda ao seu usuário</p>
                         </div>
                     </div>
@@ -829,7 +829,7 @@
         if (!usuario) {
             window.location.href = './login.html';
         } else {
-            // Esconder configurações para agentes
+            // Esconder configurações para quem não é administrador
             if (usuario.tipo !== 'admin') {
                 const btnConfig = document.querySelector('button[onclick="mostrarSecao(\'config\')"]');
                 if (btnConfig) {
@@ -907,16 +907,16 @@
     <!-- Scripts Base -->
     <script src="canvas-tooltip.js"></script>
     <script src="vanguard-tooltip.js"></script>
-    <script src="script.js?v=4.1"></script>
+    <script src="script.js?v=4.2"></script>
     <script src="graficos-dashboard.js"></script>
-    <script src="status-sla.js?v=2.0"></script>
-    <script src="tutorial.js?v=3.5"></script>
+    <script src="status-sla.js?v=2.1"></script>
+    <script src="tutorial.js?v=3.6"></script>
     <script src="lembretes.js"></script>
     <script src="fluxos-email-func.js"></script>
     <script src="horarios-sla.js?v=2.0"></script>
     <script src="macros.js?v=1.1"></script>
     <script src="notificacoes.js?v=2.1"></script>
-    <script src="avatar.js?v=1.6"></script>
+    <script src="avatar.js?v=1.7"></script>
     <script src="cabecalho-setor.js?v=1.0"></script>
 
     <!-- Botão Voltar ao Topo -->
