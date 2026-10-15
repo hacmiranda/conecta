@@ -685,7 +685,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'PUT') {
             $updates[] = 'status = :status';
             $params[':status'] = $input['status'];
 
-            if ($input['status'] === 'encerrado' || $input['status'] === 'cancelado') {
+            if (in_array($input['status'], AcessoService::STATUS_ARQUIVO, true)) {
                 $updates[] = 'fechado_em = NOW()';
                 // Quem encerrou vem sempre do token, nunca do corpo da requisição
                 $updates[] = 'fechado_por = :fechado_por';

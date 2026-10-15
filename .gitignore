@@ -31,3 +31,7 @@ Thumbs.db
 
 # Composer local (instale globalmente; nunca versionar o .phar)
 *.phar
+
+# Cache local do PHPUnit (P4 da auditoria)
+.phpunit.result.cache
+api/.phpunit.result.cache

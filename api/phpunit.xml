@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Testes automatizados do Conecta CRPRS (P4 da auditoria).
+
+  Rodar:  cd api && vendor/bin/phpunit
+  Cobre as regras mais sensíveis (acesso por setor/papel, senha, SLA) com testes de unidade
+  — não substitui os testes de API ponta a ponta usados durante o desenvolvimento das fases.
+-->
+<phpunit xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:noNamespaceSchemaLocation="vendor/phpunit/phpunit/phpunit.xsd"
+         bootstrap="tests/bootstrap.php"
+         colors="true"
+         failOnWarning="true"
+         failOnDeprecation="false">
+    <testsuites>
+        <testsuite name="unit">
+            <directory>tests/Unit</directory>
+        </testsuite>
+    </testsuites>
+    <source>
+        <include>
+            <directory>services</directory>
+        </include>
+    </source>
+</phpunit>

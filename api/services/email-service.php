@@ -906,7 +906,7 @@ class EmailService {
             }
             
             // Só muda status se NÃO for o agente e status não for final
-            if (!$is_agente && !in_array($ticket_atual['status'], ['fechado', 'encerrado', 'cancelado'])) {
+            if (!$is_agente && !in_array($ticket_atual['status'], AcessoService::STATUS_ARQUIVO, true)) {
                 if ($ticket_atual['status'] !== 'nova_resposta') {
                     $up_q = "UPDATE tickets SET status = 'nova_resposta' WHERE id = ?";
                     $this->db->prepare($up_q)->execute([$ticket_id]);
