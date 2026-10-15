@@ -915,3 +915,14 @@
     background: #0c2a3d;
     color: #bae6fd;
 }
+
+/* ===== Formulário de usuário: ajuda da senha inicial ===== */
+.ajuda-senha-usuario {
+    margin: 0 0 1rem 0;
+    font-size: 0.85rem;
+    color: #4b5563;
+}
+
+.modo-escuro .ajuda-senha-usuario {
+    color: #cbd5e1;
+}

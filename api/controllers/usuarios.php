@@ -3,6 +3,7 @@ header('Content-Type: application/json');
 
 require_once __DIR__ . '/../config/database.php';
 require_once __DIR__ . '/../middleware/auth.php';
+require_once __DIR__ . '/../services/senha-service.php';
 require_once __DIR__ . '/../services/auditoria-service.php';
 
 AuthMiddleware::configurarCORS(['GET', 'POST', 'PUT', 'DELETE']);
@@ -97,10 +98,24 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $cargo = trim($input['cargo'] ?? '') ?: null;
     $username = trim($input['username'] ?? '');
     $setor_id = !empty($input['setor_id']) ? (int) $input['setor_id'] : null;
+    $senha = (string) ($input['senha'] ?? '');
 
     if (empty($nome) || empty($email)) {
         http_response_code(400);
         echo json_encode(['error' => 'Nome e email são obrigatórios']);
+        exit;
+    }
+
+    // Senha inicial definida por quem cadastra (mesmas regras da troca de senha)
+    if ($senha === '') {
+        http_response_code(400);
+        echo json_encode(['error' => 'Informe a senha inicial do usuário']);
+        exit;
+    }
+    $erro_senha = SenhaService::validar($senha);
+    if ($erro_senha !== null) {
+        http_response_code(400);
+        echo json_encode(['error' => $erro_senha]);
         exit;
     }
 
@@ -144,7 +159,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
         }
 
-        $senha_hash = password_hash('123456', PASSWORD_DEFAULT);
+        $senha_hash = SenhaService::hash($senha);
 
         $query = "INSERT INTO usuarios (nome, username, email, tipo, cargo, setor_id, senha)
                   VALUES (:nome, :username, :email, :tipo, :cargo, :setor_id, :senha)";
