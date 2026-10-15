@@ -60,7 +60,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         require_once __DIR__ . '/../services/email-sender.php';
         $emailSender = new EmailSender($db);
         
-        $link = "https://crp07.org.br/crpdesk/frontend/redefinir-senha.html?token=$token";
+        // Link montado a partir da base_url do ambiente (local ou produção), não de uma URL fixa
+        $link = rtrim(Environment::get('base_url'), '/') . "/frontend/redefinir-senha.html?token=$token";
         
         $assunto = "Recuperação de Senha - Conecta CRPRS";
         $mensagem = "

@@ -76,7 +76,7 @@ const STATUS_CONFIG = {
         nome: 'Nova Resposta',
         cor: '#17a2b8',
         icone: '💬',
-        descricao: 'O solicitante respondeu à demanda. Requer atenção do agente.',
+        descricao: 'O solicitante respondeu à demanda. Requer atenção do responsável.',
         congela_sla: false
     },
     // Mapeamento de status antigos para novos (compatibilidade)

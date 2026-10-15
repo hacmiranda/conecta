@@ -33,7 +33,7 @@ function _buscarNotificacoes() {
                 const data = JSON.parse(xhr.responseText);
                 const usuario = JSON.parse(localStorage.getItem('cd_usuario') || '{}');
 
-                // Para agentes e admins, incluir alertas de falha de e-mail no sino
+                // Para a equipe e administradores, incluir alertas de falha de e-mail no sino
                 if (['operador', 'gestor', 'admin'].includes(usuario.tipo)) {
                     _mesclarAlertaEmail(data.notificacoes, data.nao_lidas);
                 } else {

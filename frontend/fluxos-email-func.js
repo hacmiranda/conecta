@@ -38,7 +38,7 @@ function mostrarFluxosEmail() {
                         <div class="email-badge" style="background: #e3f2fd; color: #1976d2; margin-bottom: 1rem;">📧 Envio 2 de 2</div>
                         <div class="email-item">
                             <div class="email-label">Para:</div>
-                            <div class="email-value">Todos agentes e administradores ativos</div>
+                            <div class="email-value">Gestores do setor da demanda (ou administradores, se o setor não tiver gestor)</div>
                         </div>
                         <div class="email-item">
                             <div class="email-label">Assunto:</div>
@@ -50,7 +50,7 @@ function mostrarFluxosEmail() {
                 <div class="email-card">
                     <div class="email-card-header" style="background: #506C7E;">
                         <span class="email-icon">💬</span>
-                        <h4>2. Comentário Adicionado por Agente</h4>
+                        <h4>2. Comentário Adicionado pela Equipe</h4>
                     </div>
                     <div class="email-card-body">
                         <div class="email-item">
@@ -67,7 +67,7 @@ function mostrarFluxosEmail() {
                         </div>
                         <div class="email-item">
                             <div class="email-label">Quando:</div>
-                            <div class="email-value">Agente marca checkbox "Enviar email" ao adicionar comentário</div>
+                            <div class="email-value">A equipe marca o checkbox "Enviar email" ao adicionar o comentário</div>
                         </div>
                     </div>
                 </div>
@@ -81,8 +81,8 @@ function mostrarFluxosEmail() {
                         <div class="email-item">
                             <div class="email-label">Para:</div>
                             <div class="email-value">
-                                <div>• Se a demanda TEM responsável: apenas o agente responsável</div>
-                                <div>• Se a demanda SEM responsável: todos agentes/administradores</div>
+                                <div>• Se a demanda TEM responsável: apenas o responsável</div>
+                                <div>• Se a demanda SEM responsável: os gestores do setor (ou administradores)</div>
                             </div>
                         </div>
                         <div class="email-item">
@@ -110,7 +110,7 @@ function mostrarFluxosEmail() {
                     <div class="email-card-body">
                         <div class="email-item">
                             <div class="email-label">Para:</div>
-                            <div class="email-value">Agente atribuído</div>
+                            <div class="email-value">Responsável atribuído</div>
                         </div>
                         <div class="email-item">
                             <div class="email-label">Assunto:</div>
@@ -152,7 +152,7 @@ function mostrarFluxosEmail() {
                         <div class="email-badge" style="background: #ffebee; color: #c62828; margin-bottom: 1rem;">📧 Email adicional (condicional)</div>
                         <div class="email-item">
                             <div class="email-label">Para:</div>
-                            <div class="email-value">Agente responsável (se outro usuário fechou)</div>
+                            <div class="email-value">Responsável (se outro usuário encerrou)</div>
                         </div>
                         <div class="email-item">
                             <div class="email-label">Assunto:</div>
@@ -169,7 +169,7 @@ function mostrarFluxosEmail() {
                     <div class="email-card-body">
                         <div class="email-item">
                             <div class="email-label">Para:</div>
-                            <div class="email-value">Agente responsável</div>
+                            <div class="email-value">Responsável</div>
                         </div>
                         <div class="email-item">
                             <div class="email-label">Assunto:</div>
@@ -193,7 +193,7 @@ function mostrarFluxosEmail() {
                 </h4>
                 <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
                     <div class="email-format-box" style="background: white; padding: 1rem; border-radius: 8px; border: 1px solid #dee2e6;">
-                        <div style="font-weight: 600; color: #495057; margin-bottom: 0.5rem;">👥 Agentes/Administradores</div>
+                        <div style="font-weight: 600; color: #495057; margin-bottom: 0.5rem;">👥 Equipe do setor (gestores e operadores)</div>
                         <div style="color: #6c757d; font-size: 0.9rem;">Recebem emails em <strong>texto simples</strong></div>
                     </div>
                     <div class="email-format-box" style="background: white; padding: 1rem; border-radius: 8px; border: 1px solid #dee2e6;">
@@ -216,7 +216,7 @@ function mostrarFluxosEmail() {
                     </div>
                     <div class="template-box" style="background: white; padding: 1rem; border-radius: 8px; border-left: 3px solid #007bff;">
                         <div style="font-weight: 600; color: #495057; margin-bottom: 0.25rem;">email-template-resposta.html</div>
-                        <div style="color: #6c757d; font-size: 0.85rem; margin-bottom: 0.25rem;">Resposta do agente ao solicitante</div>
+                        <div style="color: #6c757d; font-size: 0.85rem; margin-bottom: 0.25rem;">Resposta da equipe ao solicitante</div>
                         <div style="color: #868e96; font-size: 0.8rem; font-family: monospace;">📁 backend/email-template-resposta.html</div>
                     </div>
                     <div class="template-box" style="background: white; padding: 1rem; border-radius: 8px; border-left: 3px solid #ffc107;">
@@ -251,7 +251,7 @@ function mostrarFluxosEmail() {
                     <p><strong>Comentários não lidos:</strong> Ícone 💬 aparece na lista de demandas</p>
                     <div class="info-inner-box" style="margin-top: 1rem; padding: 0.75rem; background: white; border-radius: 6px;">
                         <div style="margin-bottom: 0.5rem;">• Demanda COM responsável → apenas ele vê</div>
-                        <div style="margin-bottom: 0.5rem;">• Demanda SEM responsável → todos agentes veem</div>
+                        <div style="margin-bottom: 0.5rem;">• Demanda SEM responsável → os gestores do setor veem</div>
                         <div>• Remove ao visualizar detalhes</div>
                     </div>
                 </div>

@@ -1,4 +1,4 @@
-// Sistema de Avatar - CRPDESK
+// Sistema de Avatar - Conecta CRPRS
 let cropper = null;
 
 // Adicionar evento ao botão quando DOM carregar
@@ -178,7 +178,7 @@ function atualizarAvatarHeader() {
     const usuario = JSON.parse(localStorage.getItem('cd_usuario'));
     if (!usuario || !usuario.avatar) return;
     
-    const avatarUrl = `/conecta/backend/uploads/avatars/${usuario.avatar}`;
+    const avatarUrl = `${window.APP_CONFIG.rootBase}backend/uploads/avatars/${usuario.avatar}`;
     
     ['header-avatar-circle', 'header-avatar-circle-sm'].forEach(id => {
         const el = document.getElementById(id);

@@ -99,6 +99,7 @@ class EmailSender {
                         'user'      => !empty($caixa['smtp_user']) ? $caixa['smtp_user'] : $caixa['imap_user'],
                         'pass'      => $senhaSmtp,
                         'email'     => $caixa['email'],
+                        'setor_nome' => $caixa['setor_nome'],
                         'nome'      => !empty($caixa['nome_remetente']) ? $caixa['nome_remetente'] : 'Conecta CRPRS - ' . $caixa['setor_nome'],
                     ];
                 }
@@ -265,7 +266,7 @@ class EmailSender {
             $this->configurarMailer();
             
             if ($this->remetenteSetor === null) {
-                $this->mailer->setFrom(EmailConfig::get('SMTP_USERNAME'), 'Suporte CRPRS');
+                $this->mailer->setFrom(EmailConfig::get('SMTP_USERNAME'), 'Conecta CRPRS');
             }
             $this->mailer->addAddress($para);
             $this->mailer->Subject = $assunto;
@@ -318,12 +319,17 @@ class EmailSender {
                 $tipo = match(true) {
                     // Mais específicos primeiro para evitar capturas incorretas
                     str_contains($lower, 'primeira resposta')   => 'primeira_resposta',
+                    str_contains($lower, 'resposta da equipe')  => 'resposta',
                     str_contains($lower, 'resposta do suporte') => 'resposta',
+                    str_contains($lower, 'nova demanda')        => 'notif_agente',
                     str_contains($lower, 'novo ticket')         => 'notif_agente',
                     str_contains($lower, 'novo comentário')     => 'notif_agente',
                     str_contains($lower, 'novo comentario')     => 'notif_agente',
+                    str_contains($lower, 'criada')              => 'novo_ticket',
                     str_contains($lower, 'criado')              => 'novo_ticket',
+                    str_contains($lower, 'encerrada')           => 'fechamento',
                     str_contains($lower, 'fechado')             => 'fechamento',
+                    str_contains($lower, 'reaberta')            => 'reabertura',
                     str_contains($lower, 'reaberto')            => 'reabertura',
                     str_contains($lower, 'atribuído')           => 'atribuicao',
                     str_contains($lower, 'atribuido')           => 'atribuicao',
@@ -436,13 +442,13 @@ class EmailSender {
             
             if (!$dados || !$dados['usuario_email']) return false;
             
-            $assunto = "🎫 [#" . str_pad($ticket_id, 5, '0', STR_PAD_LEFT) . "] Resposta do Suporte - " . $dados['titulo'];
+            $assunto = "🎫 [#" . str_pad($ticket_id, 5, '0', STR_PAD_LEFT) . "] Resposta da Equipe - " . $dados['titulo'];
 
             // Remove imagens base64 inline (inseridas no editor Quill) para não "estourar" o e-mail.
             // Imagens anexadas como arquivo continuam sendo enviadas normalmente como attachment.
             $comentario_email = preg_replace(
                 '/<img\s[^>]*src=["\']data:[^"\']+["\'][^>]*>/i',
-                '<em style="color:#888;">[Imagem disponível no portal de suporte]</em>',
+                '<em style="color:#888;">[Imagem disponível no sistema]</em>',
                 $dados['comentario']
             );
 
@@ -677,7 +683,7 @@ class EmailSender {
                 $template = str_replace('{{DATA_FECHAMENTO}}', date('d/m/Y H:i', strtotime($ticket['fechado_em'])), $template);
                 $template = str_replace('{{ASSINATURA_EMAIL}}', $this->getAssinatura(), $template);
                 
-                $assunto = "🎫 [#" . str_pad($ticket_id, 5, '0', STR_PAD_LEFT) . "] Ticket fechado - " . $ticket['titulo'];
+                $assunto = "🎫 [#" . str_pad($ticket_id, 5, '0', STR_PAD_LEFT) . "] Demanda encerrada - " . $ticket['titulo'];
                 $this->enviarEmail(($ticket['email_solicitante'] ?: $ticket['usuario_email']), $assunto, $template);
             }
             
@@ -770,7 +776,7 @@ class EmailSender {
             $template = str_replace('{{DATA_REABERTURA}}', date('d/m/Y H:i'), $template);
             $template = str_replace('{{ASSINATURA_EMAIL}}', $assinatura, $template);
             
-            $assunto = "🎫 [#" . str_pad($ticket_id, 5, '0', STR_PAD_LEFT) . "] Ticket reaberto - " . $ticket['titulo'];
+            $assunto = "🎫 [#" . str_pad($ticket_id, 5, '0', STR_PAD_LEFT) . "] Demanda reaberta - " . $ticket['titulo'];
             
             return $this->enviarEmail($ticket['usuario_email'], $assunto, $template);
         } catch (Exception $e) {
@@ -958,13 +964,21 @@ class EmailSender {
     }
 
     private function getAssinatura() {
+        // Setor com caixa própria: assina como a equipe do setor; sem setor, assinatura institucional
+        if ($this->remetenteSetor !== null) {
+            $linhaEquipe = 'Equipe ' . htmlspecialchars($this->remetenteSetor['setor_nome'], ENT_QUOTES, 'UTF-8');
+            $linhaEmail  = htmlspecialchars($this->remetenteSetor['email'], ENT_QUOTES, 'UTF-8');
+        } else {
+            $linhaEquipe = 'Conecta CRPRS';
+            $linhaEmail  = htmlspecialchars((string) EmailConfig::get('FROM_EMAIL'), ENT_QUOTES, 'UTF-8');
+        }
+
         return '<table width="100%" border="0" cellspacing="3" cellpadding="3" style="margin-top: 30px; padding-top: 20px; border-top: 1px solid #ddd;">
   <tr>
     <td width="13%" valign="top"><img src="http://www.crprs.org.br/assets/frontend/img/logo.png" width="150"/></td>
     <td width="87%" valign="top">
-      <font face="Arial, Helvetica, sans-serif" size="2" color="#000000">Equipe de Suporte em Tecnologia da Informação</font><br />
-      <font face="Arial, Helvetica, sans-serif" size="2" color="#000000">Setor de TI</font><br />
-      <font face="Arial, Helvetica, sans-serif" size="2">suporte@crprs.org.br</font><br /><br />
+      <font face="Arial, Helvetica, sans-serif" size="2" color="#000000">' . $linhaEquipe . '</font><br />
+      <font face="Arial, Helvetica, sans-serif" size="2">' . $linhaEmail . '</font><br /><br />
       <font face="Arial, Helvetica, sans-serif" size="2" color="#000000">Conselho Regional de Psicologia do Rio Grande do Sul</font><br />
       <font face="Arial, Helvetica, sans-serif" size="2" color="#000000">Av. Protásio Alves, 2854/301 - Porto Alegre/RS</font><br />
       <font face="Arial, Helvetica, sans-serif" size="2" color="#000000">(51) 3334-6799</font><br />
