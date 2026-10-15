@@ -14,8 +14,13 @@ Nada abaixo foi definido neste roteiro — são escolhas de implantação, não 
   do CRPDESK. Confirmar se o novo banco `db_conecta` fica no mesmo servidor/usuário ou muda —
   e ajustar `db_host`/`db_user` em `environment.php` de acordo (ou preencher `DB_HOST_PROD`/
   `DB_USER_PROD` no `.env`, que tem prioridade sobre o valor fixo no arquivo).
-- **`base_url` de produção.** Mesma função, hoje `https://crp07.org.br/crpdesk`. Confirme o caminho
-  definitivo (ex.: `https://crp07.org.br/conecta`) e ajuste.
+- **`base_url` de produção: decidido — `https://crp07.org.br/conecta`** (confirmado em
+  15/10/2026; já ajustado em `api/config/environment.php`). Dois documentos antigos da época do
+  CRPDESK ainda citam a URL anterior e nem foram renomeados para Conecta CRPRS — não são lidos
+  pelo código, só guias para humanos: `docs/CONFIGURACAO_AMBIENTE.md` e
+  `docs/especificacoes/PROMPT_INTEGRACAO_SISTEMA_SATELITE.md` (este é usado por sistemas
+  satélites que consomem `abrir_chamado.php` — avisar quem mantém esses sistemas sobre a nova
+  URL quando o caminho `/conecta` entrar no ar).
 - **E-mail de cada setor.** As caixas IMAP/SMTP de setor (`setor_emails`) são cadastradas pela
   tela "Configurar e-mail" depois do primeiro deploy — não há nada a migrar aqui, mas alguém
   precisa cadastrá-las antes dos setores dependerem de e-mail.

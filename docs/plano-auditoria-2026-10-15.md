@@ -215,6 +215,6 @@ Cada fase termina com o sistema funcionando, um commit próprio, testes de API p
 4. **P7**: já estava resolvido (`config-email.php` não lê mais chave inexistente; a tela "Sobre" não fala mais em SSE desde a Fase 12).
 5. **P9**: já resolvido pelo U10 da Fase 12 (alerta de falha de e-mail só para o admin).
 6. **P8, P10**: não feitos — padronizar o formato de resposta de ~30 controllers e tirar o cálculo de SLA duplicado do frontend (`status-sla.js`) são mudanças transversais; avaliar numa fase própria.
-7. Roteiro de implantação em produção: `docs/implantacao-producao.md` (novo). **Decisão do CRPRS pendente**: host/nome do banco de produção e `base_url` em `environment.php` ainda apontam para o CRPDESK (`crpdesk`/`crp07.org.br/crpdesk`) — confirmar antes do primeiro deploy, já documentado no roteiro.
+7. Roteiro de implantação em produção: `docs/implantacao-producao.md` (novo). **Decisões do CRPRS confirmadas em 15/10/2026**: nome do banco `db_conecta` e `base_url` `https://crp07.org.br/conecta`, já ajustados em `environment.php`. **Ainda pendente**: host/usuário do banco (`db_host`/`db_user`, hoje herdados do CRPDESK) — ver o roteiro.
 
 **Ordem recomendada:** 8 → 9 → 10 são pré-requisito para a produção. 11 a 13 podem ser intercaladas conforme a prioridade de uso.

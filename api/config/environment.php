@@ -135,7 +135,7 @@ class Environment {
             'from_email'     => 'suporte@crprs.org.br',
 
             // Caminhos
-            'base_url'       => 'https://crp07.org.br/crpdesk',
+            'base_url'       => 'https://crp07.org.br/conecta',
             'upload_path'    => __DIR__ . '/../../backend/anexos/',
             'log_path'       => __DIR__ . '/../../backend/logs/',
 
