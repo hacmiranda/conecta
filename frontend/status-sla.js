@@ -197,6 +197,7 @@ function carregarHorariosConfigurados() {
     return new Promise((resolve, reject) => {
         const xhr1 = new XMLHttpRequest();
         xhr1.open('GET', window.APP_CONFIG.apiBase + 'horarios-sla.php', true);
+        setSecurityHeaders(xhr1);
 
         xhr1.onload = function () {
             if (xhr1.status === 200) {
@@ -204,6 +205,7 @@ function carregarHorariosConfigurados() {
 
                 const xhr2 = new XMLHttpRequest();
                 xhr2.open('GET', window.APP_CONFIG.apiBase + 'horarios-sla.php?feriados=1', true);
+                setSecurityHeaders(xhr2);
 
                 xhr2.onload = function () {
                     if (xhr2.status === 200) {
@@ -369,6 +371,7 @@ function carregarStatusDisponiveis(setorId) {
         const xhr = new XMLHttpRequest();
         const filtro = setorId ? `?setor_id=${setorId}` : '';
         xhr.open('GET', window.APP_CONFIG.apiBase + 'ticket-status.php' + filtro, true);
+        setSecurityHeaders(xhr);
 
         xhr.onload = function () {
             if (xhr.status === 200) {
@@ -393,6 +396,7 @@ function carregarPrioridadesDisponiveis(setorId) {
         const xhr = new XMLHttpRequest();
         const filtro = setorId ? `?setor_id=${setorId}` : '';
         xhr.open('GET', window.APP_CONFIG.apiBase + 'prioridades.php' + filtro, true);
+        setSecurityHeaders(xhr);
 
         xhr.onload = function () {
             if (xhr.status === 200) {

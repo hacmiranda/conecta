@@ -3,6 +3,7 @@ header('Content-Type: application/json');
 
 require_once __DIR__ . '/../config/database.php';
 require_once __DIR__ . '/../middleware/auth.php';
+require_once __DIR__ . '/../services/acesso-service.php';
 
 AuthMiddleware::configurarCORS(['POST']);
 
@@ -29,6 +30,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         exit;
     }
     
+    // Isolamento: gestor só mescla demandas do próprio setor (admin: qualquer uma)
+    AcessoService::exigirOperarTicket($db, $user, $ticket_principal);
+    foreach ($tickets_secundarios as $id_secundario) {
+        AcessoService::exigirOperarTicket($db, $user, $id_secundario);
+    }
+
     try {
         // Criar tabela histórico se não existir (fora da transação)
         $create_table = "CREATE TABLE IF NOT EXISTS historico (

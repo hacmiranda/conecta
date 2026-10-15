@@ -76,7 +76,7 @@ class Environment {
         return [
             // Banco de Dados
             'db_host'        => 'localhost',
-            'db_name'        => 'crpdesk',
+            'db_name'        => 'db_conecta',
             'db_user'        => 'root',
             'db_charset'     => 'utf8mb4',
 

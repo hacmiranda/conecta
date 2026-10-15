@@ -16,6 +16,7 @@ $db = $database->getConnection();
 
 // GET - Listar macrocategorias
 if ($_SERVER['REQUEST_METHOD'] === 'GET') {
+    AuthMiddleware::verificarAuth(); // catálogo interno: exige login
     try {
         $query = "SELECT * FROM macrocategorias ORDER BY nome";
         $stmt = $db->prepare($query);

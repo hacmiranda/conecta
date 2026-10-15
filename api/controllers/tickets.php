@@ -5,6 +5,7 @@ require_once __DIR__ . '/../config/database.php';
 require_once __DIR__ . '/../middleware/auth.php';
 require_once __DIR__ . '/../services/auditoria-service.php';
 require_once __DIR__ . '/../services/sla-service.php';
+require_once __DIR__ . '/../services/acesso-service.php';
 
 AuthMiddleware::configurarCORS(['GET', 'POST', 'PUT', 'DELETE']);
 
@@ -16,24 +17,11 @@ $database = new Database();
 $db = $database->getConnection();
 
 /**
- * Verifica se o usuário logado pode visualizar a demanda informada.
- * admin: sempre; gestor: demandas do próprio setor; usuario: demandas
- * atribuídas a si ou abertas por si; cliente: apenas as próprias demandas.
+ * Verifica se o usuário logado pode visualizar a demanda informada
+ * (regra centralizada em AcessoService).
  */
 function usuarioPodeVerTicket(array $user, array $ticket): bool {
-    $tipo = $user['tipo'] ?? '';
-    if ($tipo === 'admin') {
-        return true;
-    }
-    if ($tipo === 'gestor') {
-        return AuthMiddleware::mesmoSetor($user, isset($ticket['setor_id']) ? (int) $ticket['setor_id'] : null);
-    }
-    if ($tipo === 'operador') {
-        return (int) ($ticket['agente_id'] ?? 0) === (int) $user['id']
-            || (int) ($ticket['usuario_id'] ?? 0) === (int) $user['id'];
-    }
-    // cliente
-    return (int) ($ticket['usuario_id'] ?? 0) === (int) $user['id'];
+    return AcessoService::podeVerTicket($user, $ticket);
 }
 
 // GET - Listar tickets ou buscar ticket específico
@@ -383,19 +371,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $emailSender->enviarEmailNovoTicket($ticket_id);
             $emailSender->notificarAgentesNovoTicket($ticket_id);
             
-            // Push Notification para agentes
-            $agentes_query = "SELECT id FROM usuarios WHERE tipo IN ('operador', 'gestor', 'admin') AND ativo = 1";
-            $agentes_stmt = $db->query($agentes_query);
-            $agentes = $agentes_stmt->fetchAll(PDO::FETCH_COLUMN);
-
-            $msg_novo_ticket = "Um novo ticket (#" . str_pad($ticket_id, 5, '0', STR_PAD_LEFT) . ") foi aberto pelo usuário " . ($user['nome'] ?? 'Desconhecido') . ".";
-            $notif_insert = "INSERT INTO notificacoes (usuario_id, titulo, mensagem, ticket_id) VALUES (?, 'Novo Ticket', ?, ?)";
+            // Notificação interna: apenas os gestores do setor da demanda (admins se não houver gestor)
+            $msg_novo_ticket = "Uma nova demanda (#" . str_pad($ticket_id, 5, '0', STR_PAD_LEFT) . ") foi aberta por " . ($user['nome'] ?? 'Desconhecido') . ".";
+            $notif_insert = "INSERT INTO notificacoes (usuario_id, titulo, mensagem, ticket_id) VALUES (?, 'Nova Demanda', ?, ?)";
             $stmt_insert = $db->prepare($notif_insert);
-            
-            foreach ($agentes as $ag_id) {
-                if ($ag_id != $user['id']) {
-                    $stmt_insert->execute([$ag_id, $msg_novo_ticket, $ticket_id]);
-                }
+
+            foreach (AcessoService::destinatariosInternosDoSetor($db, $setor_id, (int) $user['id']) as $destinatario) {
+                $stmt_insert->execute([$destinatario['id'], $msg_novo_ticket, $ticket_id]);
             }
         } catch (Exception $emailError) {
             error_log("[WARNING] Erro no envio de email/notificação: " . $emailError->getMessage());
@@ -424,9 +406,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
 // PUT - Atualizar ticket
 if ($_SERVER['REQUEST_METHOD'] === 'PUT') {
-    error_log("[DEBUG PUT] Iniciando método PUT");
-    error_log("[DEBUG PUT] Headers: " . json_encode(getallheaders()));
-    
     // Autenticação
     try {
         $user = AuthMiddleware::verificarAuth();
@@ -460,7 +439,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'PUT') {
         $params = [':id' => $ticket_id];
         
         // Buscar dados atuais ANTES da atualização
-        $current_query = "SELECT titulo, descricao, status, prioridade, categoria_id, agente_id FROM tickets WHERE id = ?";
+        $current_query = "SELECT titulo, descricao, status, prioridade, categoria_id, agente_id, setor_id, usuario_id FROM tickets WHERE id = ?";
         $current_stmt = $db->prepare($current_query);
         $current_stmt->execute([$ticket_id]);
         $current_data = $current_stmt->fetch(PDO::FETCH_ASSOC);
@@ -472,22 +451,60 @@ if ($_SERVER['REQUEST_METHOD'] === 'PUT') {
             exit;
         }
         
+        // Isolamento: admin, gestor do setor da demanda ou operador responsável
+        if (!AcessoService::podeOperarTicket($user, $current_data)) {
+            http_response_code(403);
+            echo json_encode(['error' => 'Você não tem permissão para alterar esta demanda']);
+            exit;
+        }
+
         error_log("[ATRIBUICAO] Status atual: {$current_data['status']}");
-        
-        // Verificar e adicionar colunas se não existirem
-        try {
-            $db->exec("ALTER TABLE tickets ADD COLUMN fechado_por INT NULL");
-        } catch (Exception $e) {}
-        try {
-            $db->exec("ALTER TABLE tickets ADD COLUMN fechado_em TIMESTAMP NULL");
-        } catch (Exception $e) {}
-        
+
+        // Valida status e prioridade contra o catálogo (somente valores ativos)
+        if (isset($input['status'])) {
+            $chk = $db->prepare("SELECT 1 FROM ticket_status WHERE nome = ? AND ativo = 1");
+            $chk->execute([$input['status']]);
+            if (!$chk->fetchColumn()) {
+                http_response_code(400);
+                echo json_encode(['error' => 'Status inválido']);
+                exit;
+            }
+        }
+        if (isset($input['prioridade'])) {
+            $chk = $db->prepare("SELECT 1 FROM ticket_prioridades WHERE nome = ? AND ativo = 1");
+            $chk->execute([$input['prioridade']]);
+            if (!$chk->fetchColumn()) {
+                http_response_code(400);
+                echo json_encode(['error' => 'Prioridade inválida']);
+                exit;
+            }
+        }
+
+        // Atribuir/remover responsável é ato de gestão: operador usa as ações de demanda-acoes.php
+        if (array_key_exists('agente_id', $input)) {
+            if (!in_array($user['tipo'], ['admin', 'gestor'], true)) {
+                http_response_code(403);
+                echo json_encode(['error' => 'Apenas gestores ou administradores atribuem responsável']);
+                exit;
+            }
+            if (!empty($input['agente_id'])) {
+                $dest = $db->prepare("SELECT setor_id FROM usuarios WHERE id = ? AND ativo = 1 AND tipo IN ('operador','gestor')");
+                $dest->execute([(int) $input['agente_id']]);
+                $destRow = $dest->fetch(PDO::FETCH_ASSOC);
+                if (!$destRow || (int) $destRow['setor_id'] !== (int) $current_data['setor_id']) {
+                    http_response_code(400);
+                    echo json_encode(['error' => 'O responsável precisa ser um usuário ativo do setor da demanda']);
+                    exit;
+                }
+            }
+        }
+
         // Registrar auditoria para cancelamento ANTES da alteração
         if (isset($input['status']) && $input['status'] === 'cancelado') {
             $auditoria = new AuditoriaService($db);
             $dados_novos = $current_data;
             $dados_novos['status'] = 'cancelado';
-            $auditoria->registrar(1, 'cancelar_ticket', 'tickets', $ticket_id, json_encode($current_data), json_encode($dados_novos));
+            $auditoria->registrar($usuario_id, 'cancelar_ticket', 'tickets', $ticket_id, json_encode($current_data), json_encode($dados_novos));
         }
         
         // Processar todas as alterações
@@ -504,10 +521,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'PUT') {
             
             if ($input['status'] === 'encerrado' || $input['status'] === 'cancelado') {
                 $updates[] = 'fechado_em = NOW()';
-                if (isset($input['fechado_por'])) {
-                    $updates[] = 'fechado_por = :fechado_por';
-                    $params[':fechado_por'] = $input['fechado_por'];
-                }
+                // Quem encerrou vem sempre do token, nunca do corpo da requisição
+                $updates[] = 'fechado_por = :fechado_por';
+                $params[':fechado_por'] = $usuario_id;
             }
         }
         
@@ -643,6 +659,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'PUT') {
                     
                     // Auditoria
                     $auditoria->registrarTicket($ticket_id, $usuario_id, 'status', $current_data['status'], $input['status']);
+
+                    // Encerrar/cancelar fecha as janelas de setor e responsável; reabrir as reabre
+                    $era_arquivada = in_array($current_data['status'], AcessoService::STATUS_ARQUIVO, true);
+                    $vai_arquivar  = in_array($input['status'], AcessoService::STATUS_ARQUIVO, true);
+                    if ($vai_arquivar && !$era_arquivada) {
+                        AcessoService::fecharJanelasDaDemanda($db, (int) $ticket_id);
+                    } elseif ($era_arquivada && !$vai_arquivar) {
+                        // Se a mesma requisição troca o responsável, a janela dele é aberta mais abaixo
+                        $troca_agente = array_key_exists('agente_id', $input) && $input['agente_id'] != $current_data['agente_id'];
+                        $agente_atual = $troca_agente ? null : $current_data['agente_id'];
+                        AcessoService::reabrirJanelasDaDemanda($db, (int) $ticket_id,
+                            $current_data['setor_id'] ? (int) $current_data['setor_id'] : null,
+                            $agente_atual ? (int) $agente_atual : null);
+                    }
                 }
                 
                 if (isset($input['prioridade']) && $input['prioridade'] !== $current_data['prioridade']) {

@@ -203,6 +203,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'PUT') {
         exit;
     }
 
+    // Gestor administra apenas operadores: não edita (nem rebaixa) outros gestores, admins ou a si mesmo
+    if ($user['tipo'] === 'gestor' && $alvo['tipo'] !== 'operador') {
+        http_response_code(403);
+        echo json_encode(['error' => 'Gestores só podem editar usuários com papel de operador']);
+        exit;
+    }
+
     // Ativar/Desativar usuário
     if (isset($input['ativo'])) {
         $ativo = $input['ativo'] ? 1 : 0;

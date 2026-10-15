@@ -3,6 +3,7 @@ header('Content-Type: application/json');
 
 require_once __DIR__ . '/../config/database.php';
 require_once __DIR__ . '/../middleware/auth.php';
+require_once __DIR__ . '/../services/acesso-service.php';
 
 AuthMiddleware::configurarCORS(['GET']);
 
@@ -15,6 +16,7 @@ $db = $database->getConnection();
 
 // GET - Detalhes completos do ticket
 if ($_SERVER['REQUEST_METHOD'] === 'GET') {
+    $user = AuthMiddleware::verificarAuth();
     $ticket_id = $_GET['id'] ?? null;
     
     if (!$ticket_id) {
@@ -24,6 +26,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
     }
     
     try {
+        // Isolamento por setor/papel (404/403)
+        AcessoService::exigirVerTicket($db, $user, $ticket_id);
+
         // Buscar ticket
         $query = "SELECT t.*, 
                          u.nome as usuario_nome, u.email as usuario_email,

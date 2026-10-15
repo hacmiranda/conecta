@@ -1,6 +1,7 @@
 <?php
 require_once __DIR__ . '/../config/database.php';
 require_once __DIR__ . '/../middleware/auth.php';
+require_once __DIR__ . '/../services/acesso-service.php';
 
 // CORS restrito ao domínio permitido
 AuthMiddleware::configurarCORS(['GET']);
@@ -40,6 +41,23 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
             echo json_encode(['error' => 'Anexo não encontrado']);
             exit;
         }
+
+        // Isolamento: só quem pode ver a demanda do anexo pode baixá-lo
+        $ticket_do_anexo = $anexo['ticket_id'] ?? null;
+        if (empty($ticket_do_anexo) && !empty($anexo['comentario_id'])) {
+            $stmt_c = $db->prepare("SELECT ticket_id FROM comentarios WHERE id = ?");
+            $stmt_c->execute([(int) $anexo['comentario_id']]);
+            $ticket_do_anexo = $stmt_c->fetchColumn();
+        }
+        if (empty($ticket_do_anexo)) {
+            header('Content-Type: application/json');
+            http_response_code(403);
+            echo json_encode(['error' => 'Acesso negado']);
+            exit;
+        }
+        header('Content-Type: application/json');
+        AcessoService::exigirVerTicket($db, $user, $ticket_do_anexo);
+        header_remove('Content-Type');
 
         // Diretório base de anexos (caminho absoluto e normalizado)
         $base_dir = realpath(dirname(__DIR__, 2) . '/backend/anexos');
