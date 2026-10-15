@@ -459,6 +459,12 @@ document.getElementById('form-ticket').addEventListener('submit', function (e) {
     formData.append('titulo', titulo);
     formData.append('descricao', descricao);
     formData.append('prioridade', prioridade || 'normal');
+    // Admin: abre a demanda no setor escolhido no cabeçalho (os demais usam o próprio setor)
+    const setorContexto = window.CabecalhoSetor ? window.CabecalhoSetor.obterSetorContexto() : null;
+    const usuarioCriador = JSON.parse(localStorage.getItem('cd_usuario') || '{}');
+    if (usuarioCriador.tipo === 'admin' && setorContexto) {
+        formData.append('setor_id', setorContexto);
+    }
     if (categoria_id) {
         formData.append('categoria_id', categoria_id);
     }
@@ -515,6 +521,11 @@ document.getElementById('form-ticket').addEventListener('submit', function (e) {
 });
 
 // Carregar tickets do banco de dados (apenas não fechados e não cancelados)
+// Acrescenta o setor escolhido pelo admin no cabeçalho (cabecalho-setor.js) à URL da API
+function urlComSetor(url) {
+    return window.CabecalhoSetor ? window.CabecalhoSetor.anexarSetor(url) : url;
+}
+
 // Estado do filtro do Arquivo: 'arquivo' | 'transferidas' | 'repassadas'
 let escopoArquivoAtual = 'arquivo';
 
@@ -529,7 +540,7 @@ function exibirColunaSetor(emArquivo) {
 function carregarTickets() {
     mostrarSkeletonTickets();
     const xhr = new XMLHttpRequest();
-    xhr.open('GET', window.APP_CONFIG.apiBase + 'tickets.php?escopo=abertas', true);
+    xhr.open('GET', urlComSetor(window.APP_CONFIG.apiBase + 'tickets.php?escopo=abertas'), true);
     setSecurityHeaders(xhr);
 
     xhr.onload = function () {
@@ -4748,7 +4759,7 @@ function carregarTicketsFechados() {
     }
 
     const xhr = new XMLHttpRequest();
-    xhr.open('GET', window.APP_CONFIG.apiBase + 'tickets.php?escopo=' + encodeURIComponent(escopoArquivoAtual), true);
+    xhr.open('GET', urlComSetor(window.APP_CONFIG.apiBase + 'tickets.php?escopo=' + encodeURIComponent(escopoArquivoAtual)), true);
     setSecurityHeaders(xhr);
 
     xhr.onload = function () {
@@ -5118,7 +5129,7 @@ function mostrarDashboard() {
 // Carregar dados do dashboard
 function carregarDashboard() {
     const xhr = new XMLHttpRequest();
-    xhr.open('GET', window.APP_CONFIG.apiBase + 'dashboard.php', true);
+    xhr.open('GET', urlComSetor(window.APP_CONFIG.apiBase + 'dashboard.php'), true);
     setSecurityHeaders(xhr);
 
     xhr.onload = function () {
@@ -5777,7 +5788,7 @@ function gerarRelatorio() {
     });
 
     const xhr = new XMLHttpRequest();
-    xhr.open('GET', `${window.APP_CONFIG.apiBase}relatorios.php?${params}`, true);
+    xhr.open('GET', urlComSetor(`${window.APP_CONFIG.apiBase}relatorios.php?${params}`), true);
     setSecurityHeaders(xhr);
     xhr.onload = function () {
         if (xhr.status === 200) {
@@ -9260,46 +9271,37 @@ function mostrarPersonalizacao() {
     localStorage.setItem('cd_subSecaoAtiva', 'personalizacao');
     const configTitle = document.getElementById('config-title'); if (configTitle) configTitle.textContent = String.fromCodePoint(0x1F3A8) + ' Personaliza\u00e7\u00e3o';
 
+    // A personalização vale para o sistema inteiro: só o administrador altera
+    const usuarioLogado = JSON.parse(localStorage.getItem('cd_usuario') || '{}');
+    const somenteLeitura = usuarioLogado.tipo !== 'admin';
+
     const content = document.getElementById('config-content');
     content.style.animation = 'none';
     setTimeout(() => {
         content.style.animation = '';
         content.innerHTML = `
             <div class="form-usuario">
-                <p style="background: #fff3cd; padding: 0.75rem 1rem; border-radius: 4px; border-left: 4px solid #ffc107; margin: 0 0 2rem 0;">
+                ${somenteLeitura ? `
+                <p class="aviso-somente-leitura" role="status">
+                    <strong>Somente leitura:</strong> a personaliza&ccedil;&atilde;o vale para todos os setores e s&oacute; pode ser alterada por administradores.
+                </p>` : `
+                <p class="aviso-personalizacao">
                     <strong>Importante:</strong> Se as altera&ccedil;&otilde;es n&atilde;o aparecerem imediatamente, atualize a p&aacute;gina (F5 ou Ctrl+R).
-                </p>
+                </p>`}
 
                 <div class="personalizacao-bloco">
-                    <h4>T&iacute;tulo do Sistema</h4>
-                    <div class="form-group">
-                        <label for="titulo-header-input" style="font-size:0.8rem;color:#888;">T&iacute;tulo (m&aacute;x. 20 caracteres):</label>
-                        <input type="text" id="titulo-header-input" maxlength="20" placeholder="Conecta CRPRS">
-                    </div>
-                    <button class="btn-primary" onclick="salvarTituloHeader()">Salvar T&iacute;tulo</button>
-                </div>
-
-                <div class="personalizacao-bloco">
-                    <h4>Logo do Sistema <small style="font-weight:normal;color:#666;">(PNG, 40x40px)</small></h4>
-                    <p style="color:#666;font-size:0.9rem;margin:0 0 0.75rem 0;">
+                    <h4>Logo do Sistema <small class="personalizacao-dica">(PNG, 40x40px)</small></h4>
+                    <p class="personalizacao-descricao">
                         Aplicado em: <strong>Cabe&ccedil;alho</strong>, <strong>Favicon</strong>, <strong>Loader</strong> e <strong>Modais de Recupera&ccedil;&atilde;o de Senha</strong>.
                     </p>
-                    <div style="display:flex;align-items:center;gap:0.75rem;flex-wrap:wrap;">
-                        <input type="file" id="logo-header" accept="image/png">
-                        <button class="btn-primary" onclick="uploadLogoHeader()">Upload Logo</button>
+                    <div class="personalizacao-upload">
+                        <label for="logo-header" class="sr-only">Arquivo PNG do logo</label>
+                        <input type="file" id="logo-header" accept="image/png" ${somenteLeitura ? 'disabled' : ''}>
+                        <button class="btn-primary" onclick="uploadLogoHeader()" ${somenteLeitura ? 'disabled' : ''}>Upload Logo</button>
                     </div>
                 </div>
             </div>
         `;
-
-        fetch('/conecta/frontend/config.json')
-            .then(r => r.json())
-            .then(config => {
-                document.getElementById('titulo-header-input').value = config.titulo || 'Conecta CRPRS';
-            })
-            .catch(() => {
-                document.getElementById('titulo-header-input').value = 'Conecta CRPRS';
-            });
     }, 10);
 }
 
@@ -9362,40 +9364,6 @@ function uploadLogoLogin() {
     };
 
     xhr.send(formData);
-}
-
-function salvarTituloHeader() {
-    const input = document.getElementById('titulo-header-input');
-    if (!input) {
-        mostrarAlert('Erro', 'Campo de título não encontrado');
-        return;
-    }
-
-    const titulo = input.value.trim();
-    if (!titulo) {
-        mostrarAlert('Erro', 'Digite um título');
-        return;
-    }
-
-    mostrarLoader();
-
-    const xhr = new XMLHttpRequest();
-    xhr.open('POST', window.APP_CONFIG.apiBase + 'personalizacao.php', true);
-    xhr.setRequestHeader('Content-Type', 'application/json');
-    setSecurityHeaders(xhr);
-
-    xhr.onload = function () {
-        ocultarLoader();
-        if (xhr.status === 200) {
-            mostrarToast('Sucesso', 'Título atualizado!', 'success');
-            document.getElementById('titulo-header').textContent = titulo;
-        } else {
-            const response = JSON.parse(xhr.responseText);
-            mostrarAlert('Erro', response.error || 'Erro ao salvar título');
-        }
-    };
-
-    xhr.send(JSON.stringify({ tipo: 'titulo', titulo: titulo }));
 }
 
 // === TUTORIAL INTERATIVO ===

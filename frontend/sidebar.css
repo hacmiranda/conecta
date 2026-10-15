@@ -75,6 +75,47 @@
     line-height: 1.2;
 }
 
+.sidebar .sidebar-logo .sidebar-logo-texto {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+    min-width: 0;
+}
+
+/* Nome do setor logo abaixo de "Conecta CRPRS" */
+.sidebar .sidebar-logo .cabecalho-setor {
+    margin: 0;
+    color: #dbeafe;
+    font-family: 'Inter', sans-serif;
+    font-size: 0.8125rem;
+    font-weight: 600;
+    line-height: 1.2;
+    overflow-wrap: anywhere;
+}
+
+.sidebar .sidebar-logo .cabecalho-setor[hidden],
+.sidebar .sidebar-logo .cabecalho-setor-seletor[hidden] {
+    display: none;
+}
+
+.sidebar .sidebar-logo .seletor-setor {
+    width: 100%;
+    max-width: 11.5rem;
+    padding: 0.25rem 0.5rem;
+    border: 1px solid rgba(255, 255, 255, 0.35);
+    border-radius: 0.5rem;
+    background: rgba(255, 255, 255, 0.95);
+    color: #1e3a8a;
+    font-family: 'Inter', sans-serif;
+    font-size: 0.8125rem;
+    font-weight: 600;
+}
+
+.sidebar .sidebar-logo .seletor-setor:focus-visible {
+    outline: 2px solid #ffffff;
+    outline-offset: 2px;
+}
+
 /* --- Avatar do usuário: cartão no topo da sidebar --- */
 .sidebar .header-avatar-wrapper {
     position: relative;

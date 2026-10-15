@@ -46,7 +46,16 @@
     <aside class="sidebar" id="app-sidebar" aria-label="Menu de navegação">
         <div class="sidebar-logo">
             <img src="images/logo_vazado.png" alt="CRPRS" class="logo-img">
-            <h1 id="titulo-header">Conecta CRPRS</h1>
+            <div class="sidebar-logo-texto">
+                <h1 id="titulo-header">Conecta CRPRS</h1>
+                <!-- Gestor/operador: nome do próprio setor -->
+                <p id="cabecalho-setor" class="cabecalho-setor" hidden></p>
+                <!-- Administrador: seletor do setor exibido nas telas -->
+                <div id="cabecalho-setor-seletor" class="cabecalho-setor-seletor" hidden>
+                    <label for="seletor-setor" class="sr-only">Setor exibido</label>
+                    <select id="seletor-setor" class="seletor-setor"></select>
+                </div>
+            </div>
         </div>
 
         <!-- Avatar do usuário -->
@@ -815,29 +824,6 @@
     </div><!-- fim modal-overlay -->
 
     <script>
-        // Título do header: usuários vinculados a um setor (operador/gestor) veem
-        // "Conecta {Setor}"; os demais (admin/cliente) veem o título personalizado do config.json.
-        (function () {
-            let usuarioLogado = null;
-            try {
-                usuarioLogado = JSON.parse(localStorage.getItem('cd_usuario') || 'null');
-            } catch (e) { }
-
-            if (usuarioLogado && usuarioLogado.setor_nome) {
-                document.getElementById('titulo-header').textContent = 'Conecta ' + usuarioLogado.setor_nome;
-                return;
-            }
-
-            fetch('config.json')
-                .then(res => res.json())
-                .then(config => {
-                    if (config.titulo) {
-                        document.getElementById('titulo-header').textContent = config.titulo;
-                    }
-                })
-                .catch(() => { });
-        })();
-
         // Verificar se está logado
         const usuario = JSON.parse(localStorage.getItem('cd_usuario') || 'null');
         if (!usuario) {
@@ -931,6 +917,7 @@
     <script src="macros.js?v=1.1"></script>
     <script src="notificacoes.js?v=2.0"></script>
     <script src="avatar.js?v=1.6"></script>
+    <script src="cabecalho-setor.js?v=1.0"></script>
 
     <!-- Botão Voltar ao Topo -->
     <button id="btn-voltar-topo" onclick="voltarAoTopo()" title="Voltar ao topo"></button>
