@@ -19,13 +19,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
 $database = new Database();
 $db = $database->getConnection();
 
+// Categorias não entram aqui: pertencem a cada setor (categorias.setor_id) e são geridas em categorias.php
 const TIPOS = [
-    'categorias' => [
-        'tabela_config' => 'setor_categorias',
-        'coluna_item'   => 'categoria_id',
-        'tabela_item'   => 'categorias',
-        'coluna_nome'   => 'nome',
-    ],
     'status' => [
         'tabela_config' => 'setor_status',
         'coluna_item'   => 'status_id',

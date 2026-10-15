@@ -57,7 +57,7 @@ if (empty($comentario)) {
 }
 
 try {
-    $ticket_stmt = $db->prepare("SELECT id, setor_id, agente_id, status, usuario_id FROM tickets WHERE id = ?");
+    $ticket_stmt = $db->prepare("SELECT id, setor_id, agente_id, status, usuario_id, categoria_id FROM tickets WHERE id = ?");
     $ticket_stmt->execute([$ticket_id]);
     $ticket = $ticket_stmt->fetch(PDO::FETCH_ASSOC);
 
@@ -228,7 +228,18 @@ try {
         $abrir_stmt = $db->prepare("INSERT INTO ticket_setor_log (ticket_id, setor_id) VALUES (?, ?)");
         $abrir_stmt->execute([$ticket_id, $setor_destino_id]);
 
-        $upd = $db->prepare("UPDATE tickets SET setor_id = :setor_id, agente_id = NULL, atribuido_em = NULL WHERE id = :id");
+        // A categoria é do setor de origem: ao transferir, o setor de destino categoriza de novo
+        // (o valor anterior fica registrado no histórico da demanda)
+        if (!empty($ticket['categoria_id'])) {
+            $cat_stmt = $db->prepare("SELECT nome FROM categorias WHERE id = ?");
+            $cat_stmt->execute([$ticket['categoria_id']]);
+            $cat_nome = $cat_stmt->fetchColumn();
+            if ($cat_nome) {
+                $db->prepare("INSERT INTO ticket_historico (ticket_id, usuario_id, acao, valor_anterior, valor_novo) VALUES (?, ?, 'categoria', ?, NULL)")
+                   ->execute([$ticket_id, $user['id'], $cat_nome]);
+            }
+        }
+        $upd = $db->prepare("UPDATE tickets SET setor_id = :setor_id, agente_id = NULL, atribuido_em = NULL, categoria_id = NULL WHERE id = :id");
         $upd->execute([':setor_id' => $setor_destino_id, ':id' => $ticket_id]);
 
         if ($ticket['agente_id']) {

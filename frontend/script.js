@@ -3426,10 +3426,17 @@ function executarExclusaoTicket(ticketId, callback) {
 // Carregar categorias para pesquisa
 let todasCategorias = [];
 
+// Admin trocou o setor no cabeçalho: refaz a lista de subcategorias usada nos filtros
+document.addEventListener('setor-contexto-alterado', function () {
+    if (typeof carregarCategorias === 'function') carregarCategorias();
+});
+
 function carregarCategorias() {
     console.log('📁 Carregando categorias...');
     const usuario = JSON.parse(localStorage.getItem('cd_usuario') || '{}');
-    const filtroSetor = usuario.setor_id ? `?setor_id=${usuario.setor_id}` : '';
+    // Setor do contexto: o do usuário ou, para o admin, o escolhido no cabeçalho
+    const setorContextoCat = window.CabecalhoSetor ? window.CabecalhoSetor.obterSetorContexto() : (usuario.setor_id || null);
+    const filtroSetor = setorContextoCat ? `?setor_id=${setorContextoCat}` : '';
 
     const xhr = new XMLHttpRequest();
     xhr.open('GET', window.APP_CONFIG.apiBase + 'categorias.php' + filtroSetor, true);
@@ -3684,6 +3691,12 @@ function mostrarCategorias() {
     localStorage.setItem('cd_subSecaoAtiva', 'categorias');
     const configTitle = document.getElementById('config-title'); if (configTitle) configTitle.textContent = String.fromCodePoint(0x1F4C1) + ' Categorias e Subcategorias';
 
+    // Admin precisa escolher o setor no cabeçalho para criar/editar (a lista mostra todos)
+    const usuarioCategorias = JSON.parse(localStorage.getItem('cd_usuario') || '{}');
+    if (usuarioCategorias.tipo === 'admin' && window.CabecalhoSetor && window.CabecalhoSetor.obterSetorContexto() === null) {
+        mostrarToast('Escolha um setor', 'Selecione um setor no cabeçalho para criar ou editar categorias.', 'info');
+    }
+
     const content = document.getElementById('config-content');
     content.style.animation = 'none';
     setTimeout(() => {
@@ -3695,7 +3708,7 @@ function mostrarCategorias() {
 // Carregar macrocategorias (exibidas como "Categoria") para o select de subcategoria
 function carregarMacrocategorias() {
     const xhr = new XMLHttpRequest();
-    xhr.open('GET', window.APP_CONFIG.apiBase + 'macrocategorias.php', true);
+    xhr.open('GET', urlComSetor(window.APP_CONFIG.apiBase + 'macrocategorias.php'), true);
     setSecurityHeaders(xhr);
 
     xhr.onload = function () {
@@ -3727,7 +3740,7 @@ function carregarMacrocategorias() {
 // Carregar lista de subcategorias (tabela "categorias")
 function carregarListaCategorias() {
     const xhr = new XMLHttpRequest();
-    xhr.open('GET', window.APP_CONFIG.apiBase + 'categorias.php', true);
+    xhr.open('GET', urlComSetor(window.APP_CONFIG.apiBase + 'categorias.php'), true);
     setSecurityHeaders(xhr);
 
     xhr.onload = function () {
@@ -3736,7 +3749,7 @@ function carregarListaCategorias() {
 
             // Carregar macrocategorias (Categoria) para exibição agrupada
             const xhr2 = new XMLHttpRequest();
-            xhr2.open('GET', window.APP_CONFIG.apiBase + 'macrocategorias.php', true);
+            xhr2.open('GET', urlComSetor(window.APP_CONFIG.apiBase + 'macrocategorias.php'), true);
             setSecurityHeaders(xhr2);
 
             xhr2.onload = function () {
@@ -3896,7 +3909,7 @@ function criarMacrocategoria(event) {
     if (!nome) return;
 
     const xhr = new XMLHttpRequest();
-    xhr.open('POST', window.APP_CONFIG.apiBase + 'macrocategorias.php', true);
+    xhr.open('POST', urlComSetor(window.APP_CONFIG.apiBase + 'macrocategorias.php'), true);
     xhr.setRequestHeader('Content-Type', 'application/json');
     setSecurityHeaders(xhr);
 
@@ -3940,7 +3953,7 @@ function editarMacrocategoria(macroId, nomeAtual) {
 // Executar edição de categoria (macrocategoria)
 function executarEdicaoMacrocategoria(macroId, nome) {
     const xhr = new XMLHttpRequest();
-    xhr.open('PUT', `${window.APP_CONFIG.apiBase}macrocategorias.php/${macroId}`, true);
+    xhr.open('PUT', urlComSetor(`${window.APP_CONFIG.apiBase}macrocategorias.php/${macroId}`), true);
     xhr.setRequestHeader('Content-Type', 'application/json');
     setSecurityHeaders(xhr);
 
@@ -3972,7 +3985,7 @@ function excluirMacrocategoria(macroId) {
 // Executar exclusão de categoria (macrocategoria)
 function executarExclusaoMacrocategoria(macroId) {
     const xhr = new XMLHttpRequest();
-    xhr.open('DELETE', `${window.APP_CONFIG.apiBase}macrocategorias.php/${macroId}`, true);
+    xhr.open('DELETE', urlComSetor(`${window.APP_CONFIG.apiBase}macrocategorias.php/${macroId}`), true);
     setSecurityHeaders(xhr);
 
     xhr.onload = function () {
@@ -4003,7 +4016,7 @@ function criarCategoria(event) {
 
     // Verificar se subcategoria já existe
     const xhr1 = new XMLHttpRequest();
-    xhr1.open('GET', window.APP_CONFIG.apiBase + 'categorias.php', true);
+    xhr1.open('GET', urlComSetor(window.APP_CONFIG.apiBase + 'categorias.php'), true);
     setSecurityHeaders(xhr1);
 
     xhr1.onload = function () {
@@ -4018,7 +4031,7 @@ function criarCategoria(event) {
 
             // Criar subcategoria
             const xhr2 = new XMLHttpRequest();
-            xhr2.open('POST', window.APP_CONFIG.apiBase + 'categorias.php', true);
+            xhr2.open('POST', urlComSetor(window.APP_CONFIG.apiBase + 'categorias.php'), true);
             xhr2.setRequestHeader('Content-Type', 'application/json');
 
             // Adicionar token de autenticação
@@ -4079,7 +4092,7 @@ function formatarNomeCategoria(nome) {
 function editarCategoria(categoriaId) {
     // Buscar dados atuais da subcategoria
     const xhr = new XMLHttpRequest();
-    xhr.open('GET', window.APP_CONFIG.apiBase + 'categorias.php', true);
+    xhr.open('GET', urlComSetor(window.APP_CONFIG.apiBase + 'categorias.php'), true);
     setSecurityHeaders(xhr);
 
     xhr.onload = function () {
@@ -4102,7 +4115,7 @@ function editarCategoria(categoriaId) {
 function mostrarFormularioEdicaoCategoria(categoria) {
     // Carregar categorias (macrocategorias)
     const xhr = new XMLHttpRequest();
-    xhr.open('GET', window.APP_CONFIG.apiBase + 'macrocategorias.php', true);
+    xhr.open('GET', urlComSetor(window.APP_CONFIG.apiBase + 'macrocategorias.php'), true);
     setSecurityHeaders(xhr);
 
     xhr.onload = function () {
@@ -4165,7 +4178,7 @@ function executarEdicaoCategoria(categoriaId, nomeOriginal, macrocategoriaId) {
     const nome = formatarNomeCategoria(nomeOriginal);
 
     const xhr = new XMLHttpRequest();
-    xhr.open('PUT', `${window.APP_CONFIG.apiBase}categorias.php/${categoriaId}`, true);
+    xhr.open('PUT', urlComSetor(`${window.APP_CONFIG.apiBase}categorias.php/${categoriaId}`), true);
     xhr.setRequestHeader('Content-Type', 'application/json');
     setSecurityHeaders(xhr);
 
@@ -4203,7 +4216,7 @@ function excluirCategoria(categoriaId) {
 // Executar exclusão de subcategoria
 function executarExclusaoCategoria(categoriaId) {
     const xhr = new XMLHttpRequest();
-    xhr.open('DELETE', `${window.APP_CONFIG.apiBase}categorias.php/${categoriaId}`, true);
+    xhr.open('DELETE', urlComSetor(`${window.APP_CONFIG.apiBase}categorias.php/${categoriaId}`), true);
     setSecurityHeaders(xhr);
 
     xhr.onload = function () {
@@ -4224,7 +4237,7 @@ function executarExclusaoCategoria(categoriaId) {
 // ==== Fase 3: Ativação por Setor (categorias, status, prioridades) ====
 
 let setorConfigAtual = null;
-let abaConfigSetorAtiva = 'categorias';
+let abaConfigSetorAtiva = 'status';
 
 function mostrarConfigSetor() {
     document.querySelectorAll('.btn-config').forEach(btn => btn.classList.remove('active'));
@@ -4265,23 +4278,22 @@ function renderizarPainelConfigSetor(setores, setorInicialId) {
     const ehAdmin = usuario.tipo === 'admin';
 
     setorConfigAtual = setorInicialId;
-    abaConfigSetorAtiva = 'categorias';
+    abaConfigSetorAtiva = 'status';
 
     const seletorHtml = ehAdmin ? `
         <div class="form-group" style="max-width: 320px;">
             <label for="setor-config-select">Setor:</label>
-            <select id="setor-config-select" onchange="setorConfigAtual = parseInt(this.value); carregarAbaConfigSetor('categorias')">
+            <select id="setor-config-select" onchange="setorConfigAtual = parseInt(this.value); carregarAbaConfigSetor('status')">
                 ${setores.map(s => `<option value="${s.id}" ${s.id == setorInicialId ? 'selected' : ''}>${s.nome}</option>`).join('')}
             </select>
         </div>
     ` : '';
 
     content.innerHTML = `
-        <p style="color:#666;margin-bottom:1rem;">Ative/desative e reordene quais categorias, status e prioridades aparecem para este setor. O catálogo continua compartilhado com os outros setores — nada é apagado aqui, só escondido.</p>
+        <p style="color:#666;margin-bottom:1rem;">Ative/desative e reordene quais status e prioridades aparecem para este setor. O catálogo continua compartilhado com os outros setores — nada é apagado aqui, só escondido. As categorias são próprias de cada setor e ficam em Configurações → Categorias.</p>
         ${seletorHtml}
         <div class="tabs-container" style="margin-bottom:1rem;">
-            <button type="button" class="tab-btn active" id="tab-config-categorias" onclick="carregarAbaConfigSetor('categorias')">📁 Categorias</button>
-            <button type="button" class="tab-btn" id="tab-config-status" onclick="carregarAbaConfigSetor('status')">🚦 Status</button>
+            <button type="button" class="tab-btn active" id="tab-config-status" onclick="carregarAbaConfigSetor('status')">🚦 Status</button>
             <button type="button" class="tab-btn" id="tab-config-prioridades" onclick="carregarAbaConfigSetor('prioridades')">🔥 Prioridades</button>
             <button type="button" class="tab-btn" id="tab-config-emails" onclick="carregarAbaConfigSetor('emails')">📧 E-mails</button>
         </div>
@@ -4293,7 +4305,7 @@ function renderizarPainelConfigSetor(setores, setorInicialId) {
         return;
     }
 
-    carregarAbaConfigSetor('categorias');
+    carregarAbaConfigSetor('status');
 }
 
 function carregarAbaConfigSetor(tipo) {
@@ -5690,7 +5702,7 @@ function mostrarRelatorios() {
 function carregarFiltrosRelatorio() {
     // Carregar categorias
     const xhr1 = new XMLHttpRequest();
-    xhr1.open('GET', window.APP_CONFIG.apiBase + 'categorias.php', true);
+    xhr1.open('GET', urlComSetor(window.APP_CONFIG.apiBase + 'categorias.php'), true);
     setSecurityHeaders(xhr1);
     xhr1.onload = function () {
         if (xhr1.status === 200) {

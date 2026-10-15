@@ -4,6 +4,7 @@ header('Content-Type: application/json');
 require_once __DIR__ . '/../config/database.php';
 require_once __DIR__ . '/../middleware/auth.php';
 require_once __DIR__ . '/../services/auditoria-service.php';
+require_once __DIR__ . '/../services/acesso-service.php';
 
 AuthMiddleware::configurarCORS(['GET', 'POST', 'PUT', 'DELETE']);
 
@@ -14,102 +15,144 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
 $database = new Database();
 $db = $database->getConnection();
 
-// GET - Listar categorias (opcionalmente só as ativas de um setor, via ?setor_id=)
+/**
+ * Setor em que a escrita acontece: gestor sempre no próprio setor; admin no setor informado
+ * (corpo ou ?setor_id). Encerra com 400 quando o admin não indicou nenhum.
+ */
+function setorDeEscrita(array $user, array $input): int {
+    if (($user['tipo'] ?? '') !== 'admin') {
+        return (int) ($user['setor_id'] ?? 0);
+    }
+    $pedido = $input['setor_id'] ?? ($_GET['setor_id'] ?? null);
+    if ($pedido === null || $pedido === '' || !is_numeric($pedido)) {
+        http_response_code(400);
+        echo json_encode(['error' => 'Selecione um setor no cabeçalho para gerenciar as subcategorias']);
+        exit;
+    }
+    return (int) $pedido;
+}
+
+/**
+ * Valida que a categoria pai (macrocategoria) existe e é do mesmo setor.
+ */
+function validarMacrocategoriaDoSetor(PDO $db, $macrocategoria_id, int $setor_id): void {
+    if ($macrocategoria_id === null || $macrocategoria_id === '') {
+        return;
+    }
+    $stmt = $db->prepare("SELECT 1 FROM macrocategorias WHERE id = ? AND setor_id = ?");
+    $stmt->execute([(int) $macrocategoria_id, $setor_id]);
+    if (!$stmt->fetchColumn()) {
+        http_response_code(400);
+        echo json_encode(['error' => 'Categoria inválida para este setor']);
+        exit;
+    }
+}
+
+/**
+ * Carrega a subcategoria e exige que o usuário possa geri-la (admin ou gestor do mesmo setor).
+ */
+function categoriaGerenciavel(PDO $db, array $user, $categoria_id): array {
+    $stmt = $db->prepare("SELECT id, nome, macrocategoria_id, setor_id FROM categorias WHERE id = ?");
+    $stmt->execute([(int) $categoria_id]);
+    $categoria = $stmt->fetch(PDO::FETCH_ASSOC);
+
+    if (!$categoria) {
+        http_response_code(404);
+        echo json_encode(['error' => 'Subcategoria não encontrada']);
+        exit;
+    }
+    if (!AuthMiddleware::mesmoSetor($user, (int) $categoria['setor_id'])) {
+        http_response_code(403);
+        echo json_encode(['error' => 'Você só pode gerenciar as subcategorias do seu setor']);
+        exit;
+    }
+    return $categoria;
+}
+
+// GET - Listar subcategorias do setor (gestor/operador: o próprio; admin: ?setor_id ou todos)
 if ($_SERVER['REQUEST_METHOD'] === 'GET') {
-    AuthMiddleware::verificarAuth(); // catálogo interno: exige login
+    $user = AuthMiddleware::verificarAuth();
     try {
-        $setor_id = isset($_GET['setor_id']) && $_GET['setor_id'] !== '' ? (int) $_GET['setor_id'] : null;
+        $setor_id = AcessoService::setorEscopo($user);
 
-        if ($setor_id) {
-            $query = "SELECT c.*, m.nome as macrocategoria_nome
-                      FROM categorias c
-                      LEFT JOIN macrocategorias m ON c.macrocategoria_id = m.id
-                      INNER JOIN setor_categorias sc ON sc.categoria_id = c.id AND sc.setor_id = :setor_id AND sc.ativo = 1
-                      ORDER BY sc.ordem, c.nome";
-            $stmt = $db->prepare($query);
-            $stmt->bindParam(':setor_id', $setor_id, PDO::PARAM_INT);
-        } else {
-            $query = "SELECT c.*, m.nome as macrocategoria_nome
-                      FROM categorias c
-                      LEFT JOIN macrocategorias m ON c.macrocategoria_id = m.id
-                      ORDER BY m.nome, c.nome";
-            $stmt = $db->prepare($query);
+        $query = "SELECT c.*, m.nome as macrocategoria_nome, s.nome as setor_nome
+                  FROM categorias c
+                  LEFT JOIN macrocategorias m ON c.macrocategoria_id = m.id
+                  LEFT JOIN setores s ON c.setor_id = s.id";
+        $params = [];
+        if ($setor_id !== null) {
+            $query .= " WHERE c.setor_id = :setor_id";
+            $params[':setor_id'] = $setor_id;
         }
+        $query .= " ORDER BY m.nome, c.nome";
 
-        $stmt->execute();
-        $categorias = $stmt->fetchAll();
-
-        echo json_encode($categorias);
+        $stmt = $db->prepare($query);
+        $stmt->execute($params);
+        echo json_encode($stmt->fetchAll());
 
     } catch (Exception $e) {
+        error_log('[CATEGORIAS GET] Erro: ' . $e->getMessage());
         http_response_code(500);
         echo json_encode(['error' => 'Erro ao buscar subcategorias']);
     }
 }
 
-// POST - Criar categoria
+// POST - Criar subcategoria no setor
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $user = AuthMiddleware::verificarAuth();
     AuthMiddleware::verificarGestor($user);
     AuthMiddleware::verificarCSRF();
 
-    $input = json_decode(file_get_contents('php://input'), true);
-    $nome = $input['nome'] ?? '';
+    $input = json_decode(file_get_contents('php://input'), true) ?: [];
+    $nome = trim($input['nome'] ?? '');
     $macrocategoria_id = $input['macrocategoria_id'] ?? null;
-    
-    if (empty($nome)) {
+
+    if ($nome === '') {
         http_response_code(400);
         echo json_encode(['error' => 'Nome é obrigatório']);
         exit;
     }
-    
+
+    $setor_id = setorDeEscrita($user, $input);
+
     try {
-        // Verificar se categoria já existe
-        $check_query = "SELECT id FROM categorias WHERE nome = :nome";
-        $check_stmt = $db->prepare($check_query);
-        $check_stmt->bindParam(':nome', $nome);
-        $check_stmt->execute();
-        
+        validarMacrocategoriaDoSetor($db, $macrocategoria_id, $setor_id);
+
+        // Nome único dentro do setor
+        $check_stmt = $db->prepare("SELECT id FROM categorias WHERE nome = :nome AND setor_id = :setor_id");
+        $check_stmt->execute([':nome' => $nome, ':setor_id' => $setor_id]);
         if ($check_stmt->fetch()) {
             http_response_code(400);
-            echo json_encode(['error' => 'Subcategoria já existe']);
+            echo json_encode(['error' => 'Subcategoria já existe neste setor']);
             exit;
         }
-        
-        $query = "INSERT INTO categorias (nome, macrocategoria_id) VALUES (:nome, :macrocategoria_id)";
-        $stmt = $db->prepare($query);
-        $stmt->bindParam(':nome', $nome);
-        $stmt->bindParam(':macrocategoria_id', $macrocategoria_id);
+
+        $stmt = $db->prepare("INSERT INTO categorias (nome, macrocategoria_id, setor_id) VALUES (:nome, :macrocategoria_id, :setor_id)");
+        $stmt->bindValue(':nome', $nome);
+        $stmt->bindValue(':macrocategoria_id', $macrocategoria_id === '' ? null : $macrocategoria_id);
+        $stmt->bindValue(':setor_id', $setor_id, PDO::PARAM_INT);
         $stmt->execute();
-        
+
         $categoria_id = $db->lastInsertId();
 
-        // Nova subcategoria começa ativa em todos os setores (mesmo comportamento de hoje: catálogo 100% compartilhado)
-        $db->prepare("INSERT INTO setor_categorias (setor_id, categoria_id, ativo, ordem) SELECT id, ?, 1, ? FROM setores")->execute([$categoria_id, $categoria_id]);
-
-        // Registrar auditoria
         $auditoria = new AuditoriaService($db);
-        $auditoria->registrar($user['id'], 'criar_categoria', 'categorias', $categoria_id, null, json_encode(['nome' => $nome, 'macrocategoria_id' => $macrocategoria_id]));
-        
-        // Buscar categoria criada
-        $select_query = "SELECT c.*, m.nome as macrocategoria_nome 
-                        FROM categorias c 
-                        LEFT JOIN macrocategorias m ON c.macrocategoria_id = m.id 
-                        WHERE c.id = :id";
-        $select_stmt = $db->prepare($select_query);
-        $select_stmt->bindParam(':id', $categoria_id);
-        $select_stmt->execute();
-        $categoria = $select_stmt->fetch();
-        
-        echo json_encode($categoria);
-        
+        $auditoria->registrar($user['id'], 'criar_categoria', 'categorias', $categoria_id, null, json_encode(['nome' => $nome, 'macrocategoria_id' => $macrocategoria_id, 'setor_id' => $setor_id]));
+
+        $select_stmt = $db->prepare("SELECT c.*, m.nome as macrocategoria_nome
+                                     FROM categorias c
+                                     LEFT JOIN macrocategorias m ON c.macrocategoria_id = m.id
+                                     WHERE c.id = :id");
+        $select_stmt->execute([':id' => $categoria_id]);
+        echo json_encode($select_stmt->fetch());
+
     } catch (Exception $e) {
+        error_log('[CATEGORIAS POST] Erro: ' . $e->getMessage());
         http_response_code(500);
         echo json_encode(['error' => 'Erro ao criar subcategoria']);
     }
 }
 
-// PUT - Atualizar categoria
+// PUT - Atualizar subcategoria
 if ($_SERVER['REQUEST_METHOD'] === 'PUT') {
     $user = AuthMiddleware::verificarAuth();
     AuthMiddleware::verificarGestor($user);
@@ -118,38 +161,49 @@ if ($_SERVER['REQUEST_METHOD'] === 'PUT') {
     $path = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH);
     $path_parts = explode('/', $path);
     $categoria_id = end($path_parts);
-    
-    $input = json_decode(file_get_contents('php://input'), true);
-    $nome = $input['nome'] ?? '';
+
+    $input = json_decode(file_get_contents('php://input'), true) ?: [];
+    $nome = trim($input['nome'] ?? '');
     $macrocategoria_id = $input['macrocategoria_id'] ?? null;
-    
-    if (empty($nome)) {
+
+    if ($nome === '') {
         http_response_code(400);
         echo json_encode(['error' => 'Nome é obrigatório']);
         exit;
     }
-    
+
+    $atual = categoriaGerenciavel($db, $user, $categoria_id);
+
     try {
-        $query = "UPDATE categorias SET nome = :nome, macrocategoria_id = :macrocategoria_id WHERE id = :id";
-        $stmt = $db->prepare($query);
-        $stmt->bindParam(':nome', $nome);
-        $stmt->bindParam(':macrocategoria_id', $macrocategoria_id);
-        $stmt->bindParam(':id', $categoria_id);
+        validarMacrocategoriaDoSetor($db, $macrocategoria_id, (int) $atual['setor_id']);
+
+        $dup = $db->prepare("SELECT id FROM categorias WHERE nome = :nome AND setor_id = :setor_id AND id <> :id");
+        $dup->execute([':nome' => $nome, ':setor_id' => $atual['setor_id'], ':id' => $atual['id']]);
+        if ($dup->fetch()) {
+            http_response_code(400);
+            echo json_encode(['error' => 'Já existe uma subcategoria com este nome no setor']);
+            exit;
+        }
+
+        $stmt = $db->prepare("UPDATE categorias SET nome = :nome, macrocategoria_id = :macrocategoria_id WHERE id = :id");
+        $stmt->bindValue(':nome', $nome);
+        $stmt->bindValue(':macrocategoria_id', $macrocategoria_id === '' ? null : $macrocategoria_id);
+        $stmt->bindValue(':id', (int) $atual['id'], PDO::PARAM_INT);
         $stmt->execute();
-        
-        // Registrar auditoria
+
         $auditoria = new AuditoriaService($db);
-        $auditoria->registrar($user['id'], 'atualizar_categoria', 'categorias', $categoria_id, null, json_encode(['nome' => $nome, 'macrocategoria_id' => $macrocategoria_id]));
-        
+        $auditoria->registrar($user['id'], 'atualizar_categoria', 'categorias', $atual['id'], json_encode(['nome' => $atual['nome'], 'macrocategoria_id' => $atual['macrocategoria_id']]), json_encode(['nome' => $nome, 'macrocategoria_id' => $macrocategoria_id]));
+
         echo json_encode(['success' => true]);
-        
+
     } catch (Exception $e) {
+        error_log('[CATEGORIAS PUT] Erro: ' . $e->getMessage());
         http_response_code(500);
         echo json_encode(['error' => 'Erro ao atualizar subcategoria']);
     }
 }
 
-// DELETE - Excluir categoria
+// DELETE - Excluir subcategoria
 if ($_SERVER['REQUEST_METHOD'] === 'DELETE') {
     $user = AuthMiddleware::verificarAuth();
     AuthMiddleware::verificarGestor($user);
@@ -158,42 +212,29 @@ if ($_SERVER['REQUEST_METHOD'] === 'DELETE') {
     $path = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH);
     $path_parts = explode('/', $path);
     $categoria_id = end($path_parts);
-    
+
+    $categoria_data = categoriaGerenciavel($db, $user, $categoria_id);
+
     try {
-        // Verificar se categoria está em uso
-        $check_query = "SELECT COUNT(*) as total FROM tickets WHERE categoria_id = :id";
-        $check_stmt = $db->prepare($check_query);
-        $check_stmt->bindParam(':id', $categoria_id);
-        $check_stmt->execute();
-        $result = $check_stmt->fetch();
-        
-        if ($result['total'] > 0) {
+        // Em uso por alguma demanda?
+        $check_stmt = $db->prepare("SELECT COUNT(*) as total FROM tickets WHERE categoria_id = :id");
+        $check_stmt->execute([':id' => $categoria_data['id']]);
+        if ($check_stmt->fetch()['total'] > 0) {
             http_response_code(400);
             echo json_encode(['error' => 'Subcategoria não pode ser excluída pois está sendo usada em demandas']);
             exit;
         }
-        
-        // Buscar dados da categoria antes de excluir
-        $select_query = "SELECT nome, macrocategoria_id FROM categorias WHERE id = :id";
-        $select_stmt = $db->prepare($select_query);
-        $select_stmt->bindParam(':id', $categoria_id);
-        $select_stmt->execute();
-        $categoria_data = $select_stmt->fetch();
-        
-        $query = "DELETE FROM categorias WHERE id = :id";
-        $stmt = $db->prepare($query);
-        $stmt->bindParam(':id', $categoria_id);
-        $stmt->execute();
-        
-        // Registrar auditoria
-        if ($categoria_data) {
-            $auditoria = new AuditoriaService($db);
-            $auditoria->registrar($user['id'], 'excluir_categoria', 'categorias', $categoria_id, json_encode($categoria_data), null);
-        }
-        
+
+        $stmt = $db->prepare("DELETE FROM categorias WHERE id = :id");
+        $stmt->execute([':id' => $categoria_data['id']]);
+
+        $auditoria = new AuditoriaService($db);
+        $auditoria->registrar($user['id'], 'excluir_categoria', 'categorias', $categoria_data['id'], json_encode(['nome' => $categoria_data['nome'], 'macrocategoria_id' => $categoria_data['macrocategoria_id']]), null);
+
         echo json_encode(['success' => true]);
-        
+
     } catch (Exception $e) {
+        error_log('[CATEGORIAS DELETE] Erro: ' . $e->getMessage());
         http_response_code(500);
         echo json_encode(['error' => 'Erro ao excluir subcategoria']);
     }
