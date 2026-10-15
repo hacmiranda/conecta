@@ -56,7 +56,7 @@ function restaurarDemanda(ticketId) {
             localStorage.removeItem('cd_ticketAtual');
             mostrarLixeira();
         } catch (e) {
-            mostrarAlert('Erro', e.message || 'Erro ao restaurar a demanda');
+            mostrarAlert('Erro', (e.dados && e.dados.error) || 'Erro ao restaurar a demanda');
         }
     });
 }
@@ -72,7 +72,7 @@ function excluirDefinitivo(ticketId) {
                 localStorage.removeItem('cd_ticketAtual');
                 mostrarLixeira();
             } catch (e) {
-                mostrarAlert('Erro', e.message || 'Erro ao excluir a demanda');
+                mostrarAlert('Erro', (e.dados && e.dados.error) || 'Erro ao excluir a demanda');
             }
         }, true);
 }

@@ -102,7 +102,7 @@ async function criarSetor(event) {
         document.getElementById('form-setor').reset();
         carregarSetores();
     } catch (e) {
-        mostrarAlert('Erro', e.message || 'Erro ao criar setor');
+        mostrarAlert('Erro', (e.dados && e.dados.error) || 'Erro ao criar setor');
     }
 }
 
@@ -134,7 +134,7 @@ async function executarEdicaoSetor(setorId, nome) {
         mostrarToast('Sucesso', 'Setor atualizado com sucesso!', 'success');
         carregarSetores();
     } catch (e) {
-        mostrarAlert('Erro', e.message || 'Erro ao atualizar setor');
+        mostrarAlert('Erro', (e.dados && e.dados.error) || 'Erro ao atualizar setor');
     }
 }
 
@@ -144,6 +144,6 @@ async function alternarAtivoSetor(setorId, ativo) {
         mostrarToast('Sucesso', ativo ? 'Setor ativado!' : 'Setor desativado!', 'success');
         carregarSetores();
     } catch (e) {
-        mostrarAlert('Erro', e.message || 'Erro ao atualizar setor');
+        mostrarAlert('Erro', (e.dados && e.dados.error) || 'Erro ao atualizar setor');
     }
 }
