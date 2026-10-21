@@ -110,11 +110,11 @@ Para rodar localmente: `http://localhost/conecta/frontend/index.html`, XAMPP em
   variáveis/constante globais `setorConfigAtual`, `abaConfigSetorAtiva`,
   `LIMITE_EMAILS_POR_SETOR`.
 
-- [ ] **Step 1: Criar `frontend/ativacao-setor.js`** (código convertido para `Api.*`, com o
+- [x] **Step 1: Criar `frontend/ativacao-setor.js`** (código convertido para `Api.*`, com o
   padrão de erro `(e.dados && e.dados.error) || 'texto padrão'` em todo catch que mostra
   alerta ao usuário)
 
-- [ ] **Step 2: Remover os 2 trechos de `script.js`**
+- [x] **Step 2: Remover os 2 trechos de `script.js`**
 
 Remova:
 1. Do comentário `// ==== Fase 3: Ativação por Setor` até o fim de `moverItemConfigSetor`
@@ -125,9 +125,9 @@ Remova:
 Confira com `grep -n "Fase 3: Ativação por Setor\|CONFIGURAÇÃO DE EMAIL\|^function mostrarConfigSetor\|^function mostrarConfigEmail\|^let setorConfigAtual" frontend/script.js`
 — depois da remoção, nenhuma linha deve sobrar.
 
-- [ ] **Step 3: Registrar `ativacao-setor.js` em `index.html` e subir a versão de `script.js`**
+- [x] **Step 3: Registrar `ativacao-setor.js` em `index.html` e subir a versão de `script.js`**
 
-- [ ] **Step 4: Testar no navegador (Playwright)**
+- [x] **Step 4: Testar no navegador (Playwright)**
 
 Login como **admin**, setor Cadastro escolhido no cabeçalho:
 
@@ -151,7 +151,7 @@ reais) — validar a UI (abrir formulário, cancelar) é suficiente; qualquer da
 inserido no banco (`setor_emails`, `setor_status`, `setor_prioridades`) deve ser restaurado
 ao estado anterior ao final.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add frontend/ativacao-setor.js frontend/script.js frontend/index.html
@@ -162,7 +162,7 @@ git commit -m "feat: extrai Ativacao por Setor e E-mail por Setor de script.js p
 
 ### Task 2: Regressão rápida da onda
 
-- [ ] **Step 1: Conferir que `script.js` encolheu e nada ficou duplicado**
+- [x] **Step 1: Conferir que `script.js` encolheu e nada ficou duplicado**
 
 ```bash
 cd frontend
@@ -171,9 +171,9 @@ node --check script.js
 node --check ativacao-setor.js
 ```
 
-- [ ] **Step 2: Login do zero, console limpo**
+- [x] **Step 2: Login do zero, console limpo**
 
-- [ ] **Step 3: Rodar a suíte de backend**
+- [x] **Step 3: Rodar a suíte de backend**
 
 ```bash
 cd ../api
@@ -182,3 +182,37 @@ php tests/matriz-de-acesso.php
 ```
 
 Esperado: `OK (31 tests, ...)` e `Resultado: 19 OK, 0 falha(s)` — idêntico a antes desta onda.
+
+## Registro da validação
+
+Executado de verdade no navegador (Playwright), setor Cadastro escolhido no cabeçalho:
+
+- **admin**: "Ativação por Setor" → aba Status carrega sem erro; desativar o status
+  "Reaberto" (toast implícito, checkbox desmarca) e reativar (checkbox volta a marcar);
+  mover "Em atendimento" para o topo com ▲ (lista recarrega na nova ordem) e devolver com ▼
+  (estado restaurado); aba Prioridades carrega sem erro.
+- **admin**: "Configurar Email" → seção do e-mail do setor Cadastro (vazia, com botão de
+  cadastrar) e seção do remetente global (dados reais do `.env`, somente leitura) aparecem
+  juntas; abrir o formulário de nova caixa; "Testar Conexão" dentro do formulário com campos
+  vazios bloqueia no frontend ("Preencha todos os campos antes de testar.") sem chamar o
+  servidor; cancelar o formulário sem salvar; "Testar Conexão" do remetente global chama o
+  servidor de verdade (`Api.post`) e mostra o resultado real (falha de autenticação esperada,
+  sem SMTP acessível localmente) com o loader aparecendo e desaparecendo corretamente.
+- **admin**, sem setor escolhido ("Todos os setores"): "Configurar Email" mostra só o aviso
+  para escolher um setor na seção do e-mail do setor; a seção do remetente global continua
+  aparecendo.
+- **gestor** (conta `zz Gestor Onda4` temporária, sem `trocar_senha` pendente): "Ativação por
+  Setor" não mostra seletor de setor (travado no próprio, Cadastro); menu de Configurações do
+  gestor não mostra "Configurar Email" (restrito a admin, regra pré-existente, não desta
+  onda) — confirmado pelo próprio menu renderizado, não testado via tentativa de acesso
+  direto.
+- Erros de console vistos durante os testes (`email-alert.php` → 403 para o gestor) são
+  pré-existentes (monitoramento de falhas de e-mail restrito a admin) e não têm relação com
+  esta onda.
+- Conta de teste `zz Gestor Onda4` removida do banco ao final (não foi possível fazer logout
+  pela UI por causa de z-index do menu — removida direto via SQL); confirmado
+  `SELECT COUNT(*) FROM usuarios WHERE nome LIKE 'zz%'` = 0 e nenhuma caixa de e-mail de teste
+  em `setor_emails`.
+- `grep -c "^function " script.js` → 198 (218 - 20, como esperado); `node --check` limpo em
+  `script.js` e `ativacao-setor.js`; `composer test` → OK (31 testes, 41 assertions);
+  `php tests/matriz-de-acesso.php` → 19 OK, 0 falhas.
