@@ -208,3 +208,34 @@ Login feito do zero (conta de teste), console sem erros/warnings em nenhum dos p
 falhas. Idêntico ao estado anterior à onda — trabalho foi só frontend.
 
 Esperado: `OK (31 tests, ...)` e `Resultado: 19 OK, 0 falha(s)` — idêntico a antes desta onda.
+
+---
+
+## Revisão final (subagente opus, independente)
+
+**Veredito: Aprovado.** 0 Crítico, 0 Importante, 3 Menores (nenhum corrigido — todos
+equivalentes/benéficos, sem impacto real):
+
+1. Se `merge.php` respondesse 200 com corpo não-JSON, o catch mostraria "Erro ao mesclar
+   demandas fechadas" em vez do antigo "Resposta inválida do servidor" — caso praticamente
+   impossível, só muda o texto.
+2. Uma exceção dentro de `mostrarTicketsFechadosNaTela` agora cai no catch e mostra "Erro ao
+   carregar demandas do arquivo." em vez de ficar só no console — mudança neutra/melhor.
+3. Código morto herdado do original (sem chamador real: `filtrarEMostrarTicketsFechados`,
+   `ticketsFechadosFiltradosPorBusca`; comentário desatualizado; `return;` solto; parâmetro
+   `termo` sem uso em `filtrarTicketsFechados`) — preservado como estava, não é regressão
+   desta onda.
+
+Confirmado pela revisão: diff fiel linha a linha nos 7 cortes, nenhuma função/variável
+esquecida/duplicada, ordem de carregamento segura (nenhum uso de símbolos de `arquivo.js`
+roda antes do script carregar), `onclick`s intactos, sem XSS novo, acessibilidade preservada
+(`caption`, `scope`, `aria-*`, `role="navigation"`), `node --check` limpo nos dois arquivos.
+A correção incidental do bug do merge (headers de autenticação/CSRF ausentes no XHR original)
+foi confirmada como correta e desejada, com dois benefícios adicionais identificados:
+`ocultarLoader()` agora roda também em erro de rede (antes travava o loader), e mensagens de
+validação do servidor (ex. "Só é possível mesclar demandas do mesmo setor") agora chegam ao
+usuário.
+
+Recomendação não aplicada (fora de escopo, risco baixo): testar manualmente a troca de
+escopo do filtro e a alternância de "por página" como gestor/operador — ambas reusam
+`carregarPaginaFechadosServidor`, já testada, sem conversão de rede nova.
