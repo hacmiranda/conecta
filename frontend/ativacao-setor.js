@@ -384,7 +384,7 @@ function renderizarListaConfigSetor(itens, tipo) {
                             <input type="checkbox" ${item.ativo ? 'checked' : ''} onchange="alternarAtivoConfigSetor(${item.id}, '${tipo}', this.checked)">
                             <span class="slider"></span>
                         </label>
-                        <span>${formatarNomeItemConfigSetor(tipo, item.nome)}</span>
+                        <span>${sanitizeHTML(formatarNomeItemConfigSetor(tipo, item.nome))}</span>
                     </label>
                     <div class="config-setor-item-ordem">
                         <button type="button" class="btn-small" ${index === 0 ? 'disabled' : ''} onclick="moverItemConfigSetor(${item.id}, '${tipo}', 'up')" title="Mover para cima">▲</button>
@@ -431,7 +431,7 @@ function mostrarConfigEmail() {
 
     const secaoSetor = setorEmailId ? `
         <div class="config-email-setor">
-            <h3>🏢 E-mail do setor: ${setorEmailNome}</h3>
+            <h3>🏢 E-mail do setor: ${sanitizeHTML(setorEmailNome)}</h3>
             <div id="config-setor-lista"><p>Carregando...</p></div>
         </div>` : `
         <div class="config-email-setor">
