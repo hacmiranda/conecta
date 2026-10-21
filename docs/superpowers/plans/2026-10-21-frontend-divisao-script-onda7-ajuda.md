@@ -179,3 +179,18 @@ Executado de verdade no navegador (Playwright):
 - `grep -c "^function " script.js` → 171 (185 - 14, como esperado); `node --check` limpo em
   `script.js` e `ajuda.js`; `composer test` → OK (31 testes, 41 assertions);
   `php tests/matriz-de-acesso.php` → 19 OK, 0 falhas.
+
+## Revisão final (subagente opus)
+
+0 Crítico, 0 Importante, 3 Menor (1 corrigido, 2 opcionais deixados como estão). A cópia foi
+confirmada literal caractere por caractere (exceto a conversão de `carregarHorariosDinamicos`);
+a ordem de carregamento em `index.html` (ajuda.js antes de tutorial.js) preserva o
+comportamento do código morto; XSS reconfirmado sem novidade.
+
+- **Corrigido (commit `9998b33`):** o comentário `// === SISTEMA DE DICAS ===` tinha ficado
+  órfão em `script.js`, acima de `irParaTickets`/`cancelarNovoTicket` (domínio Demandas) —
+  o Sistema de Dicas de verdade saiu para `ajuda.js`. Só cosmético, removido.
+- **Menor (não corrigido, opcional):** o `catch` silencioso de `carregarHorariosDinamicos`
+  engole também exceções de dentro de `mostrarHorariosDinamicos` (ex.: resposta não-JSON),
+  sem deixar rastro no console — comportamento visível ao usuário é o mesmo de antes
+  ("Carregando horários..." para sempre nesse caso raro), só se perde a pista de depuração.
