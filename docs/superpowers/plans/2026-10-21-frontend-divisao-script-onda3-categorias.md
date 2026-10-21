@@ -107,7 +107,7 @@ Todas essas funções só dependem de coisas que continuam em `script.js`: `Api`
 - Produces: as mesmas 22 funções globais de antes, mesmos nomes e assinaturas, e a mesma
   variável global `todasCategorias`.
 
-- [ ] **Step 1: Criar `frontend/categorias.js`**
+- [x] **Step 1: Criar `frontend/categorias.js`**
 
 ```js
 /**
@@ -791,7 +791,7 @@ function toggleFormCategoria() {
 }
 ```
 
-- [ ] **Step 2: Remover os 3 trechos de `script.js`**
+- [x] **Step 2: Remover os 3 trechos de `script.js`**
 
 Remova, nesta ordem:
 1. Do comentário `// === GERENCIAMENTO DE CATEGORIAS ===` até o fim de `carregarCategorias`
@@ -806,12 +806,12 @@ Confira com `grep -n "GERENCIAMENTO DE CATEGORIAS\|^function popularPrioridadesF
 — depois da remoção, só devem sobrar `popularPrioridadesFormNovo` e `alterarCategoria`
 (domínio Demandas, inalterado).
 
-- [ ] **Step 3: Registrar `categorias.js` em `index.html` e subir a versão de `script.js`**
+- [x] **Step 3: Registrar `categorias.js` em `index.html` e subir a versão de `script.js`**
 
 Adicionar `<script src="categorias.js?v=1"></script>` depois do último `<script>` de onda já
 registrado, e subir o `?v=` de `script.js` em 1.
 
-- [ ] **Step 4: Testar no navegador (Playwright)**
+- [x] **Step 4: Testar no navegador (Playwright)**
 
 Login como **admin**, com um setor escolhido no cabeçalho:
 
@@ -835,7 +835,7 @@ escolha de setor (o aviso "Escolha um setor" é só para admin).
 Remova pelo banco (`DELETE FROM categorias/macrocategorias WHERE nome LIKE 'zz%'`) qualquer
 registro de teste que não tenha sido excluído pela própria tela ao final.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add frontend/categorias.js frontend/script.js frontend/index.html
@@ -848,7 +848,7 @@ git commit -m "feat: extrai Categorias/Macrocategorias de script.js para categor
 
 **Files:** nenhum arquivo novo — só validação.
 
-- [ ] **Step 1: Conferir que `script.js` encolheu e nada ficou duplicado**
+- [x] **Step 1: Conferir que `script.js` encolheu e nada ficou duplicado**
 
 ```bash
 cd frontend
@@ -865,12 +865,12 @@ node --check categorias.js
 
 Esperado: nenhuma saída (sem erro de sintaxe).
 
-- [ ] **Step 2: Login do zero, console limpo**
+- [x] **Step 2: Login do zero, console limpo**
 
 Limpar o `localStorage`, logar de novo (admin), abrir Demandas (confirmar que `alterarCategoria`
 numa demanda ainda funciona) e Categorias — console sem erro novo.
 
-- [ ] **Step 3: Rodar a suíte de backend**
+- [x] **Step 3: Rodar a suíte de backend**
 
 ```bash
 cd ../api
@@ -880,3 +880,32 @@ php tests/matriz-de-acesso.php
 
 Esperado: `OK (31 tests, ...)` e `Resultado: 19 OK, 0 falha(s)` — idêntico a antes desta onda
 (este plano só tocou frontend).
+
+## Registro da validação
+
+Executado de verdade no navegador (Playwright), com um setor (Cadastro) escolhido no
+cabeçalho:
+
+- Abrir "Categorias e Subcategorias": lista carrega sem erro no console.
+- Sem setor escolhido ("Todos os setores"): a tela de Categorias abre vazia (sem registros
+  fora de um setor), consistente com o toast "Escolha um setor" já existente.
+- Criar a Categoria `zz Onda3 Categoria`: toast de sucesso, aparece na lista.
+- Criar a Subcategoria `zz Onda3 Sub *RFID*` nessa Categoria: toast de sucesso; nome salvo
+  como "Zz Onda3 Sub RFID" (capitalização automática com "RFID" preservado em maiúsculas,
+  via `formatarNomeCategoria`), agrupada corretamente sob a Categoria.
+- Repetir a mesma Subcategoria: bloqueado no frontend com "Esta subcategoria já existe!"
+  (sem round-trip ao servidor para o POST, só a checagem GET prévia).
+- Editar a Subcategoria (reabrir o modal e confirmar sem alterar campos): toast de sucesso,
+  `carregarCategorias()` disparado em seguida (log "Categorias carregadas: 1").
+- Excluir a Categoria **com a Subcategoria ainda vinculada**: o servidor recusou (400) e a
+  mensagem real dele apareceu — "Categoria não pode ser excluída pois possui subcategorias
+  vinculadas" — não um texto genérico.
+- Excluir a Subcategoria, depois a Categoria: ambas saíram da lista com toast de sucesso.
+- Confirmado no banco: `SELECT COUNT(*) FROM categorias WHERE nome LIKE 'zz%'` = 0 e
+  `SELECT COUNT(*) FROM macrocategorias WHERE nome LIKE 'zz%'` = 0.
+- `alterarCategoria`/`executarAlteracaoCategoria` (domínio Demandas) não foram tocadas pela
+  onda — permanecem em `script.js`, inalteradas.
+- `grep -c "^function " script.js` → 218 (240 - 22, como esperado); nenhuma das 22 funções
+  movidas aparece mais em `script.js`; `node --check` limpo em `script.js` e `categorias.js`;
+  login do zero (`localStorage` limpo) → console sem erro novo; `composer test` → OK
+  (31 testes, 41 assertions); `php tests/matriz-de-acesso.php` → 19 OK, 0 falhas.
