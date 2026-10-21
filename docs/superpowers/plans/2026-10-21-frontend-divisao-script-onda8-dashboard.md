@@ -88,16 +88,16 @@ Todas essas funções só dependem de coisas que continuam em `script.js`: `Api`
   `criarGraficoHeatmap` (de `graficos-dashboard.js`) — todos inalterados.
 - Produces: as mesmas 4 funções globais de antes, mesmos nomes e assinaturas.
 
-- [ ] **Step 1: Criar `frontend/dashboard.js`**
+- [x] **Step 1: Criar `frontend/dashboard.js`**
 
-- [ ] **Step 2: Remover os 2 trechos de `script.js`**
+- [x] **Step 2: Remover os 2 trechos de `script.js`**
 
 Confira com `grep -n "Função para mostrar dashboard\|^function mostrarInfoGrafico\|^function enviarEFecharTicket" frontend/script.js`
 — depois da remoção, nenhuma das 4 funções movidas deve sobrar.
 
-- [ ] **Step 3: Registrar `dashboard.js` em `index.html` e subir a versão de `script.js`**
+- [x] **Step 3: Registrar `dashboard.js` em `index.html` e subir a versão de `script.js`**
 
-- [ ] **Step 4: Testar no navegador (Playwright)**
+- [x] **Step 4: Testar no navegador (Playwright)**
 
 1. Abrir "Dashboard": os 9 cards de KPI e os 7 gráficos carregam com dados reais, sem erro no
    console.
@@ -106,7 +106,7 @@ Confira com `grep -n "Função para mostrar dashboard\|^function mostrarInfoGraf
 3. Trocar o setor no cabeçalho (como admin): dashboard recarrega automaticamente com os dados
    do novo setor.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add frontend/dashboard.js frontend/script.js frontend/index.html
@@ -117,7 +117,7 @@ git commit -m "feat: extrai Dashboard de script.js para dashboard.js, usando api
 
 ### Task 2: Regressão rápida da onda
 
-- [ ] **Step 1: Conferir que `script.js` encolheu e nada ficou duplicado**
+- [x] **Step 1: Conferir que `script.js` encolheu e nada ficou duplicado**
 
 ```bash
 cd frontend
@@ -126,9 +126,9 @@ node --check script.js
 node --check dashboard.js
 ```
 
-- [ ] **Step 2: Login do zero, console limpo**
+- [x] **Step 2: Login do zero, console limpo**
 
-- [ ] **Step 3: Rodar a suíte de backend**
+- [x] **Step 3: Rodar a suíte de backend**
 
 ```bash
 cd ../api
@@ -137,3 +137,27 @@ php tests/matriz-de-acesso.php
 ```
 
 Esperado: `OK (31 tests, ...)` e `Resultado: 19 OK, 0 falha(s)` — idêntico a antes desta onda.
+
+## Registro da validação
+
+Executado de verdade no navegador (Playwright):
+
+- Abrir "Dashboard": os 9 cards de KPI (Total, Encerrados, Ativos, Taxa de Conclusão, Tempo
+  Médio Total, Tempo Médio 1º Atendimento, FCR, SLA Vencido, Via Canal Externo) e os 7
+  gráficos (Status, Prioridade, Agente, Status por Agente, Evolução Mensal, Dia da Semana,
+  Evolução Diária 30d) renderizaram sem erro no console — confirma que `Api.get('dashboard.php')`
+  funcionou ponta a ponta e que `criarGraficoX(dados)` (de `graficos-dashboard.js`, arquivo
+  que não muda) continua recebendo os dados corretos.
+- Clicar no ícone "info" do card "Total de Demandas": modal abriu com o texto exato
+  ("🎫 Total de Demandas" / "O que é" / "Como analisar").
+- Trocar o setor no cabeçalho (Cadastro → Cobrança, como admin): a página recarrega (padrão
+  pré-existente) e o Dashboard volta a aparecer automaticamente com os dados do novo setor
+  (a seção "Distribuição por Responsável" mudou de "Hanna Paula Fagundes/Danuza Daudt" para
+  "Sem dados no período", já que nenhum deles é do setor Cobrança) — confirma que
+  `RECARREGADORES.dashboard` → `carregarDashboard()` (de `cabecalho-setor.js`, arquivo que
+  não muda) continua funcionando.
+- Conta de teste `zz Admin Onda8` removida do banco ao final; confirmado
+  `SELECT COUNT(*) FROM usuarios WHERE nome LIKE 'zz%'` = 0.
+- `grep -c "^function " script.js` → 167 (171 - 4, como esperado); `node --check` limpo em
+  `script.js` e `dashboard.js`; `composer test` → OK (31 testes, 41 assertions);
+  `php tests/matriz-de-acesso.php` → 19 OK, 0 falhas.
