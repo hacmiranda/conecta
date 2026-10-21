@@ -178,3 +178,20 @@ Executado de verdade no navegador (Playwright):
 - `grep -c "^function " script.js` → 185 (191 - 6, como esperado); `node --check` limpo em
   `script.js` e `configuracoes.js`; login do zero → console sem erro novo; `composer test` →
   OK (31 testes, 41 assertions); `php tests/matriz-de-acesso.php` → 19 OK, 0 falhas.
+
+## Revisão final (subagente opus)
+
+0 Crítico, 0 Importante, 2 Menor — nenhum corrigido, ambos aceitáveis. A conversão de
+`alterarSenha` para `Api.post` foi confirmada fiel (corpo, leitura de `token`/`csrf_token`,
+os dois fluxos pós-sucesso, cabeçalhos equivalentes via `getAuthHeaders()`); os uploads
+continuam em XHR puro como decidido; as três funções sem rede são cópias literais; os três
+cortes em `script.js` ficaram limpos; nenhum dado do servidor entra em `innerHTML` sem
+escape nesta onda (a tela de Personalização só interpola booleanos).
+
+- **Menor (não corrigido, aceitável):** em erro de rede (sem resposta JSON), a mensagem
+  mudou de "Erro de conexão" (XHR `onerror`) para "Erro ao alterar senha" (fallback padrão
+  do `catch`) — mudança de texto pequena e consistente com o padrão já adotado nas ondas
+  anteriores, não uma regressão funcional.
+- **Menor (pré-existente, não corrigido):** `JSON.parse(xhr.responseText)` sem `try` em
+  `uploadLogoHeader`/`uploadLogoLogin` seria frágil diante de uma resposta não-JSON — copiado
+  de propósito como estava, fora de escopo desta onda (os uploads continuam em XHR).
