@@ -909,3 +909,24 @@ cabeçalho:
   movidas aparece mais em `script.js`; `node --check` limpo em `script.js` e `categorias.js`;
   login do zero (`localStorage` limpo) → console sem erro novo; `composer test` → OK
   (31 testes, 41 assertions); `php tests/matriz-de-acesso.php` → 19 OK, 0 falhas.
+
+## Revisão final (subagente opus)
+
+0 Critical, 1 Important, 2 Minor. Todos os achados foram conferidos como corretos pelo
+revisor (URLs sem duplicação, todos os 6 `catch` com alerta usando o padrão
+`(e.dados && e.dados.error) || fallback`, `todasCategorias` sem TDZ, listener sem duplicar,
+`toggleFormCategoria` migrado corretamente, nenhum corte órfão, escaping preservado).
+
+- **Important (corrigido, commit `ed8f6c8`):** `editarMacrocategoria()` colocava
+  `value="${nomeAtual}"` sem escapar — XSS para quem edita uma Categoria com nome malicioso
+  (ex.: `x" onmouseover="alert(1)`). Bug pré-existente em `script.js` antes desta onda; a
+  extração só o copiou sem corrigir. Corrigido com `sanitizeHTML(nomeAtual)`, confirmado por
+  teste real no navegador (nome com aspas sobrevive intacto no campo, sem disparar handler).
+  Segue aberto, como melhoria futura e fora de escopo desta onda: sanitização também no
+  servidor (`HtmlSanitizer::texto()` em `api/controllers/macrocategorias.php`, hoje só
+  `trim()`).
+- **Minor (não corrigido, adiado):** `carregarCategorias()` não cai para `[]` se o servidor
+  responder 200 com corpo vazio (`todasCategorias` ficaria `null`) — cenário improvável, já
+  que o GET sempre devolve um array. `configurarPesquisaCategoria()` passa funções internas
+  recém-criadas para `removeEventListener`, que nunca encontra o listener certo e não remove
+  nada — bug pré-existente, sem relação com esta onda.
