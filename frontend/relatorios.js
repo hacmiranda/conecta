@@ -101,7 +101,7 @@ async function gerarRelatorio() {
         const dados = await Api.get(urlComSetor(`relatorios.php?${params}`));
         exibirRelatorio(dados);
     } catch (e) {
-        document.getElementById('relatorio-resultado').innerHTML = '<p>Erro ao gerar relatório.</p>';
+        document.getElementById('relatorio-resultado').innerHTML = `<p>${sanitizeHTML((e.dados && e.dados.error) || 'Erro ao gerar relatório.')}</p>`;
     }
 }
 
@@ -212,7 +212,7 @@ function exportarRelatorio(formato) {
 
 function exportarExcel() {
     const dados = dadosRelatorioAtual;
-    let csv = '﻿'; // BOM UTF-8
+    let csv = '\uFEFF'; // BOM UTF-8
     csv += 'Nº Demanda;Data Abertura;Hora Abertura;Assunto;Solicitante;Responsável;Subcategoria;Status;Prioridade;Data Fechamento;Hora Fechamento\n';
 
     dados.tickets.forEach(ticket => {
