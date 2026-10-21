@@ -99,16 +99,16 @@ Todas essas funções só dependem de coisas que continuam em `script.js`: `Api`
   `verificarComplexidade()`, `alterarSenha(event)`, `mostrarPersonalizacao()`,
   `uploadLogoHeader()`, `uploadLogoLogin()`, `mostrarModoEscuro()`.
 
-- [ ] **Step 1: Criar `frontend/configuracoes.js`**
+- [x] **Step 1: Criar `frontend/configuracoes.js`**
 
-- [ ] **Step 2: Remover os 3 trechos de `script.js`**
+- [x] **Step 2: Remover os 3 trechos de `script.js`**
 
 Confira com `grep -n "Verificar complexidade da senha\|^function alterarSenha\b\|PERSONALIZAÇÃO DO SISTEMA\|^function mostrarModoEscuro\b" frontend/script.js`
 — depois da remoção, nenhuma linha deve sobrar.
 
-- [ ] **Step 3: Registrar `configuracoes.js` em `index.html` e subir a versão de `script.js`**
+- [x] **Step 3: Registrar `configuracoes.js` em `index.html` e subir a versão de `script.js`**
 
-- [ ] **Step 4: Testar no navegador (Playwright)**
+- [x] **Step 4: Testar no navegador (Playwright)**
 
 Login como admin:
 
@@ -125,7 +125,7 @@ Login como admin:
 Login como gestor: Personalização mostra o aviso de somente leitura, campo e botão
 desabilitados.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add frontend/configuracoes.js frontend/script.js frontend/index.html
@@ -136,7 +136,7 @@ git commit -m "feat: extrai Alterar Senha e Personalizacao de script.js para con
 
 ### Task 2: Regressão rápida da onda
 
-- [ ] **Step 1: Conferir que `script.js` encolheu e nada ficou duplicado**
+- [x] **Step 1: Conferir que `script.js` encolheu e nada ficou duplicado**
 
 ```bash
 cd frontend
@@ -145,9 +145,9 @@ node --check script.js
 node --check configuracoes.js
 ```
 
-- [ ] **Step 2: Login do zero, console limpo**
+- [x] **Step 2: Login do zero, console limpo**
 
-- [ ] **Step 3: Rodar a suíte de backend**
+- [x] **Step 3: Rodar a suíte de backend**
 
 ```bash
 cd ../api
@@ -156,3 +156,25 @@ php tests/matriz-de-acesso.php
 ```
 
 Esperado: `OK (31 tests, ...)` e `Resultado: 19 OK, 0 falha(s)` — idêntico a antes desta onda.
+
+## Registro da validação
+
+Executado de verdade no navegador (Playwright):
+
+- **admin**: menu do usuário → "Alterar Senha" — indicadores de força reagem ao digitar
+  (todos ❌ → todos ✅ conforme critérios são atendidos, botão habilita); senha nova ≠
+  confirmação bloqueia com "As senhas não coincidem." sem chamar o servidor; alterar a senha
+  de verdade (via `Api.post`) — sucesso, formulário resetado, indicadores voltam a ❌, botão
+  desabilita; senha trocada de volta para a original ao final, mesmo fluxo.
+- **admin**: Configurações → Personalização — tela editável carrega (aviso de "Importante",
+  campo e botão habilitados); "Upload Logo" sem arquivo selecionado bloqueia no frontend
+  ("Selecione um arquivo PNG") sem chamar o servidor.
+- **gestor** (conta `zz Gestor Onda6` temporária, sem `trocar_senha` pendente, setor Cadastro):
+  Personalização mostra o aviso de somente leitura, campo e botão desabilitados.
+- Único erro de console visto (`email-alert.php` → 403 para o gestor) é pré-existente
+  (monitoramento de falhas de e-mail restrito a admin), sem relação com esta onda.
+- Contas de teste (`zz Admin Onda6`, `zz Gestor Onda6`) removidas do banco ao final;
+  confirmado `SELECT COUNT(*) FROM usuarios WHERE nome LIKE 'zz%'` = 0.
+- `grep -c "^function " script.js` → 185 (191 - 6, como esperado); `node --check` limpo em
+  `script.js` e `configuracoes.js`; login do zero → console sem erro novo; `composer test` →
+  OK (31 testes, 41 assertions); `php tests/matriz-de-acesso.php` → 19 OK, 0 falhas.
