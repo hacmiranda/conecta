@@ -193,7 +193,14 @@ Cada fase termina com o sistema funcionando, um commit próprio, testes de API p
 4. **P2, U8**: paginação, busca e contadores no servidor.
 
 ### Fase 12: frontend (estrutura, UX e acessibilidade) (parcialmente concluída em 15/10/2026 — ver nota)
-1. **P1 (em andamento)**: as 4 funções duplicadas (`aplicarFiltroMeusTicketsFechados`, `calcularTextoSLA`, `limparBuscaFechados`, `mostrarRelatorios`) foram removidas. **Onda 1 concluída em 15/10/2026** (design em `docs/superpowers/specs/2026-10-15-frontend-api-e-divisao-script-design.md`, plano em `docs/superpowers/plans/2026-10-15-frontend-api-e-divisao-script-onda1.md`): `frontend/api.js` criado e os domínios Setores e Lixeira extraídos para `setores.js`/`lixeira.js`, usando `Api.*`. `script.js` caiu de 267 para 255 funções. Restam 11 ondas (Usuários, Categorias, Ativação por setor + E-mail por setor, Relatórios, Configurações, Ajuda/Guias, Dashboard, Auditoria, Arquivo/Fechadas, Detalhe da demanda, Demandas/Kanban) — cada uma com seu próprio plano quando chegar a vez.
+1. **P1 (em andamento)**: as 4 funções duplicadas (`aplicarFiltroMeusTicketsFechados`, `calcularTextoSLA`, `limparBuscaFechados`, `mostrarRelatorios`) foram removidas. **Onda 1 concluída em 15/10/2026** (design em `docs/superpowers/specs/2026-10-15-frontend-api-e-divisao-script-design.md`, plano em `docs/superpowers/plans/2026-10-15-frontend-api-e-divisao-script-onda1.md`): `frontend/api.js` criado e os domínios Setores e Lixeira extraídos para `setores.js`/`lixeira.js`, usando `Api.*`. **Onda 2 concluída em 21/10/2026** (plano em
+`docs/superpowers/plans/2026-10-21-frontend-divisao-script-onda2-usuarios.md`): domínio Usuários
+extraído para `usuarios.js` (estava espalhado em 3 trechos não adjacentes de `script.js`, não
+só um bloco). `script.js` caiu de 267 para 240 funções. Restam 10 ondas (Categorias, Ativação por
+setor + E-mail por setor, Relatórios, Configurações, Ajuda/Guias, Dashboard, Auditoria,
+Arquivo/Fechadas, Detalhe da demanda, Demandas/Kanban) — cada uma com seu próprio plano quando
+chegar a vez. Decisão confirmada em 21/10/2026: uma skill genérica de padrões pessoais (zero
+`onclick`/CSS inline) não se aplica a esta divisão — continua fora de escopo (S16/A8).
 2. **U2**: já estava resolvido desde a Fase 9 (monitor global de 401/403 em `script.js`, redireciona ao login).
 3. **A1-A3**: concluído — `frontend/acessibilidade.js` (novo) dá foco preso, ESC e retorno de foco a todos os modais (`#modal-overlay`), Tab/Enter/Espaço aos `<div>/<span>/<tr>/<li>` com `onclick`, e `aria-live` aos *toasts*. Corrigido de carona: o "×" do modal de confirmação não acionava o `callback` (perdia a resposta); `fecharVisualizador()` quebrava com o visualizador de anexo fechado.
 4. **A4**: já estava resolvido (Inter carrega via `@import` em `modern-enhancements.css`).
