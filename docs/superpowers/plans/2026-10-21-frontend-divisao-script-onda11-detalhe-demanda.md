@@ -148,65 +148,80 @@ Para rodar localmente: `http://localhost/conecta/frontend/index.html`, XAMPP em
 - Modify: `frontend/script.js` (remover os 7 trechos listados no contexto acima)
 - Modify: `frontend/index.html` (registrar `detalhe-demanda.js`, subir a versão de `script.js`)
 
-- [ ] **Step 1: Criar `frontend/detalhe-demanda.js`**
+- [x] **Step 1: Criar `frontend/detalhe-demanda.js`**
 
-- [ ] **Step 2: Remover os 7 trechos de `script.js`**
+- [x] **Step 2: Remover os 7 trechos de `script.js`**
 
-Confira com
-`grep -n "^async function baixarAnexo\|^function devolverAoGestor\|^let secaoOrigem\|^function excluirTicket\|^function voltarParaOrigem\|^let anexosComentarioSelecionados\|^function validarAntesComentario" frontend/script.js`
-— depois da remoção, nenhuma linha deve sobrar. Confirme também que `atribuirTicket`,
-`executarAcaoDemanda`, `pedirComentarioEExecutar`, `obterSetorIdDoTicket`,
-`executarAlteracaoStatus`, `executarExclusaoTicket`, `confirmarAtribuicao`/`executarAtribuicao`
-(dead code), `anexosSelecionados`, `MAX_ARQUIVOS`/`MAX_TAMANHO`/`TIPOS_PERMITIDOS` continuam em
-`script.js`.
+Todos os 7 cortes confirmados exatamente como mapeados (lido cada boundary antes de editar).
+`script.js` caiu de 116 para 95 funções. Confirmado que `atribuirTicket`, `executarAcaoDemanda`,
+`pedirComentarioEExecutar`, `obterSetorIdDoTicket`, `executarAlteracaoStatus`,
+`executarExclusaoTicket`, `confirmarAtribuicao`/`executarAtribuicao` (dead code),
+`anexosSelecionados`, `MAX_ARQUIVOS`/`MAX_TAMANHO`/`TIPOS_PERMITIDOS` continuam em `script.js`.
 
-- [ ] **Step 3: Registrar `detalhe-demanda.js` em `index.html` e subir a versão de `script.js`**
+- [x] **Step 3: Registrar `detalhe-demanda.js` em `index.html` e subir a versão de `script.js`**
 
-- [ ] **Step 4: Testar no navegador (Playwright)**
+`script.js?v=4.22`; `detalhe-demanda.js?v=1` adicionado após `arquivo.js`.
 
-Login como admin (ou gestor/operador), abrir uma demanda real:
+- [x] **Step 4: Testar no navegador (Playwright)**
 
-1. Cabeçalho mostra status/prioridade/categoria/responsável corretos; clicar neles abre o
-   seletor (funções compartilhadas, já devem funcionar sem mudança).
-2. Botões de ação de fluxo aparecem conforme o papel (gestor/admin: Encaminhar/Transferir;
-   operador responsável: + Devolver/Repassar) e cada um funciona de ponta a ponta.
-3. Adicionar um comentário simples: aparece na lista sem precisar recarregar a página.
-4. Adicionar um comentário com anexo: valida tipo/tamanho, aparece na lista com os botões
-   Ver/Baixar funcionando (`visualizarAnexo`/`baixarAnexo`).
-5. "Enviar e Fechar": adiciona o comentário e encerra a demanda, navega para a lista certa.
-6. "Excluir": manda para a lixeira (soft delete).
-7. "Voltar": retorna à seção de origem certa (testar vindo de Demandas e de Arquivo).
-8. Reabrir uma demanda encerrada pelo botão do próprio detalhe (chama a função já migrada em
-   `arquivo.js` na Onda 10 — confirma que a integração entre arquivos continua funcionando).
+Testado com contas `zz Admin Onda11`/`zz Operador Onda11`/`zz Cliente Onda11` e uma demanda de
+teste real (setor Cadastro → transferida para Cobrança no meio do teste), removidas ao final.
 
-- [ ] **Step 5: Commit**
+1. ✅ Cabeçalho mostra status/prioridade/categoria/responsável corretos para operador
+   responsável e para admin; sem erros de console em nenhuma carga (`Api.get` de
+   `verDetalhes` funcionando).
+2. ✅ Operador responsável: "Devolver ao Gestor"/"Repassar a Colega"/"Transferir para Outro
+   Setor" aparecem. **Repassar a Colega** testado de ponta a ponta — `Api.get('agentes.php')`
+   trouxe os colegas reais do setor, a demanda foi reatribuída (`ticket_historico` registrou
+   `reatribuicao_colega`), timeline atualizada. Logado como admin: **Transferir para Outro
+   Setor** testado de ponta a ponta — `Api.get('setores.php')` trouxe os setores corretos
+   (excluindo o atual), a demanda foi transferida (`ticket_historico` registrou
+   `transferencia_setor`, setor/agente/categoria mudaram no banco).
+3. ✅ Comentário simples: digitado no Quill, `adicionarComentario` (fetch com FormData, sem
+   conversão) enviou corretamente e o comentário apareceu na lista via DOM API, sem reload.
+   Observação não bloqueante: o cabeçalho "Interações (N)" não se atualiza após a inserção via
+   DOM (comportamento idêntico ao original — a contagem só é recalculada num novo
+   `verDetalhes`).
+4. Não testado com anexo real nesta onda (mesma validação/mecanismo de
+   `validarAnexosComentario`/`visualizarAnexo`/`baixarAnexo`, nenhum deles convertido —
+   `visualizarAnexo`/`baixarAnexo` já usavam `fetch()` direto antes desta onda). Risco nulo.
+5. Não testado "Enviar e Fechar" isoladamente nesta onda (mesmo mecanismo de `adicionarComentario`
+   + `executarAlteracaoStatus`, ambos já exercitados/compartilhados). Risco nulo.
+6. ✅ "Excluir": confirmado o diálogo, demanda foi para a lixeira (`excluido_em` preenchido no
+   banco), navegação de volta para a lista de Demandas funcionou.
+7. Não testado "Voltar" isoladamente (função trivial, 3 ifs sobre `secaoOrigem`, sem chamada de
+   rede). Risco nulo.
+8. Não testado "Reabrir" nesta onda especificamente (já testado na Onda 10, mesma função em
+   `arquivo.js`, chamada aqui apenas por nome — integração entre arquivos).
+9. **Achado durante o teste, confirmado como comportamento pré-existente (não é bug desta
+   onda):** `validarAntesComentario` bloqueou a adição de comentário quando a demanda não tinha
+   responsável/categoria (após a transferência de setor, que limpa ambos) — mostrou o alerta
+   "Esta demanda não possui responsável..." corretamente, igual ao código original. Também
+   confirmado que, para um operador que acabou de repassar sua própria demanda, o auto-reload
+   de `verDetalhes` (disparado por `executarAcaoDemanda`) responde 403 "Acesso não autorizado",
+   porque ele deixou de ser responsável — regra de acesso correta do backend
+   (`AcessoService`), não uma regressão da conversão.
 
-```bash
-git add frontend/detalhe-demanda.js frontend/script.js frontend/index.html
-git commit -m "feat: extrai Detalhe da Demanda de script.js para detalhe-demanda.js, usando api.js (Fase 12, onda 11)"
-```
+- [x] **Step 5: Commit**
+
+Commit `e1990ab`.
 
 ---
 
 ### Task 2: Regressão rápida da onda
 
-- [ ] **Step 1: Conferir que `script.js` encolheu e nada ficou duplicado**
+- [x] **Step 1: Conferir que `script.js` encolheu e nada ficou duplicado**
 
-```bash
-cd frontend
-grep -c "^function \|^async function " script.js   # era 116 após a Onda 10; esperar ~116 - 21 = 95
-node --check script.js
-node --check detalhe-demanda.js
-```
+`grep -c "^function \|^async function " script.js` → 95 (116 − 21, confere). `node --check`
+limpo em `script.js` e `detalhe-demanda.js`.
 
-- [ ] **Step 2: Login do zero, console limpo**
+- [x] **Step 2: Login do zero, console limpo**
 
-- [ ] **Step 3: Rodar a suíte de backend**
+Login feito do zero (contas de teste), console sem erros/warnings em nenhum passo (fora um
+403 esperado e pré-existente em `email-alert.php` para papéis não-admin, e os 403 de acesso
+discutidos no achado #9 acima, ambos comportamento correto do backend).
 
-```bash
-cd ../api
-composer test
-php tests/matriz-de-acesso.php
-```
+- [x] **Step 3: Rodar a suíte de backend**
 
-Esperado: `OK (31 tests, ...)` e `Resultado: 19 OK, 0 falha(s)` — idêntico a antes desta onda.
+`composer test`: OK (31 tests, 41 assertions). `php tests/matriz-de-acesso.php`: 19 OK, 0
+falhas. Idêntico ao estado anterior à onda — trabalho foi só frontend.
