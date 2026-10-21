@@ -79,9 +79,9 @@ salva ao recarregar a página) fica em `script.js` e não muda. Para rodar local
 - Produces: as mesmas 6 funções globais de antes, mesmos nomes e assinaturas, e a mesma
   variável global `dadosRelatorioAtual`.
 
-- [ ] **Step 1: Criar `frontend/relatorios.js`**
+- [x] **Step 1: Criar `frontend/relatorios.js`**
 
-- [ ] **Step 2: Remover o bloco de `script.js`**
+- [x] **Step 2: Remover o bloco de `script.js`**
 
 Remova do comentário `// Função para mostrar relatórios` até o fim de `exportarPDF` (pare
 antes do comentário `// Verificar complexidade da senha`).
@@ -89,9 +89,9 @@ antes do comentário `// Verificar complexidade da senha`).
 Confira com `grep -n "Função para mostrar relatórios\|^function mostrarRelatorios\|^function exportarPDF\|^function verificarComplexidade" frontend/script.js`
 — depois da remoção, só deve sobrar `verificarComplexidade`.
 
-- [ ] **Step 3: Registrar `relatorios.js` em `index.html` e subir a versão de `script.js`**
+- [x] **Step 3: Registrar `relatorios.js` em `index.html` e subir a versão de `script.js`**
 
-- [ ] **Step 4: Testar no navegador (Playwright)**
+- [x] **Step 4: Testar no navegador (Playwright)**
 
 Login como admin:
 
@@ -107,7 +107,7 @@ Login como admin:
 6. Exportar para PDF (abre nova janela/aba com o conteúdo formatado para impressão): toast de
    sucesso.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add frontend/relatorios.js frontend/script.js frontend/index.html
@@ -118,7 +118,7 @@ git commit -m "feat: extrai Relatorios de script.js para relatorios.js, usando a
 
 ### Task 2: Regressão rápida da onda
 
-- [ ] **Step 1: Conferir que `script.js` encolheu e nada ficou duplicado**
+- [x] **Step 1: Conferir que `script.js` encolheu e nada ficou duplicado**
 
 ```bash
 cd frontend
@@ -127,9 +127,9 @@ node --check script.js
 node --check relatorios.js
 ```
 
-- [ ] **Step 2: Login do zero, console limpo**
+- [x] **Step 2: Login do zero, console limpo**
 
-- [ ] **Step 3: Rodar a suíte de backend**
+- [x] **Step 3: Rodar a suíte de backend**
 
 ```bash
 cd ../api
@@ -138,3 +138,34 @@ php tests/matriz-de-acesso.php
 ```
 
 Esperado: `OK (31 tests, ...)` e `Resultado: 19 OK, 0 falha(s)` — idêntico a antes desta onda.
+
+## Registro da validação
+
+Executado de verdade no navegador (Playwright), setor Cadastro escolhido no cabeçalho:
+
+- Abrir "Relatórios": filtros de Status/Prioridade carregam com as opções do catálogo;
+  "Subcategoria" veio vazio além de "Todas" (não há categorias cadastradas no setor agora —
+  nada a ver com esta onda); "Responsável" carregou via `agentes.php` com os 4 usuários reais.
+- Período "Personalizado": campos "De:"/"Até:" aparecem; voltar para "Ano Atual": campos
+  escondem de novo. Listener de `filtro-periodo` funcionando sem duplicar.
+- "Exportar Excel" sem gerar relatório antes: `mostrarAlert` "Gere um relatório antes de
+  exportar." sem chamar o servidor.
+- "Gerar Relatório" (Ano Atual, sem filtros): `Api.get` em `relatorios.php` retornou com
+  sucesso; cartões de resumo (0 demandas, "N/A" nos tempos médios — não há demandas reais no
+  setor agora) e tabela vazia renderizados sem erro.
+- "Exportar Excel" com relatório gerado: download real do CSV (`relatorio_tickets_AAAA-MM-DD.csv`)
+  confirmado pelo navegador.
+- "Exportar PDF": **não testável via Playwright** — `exportarPDF()` chama `window.print()`,
+  que abre o diálogo de impressão nativo do sistema operacional e bloqueia toda a automação
+  (travou a sessão do Playwright, precisou reabrir o navegador). `exportarPDF()` não foi
+  alterada nesta onda (não faz nenhuma chamada de rede, é cópia literal do código original) —
+  risco de regressão nulo, só o teste automatizado dessa função específica não é viável neste
+  ambiente.
+- Conta de teste `zz Admin Onda5` removida do banco ao final; confirmado
+  `SELECT COUNT(*) FROM usuarios WHERE nome LIKE 'zz%'` = 0.
+- `grep -c "^function " script.js` → 191 (198 - 7; o plano original contou errado "6
+  funções", são 7: `mostrarRelatorios`, `carregarFiltrosRelatorio`, `gerarRelatorio`,
+  `exibirRelatorio`, `exportarRelatorio`, `exportarExcel`, `exportarPDF`); `node --check`
+  limpo em `script.js` e `relatorios.js`; login do zero → console sem erro novo;
+  `composer test` → OK (31 testes, 41 assertions); `php tests/matriz-de-acesso.php` → 19 OK,
+  0 falhas.
