@@ -216,3 +216,31 @@ Executado de verdade no navegador (Playwright), setor Cadastro escolhido no cabe
 - `grep -c "^function " script.js` → 198 (218 - 20, como esperado); `node --check` limpo em
   `script.js` e `ativacao-setor.js`; `composer test` → OK (31 testes, 41 assertions);
   `php tests/matriz-de-acesso.php` → 19 OK, 0 falhas.
+
+## Revisão final (subagente opus)
+
+0 Crítico, 0 Importante introduzido por esta onda, 2 Menor (pré-existentes, ver abaixo).
+Todas as 20 conversões XHR→Api.* foram confirmadas corretas (verbos, URLs, corpos), os 7
+catch com alerta usam o padrão `(e.dados && e.dados.error) || fallback`, as variáveis de
+módulo compartilhadas não têm redeclaração/shadowing, `carregarAbaConfigSetor('emails')` e
+`mostrarConfigEmail()` continuam delegando corretamente para `carregarEmailsSetor()`, os dois
+cortes em `script.js` ficaram limpos sem órfãos, e o comportamento de `setor-emails.php?
+acao=testar`/`testar-email.php` (sempre 200, mesmo em falha de conexão) foi confirmado batendo
+com o código.
+
+- **Corrigidos (commit `0d07a43`), 2 XSS herdados** — já existiam em `script.js` antes desta
+  divisão; a extração só os copiou sem corrigir:
+  - `formatarNomeItemConfigSetor(tipo, item.nome)` ia direto para `innerHTML` em
+    `renderizarListaConfigSetor` sem `sanitizeHTML()` — nome de status/prioridade vem do
+    catálogo cadastrado pelo admin, impacto baixo, mas corrigido por consistência.
+  - O nome do setor exibido em "🏢 E-mail do setor: {nome}" (`mostrarConfigEmail`) também
+    ia sem escapar — nome de setor é um XSS armazenado em tela restrita a admin.
+  Ambos confirmados por teste real no navegador: nada quebrou (nomes continuam exibidos
+  normalmente) e o `sanitizeHTML()` está correto.
+- **Menor (não corrigido, adiado, sem relação com XSS):**
+  `testarEmailSetor()` usa um texto de erro fixo no catch em vez de
+  `(e.dados && e.dados.error)`, perdendo a mensagem de validação 400 do servidor nesse caso
+  específico — comportamento já melhor que o original (que mostrava "❌ " vazio nesse caso).
+  `abaConfigSetorAtiva` é atribuída mas nunca lida, e a aba `'emails'` de
+  `carregarAbaConfigSetor` não tem botão correspondente na UI atual — ambos herdados de antes
+  da divisão, mantidos por fidelidade.
