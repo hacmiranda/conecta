@@ -431,7 +431,7 @@ function editarMacrocategoria(macroId, nomeAtual) {
     document.getElementById('modal-prompt-message').innerHTML = `
         <div class="form-group">
             <label for="edit-nome-macro">Nome:</label>
-            <input type="text" id="edit-nome-macro" value="${nomeAtual}" required>
+            <input type="text" id="edit-nome-macro" value="${sanitizeHTML(nomeAtual)}" required>
         </div>
     `;
     document.getElementById('modal-prompt-title').textContent = 'Editar Categoria';
