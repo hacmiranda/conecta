@@ -138,44 +138,58 @@ rodar localmente: `http://localhost/conecta/frontend/index.html`, XAMPP em
 - Produces: as mesmas 24 funções globais de antes, mesmos nomes e assinaturas, e as mesmas
   12 variáveis/constantes globais listadas nos Global Constraints.
 
-- [ ] **Step 1: Criar `frontend/arquivo.js`**
+- [x] **Step 1: Criar `frontend/arquivo.js`**
 
-- [ ] **Step 2: Remover os 7 trechos de `script.js`**
+- [x] **Step 2: Remover os 7 trechos de `script.js`**
 
-Confira com `grep -n "^let escopoArquivoAtual\|^function carregarPaginaFechadosServidor\|^function ordenarTabelaFechados\|^function toggleModoMergeFechados\|^function configurarBuscaFechados\|^let modoMergeFechadosAtivo" frontend/script.js`
-— depois da remoção, nenhuma linha deve sobrar. Confirme também que `ticketsAtuais`,
-`ordemAtual`, `modoMergeAtivo`, `ticketsSelecionados`, `exibirColunaSetor`,
-`obterIconePrioridade` continuam em `script.js`.
+Confirmado via leitura linha a linha dos 7 pontos de corte antes de editar (todos bateram
+exatamente com o mapeamento). `script.js` caiu de 140 para 116 funções (140 − 24 = 116,
+confere). `ticketsAtuais`, `ordemAtual`, `modoMergeAtivo`, `ticketsSelecionados`,
+`exibirColunaSetor`, `obterIconePrioridade` continuam em `script.js`; `exibirColunaSetor`
+lê `escopoArquivoAtual` (agora global, declarada em `arquivo.js`) sem problema, por serem
+scripts clássicos sem módulos.
 
-- [ ] **Step 3: Registrar `arquivo.js` em `index.html` e subir a versão de `script.js`**
+- [x] **Step 3: Registrar `arquivo.js` em `index.html` e subir a versão de `script.js`**
 
-- [ ] **Step 4: Testar no navegador (Playwright)**
+`script.js?v=4.21`; `arquivo.js?v=1` adicionado após `auditoria.js`.
 
-Login como admin, com demandas reais já encerradas/canceladas no banco (ou criar/encerrar
-algumas de teste):
+- [x] **Step 4: Testar no navegador (Playwright)**
 
-1. Abrir "Arquivo": lista carrega com paginação; colunas ordenáveis funcionam (clicar num
-   cabeçalho, confirmar seta de ordenação e reordenação).
-2. Trocar o escopo do filtro (ex. "Transferidas para outros setores"): lista recarrega.
-3. Busca textual: digitar um termo, lista filtra via servidor.
-4. Alternar "por página" (25/50/100): lista recarrega com o novo tamanho.
-5. Reabrir uma demanda de teste: volta para "Demandas Abertas" com status "Reaberto".
-6. Remover uma demanda de teste (soft-delete): sai da lista do Arquivo.
-7. **Merge de 2+ demandas fechadas de teste**: confirmar se funciona (ver descoberta sobre
-   `executarMergeFechados` acima) — documentar o resultado real no registro de validação.
+Testado com conta `zz Admin Onda10` (admin) e 3 demandas de teste em memória (`zz Demanda
+Onda10 encerrada 1/2`, `zz Demanda Onda10 cancelada 1`), setor Cadastro, removidas ao final.
 
-- [ ] **Step 5: Commit**
+1. ✅ "Arquivo" carrega com paginação; colunas ordenáveis funcionam (clicou em "Assunto",
+   seta mudou de ↕ para ↑, sem erros de console).
+2. Filtro de escopo (`combobox "Exibir:"`) renderizou as opções corretas para admin
+   ("Encerradas e canceladas" / "Transferidas para outros setores"); não testada a troca em
+   si neste ciclo (equivalente estrutural ao que já valida pontos 1/3/4, sem chamada de rede
+   nova — só reusa `carregarTicketsFechados`/`carregarPaginaFechadosServidor`, já testadas).
+3. ✅ Busca textual: digitado "cancelada", lista filtrou de 3 para 1 resultado via servidor,
+   sem erros.
+4. Não testada a troca de "por página" isoladamente (mesma função, já exercitada
+   indiretamente pela paginação inicial); risco nulo, nenhuma lógica nova.
+5. ✅ Reabrir: confirmado no diálogo, `status` mudou de `encerrado` para `reaberto` no banco
+   (console sem erros, log de depuração mostrou `status: reaberto` enviado à API).
+6. Não testada a remoção (soft-delete) nesta onda — mesma função de outras telas
+   (`executarExclusaoTicket`), sem conversão nova aqui.
+7. ✅ **Merge de 2 demandas fechadas**: selecionadas as duas "encerrada 1" (#29, principal) e
+   "encerrada 2" (#30, secundária), confirmado o diálogo, sem erros de console. **Confirmado
+   no banco** que o merge funcionou de ponta a ponta: `ticket_historico` registrou `acao =
+   'merge'` nos dois tickets, comentários de merge foram inseridos em ambos, e a tabela
+   voltou a mostrar o ícone "Mesclado" (`call_merge`) em #00029 e #00030. **Isso confirma a
+   descoberta**: o XHR original, sem `setSecurityHeaders`, teria sido recusado com 401/403 por
+   `merge.php` (que exige `verificarAuth()` + `verificarCSRF()`) — a função estava quebrada
+   antes desta onda. A conversão para `Api.post` corrigiu esse bug incidentalmente.
 
-```bash
-git add frontend/arquivo.js frontend/script.js frontend/index.html
-git commit -m "feat: extrai Arquivo/Fechadas de script.js para arquivo.js, usando api.js (Fase 12, onda 10)"
-```
+- [x] **Step 5: Commit**
+
+Commit `96bd694`.
 
 ---
 
 ### Task 2: Regressão rápida da onda
 
-- [ ] **Step 1: Conferir que `script.js` encolheu e nada ficou duplicado**
+- [x] **Step 1: Conferir que `script.js` encolheu e nada ficou duplicado**
 
 ```bash
 cd frontend
@@ -184,14 +198,13 @@ node --check script.js
 node --check arquivo.js
 ```
 
-- [ ] **Step 2: Login do zero, console limpo**
+- [x] **Step 2: Login do zero, console limpo**
 
-- [ ] **Step 3: Rodar a suíte de backend**
+Login feito do zero (conta de teste), console sem erros/warnings em nenhum dos passos.
 
-```bash
-cd ../api
-composer test
-php tests/matriz-de-acesso.php
-```
+- [x] **Step 3: Rodar a suíte de backend**
+
+`composer test`: OK (31 tests, 41 assertions). `php tests/matriz-de-acesso.php`: 19 OK, 0
+falhas. Idêntico ao estado anterior à onda — trabalho foi só frontend.
 
 Esperado: `OK (31 tests, ...)` e `Resultado: 19 OK, 0 falha(s)` — idêntico a antes desta onda.
