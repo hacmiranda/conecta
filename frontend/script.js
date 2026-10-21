@@ -5143,8 +5143,6 @@ function mostrarSobre() {
     `;
 }
 
-// === SISTEMA DE DICAS ===
-
 // Função para ir para lista de tickets
 function irParaTickets() {
     localStorage.removeItem('cd_ticketAtivo');
