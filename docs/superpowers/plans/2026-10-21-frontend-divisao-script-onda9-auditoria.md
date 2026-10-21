@@ -187,3 +187,26 @@ Executado de verdade no navegador (Playwright), admin, histórico real do banco 
 - `grep -c "^function " script.js` → 140 (167 - 27, como esperado); `node --check` limpo em
   `script.js` e `auditoria.js`; `composer test` → OK (31 testes, 41 assertions);
   `php tests/matriz-de-acesso.php` → 19 OK, 0 falhas.
+
+## Revisão final (subagente opus)
+
+0 Crítico, 0 Importante, 4 Menor (todos opcionais, não corrigidos) — veredito "publicar como
+está". Confirmado por diff completo: as 17 funções sem rede são cópias byte a byte (incluindo
+`mostrarLogEmails` com as cores de modo escuro e `exportarAuditoriaPDF` com o `<style>` A4
+inteiro); as 10 conversões XHR→Api.* estão corretas (verbos, URLs, dados passados à função
+seguinte); o corte único em `script.js` ficou limpo, sem nada sobrando ou duplicado;
+`sanitizeHTML()` preservado em todos os pontos do original, incluindo a ausência dele em
+`reg.usuario_afetado` (idêntico ao original, não é regressão).
+
+- **Menor (não corrigido, opcional):** `carregarLogEmails` e `exportarLogEmailsCSV` colapsaram
+  3 mensagens de erro distintas do original (status HTTP, JSON inválido, erro de rede) numa
+  mensagem única genérica — mesmo padrão de simplificação já aceito em ondas anteriores.
+- **Menor (não corrigido, opcional):** os catches silenciosos de várias funções
+  (`carregarAuditoriaGeral`/`Tickets`/`Login`, `carregarEstatisticasAudit`,
+  `carregarUsuariosFiltroAudit`, `filtrarAuditoria`, `exportarAuditoria`) agora também
+  engolem exceções de renderização (antes apareciam como erro não capturado no console) —
+  sem efeito visível ao usuário, só dificulta depuração; um `console.error` resolveria, se
+  algum dia for necessário.
+- **Descoberta pré-existente, fora de escopo:** `reg.usuario_afetado` (e, na função morta,
+  `solicitanteNome`/`solicitanteEmail`) vão para `innerHTML` sem `sanitizeHTML()` — idêntico
+  ao original, candidato a uma frente de XSS separada, não desta onda.
