@@ -104,7 +104,7 @@ XAMPP em `C:\xampp\htdocs\conecta`.
   `excluirUsuario(usuarioId)`, `executarExclusaoUsuario(usuarioId)`, `desativarUsuario(usuarioId)`,
   `redefinirSenhaUsuario(usuarioId, nome)`, `ativarUsuario(usuarioId)`, `toggleFormUsuario()`.
 
-- [ ] **Step 1: Criar `frontend/usuarios.js`**
+- [x] **Step 1: Criar `frontend/usuarios.js`**
 
 ```js
 /**
@@ -596,7 +596,7 @@ function toggleFormUsuario() {
 }
 ```
 
-- [ ] **Step 2: Remover os 3 trechos de `script.js`**
+- [x] **Step 2: Remover os 3 trechos de `script.js`**
 
 Remova, nesta ordem:
 1. Do comentário `// === GERENCIAMENTO DE USUÁRIOS ===` até o fim de `executarExclusaoUsuario`
@@ -610,7 +610,7 @@ Remova, nesta ordem:
 Confira com `grep -n "GERENCIAMENTO DE USUÁRIOS\|^function desativarUsuario\|^function toggleFormUsuario\|^function toggleFormCategoria" frontend/script.js` — depois da remoção, só deve
 sobrar `toggleFormCategoria`.
 
-- [ ] **Step 3: Registrar `usuarios.js` em `index.html` e subir a versão de `script.js`**
+- [x] **Step 3: Registrar `usuarios.js` em `index.html` e subir a versão de `script.js`**
 
 ```html
     <script src="script.js?v=4.13"></script>
@@ -623,7 +623,7 @@ sobrar `toggleFormCategoria`.
 (se a versão atual de `script.js` em `index.html` não for `4.12` neste ponto, use a versão
 atual + 1.)
 
-- [ ] **Step 4: Testar no navegador (Playwright)**
+- [x] **Step 4: Testar no navegador (Playwright)**
 
 Login como **admin**:
 
@@ -648,7 +648,7 @@ de novo usuário só oferece o papel "Operador" e não mostra o campo Setor.
 Remova pelo banco (`DELETE FROM usuarios WHERE ...`) qualquer usuário de teste que não tenha
 sido excluído pela própria tela ao final.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add frontend/usuarios.js frontend/script.js frontend/index.html
@@ -661,7 +661,7 @@ git commit -m "feat: extrai Usuarios de script.js para usuarios.js, usando api.j
 
 **Files:** nenhum arquivo novo — só validação.
 
-- [ ] **Step 1: Conferir que `script.js` encolheu e nada ficou duplicado**
+- [x] **Step 1: Conferir que `script.js` encolheu e nada ficou duplicado**
 
 ```bash
 cd frontend
@@ -678,12 +678,12 @@ node --check usuarios.js
 
 Esperado: nenhuma saída (sem erro de sintaxe).
 
-- [ ] **Step 2: Login do zero, console limpo**
+- [x] **Step 2: Login do zero, console limpo**
 
 Limpar o `localStorage`, logar de novo (admin), abrir Demandas e Usuários — console sem erro
 novo.
 
-- [ ] **Step 3: Rodar a suíte de backend**
+- [x] **Step 3: Rodar a suíte de backend**
 
 ```bash
 cd ../api
@@ -693,3 +693,29 @@ php tests/matriz-de-acesso.php
 
 Esperado: `OK (31 tests, ...)` e `Resultado: 19 OK, 0 falha(s)` — idêntico a antes desta onda
 (este plano só tocou frontend).
+
+## Registro da validação (pedido pela revisão final — as checagens já tinham sido feitas, só
+## não ficaram escritas em lugar nenhum)
+
+Tudo abaixo foi executado de verdade no navegador (Playwright), não só lido no código:
+
+- **admin**: abrir Usuários (sem erro); criar `zz Onda2 Teste` (operador, setor existente,
+  senha válida) — apareceu na lista; tentar criar outro usuário com o **mesmo e-mail** —
+  `mostrarAlert` mostrou a mensagem do servidor, "Email já existe" (não um texto genérico);
+  editar o cargo do usuário de teste — atualizou; desativar — aviso de confirmação com o texto
+  "Ele será desconectado..." (0 demandas abertas, usuário novo) e, ao confirmar, card marcado
+  "(Inativo)"; ativar de volta — card volta ao normal; "Redefinir senha" com senhas diferentes
+  — toast "As senhas não coincidem", modal continua aberto; com senhas iguais — sucesso, modal
+  fecha; excluir o usuário de teste — sai da lista.
+- **gestor** (conta `zz Gestor Onda2` temporária, sem `trocar_senha` pendente — as contas reais
+  Hanna/Danuza têm essa flag e qualquer request delas cai em 403 antes de chegar à regra
+  testada, como já registrado na revisão da Onda 1): "Gerenciar Usuários" mostrou só os 3
+  usuários do próprio setor; o formulário de novo usuário só ofereceu "Operador", sem campo
+  Setor.
+- Usuários/contas de teste (`zz Onda2 Teste`, `zz Onda2 Dup` — que nem chegou a ser criado, por
+  ser duplicado — e `zz Gestor Onda2`) removidos do banco ao final; confirmado
+  `SELECT COUNT(*) FROM usuarios WHERE nome LIKE 'zz%'` = 0.
+- `grep -c "^function " script.js` → 240 (255 - 15, como esperado); as 15 funções não aparecem
+  mais em `script.js`; `node --check` limpo em `script.js` e `usuarios.js`; login do zero
+  (`localStorage` limpo + token novo) + navegação para `index.html` → console sem erro;
+  `composer test` → OK (31 testes); `php tests/matriz-de-acesso.php` → 19 OK, 0 falhas.
