@@ -101,16 +101,16 @@ XAMPP em `C:\xampp\htdocs\conecta`.
 - Consumes: `Api`, `mostrarSecao` — inalterados.
 - Produces: as mesmas 14 funções globais de antes, mesmos nomes e assinaturas.
 
-- [ ] **Step 1: Criar `frontend/ajuda.js`**
+- [x] **Step 1: Criar `frontend/ajuda.js`**
 
-- [ ] **Step 2: Remover os 3 trechos de `script.js`**
+- [x] **Step 2: Remover os 3 trechos de `script.js`**
 
 Confira com `grep -n "Seção de Ajuda\|^function mostrarDicas\b\|^function mostrarTutorialAjuda\|^function enviarEFecharTicket" frontend/script.js`
 — depois da remoção, nenhuma das funções movidas deve sobrar.
 
-- [ ] **Step 3: Registrar `ajuda.js` em `index.html` ANTES de `tutorial.js`, subir a versão de `script.js`**
+- [x] **Step 3: Registrar `ajuda.js` em `index.html` ANTES de `tutorial.js`, subir a versão de `script.js`**
 
-- [ ] **Step 4: Testar no navegador (Playwright)**
+- [x] **Step 4: Testar no navegador (Playwright)**
 
 1. Menu Ajuda → "⏰ SLA": tabela de prazos aparece; lista de horários de atendimento carrega
    (dias da semana com/sem atendimento).
@@ -122,7 +122,7 @@ Confira com `grep -n "Seção de Ajuda\|^function mostrarDicas\b\|^function most
 5. Observar o canto da tela por ~5s após o carregamento inicial: o toast "Alt+N: Novo | ..."
    aparece e desaparece.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add frontend/ajuda.js frontend/script.js frontend/index.html
@@ -133,7 +133,7 @@ git commit -m "feat: extrai Ajuda/Guias de script.js para ajuda.js, usando api.j
 
 ### Task 2: Regressão rápida da onda
 
-- [ ] **Step 1: Conferir que `script.js` encolheu e nada ficou duplicado**
+- [x] **Step 1: Conferir que `script.js` encolheu e nada ficou duplicado**
 
 ```bash
 cd frontend
@@ -142,9 +142,9 @@ node --check script.js
 node --check ajuda.js
 ```
 
-- [ ] **Step 2: Login do zero, console limpo**
+- [x] **Step 2: Login do zero, console limpo**
 
-- [ ] **Step 3: Rodar a suíte de backend**
+- [x] **Step 3: Rodar a suíte de backend**
 
 ```bash
 cd ../api
@@ -153,3 +153,29 @@ php tests/matriz-de-acesso.php
 ```
 
 Esperado: `OK (31 tests, ...)` e `Resultado: 19 OK, 0 falha(s)` — idêntico a antes desta onda.
+
+## Registro da validação
+
+Executado de verdade no navegador (Playwright):
+
+- Modal de Dicas apareceu automaticamente na primeira visita (`verificarPrimeiraVisita`);
+  marcado "Não mostrar dicas na inicialização", fechado, recarregada a página — não
+  reapareceu (persistência via `localStorage` confirmada).
+- Toast de atalhos ("Alt+N: Novo | ...") visível no rodapé (`mostrarDicaAtalhos`).
+- Menu Ajuda → "⏰ SLA": guia completo renderizado, incluindo a lista dinâmica de horários de
+  atendimento (Segunda a Sexta 08:00-17:00, Domingo/Sábado "Sem atendimento") — confirma que
+  `carregarHorariosDinamicos()` (convertida para `Api.get` sequencial) funcionou ponta a
+  ponta contra o servidor real.
+- "📊 Status das Demandas", "🔥 Prioridades", "⌨️ Atalhos de Teclado": cada um abriu sem erro
+  no console.
+- "🎓 Tutorial": confirmado que executa a versão real de `tutorial.js` ("Tutorial - Passo: 0
+  Total: 14" no console), não a versão morta movida para `ajuda.js` — comportamento idêntico
+  a antes da onda, já que `ajuda.js` continua carregando antes de `tutorial.js`.
+- "💡 Dicas" (chamado via `mostrarAjuda(); mostrarDicasAjuda()`, testado com
+  `browser_evaluate` por um problema de timing do dropdown na automação, não um bug do
+  sistema): abriu o modal de dicas corretamente.
+- Conta de teste `zz Admin Onda7` removida do banco ao final; confirmado
+  `SELECT COUNT(*) FROM usuarios WHERE nome LIKE 'zz%'` = 0.
+- `grep -c "^function " script.js` → 171 (185 - 14, como esperado); `node --check` limpo em
+  `script.js` e `ajuda.js`; `composer test` → OK (31 testes, 41 assertions);
+  `php tests/matriz-de-acesso.php` → 19 OK, 0 falhas.
