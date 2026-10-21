@@ -153,7 +153,9 @@ Para rodar localmente: `http://localhost/conecta/frontend/index.html`, XAMPP em
 - [x] **Step 2: Remover os 7 trechos de `script.js`**
 
 Todos os 7 cortes confirmados exatamente como mapeados (lido cada boundary antes de editar).
-`script.js` caiu de 116 para 95 funções. Confirmado que `atribuirTicket`, `executarAcaoDemanda`,
+`script.js` caiu de 118 para 95 funções (23 movidas — a revisão corrigiu a contagem inicial
+de "116 → 95 / 21", que usava a contagem da Onda 10 desatualizada). Confirmado que
+`atribuirTicket`, `executarAcaoDemanda`,
 `pedirComentarioEExecutar`, `obterSetorIdDoTicket`, `executarAlteracaoStatus`,
 `executarExclusaoTicket`, `confirmarAtribuicao`/`executarAtribuicao` (dead code),
 `anexosSelecionados`, `MAX_ARQUIVOS`/`MAX_TAMANHO`/`TIPOS_PERMITIDOS` continuam em `script.js`.
@@ -212,7 +214,7 @@ Commit `e1990ab`.
 
 - [x] **Step 1: Conferir que `script.js` encolheu e nada ficou duplicado**
 
-`grep -c "^function \|^async function " script.js` → 95 (116 − 21, confere). `node --check`
+`grep -c "^function \|^async function " script.js` → 95 (118 − 23, confere). `node --check`
 limpo em `script.js` e `detalhe-demanda.js`.
 
 - [x] **Step 2: Login do zero, console limpo**
@@ -225,3 +227,30 @@ discutidos no achado #9 acima, ambos comportamento correto do backend).
 
 `composer test`: OK (31 tests, 41 assertions). `php tests/matriz-de-acesso.php`: 19 OK, 0
 falhas. Idêntico ao estado anterior à onda — trabalho foi só frontend.
+
+---
+
+## Revisão final (subagente opus, independente)
+
+**Veredito: Aprovado.** 0 Crítico, 0 Importante, 4 Menores (nenhum exigiu ajuste de código):
+
+1. `verDetalhes`: um `TypeError` de rede (fetch falha antes de chegar ao servidor) agora cai no
+   mesmo `catch` do erro HTTP, mostrando "Erro ao carregar detalhes da demanda" em vez do texto
+   distinto "Erro de conexão" do XHR original — divergência de texto em um caminho raro, sem
+   impacto funcional.
+2. `verDetalhes`: o `try` ficou mais amplo, cobrindo também `localStorage.setItem` e
+   `mostrarSecao('detalhes')` — um `QuotaExceededError` (demanda com muitas imagens base64)
+   agora mostra o mesmo alerta de erro em vez de uma exceção não tratada que travava a tela.
+   Efeito prático igual ou melhor; só a mensagem de diagnóstico muda.
+3. `repassarParaColega`/`transferirParaSetor`: o XHR original não tinha `onerror` (silencioso em
+   queda de rede); a conversão com `try/catch` agora mostra "Erro ao carregar colegas do
+   setor"/"Erro ao carregar setores" nesse caso raro — é uma melhoria incidental, mesma
+   categoria de correção já aceita em ondas anteriores.
+4. O plano registrava inicialmente "116 → 95 (21 funções)"; a contagem correta é "118 → 95
+   (23 funções)" — já corrigido neste documento. Nenhuma função foi esquecida ou duplicada.
+
+Confirmado pela revisão: diff fiel linha a linha (única diferença real além das 4 conversões é
+a posição de `anexosComentarioSelecionados`), `marcarComentariosLidos` preserva o silêncio
+total do original, `verDetalhes` async é seguro (nenhum chamador usa o retorno), as 12 funções
+compartilhadas com o domínio Demandas/Kanban continuam exatamente 1 vez em `script.js`, sem
+XSS novo, sem regressão de acessibilidade, `node --check` limpo em ambos os arquivos.
