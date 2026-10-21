@@ -169,3 +169,28 @@ Executado de verdade no navegador (Playwright), setor Cadastro escolhido no cabe
   limpo em `script.js` e `relatorios.js`; login do zero → console sem erro novo;
   `composer test` → OK (31 testes, 41 assertions); `php tests/matriz-de-acesso.php` → 19 OK,
   0 falhas.
+
+## Revisão final (subagente opus)
+
+0 Crítico, 2 Importante (corrigidos), 4 Menor (todos pré-existentes, não corrigidos nesta
+onda). A conversão foi confirmada fiel linha a linha ao bloco original: `carregarFiltrosRelatorio`
+mantém as duas chamadas em paralelo com `.then/.catch` silencioso (decisão documentada no
+plano), `gerarRelatorio` usa `Api.get` corretamente, `dadosRelatorioAtual` é compartilhada sem
+redeclaração, `exibirRelatorio`/`exportarExcel`/`exportarPDF` continuam síncronas e idênticas,
+`sanitizeHTML()` preservado em todos os campos de texto do servidor, o `.replace(/;/g, ',')`
+anti-quebra-de-CSV intacto, e o corte em `script.js` ficou limpo.
+
+- **Corrigidos (commit `bbf5c52`):**
+  - `gerarRelatorio()` usava um texto fixo no `catch` em vez do padrão
+    `(e.dados && e.dados.error) || 'fallback'` desta onda (efeito prático nulo hoje, mas
+    engoliria uma mensagem nova do servidor).
+  - O BOM do CSV em `exportarExcel()` (`let csv = '﻿';`) tinha virado o caractere
+    U+FEFF literal no arquivo-fonte, em vez do escape `﻿` do código original — mesmo
+    efeito em runtime (confirmado isoladamente: `'﻿'.length === 1`,
+    `charCodeAt(0) === 0xfeff`), mas um caractere invisível que um editor/formatador
+    poderia apagar em silêncio sem aparecer no diff. Restaurado ao escape literal.
+- **Menor (não corrigido, adiado, todos pré-existentes desde antes desta divisão):**
+  `ticket.status`/`ticket.prioridade` sem `sanitizeHTML()` (valores de catálogo, risco
+  baixo); atributo malformado `<small style=""color: #666;"">`; `carregarFiltrosRelatorio`
+  não limpa os `<select>` antes de popular (duplica opções a cada visita); nenhum é
+  regressão desta onda.
