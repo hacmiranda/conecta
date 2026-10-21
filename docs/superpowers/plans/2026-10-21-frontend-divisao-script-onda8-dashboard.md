@@ -161,3 +161,20 @@ Executado de verdade no navegador (Playwright):
 - `grep -c "^function " script.js` → 167 (171 - 4, como esperado); `node --check` limpo em
   `script.js` e `dashboard.js`; `composer test` → OK (31 testes, 41 assertions);
   `php tests/matriz-de-acesso.php` → 19 OK, 0 falhas.
+
+## Revisão final (subagente opus)
+
+0 Crítico, 0 Importante, 2 Menor — nenhum corrigido. `mostrarDashboardNaTela` (incluindo os
+11 `criarGraficoX`, todos os `data-target` e todos os optional chaining `?.`) e
+`mostrarInfoGrafico` (as 17 entradas do dicionário `infos`) foram confirmadas cópias fiéis;
+`sanitizeHTML()` preservado nas 3 listas Top 5; os dois cortes em `script.js` ficaram
+limpos; `dashboard-update.js` confirmado não carregado em nenhum `<script>` do `index.html`.
+
+- **Menor (sem correção, equivalente):** as strings com escapes `\uXXXX` de `mostrarInfoGrafico`
+  (acentuação) foram escritas no arquivo novo como os caracteres UTF-8 reais em vez do escape
+  — confirmado byte a byte que o conteúdo é idêntico depois de resolver os escapes; registrado
+  aqui para não confundir num diff futuro.
+- **Menor (não corrigido, opcional):** o `catch` de `carregarDashboard` agora também cobre
+  exceções síncronas de `mostrarDashboardNaTela` e erros de rede (o XHR original não tinha
+  `onerror`) — resultado ainda melhor que antes (mesmo texto fixo de erro em mais cenários),
+  só não loga no console.
