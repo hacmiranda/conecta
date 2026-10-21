@@ -102,16 +102,16 @@ Todas essas funções só dependem de coisas que continuam em `script.js`: `Api`
 - Produces: as mesmas 27 funções globais de antes, mesmos nomes e assinaturas, e a mesma
   variável global `todosUsuariosAudit`.
 
-- [ ] **Step 1: Criar `frontend/auditoria.js`**
+- [x] **Step 1: Criar `frontend/auditoria.js`**
 
-- [ ] **Step 2: Remover o bloco de `script.js`**
+- [x] **Step 2: Remover o bloco de `script.js`**
 
 Confira com `grep -n "Função para mostrar auditoria\|^function mostrarAuditoria\|^function baixarCSV\|^function enviarEFecharTicket" frontend/script.js`
 — depois da remoção, nenhuma das 27 funções movidas deve sobrar.
 
-- [ ] **Step 3: Registrar `auditoria.js` em `index.html` e subir a versão de `script.js`**
+- [x] **Step 3: Registrar `auditoria.js` em `index.html` e subir a versão de `script.js`**
 
-- [ ] **Step 4: Testar no navegador (Playwright)**
+- [x] **Step 4: Testar no navegador (Playwright)**
 
 Login como admin:
 
@@ -127,7 +127,7 @@ Login como admin:
 7. Exportar PDF: se travar a automação (como na Onda 5), documentar como "validado por
    leitura de código" em vez de testar ao vivo.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add frontend/auditoria.js frontend/script.js frontend/index.html
@@ -138,7 +138,7 @@ git commit -m "feat: extrai Auditoria de script.js para auditoria.js, usando api
 
 ### Task 2: Regressão rápida da onda
 
-- [ ] **Step 1: Conferir que `script.js` encolheu e nada ficou duplicado**
+- [x] **Step 1: Conferir que `script.js` encolheu e nada ficou duplicado**
 
 ```bash
 cd frontend
@@ -147,9 +147,9 @@ node --check script.js
 node --check auditoria.js
 ```
 
-- [ ] **Step 2: Login do zero, console limpo**
+- [x] **Step 2: Login do zero, console limpo**
 
-- [ ] **Step 3: Rodar a suíte de backend**
+- [x] **Step 3: Rodar a suíte de backend**
 
 ```bash
 cd ../api
@@ -158,3 +158,32 @@ php tests/matriz-de-acesso.php
 ```
 
 Esperado: `OK (31 tests, ...)` e `Resultado: 19 OK, 0 falha(s)` — idêntico a antes desta onda.
+
+## Registro da validação
+
+Executado de verdade no navegador (Playwright), admin, histórico real do banco local:
+
+- Aba "Geral": carregou registros reais (incluindo eventos das ondas anteriores de teste),
+  com paginação ("Página 1 de 2") — confirma `carregarAuditoriaGeral` → `Api.get` →
+  `mostrarRegistrosAuditoria` → `mostrarPaginacaoAudit` ponta a ponta.
+- Abas "Demandas", "Login": carregaram sem erro no console.
+- Aba "Estatísticas": renderizou os 4 cards (Ações por Tipo, Top 10 Usuários, Logins últimos
+  30 dias, Alterações por Campo) com números reais e completos.
+- Aba "Envio de E-mails": filtros próprios carregados (Período/Status/Tipo); trocar período
+  para "Último ano" e clicar "Filtrar" recarregou sem erro; "0 registrados" é esperado (sem
+  fila de e-mails configurada localmente); exportar CSV com lista vazia disparou o toast
+  "Nenhum registro encontrado para exportar." (branch tratado corretamente).
+- Filtro superior (Data Início = 2026-10-01) + "Filtrar": aba Geral recarregou com o filtro
+  aplicado; "Limpar" resetou e recarregou sem erro.
+- Exportar CSV (aba Geral, com filtro de data aplicado): download real do arquivo
+  (`auditoria_geral_2026-10-21.csv`) — confirma `exportarAuditoria` → `Api.post` →
+  `baixarCSV` ponta a ponta.
+- Exportar PDF: **não testado via clique real** — mesma limitação já documentada na Onda 5
+  (`exportarPDF` de Relatórios usa `window.print()`, que trava a automação do Playwright num
+  diálogo nativo do SO). `exportarAuditoriaPDF()` não foi alterada nesta onda (sem chamada de
+  rede, cópia literal do original) — risco de regressão nulo.
+- Conta de teste `zz Admin Onda9` removida do banco ao final; confirmado
+  `SELECT COUNT(*) FROM usuarios WHERE nome LIKE 'zz%'` = 0.
+- `grep -c "^function " script.js` → 140 (167 - 27, como esperado); `node --check` limpo em
+  `script.js` e `auditoria.js`; `composer test` → OK (31 testes, 41 assertions);
+  `php tests/matriz-de-acesso.php` → 19 OK, 0 falhas.
