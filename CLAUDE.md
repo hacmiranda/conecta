@@ -81,20 +81,39 @@ Time zone: PHP `America/Sao_Paulo` and MySQL session `-03:00` (set in `Database:
 Environment comes from `APP_ENV` in `api/config/.env` (`local` | `production`; missing = production) — never from the Host header. Credentials and keys come only from `api/config/.env` (`*_LOCAL` / `*_PROD`); see `.env.example` (DB, IMAP/SMTP, JWT/CSRF, CORS, SSO, `SETOR_EMAIL_ENCRYPTION_KEY_*`, `INTEGRATION_API_KEY_*`).
 
 ### Frontend Structure
-Single HTML shell (`frontend/index.html`) with no framework router. JavaScript is split by feature module:
+Single HTML shell (`frontend/index.html`) with no framework router and no build step. Classic `<script>` tags (no ES modules): every function/variable is global, and `onclick="..."` attributes call them by name. **Load order in `index.html` matters** when two files declare the same function (the last one wins — e.g. `ajuda.js` is loaded before `tutorial.js` on purpose). Every file touched gets its `?v=` bumped.
+
+`script.js` was split by domain in 12 waves (Fase 12/P1, finished 22/10/2026; plans in `docs/superpowers/plans/2026-10-2*-frontend-divisao-script-onda*.md`, spec in `docs/superpowers/specs/2026-10-15-frontend-api-e-divisao-script-design.md`). It went from ~10,000 to ~2,200 lines.
 
 | File | Responsibility |
 |---|---|
-| `script.js` | Core app: demands CRUD, pagination, modals, session management, settings screens |
-| `cabecalho-setor.js` | Header: sector name (gestor/operador) or sector selector (admin); sector context sent to the API |
-| `graficos-dashboard.js` | Chart.js analytics/dashboard |
-| `notificacoes.js` | Real-time notifications via SSE (`EventSource`) |
+| `script.js` | **Core only**: `sanitizeHTML`/`htmlSeguro`/`argJs`, `getAuthHeaders`/`setSecurityHeaders`, session (`fazerLogout`, `tratarRespostaDeSessao`, forced password change), e-mail failure banner, header avatar dropdown, `mostrarSecao`/`restaurarSecaoAtiva`/`salvarSecaoAtiva`, modal system (`mostrarLoader`/`Toast`/`Alert`/`Confirm`/`Prompt`/`Select`), `aplicarVisibilidadePorPapel`, dark mode, "Sobre", the `DOMContentLoaded` bootstrap, and functions **shared by 2+ domains** (see below) |
+| `api.js` | HTTP client `Api.get/post/put/delete(caminho, corpo)`: prefixes `apiBase`, adds auth/CSRF headers, serializes JSON, throws `Error` with `.status` and `.dados` (parsed body) on non-2xx |
+| `demandas.js` | Open demands list (server pagination), status pills, search, sorting, Kanban + drag-and-drop, "Nova Demanda" form (FormData upload), merge of open demands |
+| `detalhe-demanda.js` | Demand detail screen: header, timeline (comments + history), flow actions (devolver/repassar/transferir), attachments view/download, comment form, "Enviar e Fechar", excluir, voltar |
+| `arquivo.js` | Archive (encerradas/canceladas): server pagination, scope filter per role, sorting, reabrir, merge of closed demands |
+| `lixeira.js` | Trash (admin): list, restore, delete for good |
+| `setores.js`, `usuarios.js`, `categorias.js` | Settings screens (sectors, users, categories/macrocategories) |
+| `ativacao-setor.js` | "Ativação por Setor" (status/priorities per sector) + "Configurar Email" (sector mailbox IMAP/SMTP) |
+| `configuracoes.js` | Change password + Personalização (logo uploads stay in XHR/FormData) |
+| `relatorios.js`, `dashboard.js`, `auditoria.js`, `ajuda.js` | Reports, dashboard screen, audit tabs (+ CSV/PDF export), help guides |
+| `graficos-dashboard.js` | Chart.js charts of the dashboard (pre-existing) |
+| `cabecalho-setor.js` | Header: sector name (gestor/operador) or sector selector (admin); `urlComSetor()` appends `setor_id` |
+| `notificacoes.js` | Notifications, polling `notificacoes.php` every 30 s |
 | `macros.js` | Quick response templates (per sector; `setor_id` NULL = all sectors) |
 | `alpine-components.js` | Alpine.js + Quill.js WYSIWYG editor components |
-| `status-sla.js` | SLA badge rendering (uses each demand's sector hours via `horarios-sla.php?mapa=1`) |
+| `status-sla.js` | SLA badge rendering (sector hours via `horarios-sla.php?mapa=1`); also `alterarStatusNovo`/`alterarPrioridadeNova` used by the demands table |
 | `lembretes.js` | Reminder management |
-| `avatar.js` | User profile dropdown |
+| `avatar.js` | Avatar crop/upload modal (the header dropdown lives in `script.js`) |
+| `tutorial.js` | Onboarding tutorial (overrides `mostrarTutorialAjuda` from `ajuda.js`) |
 | `acessibilidade.js` | Cross-cutting a11y: focus-trap/ESC/return-focus for every `#modal-overlay` dialog, keyboard (Tab/Enter/Space) for `onclick` `<div>/<span>/<tr>/<li>` (skips `aria-hidden` ones), `aria-live` on toasts |
+
+**Shared functions that stay in `script.js` on purpose** (called by more than one domain file): `urlComSetor`, `exibirColunaSetor`, `mostrarSkeletonTickets`, `atribuirTicket`, `executarAcaoDemanda`, `pedirComentarioEExecutar`, `obterSetorIdDoTicket`, `alterarStatus`, `alterarCategoria`/`executarAlteracaoCategoria`, `alterarPrioridade`/`executarAlteracaoPrioridade`, `executarAlteracaoStatus`, `executarExclusaoTicket`, constants `MAX_ARQUIVOS`/`MAX_TAMANHO`/`TIPOS_PERMITIDOS`.
+
+**Frontend conventions (new or changed code):**
+- Network calls use `Api.*`, never raw `XMLHttpRequest`. Exception: `FormData` uploads (Api only sends JSON) keep `fetch`/XHR with `getAuthHeaders()`/`setSecurityHeaders()`.
+- Error message pattern: `mostrarAlert('Erro', (e.dados && e.dados.error) || 'texto padrão')` — only where the server message should reach the user; never `e.message` alone (always filled).
+- Old pre-existing dead code is documented, not removed, unless the user approves (`confirmarAtribuicao`/`executarAtribuicao`, `obterIconePrioridade`, `irParaTickets`, `validarAntesFechamento`, `uploadLogoLogin`, `mostrarModoEscuro`, `frontend/dashboard-update.js` is never loaded).
 
 CSS follows a per-feature file convention (`tickets-melhorias.css`, `status-sla.css`, etc.). The main theme color is `#1e3a8a` (blue gradient sidebar). Dark/light mode is CSS-variable-driven in `style.css`.
 
@@ -139,6 +158,27 @@ Attachments stored in `backend/anexos/`. Max 5 files, 20MB each. Allowed: pdf, d
 
 ### Database Migrations
 `database/9_*.sql` … `22_*.sql` build on the base schema, in order: 9 sectors/roles, 10 sector log, 11 per-sector status/priorities, 12 sector mailboxes, 13 responsible log, 14 roles gestor/operador, 15 initial seed, 16 categories per sector, 17 hours/holidays per sector, 18 SMTP per sector, 19 reminder cancellation + ignored e-mails, 20 sessions and passwords (token_versao, trocar_senha, sessoes_revogadas), 21 integrity (foreign keys, utf8mb4, free `tickets.status`, trash columns, macros per sector, legacy tables dropped), 22 e-mail queue (`email_fila`) + `setor_emails.validar_certificado`. Each runs once (MySQL 8.4 has no `ADD COLUMN IF NOT EXISTS`).
+
+### Pendências conhecidas (atualizado em 22/10/2026)
+
+**Antes do primeiro deploy em produção** (roteiro completo em `docs/implantacao-producao.md`):
+- Definir no `.env` do servidor todas as chaves `*_PROD` (`SETOR_EMAIL_ENCRYPTION_KEY_PROD`, `INTEGRATION_API_KEY_PROD`, `CRON_KEY_PROD`, JWT/CSRF etc. — lista e comandos de geração em `.env.example`).
+- Confirmar `db_host`/`db_user` de produção (hoje herdados do CRPDESK). Banco `db_conecta`, `base_url` `https://crp07.org.br/conecta` já definidos.
+- Aplicar as migrações 9–22 com backup (`php database/migrar.php`), ou confirmar que a réplica do banco local já vem com elas.
+- Checklist pós-deploy do roteiro: login do primeiro admin, `migrar.php --status`, matriz de acesso, teste real de e-mail por setor, cron de e-mail (externo, cron-job.org, via HTTP com chave), HTTPS + headers de segurança, backup automático.
+- Avisar os mantenedores dos sistemas satélites da nova URL (`docs/especificacoes/PROMPT_INTEGRACAO_SISTEMA_SATELITE.md`; `docs/CONFIGURACAO_AMBIENTE.md` também cita a URL antiga).
+
+**Melhorias deixadas de fora de propósito** (só fazer se o usuário pedir):
+- Gráficos do Dashboard esquecidos em `script.js` (`descreverGraficoCanvas`, `getCorLabel`, `criarGraficoStatus/Prioridade/Mensal`) — deveriam ir para `dashboard.js`/`graficos-dashboard.js`.
+- Tabela de Demandas usa `alterarStatusNovo` (status-sla.js) mas `alterarPrioridade` antiga (script.js) — inconsistência herdada.
+- XSS herdado: `usuario_afetado` sem `sanitizeHTML()` na Auditoria; sanitização no servidor de `macrocategorias.php` (`HtmlSanitizer::texto()`).
+- Estilos inline → variáveis CSS; remoção de `onclick` inline (CSP sem `unsafe-inline`).
+- Aba "Solicitantes" separada de "Equipe"; estado "enviando" no comentário; resposta × nota interna explícita.
+- Logger único (cron de e-mail ainda usa `echo`); padronizar formato de resposta da API (P8); SLA só no backend (P10).
+- Upgrade do `firebase/php-jwt` (alerta baixo, CVE-2025-45769).
+
+### Manutenção deste arquivo
+Após qualquer alteração relevante (nova tela/arquivo JS, migração, endpoint, regra de acesso, decisão de arquitetura, item de pendência resolvido ou criado), atualizar este `CLAUDE.md` no mesmo trabalho e mencionar no commit.
 
 ---
 
