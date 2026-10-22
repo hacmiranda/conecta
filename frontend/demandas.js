@@ -406,17 +406,13 @@ function irParaPagina(p) {
     document.getElementById('lista-tickets')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
 
-// Converter dados de SLA em badge visual para a tabela
-// Depende de calcularTempoRestanteSLA() e formatarTempo() do status-sla.js
+// Converter o SLA em badge visual para a tabela. O cálculo em si (tipo/segundos_restantes/
+// percentual/vencido/pausado) já vem pronto do servidor em ticket.sla (SLAService::situacao,
+// Fase 8 das melhorias adiadas); depende só de formatarTempo() do status-sla.js para o texto.
 function calcularTextoSLA(ticket) {
-    // Só mostra SLA para tickets abertos e se o sistema de horários já carregou
-    if (!ticket || !ticket.criado_em) return null;
-    if (['encerrado', 'cancelado', 'fechado'].includes(ticket.status)) return null;
-    if (typeof calcularTempoRestanteSLA !== 'function') return null;
+    if (!ticket || !ticket.sla) return null;
 
-    const slaInfo = calcularTempoRestanteSLA(ticket);
-    if (!slaInfo) return null;
-
+    const slaInfo = ticket.sla;
     const tipo = slaInfo.tipo === 'resposta' ? 'Resposta' : 'Resolução';
 
     // SLA pausado: badge neutro, sem animação, apenas informa
@@ -428,7 +424,7 @@ function calcularTextoSLA(ticket) {
 
     // Vencido
     if (slaInfo.vencido || pct >= 100) {
-        const atrasadoSeg = Math.abs(slaInfo.tempoRestante);
+        const atrasadoSeg = Math.abs(slaInfo.segundos_restantes);
         const atrasadoTexto = formatarTempo(atrasadoSeg).replace('Vencido', '').trim();
         const sufixo = atrasadoTexto ? ` há ${atrasadoTexto}` : '';
         return { texto: `${tipo}: vencida${sufixo}`, classe: 'sla-vencido' };
@@ -436,12 +432,12 @@ function calcularTextoSLA(ticket) {
 
     // Crítico: ≥ 80%
     if (pct >= 80) {
-        return { texto: `⚠ ${tipo}: ${formatarTempo(slaInfo.tempoRestante)}`, classe: 'sla-critico' };
+        return { texto: `⚠ ${tipo}: ${formatarTempo(slaInfo.segundos_restantes)}`, classe: 'sla-critico' };
     }
 
     // Alerta: ≥ 50%
     if (pct >= 50) {
-        return { texto: `${tipo}: ${formatarTempo(slaInfo.tempoRestante)}`, classe: 'sla-alerta' };
+        return { texto: `${tipo}: ${formatarTempo(slaInfo.segundos_restantes)}`, classe: 'sla-alerta' };
     }
 
     // OK: < 50% — não exibe badge para não poluir a tabela

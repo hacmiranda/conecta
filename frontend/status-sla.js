@@ -124,38 +124,33 @@ const STATUS_CONFIG = {
     }
 };
 
-// Configurações de prioridade com SLA em horas úteis
+// Configurações de prioridade (ícone/cor/nome/descrição). Os prazos de SLA (resposta/resolução)
+// não ficam mais fixos aqui — vêm do catálogo do servidor (ticket_prioridades, tela "Alterar
+// Prioridade") e o SLA de cada demanda já chega calculado em ticket.sla (Fase 8 das melhorias
+// adiadas: SLAService::situacao, sem duplicar os prazos no front).
 const PRIORIDADE_CONFIG = {
     'urgente': {
         nome: 'Urgente',
         cor: '#dc3545',
         icone: '🔥',
-        sla_resposta_minutos: 120,
-        sla_resolucao_horas: 4,
         descricao: 'Sistema fora do ar, falha crítica que impede o trabalho'
     },
     'alta': {
         nome: 'Alta',
         cor: '#fd7e14',
         icone: '⬆️',
-        sla_resposta_minutos: 240,
-        sla_resolucao_horas: 8,
         descricao: 'Funcionalidade importante indisponível que afeta a produtividade'
     },
     'normal': {
         nome: 'Normal',
         cor: '#17a2b8',
         icone: '➡️',
-        sla_resposta_minutos: 720,
-        sla_resolucao_horas: 24,
         descricao: 'Dúvidas, solicitações rotineiras'
     },
     'baixa': {
         nome: 'Baixa',
         cor: '#28a745',
         icone: '⬇️',
-        sla_resposta_minutos: 1440,
-        sla_resolucao_horas: 40,
         descricao: 'Melhorias, sugestões não urgentes'
     }
 };
@@ -186,220 +181,6 @@ function formatarNomePrioridade(prioridade) {
     }
 
     return prioridade.charAt(0).toUpperCase() + prioridade.slice(1).toLowerCase();
-}
-
-// Horários configuráveis (carregados do banco)
-let HORARIOS_CONFIGURADOS = null;
-let FERIADOS_CONFIGURADOS = [];
-// Expediente e feriados de cada setor: { setor_id: { horarios: [...], feriados: [...] } }
-let SLA_CONFIG_POR_SETOR = {};
-
-// Carregar horários e feriados do banco
-function carregarHorariosConfigurados() {
-    return new Promise((resolve, reject) => {
-        const xhr1 = new XMLHttpRequest();
-        xhr1.open('GET', window.APP_CONFIG.apiBase + 'horarios-sla.php', true);
-        setSecurityHeaders(xhr1);
-
-        xhr1.onload = function () {
-            if (xhr1.status === 200) {
-                HORARIOS_CONFIGURADOS = JSON.parse(xhr1.responseText);
-
-                const xhr2 = new XMLHttpRequest();
-                xhr2.open('GET', window.APP_CONFIG.apiBase + 'horarios-sla.php?feriados=1', true);
-                setSecurityHeaders(xhr2);
-
-                xhr2.onload = function () {
-                    if (xhr2.status === 200) {
-                        FERIADOS_CONFIGURADOS = JSON.parse(xhr2.responseText);
-
-                        // Expediente/feriados de cada setor, para calcular o SLA de cada demanda
-                        const xhr3 = new XMLHttpRequest();
-                        xhr3.open('GET', window.APP_CONFIG.apiBase + 'horarios-sla.php?mapa=1', true);
-                        setSecurityHeaders(xhr3);
-                        xhr3.onload = function () {
-                            if (xhr3.status === 200) {
-                                try {
-                                    SLA_CONFIG_POR_SETOR = JSON.parse(xhr3.responseText) || {};
-                                } catch (e) {
-                                    SLA_CONFIG_POR_SETOR = {};
-                                }
-                            }
-                            resolve();
-                        };
-                        xhr3.onerror = function () { resolve(); };
-                        xhr3.send();
-                    } else {
-                        reject('Erro ao carregar feriados');
-                    }
-                };
-
-                xhr2.send();
-            } else {
-                reject('Erro ao carregar horários');
-            }
-        };
-
-        xhr1.send();
-    });
-}
-
-// Verificar se é feriado
-function eFeriado(data) {
-    if (!FERIADOS_CONFIGURADOS || FERIADOS_CONFIGURADOS.length === 0) return false;
-
-    const dataStr = data.toISOString().split('T')[0];
-
-    return FERIADOS_CONFIGURADOS.some(feriado => {
-        if (feriado.recorrente) {
-            const feriadoData = new Date(feriado.data + 'T00:00:00');
-            return feriadoData.getMonth() === data.getMonth() && feriadoData.getDate() === data.getDate();
-        } else {
-            return feriado.data === dataStr;
-        }
-    });
-}
-
-// Verificar se uma data está em horário útil
-function eHorarioUtil(data) {
-    if (!HORARIOS_CONFIGURADOS) return false;
-
-    const diaJS = data.getDay(); // 0=Domingo, 1=Segunda, ..., 6=Sábado
-    const dia = diaJS === 0 ? 1 : diaJS + 1; // Converter para formato do banco: 1=Domingo, 2=Segunda, ..., 7=Sábado
-    const hora = data.getHours();
-    const minuto = data.getMinutes();
-
-    // Verificar se é feriado
-    if (eFeriado(data)) return false;
-
-    // Buscar configuração do dia
-    const diaConfig = HORARIOS_CONFIGURADOS.find(h => h.dia_semana == dia);
-    if (!diaConfig || !diaConfig.ativo) return false;
-
-    // Converter horários para minutos
-    const horaAtualMinutos = hora * 60 + minuto;
-    const [horaInicio, minInicio] = diaConfig.hora_inicio.split(':').map(Number);
-    const [horaFim, minFim] = diaConfig.hora_fim.split(':').map(Number);
-    const inicioMinutos = horaInicio * 60 + minInicio;
-    const fimMinutos = horaFim * 60 + minFim;
-
-    return horaAtualMinutos >= inicioMinutos && horaAtualMinutos < fimMinutos;
-}
-
-// Calcular segundos úteis entre duas datas
-function calcularSegundosUteis(dataInicio, dataFim) {
-    let segundosUteis = 0;
-    let dataAtual = new Date(dataInicio);
-
-    while (dataAtual < dataFim) {
-        if (eHorarioUtil(dataAtual)) {
-            segundosUteis++;
-        }
-        dataAtual.setSeconds(dataAtual.getSeconds() + 1);
-
-        // Otimização: pular para próximo horário útil se estiver fora
-        if (!eHorarioUtil(dataAtual)) {
-            const dia = dataAtual.getDay();
-            const hora = dataAtual.getHours();
-
-            // Se for fim de semana, pular para segunda-feira 8h
-            if (dia === 0) { // Domingo
-                dataAtual.setDate(dataAtual.getDate() + 1);
-                dataAtual.setHours(HORARIO_ATENDIMENTO.inicio, 0, 0, 0);
-            } else if (dia === 6) { // Sábado
-                dataAtual.setDate(dataAtual.getDate() + 2);
-                dataAtual.setHours(HORARIO_ATENDIMENTO.inicio, 0, 0, 0);
-            } else if (hora < HORARIO_ATENDIMENTO.inicio) {
-                // Antes do horário, pular para início
-                dataAtual.setHours(HORARIO_ATENDIMENTO.inicio, 0, 0, 0);
-            } else if (hora >= HORARIO_ATENDIMENTO.fim) {
-                // Depois do horário, pular para próximo dia útil
-                dataAtual.setDate(dataAtual.getDate() + 1);
-                dataAtual.setHours(HORARIO_ATENDIMENTO.inicio, 0, 0, 0);
-            }
-        }
-    }
-
-    return segundosUteis;
-}
-
-// Calcular segundos úteis de forma otimizada
-function calcularSegundosUteisOtimizado(dataInicio, dataFim) {
-    if (!HORARIOS_CONFIGURADOS) return 0;
-
-    let segundosUteis = 0;
-    let dataAtual = new Date(dataInicio);
-
-    while (dataAtual < dataFim) {
-        const diaJS = dataAtual.getDay(); // 0=Domingo, 1=Segunda, ..., 6=Sábado
-        const dia = diaJS === 0 ? 1 : diaJS + 1; // Converter para formato do banco: 1=Domingo, 2=Segunda, ..., 7=Sábado
-
-        // Buscar configuração do dia
-        const diaConfig = HORARIOS_CONFIGURADOS.find(h => h.dia_semana == dia);
-
-        // Pular dias inativos ou feriados
-        if (!diaConfig || !diaConfig.ativo || eFeriado(dataAtual)) {
-            dataAtual.setDate(dataAtual.getDate() + 1);
-            dataAtual.setHours(0, 0, 0, 0);
-            continue;
-        }
-
-        const [horaInicio, minInicio] = diaConfig.hora_inicio.split(':').map(Number);
-        const [horaFim, minFim] = diaConfig.hora_fim.split(':').map(Number);
-
-        const hora = dataAtual.getHours();
-        const minuto = dataAtual.getMinutes();
-        const horaAtualMinutos = hora * 60 + minuto;
-        const inicioMinutos = horaInicio * 60 + minInicio;
-        const fimMinutos = horaFim * 60 + minFim;
-
-        // Pular horários fora do expediente
-        if (horaAtualMinutos < inicioMinutos) {
-            dataAtual.setHours(horaInicio, minInicio, 0, 0);
-            continue;
-        } else if (horaAtualMinutos >= fimMinutos) {
-            dataAtual.setDate(dataAtual.getDate() + 1);
-            dataAtual.setHours(0, 0, 0, 0);
-            continue;
-        }
-
-        // Calcular segundos até o fim do expediente ou até dataFim
-        const fimExpedienteHoje = new Date(dataAtual);
-        fimExpedienteHoje.setHours(horaFim, minFim, 0, 0);
-
-        const proximoLimite = dataFim < fimExpedienteHoje ? dataFim : fimExpedienteHoje;
-        const segundosAteProximoLimite = Math.floor((proximoLimite - dataAtual) / 1000);
-
-        segundosUteis += segundosAteProximoLimite;
-        dataAtual = new Date(proximoLimite);
-
-        // Se chegou ao fim do expediente, pular para próximo dia
-        if (dataAtual >= fimExpedienteHoje && dataAtual < dataFim) {
-            dataAtual.setDate(dataAtual.getDate() + 1);
-            dataAtual.setHours(0, 0, 0, 0);
-        }
-    }
-
-    return segundosUteis;
-}
-
-// Segundos úteis usando o expediente e os feriados do setor da demanda
-function calcularSegundosUteisPorSetor(dataInicio, dataFim, setorId) {
-    const cfg = setorId ? SLA_CONFIG_POR_SETOR[setorId] : null;
-    if (!cfg) {
-        return calcularSegundosUteisOtimizado(dataInicio, dataFim);
-    }
-
-    const horariosOriginais = HORARIOS_CONFIGURADOS;
-    const feriadosOriginais = FERIADOS_CONFIGURADOS;
-    HORARIOS_CONFIGURADOS = cfg.horarios;
-    FERIADOS_CONFIGURADOS = cfg.feriados;
-    try {
-        return calcularSegundosUteisOtimizado(dataInicio, dataFim);
-    } finally {
-        HORARIOS_CONFIGURADOS = horariosOriginais;
-        FERIADOS_CONFIGURADOS = feriadosOriginais;
-    }
 }
 
 // Carregar status disponíveis
@@ -502,57 +283,6 @@ function mostrarPromptObservacoes(titulo, mensagem, callback) {
     setTimeout(() => document.getElementById('modal-prompt-input').focus(), 100);
 }
 
-// Calcular tempo restante de SLA (considerando apenas horas úteis)
-function calcularTempoRestanteSLA(ticket) {
-    if (!ticket.criado_em) return null;
-
-    const agora = new Date();
-    const criacao = new Date(ticket.criado_em);
-
-    // Calcular tempo decorrido em horas úteis
-    const tempoDecorridoUtil = calcularSegundosUteisPorSetor(criacao, agora, ticket.setor_id);
-
-    // Subtrair tempo pausado (se houver)
-    const tempoPausado = ticket.tempo_pausado_segundos || 0;
-    const tempoDecorrido = tempoDecorridoUtil - tempoPausado;
-
-    const prioridade = PRIORIDADE_CONFIG[ticket.prioridade] || PRIORIDADE_CONFIG['normal'];
-
-    // Verificar se SLA está pausado
-    const statusPausaSLA = ['aguardando', 'aguardando_resposta', 'aguardando_terceiros', 'aguardando_aprovacao', 'aguardando_data', 'resolvido'];
-    const slaPausado = statusPausaSLA.includes(ticket.status);
-
-    // SLA de resposta (se ainda não teve primeira resposta)
-    if (!ticket.primeira_resposta_em) {
-        const slaRespostaSegundos = prioridade.sla_resposta_minutos * 60;
-        const tempoRestante = slaRespostaSegundos - tempoDecorrido;
-
-        return {
-            tipo: 'resposta',
-            tempoRestante: tempoRestante,
-            vencido: tempoRestante <= 0 && !slaPausado,
-            percentual: Math.min(100, (tempoDecorrido / slaRespostaSegundos) * 100),
-            pausado: slaPausado
-        };
-    }
-
-    // SLA de resolução (se ainda não foi resolvido)
-    if (!ticket.resolvido_em && !['resolvido', 'encerrado', 'cancelado'].includes(ticket.status)) {
-        const slaResolucaoSegundos = prioridade.sla_resolucao_horas * 3600;
-        const tempoRestante = slaResolucaoSegundos - tempoDecorrido;
-
-        return {
-            tipo: 'resolucao',
-            tempoRestante: tempoRestante,
-            vencido: tempoRestante <= 0 && !slaPausado,
-            percentual: Math.min(100, (tempoDecorrido / slaResolucaoSegundos) * 100),
-            pausado: slaPausado
-        };
-    }
-
-    return null;
-}
-
 // Formatar tempo em formato legível
 function formatarTempo(segundos) {
     if (segundos <= 0) return 'Vencido';
@@ -567,15 +297,10 @@ function formatarTempo(segundos) {
     }
 }
 
-// Obter cor do SLA baseado no percentual
-function obterCorSLA(percentual) {
-    if (percentual >= 100) return '#dc3545'; // Vermelho - vencido
-    if (percentual >= 80) return '#fd7e14';  // Laranja - crítico
-    if (percentual >= 50) return '#ffc107';  // Amarelo - atenção
-    return '#28a745'; // Verde - ok
-}
-
-// Atualizar indicadores de SLA na interface
+// Atualizar indicadores de SLA na interface. O SLA em si (tipo/segundos_restantes/percentual/
+// vencido/pausado) já vem calculado pelo servidor em ticket.sla (SLAService::situacao, Fase 8 das
+// melhorias adiadas) — aqui só decrementamos localmente entre uma busca e outra (a cada 60s, sem
+// nova requisição); o valor exato volta a vir do servidor na próxima vez que a lista recarregar.
 function atualizarIndicadoresSLA() {
     if (!ticketsAtuais || ticketsAtuais.length === 0) return;
 
@@ -584,68 +309,72 @@ function atualizarIndicadoresSLA() {
         const ticket = ticketsAtuais.find(t => t.id === ticketId);
 
         if (ticket && ticket.status !== 'encerrado' && ticket.status !== 'fechado') {
-            const slaInfo = calcularTempoRestanteSLA(ticket);
+            const slaInfo = ticket.sla;
 
-            if (slaInfo) {
-                // Remover indicador existente
-                const indicadorExistente = row.querySelector('.sla-indicator');
-                if (indicadorExistente) {
-                    indicadorExistente.remove();
+            // Remover indicador existente
+            const indicadorExistente = row.querySelector('.sla-indicator');
+            if (indicadorExistente) {
+                indicadorExistente.remove();
+            }
+
+            if (!slaInfo) return;
+
+            // Decaimento local: só avança o relógio se não estiver pausado (igual ao servidor).
+            // Ao vencer localmente, o percentual sobe para 100 também — senão o ícone ficaria
+            // escondido (abaixo do limiar de 50%) até a lista recarregar do servidor.
+            if (!slaInfo.pausado) {
+                slaInfo.segundos_restantes -= 60;
+                if (slaInfo.segundos_restantes <= 0) {
+                    slaInfo.vencido = true;
+                    slaInfo.percentual = 100;
+                }
+            }
+
+            // Apenas mostrar ícone se percentual >= 50% e não estiver pausado
+            if (slaInfo.percentual >= 50 && !slaInfo.pausado) {
+                const indicador = document.createElement('img');
+                indicador.className = 'sla-indicator';
+
+                // Definir ícone baseado no percentual
+                if (slaInfo.percentual >= 80) {
+                    indicador.src = 'images/icone_atencao_vermelho.png';
+                    indicador.alt = 'SLA Urgente/Vencido';
+                } else if (slaInfo.percentual >= 50) {
+                    indicador.src = 'images/icone_atencao_amarelo.png';
+                    indicador.alt = 'SLA Atenção';
                 }
 
-                // Apenas mostrar ícone se percentual >= 50% e não estiver pausado
-                if (slaInfo.percentual >= 50 && !slaInfo.pausado) {
-                    const indicador = document.createElement('img');
-                    indicador.className = 'sla-indicator';
+                const tipoTexto = slaInfo.tipo === 'resposta' ? 'Primeira Resposta' : 'Resolução';
+                const vencidoTexto = slaInfo.vencido ? 'Vencido' : formatarTempo(slaInfo.segundos_restantes);
+                const percentualTexto = Math.round(slaInfo.percentual);
+                const pausadoTexto = slaInfo.pausado ? ' SLA pausado (aguardando resposta).' : '';
 
-                    // Definir ícone baseado no percentual
-                    if (slaInfo.percentual >= 80) {
-                        indicador.src = 'images/icone_atencao_vermelho.png';
-                        indicador.alt = 'SLA Urgente/Vencido';
-                    } else if (slaInfo.percentual >= 50) {
-                        indicador.src = 'images/icone_atencao_amarelo.png';
-                        indicador.alt = 'SLA Atenção';
-                    }
+                const vgTitle = slaInfo.percentual >= 80 ? 'URGENTE — SLA' : 'ATENÇÃO — SLA';
+                const vgBody = slaInfo.vencido
+                    ? `SLA de ${tipoTexto} vencido! ${percentualTexto}% do prazo utilizado.${pausadoTexto}`
+                    : `SLA de ${tipoTexto}: ${percentualTexto}% do prazo utilizado. Tempo restante: ${vencidoTexto}.${pausadoTexto}`;
 
-                    const tipoTexto = slaInfo.tipo === 'resposta' ? 'Primeira Resposta' : 'Resolução';
-                    const vencidoTexto = slaInfo.vencido ? 'Vencido' : formatarTempo(slaInfo.tempoRestante);
-                    const percentualTexto = Math.round(slaInfo.percentual);
-                    const pausadoTexto = slaInfo.pausado ? ' SLA pausado (aguardando resposta).' : '';
+                indicador.setAttribute('data-vg-title', vgTitle);
+                indicador.setAttribute('data-vg-tooltip', vgBody);
+                indicador.style.marginLeft = '0.25rem';
+                indicador.style.width = '16px';
+                indicador.style.height = '16px';
+                indicador.style.verticalAlign = 'middle';
 
-                    const vgTitle = slaInfo.percentual >= 80 ? 'URGENTE — SLA' : 'ATENÇÃO — SLA';
-                    const vgBody = slaInfo.vencido
-                        ? `SLA de ${tipoTexto} vencido! ${percentualTexto}% do prazo utilizado.${pausadoTexto}`
-                        : `SLA de ${tipoTexto}: ${percentualTexto}% do prazo utilizado. Tempo restante: ${vencidoTexto}.${pausadoTexto}`;
-
-                    indicador.setAttribute('data-vg-title', vgTitle);
-                    indicador.setAttribute('data-vg-tooltip', vgBody);
-                    indicador.style.marginLeft = '0.25rem';
-                    indicador.style.width = '16px';
-                    indicador.style.height = '16px';
-                    indicador.style.verticalAlign = 'middle';
-
-                    const primeiraColuna = row.querySelector('td');
-                    if (primeiraColuna) {
-                        primeiraColuna.appendChild(indicador);
-                    }
+                const primeiraColuna = row.querySelector('td');
+                if (primeiraColuna) {
+                    primeiraColuna.appendChild(indicador);
                 }
             }
         }
     });
 }
 
-// Inicializar sistema de SLA
+// Inicializar sistema de SLA: o cálculo em si já vem do servidor em cada ticket (ticket.sla),
+// então só precisa atualizar os indicadores periodicamente — nada para pré-carregar.
 function inicializarSistemaSLA() {
-    // Carregar horários configurados
-    carregarHorariosConfigurados().then(() => {
-        // Atualizar indicadores a cada minuto
-        setInterval(atualizarIndicadoresSLA, 60000);
-
-        // Atualizar na primeira carga
-        setTimeout(atualizarIndicadoresSLA, 1000);
-    }).catch(error => {
-        console.error('Erro ao carregar horários:', error);
-    });
+    setInterval(atualizarIndicadoresSLA, 60000);
+    setTimeout(atualizarIndicadoresSLA, 1000);
 }
 
 // Exportar funções para uso global

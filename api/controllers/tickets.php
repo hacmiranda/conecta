@@ -22,6 +22,29 @@ $database = new Database();
 $db = $database->getConnection();
 
 /**
+ * Preenche o campo "sla" (prazo de resposta/resolução restante) de cada linha vinda das queries de
+ * listagem/detalhe, que já trazem sla_primeira_resposta_em/sla_resolvido_em/sla_tempo_pausado_segundos
+ * via LEFT JOIN ticket_sla. Demandas arquivadas (encerrada/cancelada/fechado) ficam com sla = null.
+ */
+function anexarSla(array $tickets, PDO $db): array {
+    $slaService = new SLAService($db);
+    foreach ($tickets as &$ticket) {
+        $ticket['sla'] = in_array($ticket['status'], AcessoService::STATUS_ARQUIVO, true) ? null : $slaService->situacao(
+            $ticket,
+            [
+                'primeira_resposta_em' => $ticket['sla_primeira_resposta_em'] ?? null,
+                'resolvido_em' => $ticket['sla_resolvido_em'] ?? null,
+                'tempo_pausado_segundos' => $ticket['sla_tempo_pausado_segundos'] ?? 0,
+                'pausado_em' => $ticket['sla_pausado_em'] ?? null,
+            ],
+            !empty($ticket['setor_id']) ? (int) $ticket['setor_id'] : null
+        );
+    }
+    unset($ticket);
+    return $tickets;
+}
+
+/**
  * Listagem paginada: aplica busca, filtros e ordenação no servidor e devolve também os contadores
  * da visão (sem os filtros do usuário). O SELECT pesado (subconsultas por linha) roda só nas linhas da página.
  */
@@ -129,7 +152,7 @@ function listarTicketsPaginado(PDO $db, string $selectCompleto, array $where, ar
         $stmt = $db->prepare($selectCompleto . " WHERE t.id IN (" . implode(',', $ids) . ")");
         $stmt->execute([':usuario_id' => $usuario_id]);
         $por_id = [];
-        foreach ($stmt->fetchAll() as $linha) {
+        foreach (anexarSla($stmt->fetchAll(), $db) as $linha) {
             $por_id[(int) $linha['id']] = $linha;
         }
         foreach ($ids as $id) {
@@ -157,22 +180,27 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
     try {
         if ($ticket_id) {
             // Buscar ticket específico
-            $query = "SELECT t.*, 
+            $query = "SELECT t.*,
                              u.nome as usuario_nome, u.email as usuario_email,
                              a.nome as agente_nome,
                              c.nome as categoria_nome,
                              f.nome as fechado_por_nome,
                              ex.nome as excluido_por_nome,
                              st.nome as setor_nome,
+                             sla.primeira_resposta_em as sla_primeira_resposta_em,
+                             sla.resolvido_em as sla_resolvido_em,
+                             sla.tempo_pausado_segundos as sla_tempo_pausado_segundos,
+                             sla.pausado_em as sla_pausado_em,
                              (SELECT COUNT(*) FROM ticket_historico WHERE ticket_id = t.id AND acao = 'merge') as eh_mesclado,
                              (SELECT valor_novo FROM ticket_historico WHERE ticket_id = t.id AND acao = 'merge' LIMIT 1) as tickets_mesclados
-                      FROM tickets t 
-                      LEFT JOIN usuarios u ON t.usuario_id = u.id 
-                      LEFT JOIN usuarios a ON t.agente_id = a.id 
-                      LEFT JOIN categorias c ON t.categoria_id = c.id 
+                      FROM tickets t
+                      LEFT JOIN usuarios u ON t.usuario_id = u.id
+                      LEFT JOIN usuarios a ON t.agente_id = a.id
+                      LEFT JOIN categorias c ON t.categoria_id = c.id
                       LEFT JOIN usuarios f ON t.fechado_por = f.id
                       LEFT JOIN usuarios ex ON t.excluido_por = ex.id
                       LEFT JOIN setores st ON t.setor_id = st.id
+                      LEFT JOIN ticket_sla sla ON sla.ticket_id = t.id
                       WHERE t.id = :id";
             
             $stmt = $db->prepare($query);
@@ -195,6 +223,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
             $ticket['na_lixeira'] = !empty($ticket['excluido_em']);
             $ticket['acesso_historico'] = !AcessoService::podeVerTicket($user, $ticket);   // só leitura do histórico
             $ticket['somente_leitura'] = !AcessoService::podeOperarTicket($user, $ticket); // não pode alterar
+
+            // SLA calculado no servidor (prazo de resposta/resolução restante, só demandas abertas)
+            $ticket = anexarSla([$ticket], $db)[0];
 
             // Linha do tempo cronológica (comentários + histórico + abertura)
             $dados_timeline = TimelineService::montar($db, (int) $ticket_id);
@@ -240,14 +271,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
                              CASE WHEN cnl.ticket_id IS NOT NULL THEN 1 ELSE 0 END as tem_comentario_nao_lido,
                              (SELECT CONCAT(data_lembrete, ' ', hora_lembrete) FROM lembretes WHERE ticket_id = t.id AND notificado = FALSE AND cancelado_em IS NULL ORDER BY data_lembrete ASC, hora_lembrete ASC LIMIT 1) as proximo_lembrete,
                              (SELECT COUNT(*) FROM ticket_historico WHERE ticket_id = t.id AND acao = 'merge') as eh_mesclado,
-                             (SELECT valor_novo FROM ticket_historico WHERE ticket_id = t.id AND acao = 'merge' LIMIT 1) as tickets_mesclados
+                             (SELECT valor_novo FROM ticket_historico WHERE ticket_id = t.id AND acao = 'merge' LIMIT 1) as tickets_mesclados,
+                             sla.primeira_resposta_em as sla_primeira_resposta_em,
+                             sla.resolvido_em as sla_resolvido_em,
+                             sla.tempo_pausado_segundos as sla_tempo_pausado_segundos,
+                             sla.pausado_em as sla_pausado_em
                       FROM tickets t
                       LEFT JOIN usuarios u ON t.usuario_id = u.id
                       LEFT JOIN usuarios a ON t.agente_id = a.id
                       LEFT JOIN categorias c ON t.categoria_id = c.id
                       LEFT JOIN setores s ON t.setor_id = s.id
                       LEFT JOIN usuarios ex ON t.excluido_por = ex.id
-                      LEFT JOIN comentarios_nao_lidos cnl ON t.id = cnl.ticket_id AND cnl.usuario_id = :usuario_id";
+                      LEFT JOIN comentarios_nao_lidos cnl ON t.id = cnl.ticket_id AND cnl.usuario_id = :usuario_id
+                      LEFT JOIN ticket_sla sla ON sla.ticket_id = t.id";
 
             $params = [':usuario_id' => $usuario_logado_id];
             $where = [];
@@ -352,7 +388,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
 
             $stmt = $db->prepare($query);
             $stmt->execute($params);
-            $tickets = $stmt->fetchAll();
+            $tickets = anexarSla($stmt->fetchAll(), $db);
 
             echo json_encode($tickets);
         }
@@ -725,13 +761,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'PUT') {
 
             // === SLA ===
             if ($mudou_status) {
-                $status_stmt = $db->prepare("SELECT congela_sla FROM ticket_status WHERE nome = ?");
-                $status_stmt->execute([$input['status']]);
-                $congela_novo = (bool) ($status_stmt->fetchColumn() ?: false);
-                $status_stmt->execute([$current_data['status']]);
-                $congela_anterior = (bool) ($status_stmt->fetchColumn() ?: false);
-
                 $slaService = new SLAService($db);
+                $congela_novo = $slaService->congelaSla($input['status']);
+                $congela_anterior = $slaService->congelaSla($current_data['status']);
 
                 if ($congela_novo && !$congela_anterior) {
                     $db->prepare("UPDATE ticket_sla SET pausado = TRUE, pausado_em = NOW() WHERE ticket_id = ?")->execute([$ticket_id]);

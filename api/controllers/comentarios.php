@@ -318,12 +318,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                             }
                         }
                         
-                        // 2. Enviar e-mail ao agente responsável
-                        try {
-                            $emailSender->notificarComentarioEntreAgentes($ticket_id, $comentario_id, $autor_nome, $ticket['agente_id']);
-                            error_log("[COMENTARIOS] E-mail de notificação agente→agente enviado para agente_id {$ticket['agente_id']}");
-                        } catch (Exception $e) {
-                            error_log("[COMENTARIOS] Erro ao enviar e-mail agente→agente: " . $e->getMessage());
+                        // 2. Enviar e-mail ao agente responsável — nota interna nunca vai por e-mail,
+                        // nem para outro agente (só a notificação interna já registrada acima)
+                        if (!$interno) {
+                            try {
+                                $emailSender->notificarComentarioEntreAgentes($ticket_id, $comentario_id, $autor_nome, $ticket['agente_id']);
+                                error_log("[COMENTARIOS] E-mail de notificação agente→agente enviado para agente_id {$ticket['agente_id']}");
+                            } catch (Exception $e) {
+                                error_log("[COMENTARIOS] Erro ao enviar e-mail agente→agente: " . $e->getMessage());
+                            }
                         }
                     }
                     // --- FIM NOVA LÓGICA ---

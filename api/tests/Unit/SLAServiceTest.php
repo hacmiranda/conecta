@@ -20,6 +20,8 @@ final class SLAServiceTest extends TestCase {
         $this->db->exec('CREATE TABLE setores (id INTEGER PRIMARY KEY, nome TEXT)');
         $this->db->exec('CREATE TABLE horarios_uteis (setor_id INTEGER, dia_semana INTEGER, hora_inicio TEXT, hora_fim TEXT, ativo INTEGER)');
         $this->db->exec('CREATE TABLE feriados (setor_id INTEGER, data TEXT, recorrente INTEGER)');
+        $this->db->exec('CREATE TABLE ticket_status (nome TEXT, congela_sla INTEGER)');
+        $this->db->exec('CREATE TABLE ticket_prioridades (nome TEXT, sla_resposta_minutos INTEGER, sla_resolucao_horas INTEGER)');
 
         $this->db->exec("INSERT INTO setores (id, nome) VALUES (1, 'Geral')");
         // Segunda(2) a sexta(6) das 08:00 às 17:00 — tabela usa 1=domingo .. 7=sábado
@@ -27,6 +29,26 @@ final class SLAServiceTest extends TestCase {
             $this->db->prepare('INSERT INTO horarios_uteis (setor_id, dia_semana, hora_inicio, hora_fim, ativo) VALUES (1, ?, "08:00:00", "17:00:00", 1)')
                      ->execute([$dia]);
         }
+
+        // Setor "sempre aberto" (expediente cobre o dia inteiro, todos os dias): usado pelos testes de
+        // situacao(), que dependem do relógio real (date()) — assim o tempo decorrido é previsível
+        // independente de quando os testes rodam, sem precisar simular o "agora".
+        $this->db->exec("INSERT INTO setores (id, nome) VALUES (3, 'SempreAberto')");
+        foreach (range(1, 7) as $dia) {
+            $this->db->prepare('INSERT INTO horarios_uteis (setor_id, dia_semana, hora_inicio, hora_fim, ativo) VALUES (3, ?, "00:00:00", "23:59:59", 1)')
+                     ->execute([$dia]);
+        }
+
+        // Setor sem nenhum expediente ativo: usado para testar que tempo fora do horário não conta.
+        $this->db->exec("INSERT INTO setores (id, nome) VALUES (4, 'SempreFechado')");
+        foreach (range(1, 7) as $dia) {
+            $this->db->prepare('INSERT INTO horarios_uteis (setor_id, dia_semana, hora_inicio, hora_fim, ativo) VALUES (4, ?, "00:00:00", "23:59:59", 0)')
+                     ->execute([$dia]);
+        }
+
+        // Catálogo global usado por situacao(): status que pausa o SLA e prazos da prioridade "normal".
+        $this->db->exec("INSERT INTO ticket_status (nome, congela_sla) VALUES ('novo', 0), ('em_atendimento', 0), ('aguardando', 1), ('resolvido', 0), ('encerrado', 0), ('cancelado', 0)");
+        $this->db->exec("INSERT INTO ticket_prioridades (nome, sla_resposta_minutos, sla_resolucao_horas) VALUES ('normal', 60, 2)");
 
         $this->sla = new SLAService($this->db);
 
@@ -96,5 +118,112 @@ final class SLAServiceTest extends TestCase {
         $this->assertSame('2h 15min', $this->sla->formatarTempo(2 * 3600 + 15 * 60));
         $this->assertSame('3h', $this->sla->formatarTempo(3 * 3600));
         $this->assertSame('1d 2h', $this->sla->formatarTempo(26 * 3600));
+    }
+
+    // --- situacao() ---------------------------------------------------------------------
+    // Usa o setor 3 ("SempreAberto", expediente o dia inteiro todos os dias) para que o tempo
+    // decorrido seja previsível a partir do relógio real (situacao() usa date() internamente).
+
+    private function slaVazio(): array {
+        return ['primeira_resposta_em' => null, 'resolvido_em' => null, 'tempo_pausado_segundos' => 0];
+    }
+
+    public function test_situacao_resposta_dentro_do_prazo(): void {
+        $criado = (new DateTime('-5 minutes'))->format('Y-m-d H:i:s');
+        $ticket = ['criado_em' => $criado, 'status' => 'novo', 'prioridade' => 'normal', 'setor_id' => 3];
+
+        $situacao = $this->sla->situacao($ticket, $this->slaVazio(), 3);
+
+        $this->assertSame('resposta', $situacao['tipo']);
+        $this->assertFalse($situacao['pausado']);
+        $this->assertFalse($situacao['vencido']);
+        // Prazo de 60min (3600s) menos ~5min (300s) decorridos = ~3300s restantes
+        $this->assertEqualsWithDelta(3300, $situacao['segundos_restantes'], 5);
+    }
+
+    public function test_situacao_resolucao_apos_primeira_resposta(): void {
+        $criado = (new DateTime('-90 minutes'))->format('Y-m-d H:i:s');
+        $ticket = ['criado_em' => $criado, 'status' => 'em_atendimento', 'prioridade' => 'normal', 'setor_id' => 3];
+        $sla = ['primeira_resposta_em' => '2020-01-01 00:00:00', 'resolvido_em' => null, 'tempo_pausado_segundos' => 0];
+
+        $situacao = $this->sla->situacao($ticket, $sla, 3);
+
+        $this->assertSame('resolucao', $situacao['tipo']);
+        $this->assertFalse($situacao['vencido']);
+        // Prazo de 2h (7200s) menos ~90min (5400s) decorridos = ~1800s restantes
+        $this->assertEqualsWithDelta(1800, $situacao['segundos_restantes'], 5);
+    }
+
+    public function test_situacao_pausado_nao_vence_mesmo_com_prazo_esgotado(): void {
+        // 10h decorridas, prazo de resposta de 1h: venceria, mas o status "aguardando" congela o SLA
+        $criado = (new DateTime('-10 hours'))->format('Y-m-d H:i:s');
+        $ticket = ['criado_em' => $criado, 'status' => 'aguardando', 'prioridade' => 'normal', 'setor_id' => 3];
+
+        $situacao = $this->sla->situacao($ticket, $this->slaVazio(), 3);
+
+        $this->assertTrue($situacao['pausado']);
+        $this->assertFalse($situacao['vencido']);
+    }
+
+    public function test_situacao_vencida_quando_prazo_passa_sem_pausa(): void {
+        // 2h decorridas, prazo de resposta de 1h, status não pausa o SLA
+        $criado = (new DateTime('-2 hours'))->format('Y-m-d H:i:s');
+        $ticket = ['criado_em' => $criado, 'status' => 'em_atendimento', 'prioridade' => 'normal', 'setor_id' => 3];
+
+        $situacao = $this->sla->situacao($ticket, $this->slaVazio(), 3);
+
+        $this->assertTrue($situacao['vencido']);
+        $this->assertLessThan(0, $situacao['segundos_restantes']);
+    }
+
+    public function test_situacao_fora_do_horario_nao_conta_contra_o_prazo(): void {
+        // Setor 4 não tem nenhum expediente ativo: por mais que o tempo real passe, 0s são úteis
+        $criado = (new DateTime('-2 hours'))->format('Y-m-d H:i:s');
+        $ticket = ['criado_em' => $criado, 'status' => 'novo', 'prioridade' => 'normal', 'setor_id' => 4];
+
+        $situacao = $this->sla->situacao($ticket, $this->slaVazio(), 4);
+
+        $this->assertFalse($situacao['vencido']);
+        // Nada decorrido em horário útil: resta o prazo cheio (60min = 3600s)
+        $this->assertSame(3600, $situacao['segundos_restantes']);
+    }
+
+    public function test_situacao_retorna_null_sem_criado_em(): void {
+        $ticket = ['criado_em' => null, 'status' => 'novo', 'prioridade' => 'normal', 'setor_id' => 3];
+        $this->assertNull($this->sla->situacao($ticket, $this->slaVazio(), 3));
+    }
+
+    public function test_situacao_retorna_null_quando_ja_resolvida(): void {
+        $criado = (new DateTime('-5 minutes'))->format('Y-m-d H:i:s');
+        $ticket = ['criado_em' => $criado, 'status' => 'resolvido', 'prioridade' => 'normal', 'setor_id' => 3];
+        $sla = ['primeira_resposta_em' => '2020-01-01 00:00:00', 'resolvido_em' => '2020-01-01 00:10:00', 'tempo_pausado_segundos' => 0];
+        $this->assertNull($this->sla->situacao($ticket, $sla, 3));
+    }
+
+    public function test_situacao_retorna_null_quando_resolvida_sem_primeira_resposta(): void {
+        // Dado legado/importado: concluída sem primeira_resposta_em nunca gravada — não deve
+        // cair no cálculo de SLA de resposta (achado da revisão da Fase 8: a assimetria entre os
+        // dois ramos deixava passar uma demanda já concluída).
+        $criado = (new DateTime('-5 minutes'))->format('Y-m-d H:i:s');
+        $ticket = ['criado_em' => $criado, 'status' => 'resolvido', 'prioridade' => 'normal', 'setor_id' => 3];
+        $sla = ['primeira_resposta_em' => null, 'resolvido_em' => '2020-01-01 00:10:00', 'tempo_pausado_segundos' => 0];
+        $this->assertNull($this->sla->situacao($ticket, $sla, 3));
+    }
+
+    public function test_situacao_desconta_a_pausa_em_andamento(): void {
+        // 20min decorridos, dos quais os últimos 10min já estão com o SLA pausado (pausado_em);
+        // tempo_pausado_segundos ainda não foi atualizado (só é somado quando a pausa termina,
+        // em retomarPausa) — achado da revisão: sem descontar a pausa em andamento, os 10min
+        // pausados contariam contra o prazo.
+        $criado = (new DateTime('-20 minutes'))->format('Y-m-d H:i:s');
+        $pausadoEm = (new DateTime('-10 minutes'))->format('Y-m-d H:i:s');
+        $ticket = ['criado_em' => $criado, 'status' => 'aguardando', 'prioridade' => 'normal', 'setor_id' => 3];
+        $sla = ['primeira_resposta_em' => null, 'resolvido_em' => null, 'tempo_pausado_segundos' => 0, 'pausado_em' => $pausadoEm];
+
+        $situacao = $this->sla->situacao($ticket, $sla, 3);
+
+        $this->assertTrue($situacao['pausado']);
+        // 20min decorridos - 10min pausados = 10min (600s) úteis de fato; prazo de 60min (3600s)
+        $this->assertEqualsWithDelta(3000, $situacao['segundos_restantes'], 5);
     }
 }

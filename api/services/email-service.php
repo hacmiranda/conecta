@@ -16,6 +16,19 @@ class EmailService {
     private $enderecosDoSistema = null; // caixas do próprio sistema (nunca viram demanda)
     const MAX_TENTATIVAS = 5; // falhas seguidas antes de desistir de um e-mail
 
+    /**
+     * Mascara o e-mail para log (regra de segurança do projeto: nunca logar dado pessoal em
+     * texto puro). O log de e-mail-cron é um arquivo em disco, fora do controle de acesso por
+     * setor/papel do sistema — mantém só o domínio, suficiente para depurar.
+     */
+    private static function mascararEmail(string $email): string {
+        $arroba = strpos($email, '@');
+        if ($arroba === false) {
+            return '(sem @)';
+        }
+        return substr($email, 0, 1) . '***@' . substr($email, $arroba + 1);
+    }
+
     public function __construct($db) {
         $this->host = EmailConfig::get('IMAP_HOST');
         $this->port = EmailConfig::get('IMAP_PORT');
@@ -178,7 +191,7 @@ class EmailService {
         // Caixas do próprio sistema e respostas automáticas nunca viram demanda (evita laços)
         $motivo_ignorar = $this->motivoParaIgnorar($inbox, $email_number, $remetente);
         if ($motivo_ignorar !== null) {
-            LogService::info('email-cron', "Email ignorado ($motivo_ignorar): $remetente");
+            LogService::info('email-cron', "Email ignorado ($motivo_ignorar): " . self::mascararEmail($remetente));
             $this->registrarEmailProcessado($message_id, $remetente, $assunto, null, 'ignorado', $motivo_ignorar);
             $marcarLido();
             return;
@@ -202,7 +215,8 @@ class EmailService {
         // Corpo vindo de fora: gravado como texto escapado, preservando as quebras de linha
         $body = nl2br(htmlspecialchars($body, ENT_QUOTES, 'UTF-8'), false);
 
-        LogService::info('email-cron', "Assunto: $assunto | Remetente: $remetente");
+        // Assunto não entra no log (texto livre, pode conter dado pessoal); remetente mascarado
+        LogService::info('email-cron', 'Remetente: ' . self::mascararEmail($remetente));
 
         // Resposta a uma demanda existente? Só vira comentário se o remetente participa da demanda
         // e a caixa é de um setor por onde ela passou; senão, abre uma demanda nova.
@@ -230,7 +244,7 @@ class EmailService {
         } catch (Exception $e) {
             // Não marca como lido nem como processado: tenta de novo na próxima execução
             $tentativas = $this->registrarFalha($message_id, $remetente, $assunto, $e->getMessage());
-            LogService::erro('email-cron', "Falha ao processar e-mail de $remetente (tentativa $tentativas): " . $e->getMessage());
+            LogService::erro('email-cron', 'Falha ao processar e-mail de ' . self::mascararEmail($remetente) . " (tentativa $tentativas): " . $e->getMessage());
             if ($tentativas >= self::MAX_TENTATIVAS) {
                 $this->registrarEmailProcessado($message_id, $remetente, $assunto, null, 'erro', 'Desistiu após ' . $tentativas . ' tentativas: ' . mb_substr($e->getMessage(), 0, 180));
                 $marcarLido();
@@ -402,7 +416,7 @@ class EmailService {
             LogService::info('email-cron', 'Iniciando criação de demanda...');
 
             // Buscar ou criar usuário
-            LogService::info('email-cron', "Buscando/criando usuário para: $remetente");
+            LogService::info('email-cron', 'Buscando/criando usuário para: ' . self::mascararEmail($remetente));
             $usuario_id = $this->buscarOuCriarUsuario($remetente);
             LogService::info('email-cron', "Usuário ID: $usuario_id");
 
@@ -518,7 +532,7 @@ class EmailService {
                 }
             } catch (Exception $e) {
                 // A demanda já existe: falha de envio não deve reprocessar o e-mail
-                LogService::erro('email-cron', 'ERRO ao enviar emails: ' . $e->getMessage());
+                LogService::erro('email-cron', "ERRO ao enviar emails da demanda #$ticket_id: " . $e->getMessage());
             }
 
             return (int) $ticket_id;

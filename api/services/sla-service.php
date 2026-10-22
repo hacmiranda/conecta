@@ -4,9 +4,95 @@ class SLAService {
     private $setorGeralId = null;
     private $cacheHorarios = []; // [setor_id => horários]
     private $cacheFeriados = []; // [setor_id => feriados]
+    private $cacheCongelaSla = []; // [status => bool]
+    private $cachePrazosPrioridade = []; // [prioridade => [minutos_resposta, horas_resolucao]]
 
     public function __construct($db) {
         $this->db = $db;
+    }
+
+    /**
+     * Situação atual do SLA de uma demanda: {tipo, segundos_restantes, percentual, vencido, pausado}
+     * ou null se não há SLA para mostrar (sem criado_em, ou já com resposta/resolução cumpridas).
+     *
+     * $ticket precisa de: criado_em, status, prioridade (campos de `tickets`).
+     * $sla é a linha de `ticket_sla` (ou [] se ainda não existir): primeira_resposta_em,
+     * resolvido_em, tempo_pausado_segundos, pausado_em. $setorId define o expediente/feriados usados.
+     */
+    public function situacao(array $ticket, array $sla, ?int $setorId): ?array {
+        if (empty($ticket['criado_em'])) {
+            return null;
+        }
+
+        $status = (string) ($ticket['status'] ?? '');
+        $jaConcluida = in_array($status, ['resolvido', 'encerrado', 'cancelado'], true);
+        $pausadoAgora = $this->congelaSla($status);
+        $tempoPausado = (int) ($sla['tempo_pausado_segundos'] ?? 0);
+
+        // Pausa em andamento (ainda não somada em tempo_pausado_segundos, que só é atualizado
+        // quando a pausa termina — ver SLAService::retomarPausa): desconta também o trecho
+        // corrente, senão o tempo decorrido continua crescendo enquanto a demanda está pausada.
+        if ($pausadoAgora && !empty($sla['pausado_em'])) {
+            $tempoPausado += $this->calcularSegundosUteis($sla['pausado_em'], date('Y-m-d H:i:s'), $setorId);
+        }
+
+        $tempoDecorrido = $this->calcularSegundosUteis($ticket['criado_em'], date('Y-m-d H:i:s'), $setorId) - $tempoPausado;
+
+        [$slaRespostaMinutos, $slaResolucaoHoras] = $this->prazosDaPrioridade((string) ($ticket['prioridade'] ?? 'normal'));
+
+        // SLA de resposta: enquanto a demanda não teve a primeira resposta do time (e não foi
+        // concluída sem uma — dado legado/importado, já que o fluxo normal sempre grava a resposta)
+        if (empty($sla['primeira_resposta_em']) && !$jaConcluida) {
+            return $this->montarSituacao('resposta', $slaRespostaMinutos * 60, $tempoDecorrido, $pausadoAgora);
+        }
+
+        // SLA de resolução: enquanto não foi resolvida/encerrada/cancelada
+        if (empty($sla['resolvido_em']) && !$jaConcluida) {
+            return $this->montarSituacao('resolucao', $slaResolucaoHoras * 3600, $tempoDecorrido, $pausadoAgora);
+        }
+
+        return null;
+    }
+
+    private function montarSituacao(string $tipo, int $segundosPrazo, int $tempoDecorrido, bool $pausado): array {
+        $segundosRestantes = $segundosPrazo - $tempoDecorrido;
+        return [
+            'tipo' => $tipo,
+            'segundos_restantes' => $segundosRestantes,
+            'percentual' => min(100, ($tempoDecorrido / max(1, $segundosPrazo)) * 100),
+            'vencido' => $segundosRestantes <= 0 && !$pausado,
+            'pausado' => $pausado,
+        ];
+    }
+
+    /**
+     * Se o status informado pausa o SLA (catálogo global `ticket_status.congela_sla`), com cache
+     * por instância. Pública para ser a única leitura desse campo (reaproveitada por
+     * tickets.php ao decidir se pausa/retoma o SLA numa troca de status).
+     */
+    public function congelaSla(string $status): bool {
+        if (!isset($this->cacheCongelaSla[$status])) {
+            $stmt = $this->db->prepare("SELECT congela_sla FROM ticket_status WHERE nome = ?");
+            $stmt->execute([$status]);
+            $this->cacheCongelaSla[$status] = (bool) ($stmt->fetchColumn() ?: false);
+        }
+        return $this->cacheCongelaSla[$status];
+    }
+
+    /**
+     * Prazos (minutos de resposta, horas de resolução) da prioridade no catálogo global
+     * `ticket_prioridades`, com cache por request. Prioridade desconhecida cai no prazo "normal".
+     */
+    private function prazosDaPrioridade(string $prioridade): array {
+        if (!isset($this->cachePrazosPrioridade[$prioridade])) {
+            $stmt = $this->db->prepare("SELECT sla_resposta_minutos, sla_resolucao_horas FROM ticket_prioridades WHERE nome = ?");
+            $stmt->execute([$prioridade]);
+            $row = $stmt->fetch(PDO::FETCH_ASSOC);
+            $this->cachePrazosPrioridade[$prioridade] = $row
+                ? [(int) $row['sla_resposta_minutos'], (int) $row['sla_resolucao_horas']]
+                : [720, 24];
+        }
+        return $this->cachePrazosPrioridade[$prioridade];
     }
 
     /**
