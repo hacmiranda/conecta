@@ -29,7 +29,8 @@ if (!cronTravar($db, 'emails')) {
 
 cronLog('verificacao-manual.log', "Início da recuperação de e-mails ($dias dias)");
 
-ob_start();
+// O EmailService já grava o andamento via LogService (canal email-cron, e também no
+// terminal quando rodado por CLI); não precisa mais de buffer de saída.
 try {
     $resultado = (new EmailService($db))->verificarEmails($dias);
     $situacao = $resultado ? "Recuperação concluída ($dias dias)" : "Recuperação concluída com erros ($dias dias)";
@@ -37,10 +38,6 @@ try {
     $situacao = 'Recuperação: erro crítico (ver log)';
     error_log('[CRON EMAILS PERDIDOS] Erro crítico: ' . $e->getMessage());
 }
-$detalhe = trim(html_entity_decode(strip_tags(str_replace(['</p>', '<br>'], "\n", ob_get_clean()))));
 
-cronLog('verificacao-manual.log', $situacao . "\n" . $detalhe);
-if (PHP_SAPI === 'cli') {
-    echo $detalhe . "\n";
-}
+cronLog('verificacao-manual.log', $situacao);
 echo $situacao . "\n";

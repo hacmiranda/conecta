@@ -7,6 +7,7 @@
  *   o acesso por HTTP fica bloqueado.
  */
 require_once __DIR__ . '/../config/environment.php';
+require_once __DIR__ . '/../services/log-service.php';
 
 function cronExigirAcesso(): void {
     if (PHP_SAPI === 'cli') {
@@ -40,12 +41,11 @@ function cronTravar(PDO $db, string $nome): bool {
 }
 
 /**
- * Registra uma linha no log do cron (backend/logs/<arquivo>).
+ * Registra uma linha no log do cron (backend/logs/<arquivo>), via LogService.
+ * Mantém a assinatura antiga (nome do arquivo com ".log") para não mudar as
+ * ~10 chamadas já existentes nos crons; só delega para o logger único.
  */
 function cronLog(string $arquivo, string $mensagem): void {
-    $dir = dirname(__DIR__, 2) . '/backend/logs';
-    if (!is_dir($dir)) {
-        @mkdir($dir, 0750, true);
-    }
-    @file_put_contents($dir . '/' . $arquivo, '[' . date('Y-m-d H:i:s') . "] $mensagem\n", FILE_APPEND);
+    $canal = preg_replace('/\.log$/', '', $arquivo);
+    LogService::info($canal, $mensagem);
 }

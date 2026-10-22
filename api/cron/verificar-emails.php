@@ -26,8 +26,8 @@ if (!cronTravar($db, 'emails')) {
 
 cronLog('email-cron.log', 'Início da verificação de e-mails');
 
-// O EmailService escreve o andamento na saída: guardado para o log (não vai para o cron externo)
-ob_start();
+// O EmailService já grava o andamento via LogService (backend/logs/email-cron.log,
+// e também no terminal quando rodado por CLI); não precisa mais de buffer de saída.
 try {
     $resultado = (new EmailService($db))->verificarEmails(3);
     $situacao = $resultado ? 'E-mails: verificação concluída' : 'E-mails: verificação concluída com erros';
@@ -36,12 +36,8 @@ try {
     $situacao = 'E-mails: erro crítico (ver log)';
     error_log('[CRON EMAILS] Erro crítico: ' . $e->getMessage());
 }
-$detalhe = trim(html_entity_decode(strip_tags(str_replace(['</p>', '<br>'], "\n", ob_get_clean()))));
 
 cronLog('email-cron.log', $situacao);
-if (PHP_SAPI === 'cli') {
-    echo $detalhe . "\n";
-}
 echo $situacao . "\n";
 
 // Lembretes vencidos (mesma execução do cron)

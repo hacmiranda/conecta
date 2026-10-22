@@ -1,6 +1,7 @@
 <?php
 require_once __DIR__ . '/acesso-service.php';
 require_once __DIR__ . '/html-sanitizer.php';
+require_once __DIR__ . '/log-service.php';
 date_default_timezone_set('America/Sao_Paulo');
 
 class EmailService {
@@ -37,11 +38,11 @@ class EmailService {
             $stmt = $this->db->query("SELECT id, setor_id, imap_host, imap_port, imap_user, imap_pass_cifrada, validar_certificado FROM setor_emails WHERE ativo = 1");
             $caixas = $stmt->fetchAll(PDO::FETCH_ASSOC);
         } catch (Exception $e) {
-            echo "<p style='color: red;'>❌ Erro ao buscar caixas de e-mail por setor: " . $e->getMessage() . "</p>";
+            LogService::erro('email-cron', 'Erro ao buscar caixas de e-mail por setor: ' . $e->getMessage());
         }
 
         if (empty($caixas)) {
-            echo "<p>Nenhuma caixa de e-mail por setor cadastrada — usando caixa global legada (.env).</p>";
+            LogService::info('email-cron', 'Nenhuma caixa de e-mail por setor cadastrada — usando caixa global legada (.env).');
             $validarGlobal = !in_array(strtolower(trim((string) Environment::get('imap_validar_certificado', '1'))), ['0', 'false', 'nao', 'não', 'off'], true);
             return $this->verificarCaixa($this->host, $this->port, $this->username, $this->password, null, null, $validarGlobal);
         }
@@ -51,12 +52,12 @@ class EmailService {
             try {
                 $senha = CryptoService::decrypt($caixa['imap_pass_cifrada']);
             } catch (Exception $e) {
-                echo "<p style='color: red;'>❌ Não foi possível decifrar a senha da caixa #{$caixa['id']}: " . $e->getMessage() . "</p>";
+                LogService::erro('email-cron', "Não foi possível decifrar a senha da caixa #{$caixa['id']}: " . $e->getMessage());
                 $sucessoGeral = false;
                 continue;
             }
 
-            echo "<p>=== Verificando caixa do setor #{$caixa['setor_id']} ({$caixa['imap_user']}) ===</p>";
+            LogService::info('email-cron', "=== Verificando caixa do setor #{$caixa['setor_id']} ({$caixa['imap_user']}) ===");
             $ok = $this->verificarCaixa($caixa['imap_host'], (int) $caixa['imap_port'], $caixa['imap_user'], $senha, (int) $caixa['setor_id'], (int) $caixa['id'], (int) $caixa['validar_certificado'] === 1);
             $sucessoGeral = $sucessoGeral && $ok;
         }
@@ -73,87 +74,74 @@ class EmailService {
     private function verificarCaixa($host, $port, $username, $password, $setorId, $caixaId = null, bool $validarCertificado = true) {
         $this->setorAtualId = $setorId;
         $this->caixaEmailAtualId = $caixaId;
-        $log_file = dirname(__DIR__, 2) . '/backend/logs/email-cron.log';
 
         if (!function_exists('imap_open')) {
-            echo "<p style='color: red;'>❌ Extensão PHP IMAP não está habilitada neste servidor.</p>";
-            error_log('[EMAIL-SERVICE] Extensão imap não habilitada.');
+            LogService::erro('email-cron', 'Extensão PHP IMAP não está habilitada neste servidor.');
             return false;
         }
 
         try {
             // Certificado do servidor validado por padrão; só é dispensado por decisão explícita da caixa
             $mailbox = "{{$host}:{$port}/imap/ssl" . ($validarCertificado ? '' : '/novalidate-cert') . "}INBOX";
-            echo "<p>Conectando em: $mailbox</p>";
-            file_put_contents($log_file, "[" . date('Y-m-d H:i:s') . "] Conectando em: $mailbox\n", FILE_APPEND);
+            LogService::info('email-cron', "Conectando em: $mailbox");
 
             $inbox = @imap_open($mailbox, $username, $password, 0, 3);
 
             if (!$inbox) {
                 $erro = imap_last_error();
-                file_put_contents($log_file, "[" . date('Y-m-d H:i:s') . "] ERRO: $erro\n", FILE_APPEND);
+                LogService::erro('email-cron', "ERRO: $erro");
                 throw new Exception('Não foi possível conectar ao email: ' . $erro);
             }
 
-            echo "<p>✅ Conectado com sucesso!</p>";
-            file_put_contents($log_file, "[" . date('Y-m-d H:i:s') . "] Conectado com sucesso\n", FILE_APPEND);
+            LogService::info('email-cron', 'Conectado com sucesso');
 
                 // Buscar emails dos últimos N dias (padrão 3) para garantir que nenhum foi perdido
                 // mesmo se marcado como lido por outro cliente (Outlook/Celular); o Message-ID evita duplicar
                 $data_busca = date('d-M-Y', strtotime('-' . $this->diasBusca . ' days'));
                 $search_criteria = 'SINCE "' . $data_busca . '"';
 
-                echo "<p>Buscando emails com critério: $search_criteria</p>";
-                file_put_contents($log_file, "[" . date('Y-m-d H:i:s') . "] Buscando emails: $search_criteria\n", FILE_APPEND);
+                LogService::info('email-cron', "Buscando emails: $search_criteria");
 
                 $emails = imap_search($inbox, $search_criteria, SE_UID);
 
-                echo "<p>Verificando emails recentes...</p>";
-
                 if ($emails) {
                     $count = count($emails);
-                    echo "<p>📧 Encontrados $count emails recentes para análise</p>";
-                    file_put_contents($log_file, "[" . date('Y-m-d H:i:s') . "] Encontrados $count emails\n", FILE_APPEND);
+                    LogService::info('email-cron', "Encontrados $count emails recentes para análise");
 
                     // Ordenar para processar dos mais antigos para os mais novos
                     sort($emails);
 
                     foreach ($emails as $uid) {
                         $msgno = imap_msgno($inbox, $uid);
-                    echo "<p>Processando UID: $uid (MSG: $msgno)...</p>";
-                    file_put_contents($log_file, "[" . date('Y-m-d H:i:s') . "] Processando UID: $uid\n", FILE_APPEND);
+                    LogService::info('email-cron', "Processando UID: $uid (MSG: $msgno)");
 
                     try {
                         $this->processarEmail($inbox, $msgno, $uid);
                     } catch (Exception $e) {
-                        echo "<p style='color: red;'>❌ Erro ao processar email: " . $e->getMessage() . "</p>";
-                        file_put_contents($log_file, "[" . date('Y-m-d H:i:s') . "] ERRO ao processar UID $uid: " . $e->getMessage() . "\n", FILE_APPEND);
+                        LogService::erro('email-cron', "Erro ao processar UID $uid: " . $e->getMessage());
                         // Não marcar como lido se houver erro
                     }
                 }
             } else {
-                echo "<p>📄 Nenhum email não lido encontrado</p>";
-                file_put_contents($log_file, "[" . date('Y-m-d H:i:s') . "] Nenhum email não lido\n", FILE_APPEND);
-                echo "<p>Nenhum email não lido no momento.</p>";
+                LogService::info('email-cron', 'Nenhum email não lido encontrado');
             }
 
             // Verificar total de emails na caixa
             $total_emails = imap_num_msg($inbox);
-            echo "<p>Total de emails na caixa: $total_emails</p>";
-            file_put_contents($log_file, "[" . date('Y-m-d H:i:s') . "] Total na caixa: $total_emails\n", FILE_APPEND);
+            LogService::info('email-cron', "Total na caixa: $total_emails");
 
             imap_close($inbox);
             return true;
 
         } catch (Exception $e) {
-            echo "<p style='color: red;'>❌ Erro: " . $e->getMessage() . "</p>";
+            LogService::erro('email-cron', 'Erro: ' . $e->getMessage());
             error_log('Erro no EmailService: ' . $e->getMessage());
             return false;
         }
     }
     
     private function processarEmail($inbox, $email_number, $uid = null) {
-        echo "<p>--- Processando Email #$email_number ---</p>";
+        LogService::info('email-cron', "--- Processando Email #$email_number ---");
 
         $header = imap_headerinfo($inbox, $email_number);
         $structure = imap_fetchstructure($inbox, $email_number);
@@ -175,7 +163,7 @@ class EmailService {
 
         // Verificar se já foi processado
         if ($this->emailJaProcessado($message_id)) {
-            echo "<p>⏭️ Email já processado anteriormente (Message-ID: $message_id)</p>";
+            LogService::info('email-cron', "Email já processado anteriormente (Message-ID: $message_id)");
             $marcarLido();
             return;
         }
@@ -190,7 +178,7 @@ class EmailService {
         // Caixas do próprio sistema e respostas automáticas nunca viram demanda (evita laços)
         $motivo_ignorar = $this->motivoParaIgnorar($inbox, $email_number, $remetente);
         if ($motivo_ignorar !== null) {
-            echo "<p>🚫 Email ignorado ($motivo_ignorar): $remetente</p>";
+            LogService::info('email-cron', "Email ignorado ($motivo_ignorar): $remetente");
             $this->registrarEmailProcessado($message_id, $remetente, $assunto, null, 'ignorado', $motivo_ignorar);
             $marcarLido();
             return;
@@ -214,8 +202,7 @@ class EmailService {
         // Corpo vindo de fora: gravado como texto escapado, preservando as quebras de linha
         $body = nl2br(htmlspecialchars($body, ENT_QUOTES, 'UTF-8'), false);
 
-        echo "<p>Assunto: " . htmlspecialchars($assunto) . "</p>";
-        echo "<p>Remetente: $remetente</p>";
+        LogService::info('email-cron', "Assunto: $assunto | Remetente: $remetente");
 
         // Resposta a uma demanda existente? Só vira comentário se o remetente participa da demanda
         // e a caixa é de um setor por onde ela passou; senão, abre uma demanda nova.
@@ -226,7 +213,7 @@ class EmailService {
             $recusa = $ticket_id ? $this->motivoRecusaComentario((int) $ticket_id, $remetente) : null;
 
             if ($ticket_id && $recusa === null) {
-                echo "<p>✉️ Resposta à demanda #" . str_pad($ticket_id, 5, '0', STR_PAD_LEFT) . "</p>";
+                LogService::info('email-cron', 'Resposta à demanda #' . str_pad($ticket_id, 5, '0', STR_PAD_LEFT));
                 $anexos_processados = $this->processarAnexosEmail($inbox, $email_number);
                 $this->adicionarComentario($ticket_id, $body, $remetente, $anexos_processados, $inbox, $email_number);
                 $tipo = 'comentario';
@@ -234,17 +221,16 @@ class EmailService {
                 if ($ticket_id) {
                     $observacao = 'Mencionou a demanda #' . str_pad($ticket_id, 5, '0', STR_PAD_LEFT) . ', mas ' . $recusa . '; aberta demanda nova.';
                     $body = '<p><em>' . htmlspecialchars($observacao, ENT_QUOTES, 'UTF-8') . '</em></p>' . $body;
-                    echo "<p>⚠️ $observacao</p>";
+                    LogService::aviso('email-cron', $observacao);
                 }
-                echo "<p>🆕 Criando nova demanda...</p>";
+                LogService::info('email-cron', 'Criando nova demanda...');
                 $ticket_id = $this->criarTicketPorEmail($assunto, $body, $remetente, $inbox, $email_number);
                 $tipo = 'novo_ticket';
             }
         } catch (Exception $e) {
             // Não marca como lido nem como processado: tenta de novo na próxima execução
             $tentativas = $this->registrarFalha($message_id, $remetente, $assunto, $e->getMessage());
-            error_log('[EMAIL-SERVICE] Falha ao processar e-mail de ' . $remetente . ' (tentativa ' . $tentativas . '): ' . $e->getMessage());
-            echo "<p style='color: red;'>❌ Falha ao processar (tentativa $tentativas): " . htmlspecialchars($e->getMessage()) . "</p>";
+            LogService::erro('email-cron', "Falha ao processar e-mail de $remetente (tentativa $tentativas): " . $e->getMessage());
             if ($tentativas >= self::MAX_TENTATIVAS) {
                 $this->registrarEmailProcessado($message_id, $remetente, $assunto, null, 'erro', 'Desistiu após ' . $tentativas . ' tentativas: ' . mb_substr($e->getMessage(), 0, 180));
                 $marcarLido();
@@ -256,7 +242,7 @@ class EmailService {
 
         // Marcar email como lido APENAS após sucesso
         $marcarLido();
-        echo "<p>✅ Email processado e marcado como lido</p>";
+        LogService::info('email-cron', 'Email processado e marcado como lido');
     }
 
     /**
@@ -405,23 +391,23 @@ class EmailService {
             $stmt->bindParam(':tipo', $tipo);
             $stmt->bindValue(':observacao', $observacao);
             $stmt->execute();
-            echo "<p>📝 Email registrado no histórico</p>";
+            LogService::info('email-cron', 'Email registrado no histórico');
         } catch (Exception $e) {
             // Se tabela não existe, apenas logar
-            echo "<p>⚠️ Aviso: Não foi possível registrar no histórico</p>";
+            LogService::aviso('email-cron', 'Não foi possível registrar no histórico');
         }
     }
-    
+
     private function criarTicketPorEmail($assunto, $corpo, $remetente, $inbox, $email_number): int {
-            echo "<p>Iniciando criação de demanda...</p>";
-            
+            LogService::info('email-cron', 'Iniciando criação de demanda...');
+
             // Buscar ou criar usuário
-            echo "<p>Buscando/criando usuário para: $remetente</p>";
+            LogService::info('email-cron', "Buscando/criando usuário para: $remetente");
             $usuario_id = $this->buscarOuCriarUsuario($remetente);
-            echo "<p>Usuário ID: $usuario_id</p>";
-            
+            LogService::info('email-cron', "Usuário ID: $usuario_id");
+
             // Processar anexos e imagens
-            echo "<p>Processando anexos e imagens...</p>";
+            LogService::info('email-cron', 'Processando anexos e imagens...');
             $resultado_anexos = $this->processarAnexosEmail($inbox, $email_number);
             
             // Limpar corpo do email
@@ -451,7 +437,7 @@ class EmailService {
             
             $duplicado = $dup_ticket_stmt->fetchColumn();
             if ($duplicado) {
-                echo "<p>⚠️ Demanda duplicada recente (mesmo assunto, corpo e usuário): mantida a #$duplicado.</p>";
+                LogService::aviso('email-cron', "Demanda duplicada recente (mesmo assunto, corpo e usuário): mantida a #$duplicado.");
                 return (int) $duplicado;
             }
             // --- FIM VERIFICAÇÃO EXTRA DE DUPLICIDADE ---
@@ -465,7 +451,7 @@ class EmailService {
             }
 
             // Criar ticket
-            echo "<p>Criando ticket no banco...</p>";
+            LogService::info('email-cron', 'Criando ticket no banco...');
             $query = "INSERT INTO tickets (titulo, descricao, usuario_id, status, prioridade, setor_id)
                      VALUES (:titulo, :descricao, :usuario_id, 'novo', 'normal', :setor_id)";
             $stmt = $this->db->prepare($query);
@@ -476,7 +462,7 @@ class EmailService {
             $stmt->execute();
 
             $ticket_id = $this->db->lastInsertId();
-            echo "<p>✅ Ticket criado com ID: #" . str_pad($ticket_id, 5, '0', STR_PAD_LEFT) . "</p>";
+            LogService::info('email-cron', 'Ticket criado com ID: #' . str_pad($ticket_id, 5, '0', STR_PAD_LEFT));
 
             // SLA, janela de setor e evento de abertura (com a caixa de origem, quando houver)
             $detalhe_abertura = 'via e-mail';
@@ -493,11 +479,11 @@ class EmailService {
             // Salvar todos os anexos
             foreach ($resultado_anexos['validos'] as $anexo) {
                 $this->salvarAnexo($ticket_id, $anexo);
-                echo "<p>✅ Anexo salvo: {$anexo['nome']}</p>";
+                LogService::info('email-cron', "Anexo salvo: {$anexo['nome']}");
             }
-            
+
             // Enviar emails
-            echo "<p>Enviando emails...</p>";
+            LogService::info('email-cron', 'Enviando emails...');
             error_log("[EMAIL-SERVICE] Iniciando envio de emails para ticket #$ticket_id");
             
             try {
@@ -514,26 +500,25 @@ class EmailService {
                 // Email para o usuário
                 error_log("[EMAIL-SERVICE] Tentando enviar email de confirmação para usuário");
                 if ($emailSender->enviarEmailNovoTicket($ticket_id, $resultado_anexos['rejeitados'])) {
-                    echo "<p>✅ Email enviado para o usuário</p>";
+                    LogService::info('email-cron', 'Email enviado para o usuário');
                     error_log("[EMAIL-SERVICE] Email de confirmação enviado com sucesso");
                 } else {
-                    echo "<p>⚠️ Falha ao enviar email para o usuário</p>";
+                    LogService::aviso('email-cron', 'Falha ao enviar email para o usuário');
                     error_log("[EMAIL-SERVICE] FALHA ao enviar email de confirmação");
                 }
-                
+
                 // Notificação para agentes
                 error_log("[EMAIL-SERVICE] Tentando notificar agentes");
                 if ($emailSender->notificarAgentesNovoTicket($ticket_id)) {
-                    echo "<p>✅ Agentes notificados</p>";
+                    LogService::info('email-cron', 'Agentes notificados');
                     error_log("[EMAIL-SERVICE] Agentes notificados com sucesso");
                 } else {
-                    echo "<p>⚠️ Falha ao notificar agentes</p>";
+                    LogService::aviso('email-cron', 'Falha ao notificar agentes');
                     error_log("[EMAIL-SERVICE] FALHA ao notificar agentes");
                 }
             } catch (Exception $e) {
                 // A demanda já existe: falha de envio não deve reprocessar o e-mail
-                echo "<p>❌ ERRO ao enviar emails: " . $e->getMessage() . "</p>";
-                error_log("[EMAIL-SERVICE] Erro ao enviar e-mails da demanda #$ticket_id: " . $e->getMessage());
+                LogService::erro('email-cron', 'ERRO ao enviar emails: ' . $e->getMessage());
             }
 
             return (int) $ticket_id;
@@ -551,7 +536,7 @@ class EmailService {
             $this->processarPartesAnexos($inbox, $email_number, $structure->parts, '', $anexos_validos, $anexos_rejeitados, $tamanho_total, $count_anexos);
         }
         
-        echo "<p>Total processado: $count_anexos anexos válidos, " . count($anexos_rejeitados) . " rejeitados</p>";
+        LogService::info('email-cron', "Total processado: $count_anexos anexos válidos, " . count($anexos_rejeitados) . " rejeitados");
         
         return [
             'validos' => $anexos_validos,
@@ -560,8 +545,6 @@ class EmailService {
     }
     
     private function processarPartesAnexos($inbox, $email_number, $parts, $prefix, &$anexos_validos, &$anexos_rejeitados, &$tamanho_total, &$count_anexos) {
-        $log_file = dirname(__DIR__, 2) . '/backend/logs/email-cron.log';
-        
         foreach ($parts as $part_number => $part) {
             $section = $prefix . ($part_number + 1);
             
@@ -601,51 +584,42 @@ class EmailService {
                 }
                 
                 if ($filename) {
-                    echo "<p>Processando anexo: $filename (seção $section)</p>";
-                    
                     $attachment = imap_fetchbody($inbox, $email_number, $section);
-                    
+
                     // Decodificar anexo
                     if ($part->encoding == 3) { // Base64
                         $attachment = base64_decode($attachment);
                     } elseif ($part->encoding == 4) { // Quoted-printable
                         $attachment = quoted_printable_decode($attachment);
                     }
-                    
+
                     $extensao = strtolower(pathinfo($filename, PATHINFO_EXTENSION));
                     $tipos_permitidos = ['pdf', 'doc', 'docx', 'txt', 'csv', 'xls', 'xlsx', 'png', 'jpg', 'jpeg', 'zip', 'rar'];
                     $tamanho = strlen($attachment);
-                    
-                    echo "<p>Arquivo: $filename, Tamanho: " . round($tamanho/1024, 2) . "KB, Extensão: $extensao</p>";
-                    file_put_contents($log_file, "[" . date('Y-m-d H:i:s') . "] [ANEXO] Processando: $filename | Ext: $extensao | Tamanho: " . round($tamanho/1024, 2) . "KB | Count: $count_anexos\n", FILE_APPEND);
-                    
+
+                    LogService::info('email-cron', "[ANEXO] Processando: $filename (seção $section) | Ext: $extensao | Tamanho: " . round($tamanho/1024, 2) . "KB | Count: $count_anexos");
+
                     // Validar tipo
                     if (!in_array($extensao, $tipos_permitidos)) {
                         $anexos_rejeitados[] = ['nome' => $filename, 'motivo' => 'Tipo não permitido'];
-                        echo "<p>❌ Rejeitado: tipo não permitido</p>";
-                        file_put_contents($log_file, "[" . date('Y-m-d H:i:s') . "] [ANEXO] REJEITADO - Tipo não permitido: $extensao\n", FILE_APPEND);
+                        LogService::aviso('email-cron', "[ANEXO] REJEITADO - Tipo não permitido: $extensao");
                         continue;
                     }
-                    file_put_contents($log_file, "[" . date('Y-m-d H:i:s') . "] [ANEXO] Tipo válido\n", FILE_APPEND);
-                    
+
                     // Validar quantidade
                     if ($count_anexos >= 5) {
                         $anexos_rejeitados[] = ['nome' => $filename, 'motivo' => 'Máximo 5 arquivos'];
-                        echo "<p>❌ Rejeitado: máximo 5 arquivos</p>";
-                        file_put_contents($log_file, "[" . date('Y-m-d H:i:s') . "] [ANEXO] REJEITADO - Máximo 5 arquivos (atual: $count_anexos)\n", FILE_APPEND);
+                        LogService::aviso('email-cron', "[ANEXO] REJEITADO - Máximo 5 arquivos (atual: $count_anexos)");
                         continue;
                     }
-                    file_put_contents($log_file, "[" . date('Y-m-d H:i:s') . "] [ANEXO] Quantidade OK ($count_anexos/5)\n", FILE_APPEND);
-                    
+
                     // Validar tamanho
                     if ($tamanho_total + $tamanho > 20 * 1024 * 1024) { // 20MB
                         $anexos_rejeitados[] = ['nome' => $filename, 'motivo' => 'Tamanho excede 20MB'];
-                        echo "<p>❌ Rejeitado: tamanho excede 20MB</p>";
-                        file_put_contents($log_file, "[" . date('Y-m-d H:i:s') . "] [ANEXO] REJEITADO - Tamanho excede 20MB (atual: " . round(($tamanho_total + $tamanho)/1024/1024, 2) . "MB)\n", FILE_APPEND);
+                        LogService::aviso('email-cron', "[ANEXO] REJEITADO - Tamanho excede 20MB (atual: " . round(($tamanho_total + $tamanho)/1024/1024, 2) . "MB)");
                         continue;
                     }
-                    file_put_contents($log_file, "[" . date('Y-m-d H:i:s') . "] [ANEXO] Tamanho OK\n", FILE_APPEND);
-                    
+
                     // Anexo válido
                     $tipo_mime = $this->obterTipoMime($extensao);
                     $anexos_validos[] = [
@@ -654,11 +628,10 @@ class EmailService {
                         'tamanho' => $tamanho,
                         'tipo' => $tipo_mime
                     ];
-                    
+
                     $tamanho_total += $tamanho;
                     $count_anexos++;
-                    echo "<p>✅ Anexo aceito</p>";
-                    file_put_contents($log_file, "[" . date('Y-m-d H:i:s') . "] [ANEXO] ACEITO: $filename | MIME: $tipo_mime\n", FILE_APPEND);
+                    LogService::info('email-cron', "[ANEXO] ACEITO: $filename | MIME: $tipo_mime");
                 }
             }
             
@@ -731,10 +704,10 @@ class EmailService {
             error_log("[ANEXO SAVE] Criando diretório...");
             if (mkdir($upload_dir, 0755, true)) {
                 error_log("[ANEXO SAVE] Diretório criado com sucesso");
-                echo "<p>📁 Pasta criada: $upload_dir</p>";
+                LogService::info('email-cron', "Pasta criada: $upload_dir");
             } else {
                 error_log("[ANEXO SAVE] ERRO ao criar diretório!");
-                echo "<p>❌ Erro ao criar pasta: $upload_dir</p>";
+                LogService::erro('email-cron', "Erro ao criar pasta: $upload_dir");
                 return;
             }
         }
@@ -749,12 +722,12 @@ class EmailService {
         error_log("[ANEXO SAVE] Caminho completo: $caminho_completo");
         error_log("[ANEXO SAVE] Tamanho conteúdo: " . strlen($anexo['conteudo']) . " bytes");
         
-        echo "<p>💾 Salvando em: $caminho_completo</p>";
-        
+        LogService::info('email-cron', "Salvando em: $caminho_completo");
+
         $bytes_escritos = file_put_contents($caminho_completo, $anexo['conteudo']);
         if ($bytes_escritos !== false) {
             error_log("[ANEXO SAVE] Arquivo salvo: $bytes_escritos bytes");
-            echo "<p>✅ Arquivo salvo fisicamente ($bytes_escritos bytes)</p>";
+            LogService::info('email-cron', "Arquivo salvo fisicamente ($bytes_escritos bytes)");
             
             $query = "INSERT INTO anexos (ticket_id, comentario_id, nome_original, nome_arquivo, tamanho, tipo) 
                      VALUES (:ticket_id, :comentario_id, :nome_original, :nome_arquivo, :tamanho, :tipo)";
@@ -769,13 +742,12 @@ class EmailService {
             
             $anexo_id = $this->db->lastInsertId();
             error_log("[ANEXO SAVE] Registro no banco criado (ID: $anexo_id)");
-            echo "<p>✅ Registro no banco criado (ID: $anexo_id)</p>";
+            LogService::info('email-cron', "Registro no banco criado (ID: $anexo_id)");
         } else {
             $error = error_get_last();
             error_log("[ANEXO SAVE] ERRO ao salvar arquivo!");
             error_log("[ANEXO SAVE] Erro PHP: " . print_r($error, true));
-            echo "<p>❌ Falha ao salvar arquivo fisicamente</p>";
-            echo "<p>Erro: " . ($error['message'] ?? 'Desconhecido') . "</p>";
+            LogService::erro('email-cron', 'Falha ao salvar arquivo fisicamente: ' . ($error['message'] ?? 'Desconhecido'));
         }
     }
     
@@ -819,7 +791,7 @@ class EmailService {
     }
     
     private function adicionarComentario($ticket_id, $comentario, $email, $anexos_processados = [], $inbox = null, $email_number = null) {
-        echo "<p>Adicionando comentário ao ticket #" . str_pad($ticket_id, 5, '0', STR_PAD_LEFT) . "</p>";
+        LogService::info('email-cron', 'Adicionando comentário ao ticket #' . str_pad($ticket_id, 5, '0', STR_PAD_LEFT));
         
         // Verificar se ticket está fechado - se sim, reabrir
         $this->verificarEReabrirTicket($ticket_id);
@@ -853,7 +825,7 @@ class EmailService {
         $duplicado_stmt->execute();
         
         if ($duplicado_stmt->fetch()) {
-            echo "<p>⚠️ Comentário ignorado: Detectado comentário duplicado recente (mesmo conteúdo e usuário).</p>";
+            LogService::aviso('email-cron', 'Comentário ignorado: detectado comentário duplicado recente (mesmo conteúdo e usuário).');
             // Se já existe, não insere novamente.
             return;
         }
@@ -868,12 +840,12 @@ class EmailService {
         $stmt->execute();
         
         $comentario_id = $this->db->lastInsertId();
-        echo "<p>✅ Comentário adicionado ao ticket #" . str_pad($ticket_id, 5, '0', STR_PAD_LEFT) . "</p>";
-        
+        LogService::info('email-cron', 'Comentário adicionado ao ticket #' . str_pad($ticket_id, 5, '0', STR_PAD_LEFT));
+
         // Salvar todos os anexos
         foreach ($anexos_processados['validos'] as $anexo) {
             $this->salvarAnexo($ticket_id, $anexo, $comentario_id);
-            echo "<p>✅ Anexo salvo: {$anexo['nome']}</p>";
+            LogService::info('email-cron', "Anexo salvo: {$anexo['nome']}");
         }
         
         // Notificar sobre novo comentário
@@ -915,7 +887,7 @@ class EmailService {
                     $hist_q = "INSERT INTO ticket_historico (ticket_id, usuario_id, acao, valor_anterior, valor_novo) VALUES (?, ?, 'status', ?, 'nova_resposta')";
                     $this->db->prepare($hist_q)->execute([$ticket_id, $usuario_id, $ticket_atual['status']]);
                     
-                    echo "<p>🔄 Status atualizado para 'nova_resposta'</p>";
+                    LogService::info('email-cron', "Status atualizado para 'nova_resposta'");
                 }
             }
         }
@@ -930,7 +902,7 @@ class EmailService {
         $ticket = $stmt->fetch();
         
         if ($ticket && ($ticket['status'] === 'fechado' || $ticket['status'] === 'encerrado')) {
-            echo "<p>🔄 Reabrindo ticket fechado...</p>";
+            LogService::info('email-cron', 'Reabrindo ticket fechado...');
             
             // Reabrir ticket
             $update_query = "UPDATE tickets SET status = 'reaberto', fechado_por = NULL, fechado_em = NULL WHERE id = :ticket_id";
@@ -954,23 +926,22 @@ class EmailService {
                 !empty($ticket['agente_id']) ? (int) $ticket['agente_id'] : null
             );
             
-            echo "<p>✅ Ticket reaberto automaticamente</p>";
-            
+            LogService::info('email-cron', 'Ticket reaberto automaticamente');
+
             // Enviar notificações
             try {
                 require_once __DIR__ . '/email-sender.php';
                 $emailSender = new EmailSender($this->db);
-                
+
                 // Notificar solicitante
                 $emailSender->notificarReaberturaParaSolicitante($ticket_id);
-                
+
                 // Notificar agente responsável
                 $emailSender->notificarReaberturaTicket($ticket_id);
-                
-                echo "<p>✅ Notificações de reabertura enviadas</p>";
+
+                LogService::info('email-cron', 'Notificações de reabertura enviadas');
             } catch (Exception $e) {
-                echo "<p>⚠️ Erro ao enviar notificações: " . $e->getMessage() . "</p>";
-                error_log('Erro ao notificar reabertura: ' . $e->getMessage());
+                LogService::erro('email-cron', 'Erro ao notificar reabertura: ' . $e->getMessage());
             }
         }
     }
