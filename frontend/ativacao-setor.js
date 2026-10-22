@@ -306,7 +306,8 @@ async function testarEmailSetor() {
         const cor = resp.sucesso ? '#28a745' : '#dc3545';
         resultadoDiv.innerHTML = `<p style="color:${cor};">${resp.sucesso ? '✅' : '❌'} ${sanitizeHTML(resp.mensagem)}</p>`;
     } catch (e) {
-        resultadoDiv.innerHTML = '<p style="color:#dc3545;">Erro ao testar conexão.</p>';
+        const mensagem = (e.dados && e.dados.error) || 'Erro ao testar conexão.';
+        resultadoDiv.innerHTML = `<p style="color:#dc3545;">${sanitizeHTML(mensagem)}</p>`;
     }
 }
 

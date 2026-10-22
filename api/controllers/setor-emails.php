@@ -119,7 +119,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 try {
                     $senha = $senha !== '' ? $senha : CryptoService::decrypt($caixa['imap_pass_cifrada']);
                 } catch (Exception $e) {
-                    echo json_encode(['sucesso' => false, 'mensagem' => 'Não foi possível ler a senha salva. Informe a senha novamente.']);
+                    http_response_code(400);
+                    echo json_encode(['error' => 'Não foi possível ler a senha salva. Informe a senha novamente.']);
                     exit;
                 }
             }
