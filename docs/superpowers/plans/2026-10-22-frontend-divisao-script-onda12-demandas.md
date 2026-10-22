@@ -302,3 +302,38 @@ topo", e 2 itens de código morto documentados (`confirmarAtribuicao`/`executarA
 
 Registrada a conclusão de todo o roteiro de divisão de `script.js` (Fase 12, P1) — ver
 memória `conecta-crprs-migration.md`.
+
+---
+
+## Revisão final (subagente opus, independente)
+
+**Veredito: Aprovado.** 0 Crítico, 0 Importante, 4 Menores — o achado #1 foi corrigido
+(commit `bb67e9e`), os demais ficaram documentados sem correção:
+
+1. **Corrigido:** os catches de `carregarPaginaServidor`/`carregarTickets` tinham deixado de
+   registrar a exceção no console (o original tinha `console.error` nos `onerror`/branches de
+   erro HTTP do XHR) — a conversão para `Api.*` engolia a exceção silenciosamente, dificultando
+   diagnóstico de um bug de renderização real. Adicionado `console.error('Erro ao carregar
+   tickets:', e)` nos dois catches.
+2. **Não corrigido (documentado):** em `executarMerge`, o `try` também cobre `mostrarToast`, a
+   animação de remoção e `cancelarMerge()` — se algum desses lançar exceção após o servidor já
+   ter confirmado o merge, o usuário veria "Erro ao mesclar demandas" por engano. Risco baixo,
+   mesma categoria de achado aceito em ondas anteriores.
+3. **Corrigido:** o comentário de duas linhas acima de `popularPrioridadesFormNovo` tinha se
+   perdido na extração — restaurado (commit `bb67e9e`).
+4. Linhas em branco extras nas bordas de dois cortes em `script.js` — puramente estético, não
+   tocado.
+
+Confirmado pela revisão: diff fiel linha a linha (commit `acb8238` só remove linhas de
+`script.js`, nenhuma adição além do arquivo novo), as 3 conversões de rede corretas
+(token anti-corrida preservado nos dois caminhos), formulário `FormData` e drag-and-drop do
+Kanban intocados, corte em torno de `mostrarSkeletonTickets` limpo (sem duplicata nem lacuna),
+nenhuma referência quebrada por ordem de carregamento, sem XSS novo (o merge até ficou mais
+seguro — o `xhr.responseText` bruto que ia para `innerHTML` em caso de erro de parse no
+original deixou de existir), sem regressão de acessibilidade, `node --check` limpo nos dois
+arquivos.
+
+**Checagem de fechamento do roteiro de 12 ondas:** confirmado que as 60 funções remanescentes
+em `script.js` são todas infraestrutura core, itens compartilhados documentados, código morto
+documentado, ou os gráficos do Dashboard esquecidos na Onda 8 (fora de escopo) — nenhuma
+função do domínio Demandas (lista, Kanban, Nova Demanda, merge de abertas) ficou esquecida.
