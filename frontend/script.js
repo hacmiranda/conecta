@@ -592,7 +592,10 @@ function obterSetorIdDoTicket(ticketId) {
     return null;
 }
 
-function alterarStatus(ticketId) {
+function alterarStatus(ticketId, setorId) {
+    if (setorId === undefined || setorId === null) {
+        setorId = obterSetorIdDoTicket(ticketId);
+    }
     const statusOpcoesFallback = [
         { id: 'novo', nome: '🆕 Novo' },
         { id: 'em_atendimento', nome: '🔧 Em atendimento' },
@@ -607,7 +610,7 @@ function alterarStatus(ticketId) {
     ];
 
     const abrirSelect = (opcoes) => {
-        mostrarSelect(
+        mostrarSelectComDescricao(
             'Alterar Status',
             'Selecione o novo status da demanda:',
             opcoes,
@@ -624,11 +627,11 @@ function alterarStatus(ticketId) {
         return;
     }
 
-    const setorId = obterSetorIdDoTicket(ticketId);
     carregarStatusDisponiveis(setorId).then(statusList => {
         const opcoes = statusList.map(item => ({
             id: item.nome,
-            nome: `${window.STATUS_CONFIG?.[item.nome]?.icone || ''} ${typeof formatarNomeStatus === 'function' ? formatarNomeStatus(item.nome) : item.nome}`
+            nome: `${window.STATUS_CONFIG?.[item.nome]?.icone || ''} ${typeof formatarNomeStatus === 'function' ? formatarNomeStatus(item.nome) : item.nome}`,
+            descricao: item.descricao || window.STATUS_CONFIG?.[item.nome]?.descricao || ''
         }));
         abrirSelect(opcoes.length > 0 ? opcoes : statusOpcoesFallback);
     }).catch(() => abrirSelect(statusOpcoesFallback));
@@ -703,7 +706,10 @@ function executarAlteracaoCategoria(ticketId, categoriaId) {
 }
 
 // Alterar prioridade do ticket
-function alterarPrioridade(ticketId) {
+function alterarPrioridade(ticketId, setorId) {
+    if (setorId === undefined || setorId === null) {
+        setorId = obterSetorIdDoTicket(ticketId);
+    }
     const prioridadeOpcoesFallback = [
         { id: 'baixa', nome: 'Baixa' },
         { id: 'normal', nome: 'Normal' },
@@ -712,7 +718,7 @@ function alterarPrioridade(ticketId) {
     ];
 
     const abrirSelect = (opcoes) => {
-        mostrarSelect(
+        mostrarSelectComDescricao(
             'Alterar Prioridade',
             'Selecione a nova prioridade da demanda:',
             opcoes,
@@ -729,124 +735,95 @@ function alterarPrioridade(ticketId) {
         return;
     }
 
-    const setorId = obterSetorIdDoTicket(ticketId);
     carregarPrioridadesDisponiveis(setorId).then(prioridadesList => {
         const opcoes = prioridadesList.map(p => ({
             id: p.nome,
-            nome: typeof formatarNomePrioridade === 'function' ? formatarNomePrioridade(p.nome) : p.nome
+            nome: `${window.PRIORIDADE_CONFIG?.[p.nome]?.icone || ''} ${typeof formatarNomePrioridade === 'function' ? formatarNomePrioridade(p.nome) : p.nome}`,
+            descricao: p.descricao
+                ? `${p.descricao} (SLA: ${p.sla_resposta_minutos}min resposta / ${p.sla_resolucao_horas}h resolução)`
+                : ''
         }));
         abrirSelect(opcoes.length > 0 ? opcoes : prioridadeOpcoesFallback);
     }).catch(() => abrirSelect(prioridadeOpcoesFallback));
 }
 
 // Executar alteração de prioridade
-function executarAlteracaoPrioridade(ticketId, novaPrioridade) {
-    console.log('🔄 Alterando prioridade:', { ticketId, novaPrioridade });
-    console.log('📍 Chamando mostrarLoader...');
+async function executarAlteracaoPrioridade(ticketId, novaPrioridade, callback) {
     mostrarLoader();
-    console.log('✅ mostrarLoader chamado');
 
-    const xhr = new XMLHttpRequest();
-    xhr.open('PUT', `${window.APP_CONFIG.apiBase}tickets.php?id=${ticketId}`, true);
-    xhr.setRequestHeader('Content-Type', 'application/json');
-
-    // Adicionar token de autenticação
-    setSecurityHeaders(xhr);
-
-    xhr.onload = function () {
-        console.log('📡 Resposta do servidor:', xhr.status, xhr.responseText);
-        if (xhr.status === 200) {
-            // Recarregar lista de tickets
-            carregarTickets();
-
-            // Se estiver na página de detalhes, recarregar detalhes
-            const ticketAtivo = localStorage.getItem('cd_ticketAtivo');
-            if (ticketAtivo && parseInt(ticketAtivo) === ticketId) {
-                setTimeout(() => verDetalhes(ticketId), 300);
-            }
-
-            ocultarLoader();
-            mostrarToast('Sucesso', 'Prioridade alterada com sucesso!', 'success');
-        } else {
-            ocultarLoader();
-            mostrarAlert('Erro', 'Erro ao alterar prioridade: ' + xhr.responseText);
-        }
-    };
-
-    xhr.onerror = function () {
+    try {
+        await Api.put(`tickets.php?id=${ticketId}`, { prioridade: novaPrioridade });
         ocultarLoader();
-        mostrarAlert('Erro', 'Erro de conexão');
-    };
 
-    const dados = { prioridade: novaPrioridade };
-    console.log('📤 Enviando dados:', dados);
-    xhr.send(JSON.stringify(dados));
+        // Recarregar lista de tickets
+        carregarTickets();
+
+        // Se estiver na página de detalhes, recarregar detalhes
+        const ticketAtivo = localStorage.getItem('cd_ticketAtivo');
+        if (ticketAtivo && parseInt(ticketAtivo) === ticketId && !callback) {
+            setTimeout(() => verDetalhes(ticketId), 300);
+        }
+
+        if (callback) {
+            callback();
+        }
+
+        const prioridadeNome = typeof formatarNomePrioridade === 'function' ? formatarNomePrioridade(novaPrioridade) : novaPrioridade;
+        mostrarToast('Sucesso', `Prioridade alterada para "${prioridadeNome}" com sucesso!`, 'success');
+    } catch (e) {
+        ocultarLoader();
+        mostrarAlert('Erro', (e.dados && e.dados.error) || 'Erro ao alterar prioridade');
+    }
 }
 
 // Executar alteração de status
-function executarAlteracaoStatus(ticketId, novoStatus, callback) {
-
+async function executarAlteracaoStatus(ticketId, novoStatus, callback, observacoes) {
     mostrarLoader();
 
     const usuario = JSON.parse(localStorage.getItem('cd_usuario'));
-
-    const xhr = new XMLHttpRequest();
-    xhr.open('PUT', `${window.APP_CONFIG.apiBase}tickets.php?id=${ticketId}`, true);
-    xhr.setRequestHeader('Content-Type', 'application/json');
-    setSecurityHeaders(xhr);
-
-    xhr.onload = function () {
-        ocultarLoader();
-        if (xhr.status === 200) {
-            const mensagem = (novoStatus === 'aberto' || novoStatus === 'atendimento') ? 'Demanda reaberta com sucesso!' : 'Status alterado com sucesso!';
-
-            // Se for encerramento, animar remoção da lista
-            if (novoStatus === 'encerrado' || novoStatus === 'cancelado') {
-                const row = document.querySelector(`tr[data-ticket-id="${ticketId}"]`);
-                if (row) {
-                    row.classList.add('ticket-removendo');
-                    setTimeout(() => carregarTickets(), 500);
-                } else {
-                    carregarTickets();
-                }
-            } else {
-                carregarTickets();
-            }
-
-            // Se estiver na página de detalhes, recarregar detalhes
-            const ticketAtivo = localStorage.getItem('cd_ticketAtivo');
-            if (ticketAtivo && parseInt(ticketAtivo) === ticketId && !callback) {
-                setTimeout(() => verDetalhes(ticketId), 300);
-            }
-
-            // Executar callback se houver
-            if (callback) {
-                callback();
-            }
-
-            mostrarToast('Sucesso', mensagem, 'success');
-        } else {
-            try {
-                const erro = JSON.parse(xhr.responseText);
-                mostrarAlert('Atenção', erro.error || 'Erro ao atualizar demanda');
-            } catch (e) {
-                mostrarAlert('Erro', 'Erro ao atualizar demanda');
-            }
-        }
-    };
-
-    xhr.onerror = function () {
-        ocultarLoader();
-        mostrarAlert('Erro', 'Erro de conexão');
-    };
-
     const dados = { status: novoStatus };
     if (novoStatus === 'encerrado' || novoStatus === 'cancelado') {
         dados.fechado_por = usuario.id;
     }
+    if (observacoes) {
+        dados.observacoes = observacoes;
+    }
 
-    console.log('📧 Enviando dados para API:', dados);
-    xhr.send(JSON.stringify(dados));
+    try {
+        await Api.put(`tickets.php?id=${ticketId}`, dados);
+        ocultarLoader();
+
+        const mensagem = (novoStatus === 'aberto' || novoStatus === 'atendimento') ? 'Demanda reaberta com sucesso!' : 'Status alterado com sucesso!';
+
+        // Se for encerramento, animar remoção da lista
+        if (novoStatus === 'encerrado' || novoStatus === 'cancelado') {
+            const row = document.querySelector(`tr[data-ticket-id="${ticketId}"]`);
+            if (row) {
+                row.classList.add('ticket-removendo');
+                setTimeout(() => carregarTickets(), 500);
+            } else {
+                carregarTickets();
+            }
+        } else {
+            carregarTickets();
+        }
+
+        // Se estiver na página de detalhes, recarregar detalhes
+        const ticketAtivo = localStorage.getItem('cd_ticketAtivo');
+        if (ticketAtivo && parseInt(ticketAtivo) === ticketId && !callback) {
+            setTimeout(() => verDetalhes(ticketId), 300);
+        }
+
+        // Executar callback se houver
+        if (callback) {
+            callback();
+        }
+
+        mostrarToast('Sucesso', mensagem, 'success');
+    } catch (e) {
+        ocultarLoader();
+        mostrarAlert('Atenção', (e.dados && e.dados.error) || 'Erro ao atualizar demanda');
+    }
 }
 
 // === LOADER ===
