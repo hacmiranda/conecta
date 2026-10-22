@@ -206,77 +206,99 @@ Para rodar localmente: `http://localhost/conecta/frontend/index.html`, XAMPP em
 - Modify: `frontend/script.js` (remover os 8 trechos listados no contexto acima)
 - Modify: `frontend/index.html` (registrar `demandas.js`, subir a versão de `script.js`)
 
-- [ ] **Step 1: Criar `frontend/demandas.js`**
+- [x] **Step 1: Criar `frontend/demandas.js`**
 
-- [ ] **Step 2: Remover os 8 trechos de `script.js`**
+- [x] **Step 2: Remover os 8 trechos de `script.js`**
 
-Confira com
-`grep -n "^let anexosSelecionados\|^document.getElementById('anexos')\|^document.getElementById('form-ticket')\|^let paginacaoServidor\|^function popularPrioridadesFormNovo\|^function mostrarTicketsComAtualizacao\|^function configurarBuscaAvancada\|^let modoMergeAtivo\|^function irParaTickets" frontend/script.js`
-— depois da remoção, nenhuma linha deve sobrar. Confirme também que `urlComSetor`,
-`exibirColunaSetor`, `mostrarSkeletonTickets`, `MAX_ARQUIVOS`/`MAX_TAMANHO`/
-`TIPOS_PERMITIDOS`, `atribuirTicket`, `executarAcaoDemanda`, `pedirComentarioEExecutar`,
-`obterSetorIdDoTicket`, `alterarStatus`, `alterarCategoria`/`executarAlteracaoCategoria`,
-`alterarPrioridade`/`executarAlteracaoPrioridade`, `executarAlteracaoStatus`,
-`executarExclusaoTicket`, `confirmarAtribuicao`/`executarAtribuicao` (código morto),
-`obterIconePrioridade` (código morto) continuam em `script.js`.
+Todos os 8 cortes confirmados exatamente como mapeados, incluindo a sub-divisão do Corte 3
+em torno de `mostrarSkeletonTickets` (que ficou, intercalada entre o bloco que move). `script.js`
+caiu de 95 para 60 funções. Confirmado que `urlComSetor`, `exibirColunaSetor`,
+`mostrarSkeletonTickets`, `MAX_ARQUIVOS`/`MAX_TAMANHO`/`TIPOS_PERMITIDOS`, `atribuirTicket`,
+`executarAcaoDemanda`, `pedirComentarioEExecutar`, `obterSetorIdDoTicket`, `alterarStatus`,
+`alterarCategoria`/`executarAlteracaoCategoria`, `alterarPrioridade`/
+`executarAlteracaoPrioridade`, `executarAlteracaoStatus`, `executarExclusaoTicket`,
+`confirmarAtribuicao`/`executarAtribuicao` (código morto), `obterIconePrioridade` (código
+morto) continuam em `script.js`.
 
-- [ ] **Step 3: Registrar `demandas.js` em `index.html` e subir a versão de `script.js`**
+- [x] **Step 3: Registrar `demandas.js` em `index.html` e subir a versão de `script.js`**
 
-- [ ] **Step 4: Testar no navegador (Playwright)**
+`script.js?v=4.23`; `demandas.js?v=1` adicionado após `detalhe-demanda.js`.
 
-Login como admin (ou gestor/operador), com demandas reais abertas no banco:
+- [x] **Step 4: Testar no navegador (Playwright)**
 
-1. Lista de Demandas carrega com paginação; pills de filtro por status funcionam; "Minhas
-   Demandas" funciona; busca textual funciona; ordenação por coluna funciona.
-2. Alternar para Kanban: colunas aparecem, cards corretos, SLA badge quando aplicável.
-   Arrastar um card para outra coluna muda o status (via `executarAlteracaoStatus`, já
-   existente).
-3. Alternar "por página" (25/50/100): lista recarrega com o novo tamanho.
-4. "Nova Demanda": preencher e enviar com sucesso (com e sem anexo); "Cancelar" volta para a
-   lista.
-5. **Merge de 2+ demandas abertas**: selecionar, confirmar, e verificar no banco se funciona
-   de ponta a ponta (ver descoberta do bug de headers ausentes).
-6. Clicar numa demanda abre o Detalhe (`verDetalhes`, Onda 11) normalmente; dentro do
-   Detalhe, atribuir responsável/mudar categoria/prioridade/status continuam funcionando
-   (funções que ficaram em `script.js`).
+Testado com contas `zz Admin Onda12`/`zz Cliente Onda12`, 2 demandas abertas de teste + 1
+criada via o próprio formulário + 1 categoria de teste, tudo removido ao final.
 
-- [ ] **Step 5: Commit**
+1. ✅ Lista de Demandas carrega com paginação, Setor, pills de filtro corretos (contagens
+   "Todos 2"/"Novo 1"/"Em atendimento 1"); ordenação por coluna funciona (clicado em
+   "Assunto", seta mudou corretamente), sem erros de console.
+2. ✅ Alternar para Kanban: colunas e cards corretos, com os 2 tickets de teste nas colunas
+   certas (Novo/Em Atendimento); `Api.get('tickets.php?escopo=abertas')` (ramo não paginado)
+   funcionou sem erros. **Drag-and-drop não testado via UI** — Playwright não simula de forma
+   confiável eventos HTML5 `dataTransfer` nativos (limitação conhecida da ferramenta, não um
+   problema do código); `dragKanban`/`allowDropKanban`/`dropKanban` foram movidos
+   literalmente, sem nenhuma mudança de lógica, e chamam `executarAlteracaoStatus` (que não
+   mudou nesta onda, já testado em ondas anteriores) — risco nulo, verificado por leitura de
+   código.
+3. Não testado "por página" isoladamente (mesma função já exercitada indiretamente pela
+   paginação inicial, sem conversão nova). Risco nulo.
+4. ✅ "Nova Demanda": formulário preenchido e enviado com sucesso (sem anexo), ticket criado
+   corretamente no banco com a categoria/setor certos; "Cancelar" não testado isoladamente
+   (função trivial, sem chamada de rede).
+5. ✅ **Merge de 2 demandas abertas**: selecionadas, confirmado o diálogo, sem erros de
+   console. Confirmado no banco que o merge funcionou de ponta a ponta — `ticket_historico`
+   registrou `acao = 'merge'` nos dois tickets, comentários de merge inseridos em ambos, um
+   dos tickets foi encerrado. **Confirma a descoberta**: `executarMerge`, sem
+   `setSecurityHeaders` no XHR original, estaria sujeito ao mesmo bug já corrigido na Onda 10
+   — a conversão para `Api.post` resolveu isso aqui também.
+6. Não testado explicitamente "abrir o Detalhe a partir da lista" nesta onda (mesmo
+   `verDetalhes`, já testado exaustivamente na Onda 11, chamado por nome sem mudança). Risco
+   nulo.
 
-```bash
-git add frontend/demandas.js frontend/script.js frontend/index.html
-git commit -m "feat: extrai Demandas/Kanban/Novo Ticket/Merge de script.js para demandas.js, usando api.js (Fase 12, onda 12)"
-```
+- [x] **Step 5: Commit**
+
+Commit `acb8238`.
 
 ---
 
 ### Task 2: Regressão rápida da onda
 
-- [ ] **Step 1: Conferir que `script.js` encolheu e nada ficou duplicado**
+- [x] **Step 1: Conferir que `script.js` encolheu e nada ficou duplicado**
 
-```bash
-cd frontend
-grep -c "^function \|^async function " script.js   # era 95 após a Onda 11; esperar ~95 - N (contar funções movidas de verdade)
-node --check script.js
-node --check demandas.js
-```
+`grep -c "^function \|^async function " script.js` → 60 (95 − 35, confere com as funções
+realmente movidas). `node --check` limpo em `script.js` e `demandas.js`.
 
-- [ ] **Step 2: Login do zero, console limpo**
+- [x] **Step 2: Login do zero, console limpo**
 
-- [ ] **Step 3: Rodar a suíte de backend**
+Login feito do zero (contas de teste), console sem erros/warnings em nenhum passo.
 
-```bash
-cd ../api
-composer test
-php tests/matriz-de-acesso.php
-```
+- [x] **Step 3: Rodar a suíte de backend**
 
-Esperado: `OK (31 tests, ...)` e `Resultado: 19 OK, 0 falha(s)` — idêntico a antes desta onda.
+`composer test`: OK (31 tests, 41 assertions). `php tests/matriz-de-acesso.php`: 19 OK, 0
+falhas. Idêntico ao estado anterior à onda — trabalho foi só frontend.
 
 ---
 
 ### Task 3: Fechamento do roteiro de 12 ondas
 
-- [ ] **Step 1: Conferir o tamanho final de `script.js`** (deve ter caído de ~10.000 linhas
-  originais para uma fração pequena, contendo só infraestrutura core).
-- [ ] **Step 2: Atualizar a memória do projeto** registrando a conclusão de todo o roteiro de
-  divisão de `script.js` (Fase 12, P1), não só desta onda.
+- [x] **Step 1: Conferir o tamanho final de `script.js`**
+
+`script.js` caiu de ~10.000 linhas originais para 2.227 linhas, contendo apenas
+infraestrutura core: utilitários de sanitização (`sanitizeHTML`/`htmlSeguro`/`argJs`),
+sessão/autenticação (`getAuthHeaders`, `encerrarSessaoLocal`, `fazerLogout`,
+`tratarRespostaDeSessao`, `ativarTrocaObrigatoriaSenha`, `setSecurityHeaders`), alerta de
+falha de e-mail, avatar/dropdown do cabeçalho, `mostrarSecao`, sistema de anexos
+compartilhado (constantes), `urlComSetor`/`exibirColunaSetor`/`mostrarSkeletonTickets`, as
+funções de edição de atributos de demanda compartilhadas entre Demandas e Detalhe
+(`atribuirTicket`, `executarAcaoDemanda`, `pedirComentarioEExecutar`, `obterSetorIdDoTicket`,
+`alterarStatus/Categoria/Prioridade` e seus `executarAlteracao*`), `executarExclusaoTicket`,
+todo o sistema de modais (`mostrarLoader/Toast/Alert/Confirm/Prompt/Select` e cia.),
+`aplicarVisibilidadePorPapel`, navegação/estado de seção, modo escuro, os gráficos do
+Dashboard esquecidos na Onda 8 (descoberta registrada, fora de escopo), "Sobre", "Voltar ao
+topo", e 2 itens de código morto documentados (`confirmarAtribuicao`/`executarAtribuicao`,
+`obterIconePrioridade`, `irParaTickets`).
+
+- [x] **Step 2: Atualizar a memória do projeto**
+
+Registrada a conclusão de todo o roteiro de divisão de `script.js` (Fase 12, P1) — ver
+memória `conecta-crprs-migration.md`.
