@@ -222,6 +222,7 @@ async function carregarPaginaServidor() {
         mostrarTicketsNaTela(dados.itens);
     } catch (e) {
         if (token !== _tokenCargaLista) return;
+        console.error('Erro ao carregar tickets:', e);
         document.getElementById('lista-tickets').innerHTML = '<p>Erro ao carregar demandas.</p>';
     }
 }
@@ -241,6 +242,7 @@ async function carregarTickets() {
         paginaAtual = 1;
         aplicarFiltroMeusTickets();
     } catch (e) {
+        console.error('Erro ao carregar tickets:', e);
         document.getElementById('lista-tickets').innerHTML = '<p>Erro ao carregar demandas.</p>';
     }
 }
@@ -754,6 +756,8 @@ function alterarPorPagina(valor) {
     mostrarTicketsNaTela(ticketsFiltradosPorStatus.length > 0 ? ticketsFiltradosPorStatus : ticketsAtuais);
 }
 
+// Popula o select de prioridade do formulário "Nova Demanda" com as prioridades
+// ativas no setor de quem está criando (cliente/admin sem setor veem o catálogo inteiro).
 function popularPrioridadesFormNovo() {
     const select = document.getElementById('prioridade');
     if (!select || typeof carregarPrioridadesDisponiveis !== 'function') return;
