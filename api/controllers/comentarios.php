@@ -71,14 +71,22 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $comentario_raw = $_POST['comentario'] ?? '';
         $enviar_email = !empty($_POST['enviar_email']) && $_POST['enviar_email'] !== '0';
         $com_copia = $_POST['com_copia'] ?? null;
+        $interno = !empty($_POST['interno']) && $_POST['interno'] !== '0';
     } else {
         $input = json_decode(file_get_contents('php://input'), true);
         $ticket_id = $input['ticket_id'] ?? null;
         $comentario_raw = $input['comentario'] ?? '';
         $enviar_email = $input['enviar_email'] ?? false;
         $com_copia = $input['com_copia'] ?? null;
+        $interno = !empty($input['interno']);
     }
-    
+
+    // Nota interna nunca vai por e-mail para o solicitante nem tem cópia
+    if ($interno) {
+        $enviar_email = false;
+        $com_copia = null;
+    }
+
     $comentario = (string) $comentario_raw;
 
     // Converte classes de tamanho do Quill para estilos inline (compatível com e-mail e histórico sem CSS do Quill)
@@ -139,12 +147,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 
     try {
-        $query = "INSERT INTO comentarios (ticket_id, usuario_id, comentario) 
-                 VALUES (:ticket_id, :usuario_id, :comentario)";
+        $query = "INSERT INTO comentarios (ticket_id, usuario_id, comentario, interno)
+                 VALUES (:ticket_id, :usuario_id, :comentario, :interno)";
         $stmt = $db->prepare($query);
         $stmt->bindParam(':ticket_id', $ticket_id);
         $stmt->bindParam(':usuario_id', $usuario_id);
         $stmt->bindParam(':comentario', $comentario);
+        $stmt->bindValue(':interno', $interno ? 1 : 0, PDO::PARAM_INT);
         $stmt->execute();
         
         $comentario_id = $db->lastInsertId();

@@ -3263,6 +3263,11 @@ input:checked+.slider:before {
     transform: translateX(26px);
 }
 
+input:disabled+.slider {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
 /* === CONFIGURAÇÃO DE EMAIL === */
 .config-email-container {
     max-width: 800px;

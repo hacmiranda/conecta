@@ -1058,3 +1058,31 @@
 .modo-escuro .lixeira-aviso { background: #1e293b; color: #cbd5e1; }
 .modo-escuro .faixa-aviso-demanda { background: #1e293b; color: #bfdbfe; }
 .modo-escuro .faixa-aviso-demanda.faixa-lixeira { background: #450a0a; color: #fecaca; }
+
+/* Fase 6 das melhorias adiadas: nota interna (nunca vai por e-mail ao solicitante) */
+.comentario-wrapper.comentario-interno {
+    background: #fef3c7;
+    border-left: 4px solid #92400e;
+    padding-left: 0.75rem;
+}
+
+.selo-nota-interna {
+    display: inline-block;
+    background: #92400e;
+    color: #fff8ec;
+    padding: 0.15rem 0.5rem;
+    border-radius: 4px;
+    font-size: 0.75rem;
+    font-weight: bold;
+    margin-left: 0.5rem;
+}
+
+.modo-escuro .comentario-wrapper.comentario-interno {
+    background: #3f2d0c;
+    border-left-color: #fbbf24;
+}
+
+.modo-escuro .selo-nota-interna {
+    background: #fbbf24;
+    color: #1c1302;
+}

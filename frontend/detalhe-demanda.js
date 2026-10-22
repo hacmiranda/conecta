@@ -274,10 +274,11 @@ function mostrarDetalhesTicket(ticket) {
     if (ticket.comentarios && ticket.comentarios.length > 0) {
         ticket.comentarios.forEach(item => {
             if (item.tipo === 'comentario') {
+                const ehNotaInterna = Number(item.interno) === 1;
                 comentariosHtml += `
-                    <div class="comentario-wrapper">
+                    <div class="comentario-wrapper${ehNotaInterna ? ' comentario-interno' : ''}">
                         <div class="comentario-info">
-                            <strong>💬 ${sanitizeHTML(item.autor_nome)}</strong> - ${new Date(item.criado_em).toLocaleString('pt-BR')}<br>
+                            <strong>💬 ${sanitizeHTML(item.autor_nome)}</strong> - ${new Date(item.criado_em).toLocaleString('pt-BR')}${ehNotaInterna ? ' <span class="selo-nota-interna">🔒 Nota interna</span>' : ''}<br>
                             <strong style="color: #666; font-size: 0.9em;">Comentário:</strong>
                         </div>
                         <div class="comentario">
@@ -479,6 +480,15 @@ function mostrarDetalhesTicket(ticket) {
                     <div class="form-group">
                         <label class="switch-label">
                             <label class="switch">
+                                <input type="checkbox" id="comentario-interno" onchange="toggleComentarioInterno()">
+                                <span class="slider"></span>
+                            </label>
+                            <span>🔒 Nota interna (não vai para o solicitante)</span>
+                        </label>
+                    </div>
+                    <div class="form-group">
+                        <label class="switch-label">
+                            <label class="switch">
                                 <input type="checkbox" id="enviar-email" onchange="toggleCampoComCopia(); verificarAnexosEmail();">
                                 <span class="slider"></span>
                             </label>
@@ -588,6 +598,18 @@ function fecharVisualizador() {
         modal._blobUrl = null;
     }
     modal.style.display = 'none';
+}
+
+// Nota interna nunca vai por e-mail: ao marcar, desliga e trava "Enviar por e-mail"
+function toggleComentarioInterno() {
+    const interno = document.getElementById('comentario-interno').checked;
+    const enviarEmail = document.getElementById('enviar-email');
+
+    enviarEmail.disabled = interno;
+    if (interno && enviarEmail.checked) {
+        enviarEmail.checked = false;
+        toggleCampoComCopia();
+    }
 }
 
 // Mostrar/ocultar campo "com cópia"
@@ -747,7 +769,8 @@ function adicionarComentario(event, ticketId) {
     if (formComentario) formComentario.setAttribute('aria-busy', 'true');
 
     const comentario = document.getElementById('novo-comentario').value;
-    const enviarEmail = document.getElementById('enviar-email').checked;
+    const interno = document.getElementById('comentario-interno').checked;
+    const enviarEmail = !interno && document.getElementById('enviar-email').checked;
     const comCopia = document.getElementById('com-copia').value;
     const usuario = JSON.parse(localStorage.getItem('cd_usuario'));
     const token = localStorage.getItem('cd_token');
@@ -759,6 +782,7 @@ function adicionarComentario(event, ticketId) {
     formData.append('usuario_id', usuario.id);
     formData.append('enviar_email', enviarEmail ? '1' : '0');
     formData.append('com_copia', comCopia);
+    formData.append('interno', interno ? '1' : '0');
 
     // Adicionar anexos acumulados se houver
     if (anexosComentarioSelecionados.length > 0) {
@@ -807,6 +831,8 @@ function adicionarComentario(event, ticketId) {
             // Limpar formulário
             document.getElementById('novo-comentario').value = '';
             if (window.quillComentario) window.quillComentario.root.innerHTML = '';
+            document.getElementById('comentario-interno').checked = false;
+            document.getElementById('enviar-email').disabled = false;
             document.getElementById('enviar-email').checked = false;
             document.getElementById('toggle-com-copia').checked = false;
             document.getElementById('com-copia').value = '';
@@ -822,8 +848,9 @@ function adicionarComentario(event, ticketId) {
             if (data.comentario) {
                 const listaComentarios = document.getElementById('lista-comentarios');
                 if (listaComentarios) {
+                    const ehNotaInterna = Number(data.comentario.interno) === 1;
                     const wrapper = document.createElement('div');
-                    wrapper.className = 'comentario-wrapper';
+                    wrapper.className = 'comentario-wrapper' + (ehNotaInterna ? ' comentario-interno' : '');
 
                     // Informações do autor (texto puro)
                     const infoDiv = document.createElement('div');
@@ -832,6 +859,13 @@ function adicionarComentario(event, ticketId) {
                     autorStrong.textContent = '💬 ' + (data.comentario.autor_nome || '');
                     infoDiv.appendChild(autorStrong);
                     infoDiv.appendChild(document.createTextNode(' - ' + new Date(data.comentario.criado_em).toLocaleString('pt-BR')));
+                    if (ehNotaInterna) {
+                        const seloInterno = document.createElement('span');
+                        seloInterno.className = 'selo-nota-interna';
+                        seloInterno.textContent = '🔒 Nota interna';
+                        infoDiv.appendChild(document.createTextNode(' '));
+                        infoDiv.appendChild(seloInterno);
+                    }
                     infoDiv.appendChild(document.createElement('br'));
                     const comentarioLabel = document.createElement('strong');
                     comentarioLabel.style.cssText = 'color: #666; font-size: 0.9em;';
@@ -1045,8 +1079,10 @@ function enviarEFecharTicket(ticketId) {
         const formData = new FormData();
         formData.append('comentario', comentario);
         formData.append('ticket_id', ticketId);
-        const enviarEmail = document.getElementById('enviar-email').checked;
+        const interno = document.getElementById('comentario-interno').checked;
+        const enviarEmail = !interno && document.getElementById('enviar-email').checked;
         formData.append('enviar_email', enviarEmail ? '1' : '0');
+        formData.append('interno', interno ? '1' : '0');
         if (enviarEmail) {
             const comCopia = document.getElementById('com-copia').value;
             if (comCopia) formData.append('com_copia', comCopia);
