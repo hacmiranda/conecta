@@ -874,6 +874,39 @@ select {
     font-weight: bold;
 }
 
+.abas-usuarios {
+    display: flex;
+    gap: 0.5rem;
+    border-bottom: 2px solid #e5e7eb;
+    margin-bottom: 1.5rem;
+}
+
+.aba-usuarios-btn {
+    background: none;
+    border: none;
+    padding: 0.75rem 1.25rem;
+    cursor: pointer;
+    border-bottom: 3px solid transparent;
+    font-size: 1rem;
+    color: #666;
+}
+
+.aba-usuarios-btn[aria-selected="true"] {
+    border-bottom-color: var(--laranja);
+    color: var(--laranja);
+    font-weight: bold;
+}
+
+.aba-usuarios-btn:focus-visible {
+    outline: 2px solid var(--laranja);
+    outline-offset: 2px;
+}
+
+.busca-solicitantes {
+    max-width: 400px;
+    margin-bottom: 1.5rem;
+}
+
 .usuarios-grid {
     display: grid;
     gap: 1rem;
@@ -2692,6 +2725,18 @@ select {
 }
 
 .modo-escuro .btn-config.active {
+    color: var(--laranja);
+}
+
+.modo-escuro .abas-usuarios {
+    border-bottom-color: #3d3d3d;
+}
+
+.modo-escuro .aba-usuarios-btn {
+    color: #e0e0e0;
+}
+
+.modo-escuro .aba-usuarios-btn[aria-selected="true"] {
     color: var(--laranja);
 }
 

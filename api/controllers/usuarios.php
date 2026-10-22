@@ -159,6 +159,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
         $where = [];
         $params = [];
 
+        // ?tipo=equipe|solicitantes — sem o parâmetro, comportamento atual (equipe).
+        // "solicitantes" (tipo = cliente) só existe para admin: cliente nunca tem setor,
+        // então gestor (restrito ao próprio setor) não os veria mesmo sem este filtro.
+        $tipoLista = $_GET['tipo'] ?? 'equipe';
+        if ($tipoLista === 'solicitantes') {
+            if ($user['tipo'] !== 'admin') {
+                http_response_code(403);
+                echo json_encode(['error' => 'Apenas administradores veem a lista de solicitantes']);
+                exit;
+            }
+            $where[] = "u.tipo = 'cliente'";
+        } else {
+            $where[] = "u.tipo <> 'cliente'";
+        }
+
         if ($user['tipo'] === 'admin') {
             if (isset($_GET['setor_id']) && $_GET['setor_id'] !== '') {
                 $where[] = 'u.setor_id = :setor_id';

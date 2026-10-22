@@ -1,8 +1,13 @@
 /**
- * Gerenciamento de Usuários (equipe interna: admin, gestor, operador — nunca "cliente",
- * que não tem acesso ao sistema). Extraído de script.js na Fase 12 (onda 2 da divisão por
- * domínio).
+ * Gerenciamento de Usuários, em duas abas: "Equipe" (admin, gestor, operador —
+ * acessam o sistema) e "Solicitantes" (tipo "cliente", só visível para admin;
+ * nunca têm acesso ao sistema, aqui é só consulta/edição de cadastro). Extraído
+ * de script.js na Fase 12 (onda 2 da divisão por domínio); abas separadas na
+ * Fase 5 das melhorias adiadas (antes misturadas numa lista só).
  */
+
+let abaUsuariosAtiva = localStorage.getItem('cd_abaUsuariosAtiva') || 'equipe';
+let usuariosCacheAtual = []; // última lista carregada (da aba ativa), usada por editarUsuario/filtrarSolicitantes
 
 function mostrarUsuarios() {
     document.querySelectorAll('.btn-config').forEach(btn => btn.classList.remove('active'));
@@ -26,16 +31,85 @@ function mostrarUsuarios() {
 async function carregarUsuarios() {
     const usuarioLogado = JSON.parse(localStorage.getItem('cd_usuario') || '{}');
     const ehAdmin = usuarioLogado.tipo === 'admin';
+    // Gestor nunca vê solicitantes (cliente não tem setor); se a aba ficou marcada
+    // de uma sessão de admin anterior no mesmo navegador, volta para "equipe".
+    if (!ehAdmin && abaUsuariosAtiva === 'solicitantes') {
+        abaUsuariosAtiva = 'equipe';
+    }
 
     try {
-        const usuarios = await Api.get('usuarios.php');
+        const usuarios = await Api.get(`usuarios.php?tipo=${abaUsuariosAtiva}`);
+        usuariosCacheAtual = usuarios;
         // Admin precisa da lista de setores para poder escolher em qual setor
-        // cadastrar/mover um usuário. Gestor não precisa (fica travado no próprio setor).
-        const setores = ehAdmin ? await Api.get('setores.php').catch(() => []) : [];
+        // cadastrar/mover um usuário da equipe. Gestor não precisa (fica travado no
+        // próprio setor); a aba Solicitantes também não usa setores.
+        const setores = (ehAdmin && abaUsuariosAtiva === 'equipe') ? await Api.get('setores.php').catch(() => []) : [];
         mostrarListaUsuarios(usuarios, setores);
     } catch (e) {
         document.getElementById('config-content').innerHTML = '<p>Erro ao carregar usuários.</p>';
     }
+}
+
+// Troca a aba ativa (chamado pelo clique no botão da aba). O conteúdo é recriado via
+// innerHTML (mostrarListaUsuarios), o que destrói o botão da aba que tinha o foco —
+// por isso devolvemos o foco ao botão da aba recém-ativada depois do recarregamento.
+async function mudarAbaUsuarios(aba) {
+    if (aba === abaUsuariosAtiva) return;
+    abaUsuariosAtiva = aba;
+    localStorage.setItem('cd_abaUsuariosAtiva', aba);
+    await carregarUsuarios();
+    document.getElementById(`aba-usuarios-${aba}`)?.focus();
+}
+
+// Setas do teclado movem o foco entre as abas e já ativam a aba (padrão WAI-ARIA de tabs)
+function navegarAbasUsuarios(event, abaAtualId) {
+    const abas = ['equipe', 'solicitantes'];
+    const indiceAtual = abas.indexOf(abaAtualId);
+    let destino = null;
+    if (event.key === 'ArrowRight') destino = abas[(indiceAtual + 1) % abas.length];
+    else if (event.key === 'ArrowLeft') destino = abas[(indiceAtual - 1 + abas.length) % abas.length];
+    else return;
+
+    event.preventDefault();
+    mudarAbaUsuarios(destino);
+}
+
+function rotuloTipoUsuario(tipo) {
+    if (tipo === 'admin') return 'Administrador';
+    if (tipo === 'gestor') return 'Gestor';
+    if (tipo === 'operador' || !tipo) return 'Operador';
+    if (tipo === 'cliente') return 'Solicitante externo (sem acesso ao sistema)';
+    return tipo;
+}
+
+// Admin redefine a senha de qualquer membro da equipe; gestor, só dos operadores do setor
+function podeRedefinirSenhaUsuario(usuario, usuarioLogado, ehAdmin) {
+    if (Number(usuario.id) === Number(usuarioLogado.id) || usuario.tipo === 'cliente') return false;
+    return ehAdmin || usuario.tipo === 'operador';
+}
+
+function gerarCardUsuario(usuario, usuarioLogado, ehAdmin) {
+    const tipoExibicao = rotuloTipoUsuario(usuario.tipo);
+    const statusAtivo = usuario.ativo === 1 || usuario.ativo === '1';
+
+    return `
+        <div class="usuario-card ${!statusAtivo ? 'usuario-inativo' : ''}">
+            <div class="usuario-info">
+                <h4>${sanitizeHTML(usuario.nome)} ${!statusAtivo ? '<span style="color: #dc3545;">(Inativo)</span>' : ''}</h4>
+                <p>${sanitizeHTML(usuario.email)}${usuario.username ? ` · <code>${sanitizeHTML(usuario.username)}</code>` : ''}</p>
+                <p><strong>Papel:</strong> ${tipoExibicao}${usuario.cargo ? ` · <strong>Cargo:</strong> ${sanitizeHTML(usuario.cargo)}` : ''}${usuario.setor_nome ? ` · <strong>Setor:</strong> ${sanitizeHTML(usuario.setor_nome)}` : ''}</p>
+                <p><strong>Criado:</strong> ${new Date(usuario.criado_em).toLocaleDateString('pt-BR')}</p>
+            </div>
+            <div class="usuario-acoes">
+                <button class="btn-${statusAtivo ? 'desativar' : 'ativar'}" onclick="${statusAtivo ? 'desativar' : 'ativar'}Usuario(${usuario.id})">
+                    ${statusAtivo ? 'Desativar' : 'Ativar'}
+                </button>
+                <button class="btn-editar" onclick="editarUsuario(${usuario.id})">Editar</button>
+                ${podeRedefinirSenhaUsuario(usuario, usuarioLogado, ehAdmin) ? `<button class="btn-redefinir-senha" onclick="redefinirSenhaUsuario(${Number(usuario.id)}, decodeURIComponent('${argJs(usuario.nome)}'))">Redefinir senha</button>` : ''}
+                ${ehAdmin ? `<button class="btn-excluir" onclick="excluirUsuario(${usuario.id})">Excluir</button>` : ''}
+            </div>
+        </div>
+    `;
 }
 
 function mostrarListaUsuarios(usuarios, setores) {
@@ -44,63 +118,54 @@ function mostrarListaUsuarios(usuarios, setores) {
     const ehAdmin = usuarioLogado.tipo === 'admin';
     setores = setores || [];
 
+    // Gestor nunca vê a aba Solicitantes (clientes não têm setor, então nunca apareceriam
+    // na lista dele de qualquer forma) — nem a barra de abas, só a lista de equipe direto.
+    const abasHtml = ehAdmin ? `
+        <div class="abas-usuarios" role="tablist" aria-label="Listas de usuários">
+            <button type="button" id="aba-usuarios-equipe" class="aba-usuarios-btn" role="tab"
+                aria-selected="${abaUsuariosAtiva === 'equipe'}" aria-controls="painel-usuarios"
+                tabindex="${abaUsuariosAtiva === 'equipe' ? '0' : '-1'}"
+                onclick="mudarAbaUsuarios('equipe')" onkeydown="navegarAbasUsuarios(event, 'equipe')">
+                👥 Equipe
+            </button>
+            <button type="button" id="aba-usuarios-solicitantes" class="aba-usuarios-btn" role="tab"
+                aria-selected="${abaUsuariosAtiva === 'solicitantes'}" aria-controls="painel-usuarios"
+                tabindex="${abaUsuariosAtiva === 'solicitantes' ? '0' : '-1'}"
+                onclick="mudarAbaUsuarios('solicitantes')" onkeydown="navegarAbasUsuarios(event, 'solicitantes')">
+                ✉️ Solicitantes
+            </button>
+        </div>` : '';
+
+    const painelHtml = (ehAdmin && abaUsuariosAtiva === 'solicitantes')
+        ? gerarPainelSolicitantes(usuarios, usuarioLogado)
+        : gerarPainelEquipe(usuarios, setores, usuarioLogado, ehAdmin);
+
+    content.innerHTML = `
+        ${abasHtml}
+        <div id="painel-usuarios" role="tabpanel" aria-labelledby="aba-usuarios-${ehAdmin ? abaUsuariosAtiva : 'equipe'}">
+            ${painelHtml}
+        </div>
+    `;
+}
+
+function gerarPainelEquipe(usuarios, setores, usuarioLogado, ehAdmin) {
     // Separar por papel (tratar vazio como usuário comum, por segurança de exibição)
     const admins = usuarios.filter(u => u.tipo === 'admin');
     const gestores = usuarios.filter(u => u.tipo === 'gestor');
     const usuariosComuns = usuarios.filter(u => u.tipo === 'operador' || u.tipo === '' || !u.tipo);
-    const outrosTipos = usuarios.filter(u => u.tipo && !['admin', 'gestor', 'operador', ''].includes(u.tipo));
-
-    function rotuloTipo(tipo) {
-        if (tipo === 'admin') return 'Administrador';
-        if (tipo === 'gestor') return 'Gestor';
-        if (tipo === 'operador' || !tipo) return 'Operador';
-        if (tipo === 'cliente') return 'Solicitante externo (sem acesso ao sistema)';
-        return tipo;
-    }
-
-    // Admin redefine a senha de qualquer membro da equipe; gestor, só dos operadores do setor
-    function podeRedefinirSenha(usuario) {
-        if (Number(usuario.id) === Number(usuarioLogado.id) || usuario.tipo === 'cliente') return false;
-        return ehAdmin || usuario.tipo === 'operador';
-    }
-
-    function gerarCardUsuario(usuario) {
-        const tipoExibicao = rotuloTipo(usuario.tipo);
-        const statusAtivo = usuario.ativo === 1 || usuario.ativo === '1';
-
-        return `
-            <div class="usuario-card ${!statusAtivo ? 'usuario-inativo' : ''}">
-                <div class="usuario-info">
-                    <h4>${sanitizeHTML(usuario.nome)} ${!statusAtivo ? '<span style="color: #dc3545;">(Inativo)</span>' : ''}</h4>
-                    <p>${sanitizeHTML(usuario.email)}${usuario.username ? ` · <code>${sanitizeHTML(usuario.username)}</code>` : ''}</p>
-                    <p><strong>Papel:</strong> ${tipoExibicao}${usuario.cargo ? ` · <strong>Cargo:</strong> ${sanitizeHTML(usuario.cargo)}` : ''}${usuario.setor_nome ? ` · <strong>Setor:</strong> ${sanitizeHTML(usuario.setor_nome)}` : ''}</p>
-                    <p><strong>Criado:</strong> ${new Date(usuario.criado_em).toLocaleDateString('pt-BR')}</p>
-                </div>
-                <div class="usuario-acoes">
-                    <button class="btn-${statusAtivo ? 'desativar' : 'ativar'}" onclick="${statusAtivo ? 'desativar' : 'ativar'}Usuario(${usuario.id})">
-                        ${statusAtivo ? 'Desativar' : 'Ativar'}
-                    </button>
-                    <button class="btn-editar" onclick="editarUsuario(${usuario.id})">Editar</button>
-                    ${podeRedefinirSenha(usuario) ? `<button class="btn-redefinir-senha" onclick="redefinirSenhaUsuario(${Number(usuario.id)}, decodeURIComponent('${argJs(usuario.nome)}'))">Redefinir senha</button>` : ''}
-                    ${ehAdmin ? `<button class="btn-excluir" onclick="excluirUsuario(${usuario.id})">Excluir</button>` : ''}
-                </div>
-            </div>
-        `;
-    }
 
     let secoes = '';
-
     if (admins.length > 0) {
-        secoes += `<h3>👑 Administradores (${admins.length})</h3><div class="usuarios-grid">${admins.map(gerarCardUsuario).join('')}</div>`;
+        secoes += `<h3>👑 Administradores (${admins.length})</h3><div class="usuarios-grid">${admins.map(u => gerarCardUsuario(u, usuarioLogado, ehAdmin)).join('')}</div>`;
     }
     if (gestores.length > 0) {
-        secoes += `<h3>🧭 Gestores (${gestores.length})</h3><div class="usuarios-grid">${gestores.map(gerarCardUsuario).join('')}</div>`;
+        secoes += `<h3>🧭 Gestores (${gestores.length})</h3><div class="usuarios-grid">${gestores.map(u => gerarCardUsuario(u, usuarioLogado, ehAdmin)).join('')}</div>`;
     }
     if (usuariosComuns.length > 0) {
-        secoes += `<h3>👥 Operadores (${usuariosComuns.length})</h3><div class="usuarios-grid">${usuariosComuns.map(gerarCardUsuario).join('')}</div>`;
+        secoes += `<h3>👥 Operadores (${usuariosComuns.length})</h3><div class="usuarios-grid">${usuariosComuns.map(u => gerarCardUsuario(u, usuarioLogado, ehAdmin)).join('')}</div>`;
     }
-    if (outrosTipos.length > 0) {
-        secoes += `<h3>✉️ Solicitantes externos (${outrosTipos.length})</h3><div class="usuarios-grid">${outrosTipos.map(gerarCardUsuario).join('')}</div>`;
+    if (!secoes) {
+        secoes = '<p>Nenhum usuário da equipe encontrado.</p>';
     }
 
     // Opções de papel: gestor só pode cadastrar "usuario"; admin pode tudo
@@ -120,7 +185,7 @@ function mostrarListaUsuarios(usuarios, setores) {
                         </select>
                     </div>` : '';
 
-    content.innerHTML = `
+    return `
         <button onclick="toggleFormUsuario()" class="btn-primary" style="margin-bottom: 1rem;">
             ➕ Adicionar Novo Usuário
         </button>
@@ -179,6 +244,39 @@ function mostrarListaUsuarios(usuarios, setores) {
 
         ${secoes}
     `;
+}
+
+function gerarPainelSolicitantes(usuarios, usuarioLogado) {
+    return `
+        <div class="form-group busca-solicitantes">
+            <label for="busca-solicitantes-input">Buscar por nome ou e-mail:</label>
+            <input type="search" id="busca-solicitantes-input" placeholder="Digite para filtrar..." oninput="filtrarSolicitantes()">
+        </div>
+        <div id="grid-solicitantes">
+            ${renderGridSolicitantes(usuarios, usuarioLogado)}
+        </div>
+    `;
+}
+
+function renderGridSolicitantes(usuarios, usuarioLogado) {
+    if (usuarios.length === 0) {
+        return '<p>Nenhum solicitante encontrado.</p>';
+    }
+    return `<div class="usuarios-grid">${usuarios.map(u => gerarCardUsuario(u, usuarioLogado, true)).join('')}</div>`;
+}
+
+// Filtra a lista de solicitantes já carregada (sem nova requisição) por nome ou e-mail
+function filtrarSolicitantes() {
+    const campoBusca = document.getElementById('busca-solicitantes-input');
+    const grid = document.getElementById('grid-solicitantes');
+    if (!campoBusca || !grid) return;
+
+    const usuarioLogado = JSON.parse(localStorage.getItem('cd_usuario') || '{}');
+    const termo = campoBusca.value.trim().toLowerCase();
+    const filtrados = !termo ? usuariosCacheAtual : usuariosCacheAtual.filter(u =>
+        (u.nome || '').toLowerCase().includes(termo) || (u.email || '').toLowerCase().includes(termo)
+    );
+    grid.innerHTML = renderGridSolicitantes(filtrados, usuarioLogado);
 }
 
 // Sugere um username (nome.sobrenome) a partir do nome completo digitado, sem sobrescrever edição manual
@@ -253,11 +351,16 @@ async function editarUsuario(usuarioId) {
     const ehAdmin = usuarioLogado.tipo === 'admin';
 
     try {
-        const usuarios = await Api.get('usuarios.php');
-        const usuario = usuarios.find(u => u.id === usuarioId);
+        // Usa a lista já carregada da aba ativa (equipe ou solicitantes); evita buscar
+        // de novo e evita que o filtro de ?tipo= da outra aba escondesse o usuário.
+        let usuario = usuariosCacheAtual.find(u => Number(u.id) === Number(usuarioId));
+        if (!usuario) {
+            const usuarios = await Api.get(`usuarios.php?tipo=${abaUsuariosAtiva}`);
+            usuario = usuarios.find(u => Number(u.id) === Number(usuarioId));
+        }
         if (!usuario) return;
 
-        const setores = ehAdmin ? await Api.get('setores.php').catch(() => []) : [];
+        const setores = (ehAdmin && usuario.tipo !== 'cliente') ? await Api.get('setores.php').catch(() => []) : [];
         mostrarFormularioEdicaoUsuario(usuario, setores);
     } catch (e) {
         mostrarAlert('Erro', (e.dados && e.dados.error) || 'Erro ao carregar usuário');
@@ -269,13 +372,18 @@ function mostrarFormularioEdicaoUsuario(usuario, setores) {
     const ehAdmin = usuarioLogado.tipo === 'admin';
     setores = setores || [];
 
-    const opcoesTipo = ehAdmin
-        ? `<option value="operador" ${usuario.tipo === 'operador' ? 'selected' : ''}>Operador</option>
+    // Solicitante (cliente) não tem papel interno: o seletor de Perfil não se aplica a ele
+    // (editar aqui é só corrigir nome/e-mail/cargo do cadastro, nunca promovê-lo à equipe).
+    const ehSolicitante = usuario.tipo === 'cliente';
+    const opcoesTipo = ehSolicitante
+        ? `<option value="cliente" selected>Solicitante externo (sem acesso ao sistema)</option>`
+        : ehAdmin
+            ? `<option value="operador" ${usuario.tipo === 'operador' ? 'selected' : ''}>Operador</option>
            <option value="gestor" ${usuario.tipo === 'gestor' ? 'selected' : ''}>Gestor</option>
            <option value="admin" ${usuario.tipo === 'admin' ? 'selected' : ''}>Administrador</option>`
-        : `<option value="operador" selected>Operador</option>`;
+            : `<option value="operador" selected>Operador</option>`;
 
-    const campoSetor = ehAdmin ? `
+    const campoSetor = (ehAdmin && !ehSolicitante) ? `
         <div class="form-group">
             <label for="edit-setor">Setor:</label>
             <select id="edit-setor">
@@ -299,7 +407,7 @@ function mostrarFormularioEdicaoUsuario(usuario, setores) {
         </div>
         <div class="form-group">
             <label for="edit-tipo">Perfil:</label>
-            <select id="edit-tipo" ${ehAdmin ? '' : 'disabled'}>
+            <select id="edit-tipo" ${(ehAdmin && !ehSolicitante) ? '' : 'disabled'}>
                 ${opcoesTipo}
             </select>
         </div>
