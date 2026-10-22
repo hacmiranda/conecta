@@ -338,7 +338,7 @@ function mostrarListaAuditoria(registros) {
             'atualizar_macrocategoria': '✏️ Atualização de Categoria',
             'excluir_macrocategoria': '🗑️ Exclusão de Categoria'
         };
-        return acoes[acao] || acao;
+        return acoes[acao] || sanitizeHTML(acao);
     }
 
     function gerarCardAuditoria(registro) {
@@ -353,10 +353,10 @@ function mostrarListaAuditoria(registros) {
             if (registro.acao === 'excluir_ticket') {
                 const solicitanteNome = dados.solicitante_nome || dados.usuario_nome || 'N/A';
                 const solicitanteEmail = dados.solicitante_email || dados.usuario_email || 'N/A';
-                detalhes += ` | Solicitante: ${solicitanteNome} (${solicitanteEmail})`;
+                detalhes += ` | Solicitante: ${sanitizeHTML(solicitanteNome)} (${sanitizeHTML(solicitanteEmail)})`;
             }
         } else if (registro.acao.includes('usuario')) {
-            detalhes = registro.usuario_afetado || `${sanitizeHTML(dados.nome || 'N/A')} (${sanitizeHTML(dados.email || 'N/A')}) - ${sanitizeHTML(dados.tipo || 'N/A')}`;
+            detalhes = registro.usuario_afetado ? sanitizeHTML(registro.usuario_afetado) : `${sanitizeHTML(dados.nome || 'N/A')} (${sanitizeHTML(dados.email || 'N/A')}) - ${sanitizeHTML(dados.tipo || 'N/A')}`;
         } else if (registro.acao.includes('categoria')) {
             detalhes = `${sanitizeHTML(dados.nome || 'N/A')}`;
         }
@@ -368,8 +368,8 @@ function mostrarListaAuditoria(registros) {
                     <div><strong>Detalhes:</strong> ${detalhes}</div>
                     <div><strong>Usuário:</strong> ${sanitizeHTML(registro.usuario_nome)}</div>
                     <div><strong>Data/Hora:</strong> ${new Date(registro.criado_em).toLocaleString('pt-BR')}</div>
-                    <div><strong>IP:</strong> ${registro.ip_address || 'N/A'}</div>
-                    <div><strong>Host:</strong> ${registro.hostname || 'N/A'}</div>
+                    <div><strong>IP:</strong> ${sanitizeHTML(registro.ip_address || 'N/A')}</div>
+                    <div><strong>Host:</strong> ${sanitizeHTML(registro.hostname || 'N/A')}</div>
                 </div>
             </div>
         `;
@@ -602,8 +602,8 @@ function mostrarRegistrosAuditoria(registros) {
                 </div>
                 <div class="auditoria-body">
                     <div><strong>Usuário:</strong> ${sanitizeHTML(reg.usuario_nome)} (${sanitizeHTML(reg.usuario_email)})</div>
-                    ${reg.usuario_afetado ? `<div><strong>Usuário Afetado:</strong> ${reg.usuario_afetado}</div>` : ''}
-                    <div><strong>IP:</strong> ${reg.ip_address || 'N/A'} | <strong>Host:</strong> ${reg.hostname || 'N/A'}</div>
+                    ${reg.usuario_afetado ? `<div><strong>Usuário Afetado:</strong> ${sanitizeHTML(reg.usuario_afetado)}</div>` : ''}
+                    <div><strong>IP:</strong> ${sanitizeHTML(reg.ip_address || 'N/A')} | <strong>Host:</strong> ${sanitizeHTML(reg.hostname || 'N/A')}</div>
                     <div><strong>Navegador:</strong> ${formatarUserAgent(reg.user_agent)}</div>
                 </div>
             </div>
@@ -658,7 +658,7 @@ function mostrarRegistrosTicketsAudit(registros) {
         html += `
             <div class="auditoria-card">
                 <div class="auditoria-header">
-                    <span class="auditoria-acao">Demanda #${String(reg.ticket_id).padStart(5, '0')} - ${reg.campo}</span>
+                    <span class="auditoria-acao">Demanda #${String(reg.ticket_id).padStart(5, '0')} - ${sanitizeHTML(reg.campo)}</span>
                     <span class="auditoria-data">${new Date(reg.criado_em).toLocaleString('pt-BR')}</span>
                 </div>
                 <div class="auditoria-body">
@@ -668,7 +668,7 @@ function mostrarRegistrosTicketsAudit(registros) {
                         <div><strong>De:</strong> ${sanitizeHTML(reg.valor_anterior || 'N/A')}</div>
                         <div><strong>Para:</strong> ${sanitizeHTML(reg.valor_novo || 'N/A')}</div>
                     </div>
-                    <div><strong>IP:</strong> ${reg.ip_address || 'N/A'} | <strong>Host:</strong> ${reg.hostname || 'N/A'}</div>
+                    <div><strong>IP:</strong> ${sanitizeHTML(reg.ip_address || 'N/A')} | <strong>Host:</strong> ${sanitizeHTML(reg.hostname || 'N/A')}</div>
                 </div>
             </div>
         `;
@@ -731,7 +731,7 @@ function mostrarRegistrosLoginAudit(registros) {
                 <div class="auditoria-body">
                     <div><strong>Usuário:</strong> ${sanitizeHTML(reg.usuario_nome || reg.email)}</div>
                     <div><strong>Email:</strong> ${sanitizeHTML(reg.email)}</div>
-                    <div><strong>IP:</strong> ${reg.ip_address || 'N/A'} | <strong>Host:</strong> ${reg.hostname || 'N/A'}</div>
+                    <div><strong>IP:</strong> ${sanitizeHTML(reg.ip_address || 'N/A')} | <strong>Host:</strong> ${sanitizeHTML(reg.hostname || 'N/A')}</div>
                     <div><strong>Navegador:</strong> ${formatarUserAgent(reg.user_agent)}</div>
                 </div>
             </div>
@@ -806,7 +806,7 @@ function mostrarEstatisticasAudit(dados) {
                 <div class="estatistica-lista">
                     ${dados.alteracoes_por_campo.map(item => `
                         <div class="estatistica-item">
-                            <span>${item.campo}</span>
+                            <span>${sanitizeHTML(item.campo)}</span>
                             <span class="estatistica-valor">${item.total}</span>
                         </div>
                     `).join('')}
@@ -833,7 +833,7 @@ function formatarAcaoAuditoria(acao) {
         'atualizar_macrocategoria': '✏️ Atualização de Categoria',
         'excluir_macrocategoria': '🗑️ Exclusão de Categoria'
     };
-    return acoes[acao] || acao;
+    return acoes[acao] || sanitizeHTML(acao);
 }
 
 function formatarAcaoLogin(acao) {
@@ -842,7 +842,7 @@ function formatarAcaoLogin(acao) {
         'login_falha': 'Tentativa de Login Falhou',
         'logout': 'Logout'
     };
-    return acoes[acao] || acao;
+    return acoes[acao] || sanitizeHTML(acao);
 }
 
 function formatarUserAgent(ua) {
@@ -851,7 +851,7 @@ function formatarUserAgent(ua) {
     if (ua.includes('Firefox')) return '🦊 Firefox';
     if (ua.includes('Safari')) return '🧭 Safari';
     if (ua.includes('Edge')) return '🌊 Edge';
-    return ua.substring(0, 50) + '...';
+    return sanitizeHTML(ua.substring(0, 50)) + '...';
 }
 
 function mostrarPaginacaoAudit(paginaAtual, totalPaginas, funcao) {

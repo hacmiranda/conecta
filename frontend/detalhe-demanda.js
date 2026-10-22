@@ -505,7 +505,7 @@ function mostrarDetalhesTicket(ticket) {
                     </div>
                     <div style="display: flex; gap: 0.5rem;">
                         <button type="submit" class="btn-primary" id="btn-adicionar-comentario">Adicionar Comentário</button>
-                        <button type="button" class="btn-primary" onclick="enviarEFecharTicket(${ticket.id})" style="background-color: #28a745;">✅ Enviar e Fechar</button>
+                        <button type="button" class="btn-primary" id="btn-enviar-fechar" onclick="enviarEFecharTicket(${ticket.id})" style="background-color: #28a745;">✅ Enviar e Fechar</button>
                     </div>
                 </form>
             </div>
@@ -737,6 +737,15 @@ function adicionarComentario(event, ticketId) {
         return;
     }
 
+    // Evita duplo envio enquanto a requisição está em andamento
+    const btnAdicionarForm = document.getElementById('btn-adicionar-comentario');
+    const btnEnviarFechar = document.getElementById('btn-enviar-fechar');
+    if (btnAdicionarForm?.disabled) return;
+    if (btnAdicionarForm) btnAdicionarForm.disabled = true;
+    if (btnEnviarFechar) btnEnviarFechar.disabled = true;
+    const formComentario = document.getElementById('form-comentario');
+    if (formComentario) formComentario.setAttribute('aria-busy', 'true');
+
     const comentario = document.getElementById('novo-comentario').value;
     const enviarEmail = document.getElementById('enviar-email').checked;
     const comCopia = document.getElementById('com-copia').value;
@@ -928,6 +937,11 @@ function adicionarComentario(event, ticketId) {
             ocultarLoader();
             console.error('Erro:', error);
             mostrarAlert('Erro', 'Erro ao adicionar comentário');
+        })
+        .finally(() => {
+            if (btnAdicionarForm) btnAdicionarForm.disabled = false;
+            if (btnEnviarFechar) btnEnviarFechar.disabled = false;
+            if (formComentario) formComentario.removeAttribute('aria-busy');
         });
 }
 
@@ -1019,6 +1033,14 @@ function enviarEFecharTicket(ticketId) {
     }
     mostrarConfirm('Enviar e Fechar Demanda', 'Deseja adicionar o comentário e encerrar esta demanda?', function (confirmado) {
         if (!confirmado) return;
+
+        // Evita duplo envio enquanto a requisição está em andamento
+        const btnAdicionarForm = document.getElementById('btn-adicionar-comentario');
+        const btnEnviarFechar = document.getElementById('btn-enviar-fechar');
+        if (btnEnviarFechar?.disabled) return;
+        if (btnAdicionarForm) btnAdicionarForm.disabled = true;
+        if (btnEnviarFechar) btnEnviarFechar.disabled = true;
+
         mostrarLoader();
         const formData = new FormData();
         formData.append('comentario', comentario);
@@ -1054,11 +1076,15 @@ function enviarEFecharTicket(ticketId) {
                 });
             } else {
                 ocultarLoader();
+                if (btnAdicionarForm) btnAdicionarForm.disabled = false;
+                if (btnEnviarFechar) btnEnviarFechar.disabled = false;
                 mostrarAlert('Erro', 'Erro ao adicionar comentário');
             }
         };
         xhr.onerror = function () {
             ocultarLoader();
+            if (btnAdicionarForm) btnAdicionarForm.disabled = false;
+            if (btnEnviarFechar) btnEnviarFechar.disabled = false;
             mostrarAlert('Erro', 'Erro de conexão ao adicionar comentário');
         };
         xhr.send(formData);

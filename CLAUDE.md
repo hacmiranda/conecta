@@ -168,14 +168,18 @@ Attachments stored in `backend/anexos/`. Max 5 files, 20MB each. Allowed: pdf, d
 - Checklist pós-deploy do roteiro: login do primeiro admin, `migrar.php --status`, matriz de acesso, teste real de e-mail por setor, cron de e-mail (externo, cron-job.org, via HTTP com chave), HTTPS + headers de segurança, backup automático.
 - Avisar os mantenedores dos sistemas satélites da nova URL (`docs/especificacoes/PROMPT_INTEGRACAO_SISTEMA_SATELITE.md`; `docs/CONFIGURACAO_AMBIENTE.md` também cita a URL antiga).
 
-**Melhorias deixadas de fora de propósito** (só fazer se o usuário pedir):
-- Gráficos do Dashboard esquecidos em `script.js` (`descreverGraficoCanvas`, `getCorLabel`, `criarGraficoStatus/Prioridade/Mensal`) — deveriam ir para `dashboard.js`/`graficos-dashboard.js`.
-- Tabela de Demandas usa `alterarStatusNovo` (status-sla.js) mas `alterarPrioridade` antiga (script.js) — inconsistência herdada.
-- XSS herdado: `usuario_afetado` sem `sanitizeHTML()` na Auditoria; sanitização no servidor de `macrocategorias.php` (`HtmlSanitizer::texto()`).
-- Estilos inline → variáveis CSS; remoção de `onclick` inline (CSP sem `unsafe-inline`).
-- Aba "Solicitantes" separada de "Equipe"; estado "enviando" no comentário; resposta × nota interna explícita.
-- Logger único (cron de e-mail ainda usa `echo`); padronizar formato de resposta da API (P8); SLA só no backend (P10).
-- Upgrade do `firebase/php-jwt` (alerta baixo, CVE-2025-45769).
+**Projeto "Melhorias adiadas" em andamento** (plano completo nas notas do usuário; 10 fases, cada uma com commit próprio). **Fase 1 concluída em 22/10/2026**: XSS herdado corrigido em `auditoria.js`/`usuarios.js` (todo valor vindo da API passa por `sanitizeHTML()`, incl. `formatarAcao*`/`formatarUserAgent` quando o valor não bate com o catálogo conhecido); `HtmlSanitizer::texto($nome, 100)` adicionado em `categorias.php`/`macrocategorias.php` (POST e PUT); duplo envio de comentário bloqueado em `detalhe-demanda.js` (`adicionarComentario`/`enviarEFecharTicket` desabilitam `#btn-adicionar-comentario`/`#btn-enviar-fechar` durante a requisição, com guard contra clique duplicado síncrono); `.btn-primary:disabled` adicionado em `style.css`.
+
+**Restam (fases 2–10, só fazer se o usuário pedir ou retomar o plano):**
+- Fase 2: todo erro da API com HTTP 4xx/5xx e `{error}` (corrigir `setor-emails.php:122`, que hoje devolve erro com HTTP 200).
+- Fase 3: mover `descreverGraficoCanvas`/`getCorLabel`/`criarGraficoStatus/Prioridade/Mensal` de `script.js` para `graficos-dashboard.js` (esquecidos na Onda 8).
+- Fase 4: unificar `alterarStatus`/`alterarPrioridade` (script.js) com as versões "Nova" de `status-sla.js` em uma só, com catálogo por setor e lista com descrição de SLA.
+- Fase 5: abas "Equipe" × "Solicitantes" em `usuarios.js` (hoje misturadas numa lista só).
+- Fase 6: nota interna no comentário (`comentarios.interno`, migração 23) — nunca vai por e-mail, selo visual na timeline.
+- Fase 7: logger único (`LogService`) substituindo os `echo`/`file_put_contents` espalhados em `email-service.php`/`cron/*.php`.
+- Fase 8: SLA calculado só no backend (hoje `tickets.php` grava em `ticket_sla` mas não lê dela; prazos fixos duplicados em `status-sla.js`).
+- Fase 9: tirar o `<script>` inline de `index.html` (l.842-918) para um arquivo próprio.
+- Fase 10: upgrade do `firebase/php-jwt` 6→7 (alerta baixo, CVE-2025-45769).
 
 ### Manutenção deste arquivo
 Após qualquer alteração relevante (nova tela/arquivo JS, migração, endpoint, regra de acesso, decisão de arquitetura, item de pendência resolvido ou criado), atualizar este `CLAUDE.md` no mesmo trabalho e mencionar no commit.

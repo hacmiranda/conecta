@@ -5,6 +5,7 @@ require_once __DIR__ . '/../config/database.php';
 require_once __DIR__ . '/../middleware/auth.php';
 require_once __DIR__ . '/../services/auditoria-service.php';
 require_once __DIR__ . '/../services/acesso-service.php';
+require_once __DIR__ . '/../services/html-sanitizer.php';
 
 AuthMiddleware::configurarCORS(['GET', 'POST', 'PUT', 'DELETE']);
 
@@ -104,7 +105,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     AuthMiddleware::verificarCSRF();
 
     $input = json_decode(file_get_contents('php://input'), true) ?: [];
-    $nome = trim($input['nome'] ?? '');
+    $nome = HtmlSanitizer::texto($input['nome'] ?? '', 100);
     $macrocategoria_id = $input['macrocategoria_id'] ?? null;
 
     if ($nome === '') {
@@ -163,7 +164,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'PUT') {
     $categoria_id = end($path_parts);
 
     $input = json_decode(file_get_contents('php://input'), true) ?: [];
-    $nome = trim($input['nome'] ?? '');
+    $nome = HtmlSanitizer::texto($input['nome'] ?? '', 100);
     $macrocategoria_id = $input['macrocategoria_id'] ?? null;
 
     if ($nome === '') {
