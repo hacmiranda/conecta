@@ -97,7 +97,7 @@ Single HTML shell (`frontend/index.html`) with no framework router and no build 
 | `ativacao-setor.js` | "Ativação por Setor" (status/priorities per sector) + "Configurar Email" (sector mailbox IMAP/SMTP) |
 | `configuracoes.js` | Change password + Personalização (logo uploads stay in XHR/FormData) |
 | `relatorios.js`, `dashboard.js`, `auditoria.js`, `ajuda.js` | Reports, dashboard screen, audit tabs (+ CSV/PDF export), help guides |
-| `graficos-dashboard.js` | Chart.js charts of the dashboard (pre-existing) |
+| `graficos-dashboard.js` | Canvas-drawn charts of the dashboard (status, priority, monthly, by-agent, funnel, 30-day evolution, stacked-by-month, heatmap) |
 | `cabecalho-setor.js` | Header: sector name (gestor/operador) or sector selector (admin); `urlComSetor()` appends `setor_id` |
 | `notificacoes.js` | Notifications, polling `notificacoes.php` every 30 s |
 | `macros.js` | Quick response templates (per sector; `setor_id` NULL = all sectors) |
@@ -172,8 +172,9 @@ Attachments stored in `backend/anexos/`. Max 5 files, 20MB each. Allowed: pdf, d
 
 **Fase 2 concluída em 22/10/2026**: `setor-emails.php` — a falha ao decifrar a senha salva de uma caixa já cadastrada (`CryptoService::decrypt` lançando exceção, rota `acao=testar` + `setor_email_id`) agora responde `http_response_code(400)` + `{error}` em vez de `{sucesso:false, mensagem}` com HTTP 200; `ativacao-setor.js` (`testarEmailSetor`) ajustado para ler `e.dados.error` no catch. Varredura em todos os `api/controllers/*.php`/`api/integracoes/**/*.php` confirmou que é o único caso: todo outro `{error}` já vem com `http_response_code` ≥ 400 nas 3 linhas anteriores, e os demais `sucesso:false`/`success:false` restantes (`testar-email.php`, outros pontos de `setor-emails.php`) são resultado de teste de verdade (IMAP ok, SMTP falhou etc.), não erro de infraestrutura — ficam como HTTP 200 de propósito. Confirmado com HTTP real (`curl` com token/CSRF de teste): resposta 400 + `{error}`.
 
-**Restam (fases 3–10, só fazer se o usuário pedir ou retomar o plano):**
-- Fase 3: mover `descreverGraficoCanvas`/`getCorLabel`/`criarGraficoStatus/Prioridade/Mensal` de `script.js` para `graficos-dashboard.js` (esquecidos na Onda 8).
+**Fase 3 concluída em 22/10/2026**: `descreverGraficoCanvas`/`getCorLabel`/`criarGraficoStatus/Prioridade/Mensal` (esquecidos em `script.js` desde a Onda 8) movidos literalmente para `graficos-dashboard.js`, junto dos demais gráficos do Dashboard. Sem conversão de rede (são só desenho em canvas). Testado no navegador: os 3 gráficos renderizam com o `aria-label` de acessibilidade correto a partir do novo arquivo.
+
+**Restam (fases 4–10, só fazer se o usuário pedir ou retomar o plano):**
 - Fase 4: unificar `alterarStatus`/`alterarPrioridade` (script.js) com as versões "Nova" de `status-sla.js` em uma só, com catálogo por setor e lista com descrição de SLA.
 - Fase 5: abas "Equipe" × "Solicitantes" em `usuarios.js` (hoje misturadas numa lista só).
 - Fase 6: nota interna no comentário (`comentarios.interno`, migração 23) — nunca vai por e-mail, selo visual na timeline.

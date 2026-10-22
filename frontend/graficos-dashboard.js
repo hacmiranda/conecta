@@ -1126,3 +1126,487 @@ function criarGraficoHeatmap(dados) {
     });
     observer.observe(canvas);
 }
+
+// ============================================================
+// Status (rosca), Prioridade (barras) e Mensal (linha) — os 3
+// gráficos originais do Dashboard. Extraídos de script.js (Fase
+// 12, Onda 8 os deixou esquecidos ali; movidos no projeto de
+// melhorias adiadas, fase 3).
+// ============================================================
+function getCorLabel() {
+    /* Dashboard é sempre dark; retorna cor clara para legibilidade */
+    const dashboardAtivo = document.getElementById('dashboard')?.classList.contains('active');
+    if (dashboardAtivo || document.body.classList.contains('modo-escuro')) {
+        return '#94a3b8';
+    }
+    return '#475569';
+}
+
+/**
+ * Acessibilidade (A7): os gráficos abaixo são desenhados à mão em <canvas>, sem nenhuma
+ * alternativa textual. Esta função dá ao canvas o papel de imagem e um resumo dos valores,
+ * para quem usa leitor de tela.
+ */
+function descreverGraficoCanvas(canvas, titulo, labels, valores) {
+    if (!canvas) return;
+    const total = valores.reduce((s, v) => s + (Number(v) || 0), 0);
+    const partes = labels.map((l, i) => {
+        const v = Number(valores[i]) || 0;
+        const pct = total > 0 ? Math.round((v / total) * 100) : 0;
+        return `${l}: ${v}${total > 0 ? ` (${pct}%)` : ''}`;
+    });
+    canvas.setAttribute('role', 'img');
+    canvas.setAttribute('aria-label', partes.length ? `${titulo}. ${partes.join(', ')}.` : `${titulo}. Sem dados no período.`);
+}
+
+function criarGraficoStatus(dados) {
+    const canvas = document.getElementById('grafico-status');
+    if (!canvas) return;
+
+    const ctx = canvas.getContext('2d');
+
+    // Cor única e dedicada para cada status — sem repetições
+    const coresStatus = {
+        'novo':                  '#e56b46',
+        'aberto':                '#f59e0b',
+        'atendimento':           '#2797e1',
+        'em_atendimento':        '#2797e1',
+        'nova_resposta':         '#06b6d4',
+        'aguardando_resposta':   '#d7e744',
+        'aguardando_terceiros':  '#c52ee7',
+        'aguardando_aprovacao':  '#f97316',
+        'aguardando_data':       '#8b5cf6',
+        'resolvido':             '#39dd52',
+        'encerrado':             '#475569',
+        'cancelado':             '#e62c45',
+        'reaberto':              '#ec4899'
+    };
+
+    const labelsStatus = {
+        'novo':                  'Novo',
+        'aberto':                'Aberto',
+        'atendimento':           'Em atendimento',
+        'em_atendimento':        'Em atendimento',
+        'nova_resposta':         'Nova resposta',
+        'aguardando':            'Aguardando',
+        'aguardando_resposta':   'Aguardando resp.',
+        'aguardando_terceiros':  'Aguardando terc.',
+        'aguardando_aprovacao':  'Aguardando aprov.',
+        'aguardando_data':       'Aguardando data',
+        'resolvido':             'Resolvido',
+        'encerrado':             'Encerrado',
+        'cancelado':             'Cancelado',
+        'reaberto':              'Reaberto'
+    };
+
+    // Paleta de fallback para status desconhecidos (cores distintas, sem repetição dos fixos acima)
+    const paletaFallback = ['#10b981', '#0ea5e9', '#a78bfa', '#fb7185', '#34d399', '#facc15'];
+
+    const statusOrdenados = Object.keys(dados.por_status || {}).filter(s => dados.por_status[s] > 0);
+    const valores = statusOrdenados.map(s => parseInt(dados.por_status[s]));
+    const labels = statusOrdenados.map(s => labelsStatus[s] || s);
+    descreverGraficoCanvas(canvas, 'Demandas por status', labels, valores);
+
+    // Atribuir cor única: fixa se mapeada, fallback sem repetição
+    const coresUsadas = new Set(Object.values(coresStatus));
+    let fallbackIdx = 0;
+    const cores = statusOrdenados.map(s => {
+        if (coresStatus[s]) return coresStatus[s];
+        // Avança no fallback enquanto a cor já estiver em uso
+        while (fallbackIdx < paletaFallback.length && coresUsadas.has(paletaFallback[fallbackIdx])) {
+            fallbackIdx++;
+        }
+        const cor = paletaFallback[fallbackIdx] || '#6c757d';
+        coresUsadas.add(cor);
+        fallbackIdx++;
+        return cor;
+    });
+
+    const total = valores.reduce((s, v) => s + v, 0) || 1;
+
+    // Layout: rosca à esquerda, legenda à direita
+    const raio = 70;
+    const raioInterno = raio * 0.54;
+    const centerX = raio + 10;
+    const centerY = canvas.height / 2;
+    const legendaX = centerX + raio + 14;
+
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    // Calcular fatias
+    const fatias = [];
+    let anguloAcumulado = -Math.PI / 2; // Começa no topo
+    statusOrdenados.forEach((s, i) => {
+        const angulo = (valores[i] / total) * 2 * Math.PI;
+        fatias.push({
+            label: labels[i],
+            valor: valores[i],
+            cor: cores[i],
+            anguloInicio: anguloAcumulado,
+            anguloFim: anguloAcumulado + angulo
+        });
+        anguloAcumulado += angulo;
+    });
+
+    // Buraco central da rosca
+    function desenharBuraco() {
+        ctx.fillStyle = '#0d1117';
+        ctx.beginPath();
+        ctx.arc(centerX, centerY, raioInterno, 0, Math.PI * 2);
+        ctx.fill();
+    }
+
+    // Total no centro
+    function desenharCentro() {
+        ctx.fillStyle = '#94a3b8';
+        ctx.font = 'bold 15px Inter, Arial';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(total, centerX, centerY - 6);
+        ctx.font = '9px Inter, Arial';
+        ctx.fillStyle = '#475569';
+        ctx.fillText('demandas', centerX, centerY + 9);
+        ctx.textBaseline = 'alphabetic';
+    }
+
+    // Legenda: quadrado colorido + nome + valor (pct) na mesma linha
+    function desenharLegenda() {
+        const alturaItem = 19;
+        const totalItens = fatias.length;
+        const blocoAltura = totalItens * alturaItem;
+        let ly = centerY - blocoAltura / 2 + alturaItem / 2;
+
+        fatias.forEach(f => {
+            const pct = Math.round((f.valor / total) * 100);
+
+            // Quadrado colorido
+            ctx.fillStyle = f.cor;
+            ctx.fillRect(legendaX, ly - 6, 10, 10);
+
+            // Nome do status
+            ctx.fillStyle = '#94a3b8';
+            ctx.font = '12px Inter, Arial';
+            ctx.textAlign = 'left';
+            ctx.textBaseline = 'middle';
+            ctx.fillText(f.label, legendaX + 14, ly);
+
+            // Valor + percentual logo após o nome
+            const larguraNome = ctx.measureText(f.label).width;
+            ctx.fillStyle = '#cbd5e1';
+            ctx.font = 'bold 12px Inter, Arial';
+            ctx.fillText(`${f.valor} (${pct}%)`, legendaX + 14 + larguraNome + 5, ly);
+
+            ctx.textBaseline = 'alphabetic';
+            ly += alturaItem;
+        });
+    }
+
+    // Animar fatias sequencialmente
+    let fatiaIndex = 0;
+
+    function desenharProximaFatia() {
+        if (fatiaIndex >= fatias.length) {
+            desenharBuraco();
+            desenharCentro();
+            desenharLegenda();
+            return;
+        }
+
+        const fatia = fatias[fatiaIndex];
+        let anguloAtual = fatia.anguloInicio;
+        const incremento = (fatia.anguloFim - fatia.anguloInicio) / 25;
+
+        const animacao = setInterval(() => {
+            anguloAtual += incremento;
+            if (anguloAtual >= fatia.anguloFim) {
+                anguloAtual = fatia.anguloFim;
+                clearInterval(animacao);
+                fatiaIndex++;
+                setTimeout(desenharProximaFatia, 80);
+            }
+
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            // Fatias já concluídas
+            for (let i = 0; i < fatiaIndex; i++) {
+                ctx.fillStyle = fatias[i].cor;
+                ctx.beginPath();
+                ctx.moveTo(centerX, centerY);
+                ctx.arc(centerX, centerY, raio, fatias[i].anguloInicio, fatias[i].anguloFim);
+                ctx.closePath();
+                ctx.fill();
+            }
+
+            // Fatia atual em animação
+            ctx.fillStyle = fatia.cor;
+            ctx.beginPath();
+            ctx.moveTo(centerX, centerY);
+            ctx.arc(centerX, centerY, raio, fatia.anguloInicio, anguloAtual);
+            ctx.closePath();
+            ctx.fill();
+
+            desenharBuraco();
+            desenharCentro();
+            desenharLegenda();
+        }, 20);
+    }
+
+    desenharProximaFatia();
+
+    // Tooltip: hit-detection por ângulo e raio na rosca
+    canvas.addEventListener('mousemove', function(e) {
+        const rect = canvas.getBoundingClientRect();
+        const scaleX = canvas.width  / rect.width;
+        const scaleY = canvas.height / rect.height;
+        const mx = (e.clientX - rect.left) * scaleX;
+        const my = (e.clientY - rect.top)  * scaleY;
+        const dx = mx - centerX;
+        const dy = my - centerY;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+
+        if (dist < raioInterno || dist > raio) {
+            CanvasTooltip.hide();
+            return;
+        }
+
+        let angulo = Math.atan2(dy, dx);
+        if (angulo < -Math.PI / 2) angulo += 2 * Math.PI;
+
+        const fatia = fatias.find(f => angulo >= f.anguloInicio && angulo <= f.anguloFim);
+        if (!fatia) { CanvasTooltip.hide(); return; }
+
+        const pct = Math.round((fatia.valor / total) * 100);
+        CanvasTooltip.show(e,
+            `<strong style="color:${fatia.cor}">${fatia.label}</strong><br>` +
+            `Demandas: <strong>${fatia.valor}</strong><br>` +
+            `Percentual: <strong>${pct}%</strong>`
+        );
+    });
+    canvas.addEventListener('mouseleave', () => CanvasTooltip.hide());
+}
+
+function criarGraficoPrioridade(dados) {
+    const canvas = document.getElementById('grafico-prioridade');
+    if (!canvas) return;
+
+    const ctx = canvas.getContext('2d');
+    const cores = {
+        'baixa': '#475569',
+        'normal': '#39dd52',
+        'alta': '#e56b46',
+        'urgente': '#e62c45'
+    };
+
+    const prioridades = ['urgente', 'alta', 'normal', 'baixa'];
+    const valores = prioridades.map(p => dados.por_prioridade?.[p] || 0);
+    const labels = ['Urgente', 'Alta', 'Normal', 'Baixa'];
+    descreverGraficoCanvas(canvas, 'Demandas por prioridade', labels, valores);
+
+    const totalPrioridade = valores.reduce((s, v) => s + v, 0) || 1;
+    const maxValor = Math.max(...valores) || 1;
+    const alturaBarra = 30;
+    const espacamento = 15;
+    const margemEsquerda = 100;
+    const alturaTotal = valores.length * (alturaBarra + espacamento) - espacamento;
+    const offsetY = (canvas.height - alturaTotal) / 2;
+
+    // Mapa de barras para hit-detection
+    const barrasPrioridade = valores.map((valor, i) => ({
+        label: labels[i],
+        cor: cores[prioridades[i]],
+        valor,
+        x: margemEsquerda,
+        y: offsetY + i * (alturaBarra + espacamento),
+        largura: (valor / maxValor) * (canvas.width - margemEsquerda - 60),
+        altura: alturaBarra
+    }));
+
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    valores.forEach((valor, i) => {
+        const larguraFinal = barrasPrioridade[i].largura;
+        const y = barrasPrioridade[i].y;
+
+        ctx.fillStyle = getCorLabel();
+        ctx.font = '14px Arial';
+        ctx.textAlign = 'right';
+        ctx.fillText(labels[i], margemEsquerda - 10, y + alturaBarra / 2 + 5);
+
+        let larguraAtual = 0;
+        const animacao = setInterval(() => {
+            ctx.clearRect(margemEsquerda, y, canvas.width - margemEsquerda, alturaBarra);
+            larguraAtual += larguraFinal / 50;
+            if (larguraAtual >= larguraFinal) {
+                larguraAtual = larguraFinal;
+                clearInterval(animacao);
+            }
+            ctx.fillStyle = cores[prioridades[i]];
+            ctx.fillRect(margemEsquerda, y, larguraAtual, alturaBarra);
+
+            ctx.fillStyle = getCorLabel();
+            ctx.font = 'bold 14px Arial';
+            ctx.textAlign = 'left';
+            const pct = totalPrioridade > 0 ? Math.round((valor / totalPrioridade) * 100) : 0;
+            ctx.fillText(`${valor} (${pct}%)`, margemEsquerda + larguraAtual + 5, y + alturaBarra / 2 + 5);
+        }, 20);
+    });
+
+    // Tooltip: hit-detection por retângulo
+    canvas.addEventListener('mousemove', function(e) {
+        const rect = canvas.getBoundingClientRect();
+        const scaleX = canvas.width  / rect.width;
+        const scaleY = canvas.height / rect.height;
+        const mx = (e.clientX - rect.left) * scaleX;
+        const my = (e.clientY - rect.top)  * scaleY;
+
+        const barra = barrasPrioridade.find(b =>
+            mx >= b.x && mx <= b.x + b.largura &&
+            my >= b.y && my <= b.y + b.altura
+        );
+        if (!barra || barra.valor === 0) { CanvasTooltip.hide(); return; }
+
+        const pct = Math.round((barra.valor / totalPrioridade) * 100);
+        CanvasTooltip.show(e,
+            `<strong style="color:${barra.cor}">${barra.label}</strong><br>` +
+            `Demandas: <strong>${barra.valor}</strong><br>` +
+            `Percentual: <strong>${pct}%</strong>`
+        );
+    });
+    canvas.addEventListener('mouseleave', () => CanvasTooltip.hide());
+}
+
+function criarGraficoMensal(dados) {
+    const canvas = document.getElementById('grafico-mensal');
+    if (!canvas) return;
+
+    const observer = new IntersectionObserver((entries) => {
+        entries.forEach(entry => {
+            if (entry.isIntersecting) {
+                const ctx = canvas.getContext('2d');
+                const meses = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
+                const valores = meses.map((_, i) => dados.por_mes?.[i + 1] || 0);
+                const totalMensal = valores.reduce((s, v) => s + v, 0) || 1;
+                descreverGraficoCanvas(canvas, 'Demandas por mês', meses, valores);
+
+                const maxValor = Math.max(...valores) || 1;
+                const margemEsquerda = 30;
+                const margemDireita = 30;
+                const larguraUtil = canvas.width - margemEsquerda - margemDireita;
+                const stepX = larguraUtil / (valores.length - 1);
+
+                // Pontos para hit-detection
+                const pontosMensal = valores.map((valor, i) => ({
+                    mes: meses[i],
+                    valor,
+                    x: margemEsquerda + i * stepX,
+                    y: canvas.height - 40 - (valor / maxValor) * (canvas.height - 60)
+                }));
+
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+                valores.forEach((valor, i) => {
+                    const x = margemEsquerda + i * stepX;
+                    ctx.fillStyle = getCorLabel();
+                    ctx.font = '14px Arial';
+                    ctx.textAlign = 'center';
+                    ctx.fillText(meses[i], x, canvas.height - 5);
+                });
+
+                let progress = 0;
+                const animacao = setInterval(() => {
+                    progress += 0.02;
+                    if (progress >= 1) {
+                        progress = 1;
+                        clearInterval(animacao);
+                    }
+
+                    ctx.clearRect(0, 0, canvas.width, canvas.height - 30);
+
+                    const pontosVisiveis = Math.floor(valores.length * progress);
+
+                    ctx.beginPath();
+                    const baseY = canvas.height - 40;
+                    valores.forEach((valor, i) => {
+                        if (i <= pontosVisiveis) {
+                            const x = margemEsquerda + i * stepX;
+                            const y = canvas.height - 40 - (valor / maxValor) * (canvas.height - 60);
+                            if (i === 0) { ctx.moveTo(x, baseY); ctx.lineTo(x, y); }
+                            else ctx.lineTo(x, y);
+                        }
+                    });
+                    const ultimoI = Math.min(pontosVisiveis, valores.length - 1);
+                    ctx.lineTo(margemEsquerda + ultimoI * stepX, baseY);
+                    ctx.closePath();
+                    ctx.fillStyle = 'rgba(57, 221, 82, 0.07)';
+                    ctx.fill();
+
+                    ctx.strokeStyle = '#39dd52';
+                    ctx.lineWidth = 2.5;
+                    ctx.beginPath();
+                    valores.forEach((valor, i) => {
+                        if (i <= pontosVisiveis) {
+                            const x = margemEsquerda + i * stepX;
+                            const y = canvas.height - 40 - (valor / maxValor) * (canvas.height - 60);
+                            if (i === 0) ctx.moveTo(x, y);
+                            else ctx.lineTo(x, y);
+                        }
+                    });
+                    ctx.stroke();
+
+                    valores.forEach((valor, i) => {
+                        if (i <= pontosVisiveis) {
+                            const x = margemEsquerda + i * stepX;
+                            const y = canvas.height - 40 - (valor / maxValor) * (canvas.height - 60);
+                            ctx.fillStyle = '#39dd52';
+                            ctx.beginPath();
+                            ctx.arc(x, y, 4, 0, Math.PI * 2);
+                            ctx.fill();
+                            // Valor em laranja acima do ponto quando > 0
+                            if (valor > 0) {
+                                ctx.fillStyle = '#e56b46';
+                                ctx.font = 'bold 11px Inter, Arial';
+                                ctx.textAlign = 'center';
+                                ctx.fillText(valor, x, y - 8);
+                            }
+                        }
+                    });
+
+                    valores.forEach((valor, i) => {
+                        const x = margemEsquerda + i * stepX;
+                        ctx.fillStyle = getCorLabel();
+                        ctx.font = '14px Arial';
+                        ctx.textAlign = 'center';
+                        ctx.fillText(meses[i], x, canvas.height - 5);
+                    });
+                }, 20);
+
+                // Tooltip: ponto mais próximo no eixo X (raio de captura 30px)
+                canvas.addEventListener('mousemove', function(e) {
+                    const rect = canvas.getBoundingClientRect();
+                    const scaleX = canvas.width  / rect.width;
+                    const mx = (e.clientX - rect.left) * scaleX;
+
+                    let closest = null;
+                    let menorDist = Infinity;
+                    pontosMensal.forEach(p => {
+                        const d = Math.abs(mx - p.x);
+                        if (d < menorDist) { menorDist = d; closest = p; }
+                    });
+
+                    if (!closest || menorDist > stepX / 2 + 4) { CanvasTooltip.hide(); return; }
+
+                    const pct = Math.round((closest.valor / totalMensal) * 100);
+                    CanvasTooltip.show(e,
+                        `<strong style="color:#39dd52">${closest.mes}</strong><br>` +
+                        `Demandas: <strong>${closest.valor}</strong><br>` +
+                        `Percentual: <strong>${pct}%</strong>`
+                    );
+                });
+                canvas.addEventListener('mouseleave', () => CanvasTooltip.hide());
+
+                observer.unobserve(canvas);
+            }
+        });
+    });
+    observer.observe(canvas);
+}
