@@ -18,7 +18,7 @@ function carregarFiltrosRelatorio() {
         categorias.forEach(cat => {
             const option = document.createElement('option');
             option.value = cat.id;
-            option.textContent = cat.nome;
+            option.textContent = rotuloSubcategoria(cat);
             select.appendChild(option);
         });
     }).catch(() => { });

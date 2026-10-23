@@ -161,7 +161,9 @@
 
 /* --- Navegação principal --- */
 .sidebar-nav {
-    flex: 1;
+    /* não encolhe: com os grupos abertos a sidebar inteira rola, e o botão
+       "Recolher menu" fica sempre depois dos itens, sem sobrepor */
+    flex: 1 0 auto;
     min-height: 0;
     width: 100%;
     padding-top: 1rem;
@@ -312,6 +314,122 @@
     color: #ffffff;
 }
 
+/* Subitem da tela aberta (sidebar-navegacao.js): mesmo destaque dos itens principais */
+.sidebar-nav .nav-dropdown-item.active,
+.modo-escuro .sidebar-nav .nav-dropdown-item.active {
+    background: rgba(255, 255, 255, 0.18);
+    color: #ffffff;
+    font-weight: 600;
+    box-shadow: inset 4px 0 0 #ffffff;
+}
+
+.sidebar-nav .nav-dropdown-item:focus-visible {
+    outline: 2px solid #ffffff;
+    outline-offset: 2px;
+}
+
+/* --- Botão recolher/expandir a sidebar --- */
+.sidebar .sidebar-recolher {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    width: 100%;
+    margin-top: auto;
+    padding: 0.625rem 1rem;
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    border-radius: 0.5rem;
+    background: rgba(255, 255, 255, 0.06);
+    color: #dbeafe;
+    font-family: 'Inter', sans-serif;
+    font-size: 0.875rem;
+    font-weight: 500;
+    text-align: left;
+    cursor: pointer;
+    transition: background 0.15s, color 0.15s;
+}
+
+.sidebar .sidebar-recolher:hover {
+    background: rgba(255, 255, 255, 0.14);
+    color: #ffffff;
+    transform: none;
+}
+
+.sidebar .sidebar-recolher:focus-visible {
+    outline: 2px solid #ffffff;
+    outline-offset: 2px;
+}
+
+.sidebar .sidebar-recolher .nav-icon {
+    font-size: 1.25rem;
+    flex-shrink: 0;
+}
+
+/* --- Sidebar recolhida: só ícones (desktop) --- */
+@media (min-width: 901px) {
+    .sidebar {
+        transition: background 0.3s ease, width 0.2s ease, padding 0.2s ease;
+    }
+
+    .sidebar.recolhida {
+        width: 76px;
+        padding: 1.5rem 0.5rem;
+        overflow-x: hidden;
+    }
+
+    /* Textos escondidos só visualmente: continuam como nome acessível dos botões */
+    .sidebar.recolhida .nav-label,
+    .sidebar.recolhida .header-avatar-info {
+        position: absolute;
+        width: 1px;
+        height: 1px;
+        padding: 0;
+        margin: -1px;
+        overflow: hidden;
+        clip: rect(0, 0, 0, 0);
+        white-space: nowrap;
+        border: 0;
+    }
+
+    .sidebar.recolhida .sidebar-logo-texto,
+    .sidebar.recolhida .nav-group-caret,
+    .sidebar.recolhida .sidebar-nav .nav-dropdown-wrapper:not(#nav-notificacoes-wrapper) .nav-dropdown {
+        display: none;
+    }
+
+    .sidebar.recolhida .sidebar-logo {
+        justify-content: center;
+        padding: 0.5rem;
+    }
+
+    .sidebar.recolhida .header-avatar-btn {
+        justify-content: center;
+        padding: 0.25rem;
+    }
+
+    .sidebar.recolhida .sidebar-nav .btn-nav,
+    .sidebar.recolhida .sidebar-recolher {
+        position: relative;
+        justify-content: center;
+        padding: 0.75rem 0;
+    }
+
+    /* Contador de notificações sobre o ícone */
+    .sidebar.recolhida .badge-notificacoes {
+        position: absolute;
+        top: 0.25rem;
+        right: 0.5rem;
+        min-width: 18px;
+        height: 18px;
+        font-size: 0.7rem;
+    }
+}
+
+@media (min-width: 901px) and (prefers-reduced-motion: reduce) {
+    .sidebar {
+        transition: none;
+    }
+}
+
 /* --- Notificações: continua um flyout (painel rico, não um item de lista).
    position:fixed (em vez de absolute) porque a sidebar tem overflow-y:auto — um
    flyout absoluto seria recortado nas bordas da sidebar em vez de flutuar sobre o
@@ -396,5 +514,10 @@
 
     .sidebar-nav .nav-dropdown-wrapper .nav-dropdown.open {
         max-height: 600px;
+    }
+
+    /* No celular a sidebar já vira barra no topo: não há o que recolher */
+    .sidebar .sidebar-recolher {
+        display: none;
     }
 }

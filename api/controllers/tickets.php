@@ -69,6 +69,7 @@ function listarTicketsPaginado(PDO $db, string $selectCompleto, array $where, ar
                  LEFT JOIN usuarios u ON t.usuario_id = u.id
                  LEFT JOIN usuarios a ON t.agente_id = a.id
                  LEFT JOIN categorias c ON t.categoria_id = c.id
+                 LEFT JOIN macrocategorias mc ON c.macrocategoria_id = mc.id
                  LEFT JOIN setores s ON t.setor_id = s.id";
     $base = implode(' AND ', $where ?: ['1 = 1']);
 
@@ -125,7 +126,7 @@ function listarTicketsPaginado(PDO $db, string $selectCompleto, array $where, ar
     // Ordenação: só colunas conhecidas
     $colunas = [
         'id' => 't.id', 'criado_em' => 't.criado_em', 'titulo' => 't.titulo', 'usuario_nome' => 'u.nome',
-        'setor_nome' => 's.nome', 'agente_nome' => 'a.nome', 'categoria_nome' => 'c.nome',
+        'setor_nome' => 's.nome', 'agente_nome' => 'a.nome', 'categoria_nome' => "CONCAT_WS(' - ', c.nome, mc.nome)",
         'status' => 't.status', 'prioridade' => 't.prioridade', 'fechado_em' => 't.fechado_em',
         'excluido_em' => 't.excluido_em',
     ];
@@ -183,7 +184,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
             $query = "SELECT t.*,
                              u.nome as usuario_nome, u.email as usuario_email,
                              a.nome as agente_nome,
-                             c.nome as categoria_nome,
+                             NULLIF(CONCAT_WS(' - ', c.nome, mc.nome), '') as categoria_nome,
                              f.nome as fechado_por_nome,
                              ex.nome as excluido_por_nome,
                              st.nome as setor_nome,
@@ -197,6 +198,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
                       LEFT JOIN usuarios u ON t.usuario_id = u.id
                       LEFT JOIN usuarios a ON t.agente_id = a.id
                       LEFT JOIN categorias c ON t.categoria_id = c.id
+                      LEFT JOIN macrocategorias mc ON c.macrocategoria_id = mc.id
                       LEFT JOIN usuarios f ON t.fechado_por = f.id
                       LEFT JOIN usuarios ex ON t.excluido_por = ex.id
                       LEFT JOIN setores st ON t.setor_id = st.id
@@ -263,7 +265,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
             $query = "SELECT t.*,
                              u.nome as usuario_nome, u.email as usuario_email,
                              a.nome as agente_nome,
-                             c.nome as categoria_nome,
+                             NULLIF(CONCAT_WS(' - ', c.nome, mc.nome), '') as categoria_nome,
                              s.nome as setor_nome,
                              ex.nome as excluido_por_nome,
                              (SELECT COUNT(*) FROM anexos WHERE ticket_id = t.id) as tem_anexos,
@@ -280,6 +282,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
                       LEFT JOIN usuarios u ON t.usuario_id = u.id
                       LEFT JOIN usuarios a ON t.agente_id = a.id
                       LEFT JOIN categorias c ON t.categoria_id = c.id
+                      LEFT JOIN macrocategorias mc ON c.macrocategoria_id = mc.id
                       LEFT JOIN setores s ON t.setor_id = s.id
                       LEFT JOIN usuarios ex ON t.excluido_por = ex.id
                       LEFT JOIN comentarios_nao_lidos cnl ON t.id = cnl.ticket_id AND cnl.usuario_id = :usuario_id
@@ -829,7 +832,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'PUT') {
                     if (!$id) {
                         return 'Sem subcategoria';
                     }
-                    $c = $db->prepare("SELECT nome FROM categorias WHERE id = ?");
+                    $c = $db->prepare("SELECT CONCAT_WS(' - ', c.nome, mc.nome) FROM categorias c
+                                       LEFT JOIN macrocategorias mc ON c.macrocategoria_id = mc.id WHERE c.id = ?");
                     $c->execute([(int) $id]);
                     return $c->fetchColumn() ?: (string) $id;
                 };

@@ -240,7 +240,8 @@ try {
         // A categoria é do setor de origem: ao transferir, o setor de destino categoriza de novo
         // (o valor anterior fica registrado no histórico da demanda)
         if (!empty($ticket['categoria_id'])) {
-            $cat_stmt = $db->prepare("SELECT nome FROM categorias WHERE id = ?");
+            $cat_stmt = $db->prepare("SELECT CONCAT_WS(' - ', c.nome, mc.nome) FROM categorias c
+                                      LEFT JOIN macrocategorias mc ON c.macrocategoria_id = mc.id WHERE c.id = ?");
             $cat_stmt->execute([$ticket['categoria_id']]);
             $cat_nome = $cat_stmt->fetchColumn();
             if ($cat_nome) {

@@ -23,7 +23,8 @@
     <link rel="stylesheet" href="nova_resposta.css">
     <link rel="stylesheet" href="email-alert.css">
     <link rel="stylesheet" href="nav-dropdown.css?v=2">
-    <link rel="stylesheet" href="sidebar.css?v=3">
+    <link rel="stylesheet" href="sidebar.css?v=5">
+    <link rel="stylesheet" href="senha-visivel.css?v=1">
     <link rel="stylesheet" href="tickets-melhorias.css?v=7">
     <link rel="stylesheet" href="vanguard-tooltip.css">
     <link rel="stylesheet" href="dashboard-redesign.css">
@@ -143,18 +144,18 @@
                     <span class="material-symbols-outlined nav-group-caret">expand_more</span>
                 </button>
                 <div class="nav-dropdown" id="nav-ajuda-dropdown">
-                    <button class="nav-dropdown-item"
+                    <button class="nav-dropdown-item" data-subsecao="sla"
                         onclick="mostrarAjuda(); mostrarSLA()">⏰ SLA</button>
-                    <button class="nav-dropdown-item"
+                    <button class="nav-dropdown-item" data-subsecao="status"
                         onclick="mostrarAjuda(); mostrarStatusGuia()">📊 Status das
                         Demandas</button>
-                    <button class="nav-dropdown-item"
+                    <button class="nav-dropdown-item" data-subsecao="prioridade"
                         onclick="mostrarAjuda(); mostrarPrioridadeGuia()">🔥
                         Prioridades</button>
-                    <button class="nav-dropdown-item"
+                    <button class="nav-dropdown-item" data-subsecao="fluxos-email"
                         onclick="mostrarAjuda(); mostrarFluxosEmail()">📧 Fluxos de
                         Email</button>
-                    <button class="nav-dropdown-item"
+                    <button class="nav-dropdown-item" data-subsecao="atalhos"
                         onclick="mostrarAjuda(); mostrarAtalhosGuia()">⌨️ Atalhos de
                         Teclado</button>
                     <button class="nav-dropdown-item"
@@ -176,28 +177,28 @@
                     <span class="material-symbols-outlined nav-group-caret">expand_more</span>
                 </button>
                 <div class="nav-dropdown" id="nav-config-dropdown">
-                    <button class="nav-dropdown-item" id="btn-config-setores"
+                    <button class="nav-dropdown-item" id="btn-config-setores" data-subsecao="setores"
                         onclick="mostrarSecao('config'); document.getElementById('config-content').innerHTML=''; mostrarSetores()">🏢
                         Setores</button>
-                    <button class="nav-dropdown-item" id="btn-config-usuarios"
+                    <button class="nav-dropdown-item" id="btn-config-usuarios" data-subsecao="usuarios"
                         onclick="mostrarSecao('config'); document.getElementById('config-content').innerHTML=''; mostrarUsuarios()">👥
                         Gerenciar Usuários</button>
-                    <button class="nav-dropdown-item" id="btn-config-categorias"
+                    <button class="nav-dropdown-item" id="btn-config-categorias" data-subsecao="categorias"
                         onclick="mostrarSecao('config'); document.getElementById('config-content').innerHTML=''; mostrarCategorias()">📁
                         Categorias</button>
-                    <button class="nav-dropdown-item" id="btn-config-setor-config"
+                    <button class="nav-dropdown-item" id="btn-config-setor-config" data-subsecao="setor-config"
                         onclick="mostrarSecao('config'); document.getElementById('config-content').innerHTML=''; mostrarConfigSetor()">🧭
                         Ativação por Setor</button>
-                    <button class="nav-dropdown-item" id="btn-config-horarios"
+                    <button class="nav-dropdown-item" id="btn-config-horarios" data-subsecao="horarios-sla"
                         onclick="mostrarSecao('config'); document.getElementById('config-content').innerHTML=''; mostrarHorariosSLA()">⏰
                         Horários e Feriados</button>
-                    <button class="nav-dropdown-item" id="btn-config-email"
+                    <button class="nav-dropdown-item" id="btn-config-email" data-subsecao="config-email"
                         onclick="mostrarSecao('config'); document.getElementById('config-content').innerHTML=''; mostrarConfigEmail()">📧
                         Configurar Email</button>
-                    <button class="nav-dropdown-item" id="btn-config-personalizacao"
+                    <button class="nav-dropdown-item" id="btn-config-personalizacao" data-subsecao="personalizacao"
                         onclick="mostrarSecao('config'); document.getElementById('config-content').innerHTML=''; mostrarPersonalizacao()">🎨
                         Personalização</button>
-                    <button class="nav-dropdown-item" id="btn-config-auditoria"
+                    <button class="nav-dropdown-item" id="btn-config-auditoria" data-subsecao="auditoria"
                         onclick="mostrarSecao('config'); document.getElementById('config-content').innerHTML=''; mostrarAuditoria()">📋
                         Auditoria</button>
                 </div>
@@ -235,6 +236,13 @@
             </li>
             </ul>
         </nav>
+
+        <!-- Recolher/expandir a sidebar (todos os perfis; estado salvo no navegador) -->
+        <button type="button" class="sidebar-recolher" id="btn-recolher-sidebar"
+            aria-controls="app-sidebar" aria-expanded="true" aria-label="Recolher menu">
+            <span class="material-symbols-outlined nav-icon" aria-hidden="true">keyboard_double_arrow_left</span>
+            <span class="nav-label">Recolher menu</span>
+        </button>
     </aside>
 
     <div class="app-main">
@@ -840,6 +848,8 @@
     </div><!-- fim modal-overlay -->
 
     <script src="inicio-pagina.js?v=1"></script>
+    <script src="sidebar-navegacao.js?v=1"></script>
+    <script src="senha-visivel.js?v=1"></script>
 
 
     <!-- Socket.io removido para PHP -->
@@ -849,14 +859,14 @@
     <script src="lib/purify.min.js"></script>
     <script src="canvas-tooltip.js"></script>
     <script src="vanguard-tooltip.js?v=2"></script>
-    <script src="script.js?v=4.25"></script>
+    <script src="script.js?v=4.26"></script>
     <script src="api.js?v=1"></script>
     <script src="setores.js?v=1"></script>
     <script src="lixeira.js?v=1"></script>
     <script src="usuarios.js?v=3"></script>
-    <script src="categorias.js?v=1"></script>
+    <script src="categorias.js?v=2"></script>
     <script src="ativacao-setor.js?v=1"></script>
-    <script src="relatorios.js?v=1"></script>
+    <script src="relatorios.js?v=2"></script>
     <script src="configuracoes.js?v=1"></script>
     <script src="ajuda.js?v=1"></script>
     <script src="dashboard.js?v=1"></script>

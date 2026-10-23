@@ -50,6 +50,22 @@ function validarMacrocategoriaDoSetor(PDO $db, $macrocategoria_id, int $setor_id
 }
 
 /**
+ * Já existe subcategoria com este nome na mesma categoria do setor? (`<=>` trata "sem categoria"
+ * como um grupo próprio — o índice único do banco não cobre o caso NULL.)
+ */
+function subcategoriaDuplicada(PDO $db, string $nome, int $setor_id, $macrocategoria_id, int $ignorar_id = 0): bool {
+    $macro = ($macrocategoria_id === null || $macrocategoria_id === '') ? null : (int) $macrocategoria_id;
+    $stmt = $db->prepare("SELECT 1 FROM categorias
+                          WHERE nome = :nome AND setor_id = :setor_id AND macrocategoria_id <=> :macro AND id <> :id");
+    $stmt->bindValue(':nome', $nome);
+    $stmt->bindValue(':setor_id', $setor_id, PDO::PARAM_INT);
+    $stmt->bindValue(':macro', $macro, $macro === null ? PDO::PARAM_NULL : PDO::PARAM_INT);
+    $stmt->bindValue(':id', $ignorar_id, PDO::PARAM_INT);
+    $stmt->execute();
+    return (bool) $stmt->fetchColumn();
+}
+
+/**
  * Carrega a subcategoria e exige que o usuário possa geri-la (admin ou gestor do mesmo setor).
  */
 function categoriaGerenciavel(PDO $db, array $user, $categoria_id): array {
@@ -76,7 +92,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
     try {
         $setor_id = AcessoService::setorEscopo($user);
 
-        $query = "SELECT c.*, m.nome as macrocategoria_nome, s.nome as setor_nome
+        // rotulo = "Subcategoria - Categoria": o nome sozinho pode se repetir entre categorias
+        $query = "SELECT c.*, m.nome as macrocategoria_nome, s.nome as setor_nome,
+                         CONCAT_WS(' - ', c.nome, m.nome) as rotulo
                   FROM categorias c
                   LEFT JOIN macrocategorias m ON c.macrocategoria_id = m.id
                   LEFT JOIN setores s ON c.setor_id = s.id";
@@ -119,12 +137,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     try {
         validarMacrocategoriaDoSetor($db, $macrocategoria_id, $setor_id);
 
-        // Nome único dentro do setor
-        $check_stmt = $db->prepare("SELECT id FROM categorias WHERE nome = :nome AND setor_id = :setor_id");
-        $check_stmt->execute([':nome' => $nome, ':setor_id' => $setor_id]);
-        if ($check_stmt->fetch()) {
+        // Nome único dentro da categoria (o mesmo nome pode existir em outra categoria do setor)
+        if (subcategoriaDuplicada($db, $nome, $setor_id, $macrocategoria_id)) {
             http_response_code(400);
-            echo json_encode(['error' => 'Subcategoria já existe neste setor']);
+            echo json_encode(['error' => 'Já existe uma subcategoria com este nome nesta categoria']);
             exit;
         }
 
@@ -139,7 +155,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $auditoria = new AuditoriaService($db);
         $auditoria->registrar($user['id'], 'criar_categoria', 'categorias', $categoria_id, null, json_encode(['nome' => $nome, 'macrocategoria_id' => $macrocategoria_id, 'setor_id' => $setor_id]));
 
-        $select_stmt = $db->prepare("SELECT c.*, m.nome as macrocategoria_nome
+        $select_stmt = $db->prepare("SELECT c.*, m.nome as macrocategoria_nome,
+                                            CONCAT_WS(' - ', c.nome, m.nome) as rotulo
                                      FROM categorias c
                                      LEFT JOIN macrocategorias m ON c.macrocategoria_id = m.id
                                      WHERE c.id = :id");
@@ -178,11 +195,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'PUT') {
     try {
         validarMacrocategoriaDoSetor($db, $macrocategoria_id, (int) $atual['setor_id']);
 
-        $dup = $db->prepare("SELECT id FROM categorias WHERE nome = :nome AND setor_id = :setor_id AND id <> :id");
-        $dup->execute([':nome' => $nome, ':setor_id' => $atual['setor_id'], ':id' => $atual['id']]);
-        if ($dup->fetch()) {
+        if (subcategoriaDuplicada($db, $nome, (int) $atual['setor_id'], $macrocategoria_id, (int) $atual['id'])) {
             http_response_code(400);
-            echo json_encode(['error' => 'Já existe uma subcategoria com este nome no setor']);
+            echo json_encode(['error' => 'Já existe uma subcategoria com este nome nesta categoria']);
             exit;
         }
 

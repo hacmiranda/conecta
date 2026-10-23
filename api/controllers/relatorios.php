@@ -32,11 +32,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
         $query = "SELECT t.*, 
                   u.nome as usuario_nome, u.email as usuario_email,
                   a.nome as agente_nome,
-                  c.nome as categoria_nome
+                  NULLIF(CONCAT_WS(' - ', c.nome, mc.nome), '') as categoria_nome
                   FROM tickets t
                   LEFT JOIN usuarios u ON t.usuario_id = u.id
                   LEFT JOIN usuarios a ON t.agente_id = a.id
                   LEFT JOIN categorias c ON t.categoria_id = c.id
+                  LEFT JOIN macrocategorias mc ON c.macrocategoria_id = mc.id
                   WHERE t.excluido_em IS NULL";
         
         $params = [];

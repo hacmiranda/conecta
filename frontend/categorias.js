@@ -5,6 +5,14 @@
 
 let todasCategorias = [];
 
+// Rótulo exibido de uma subcategoria: "Inscrição - Pessoa Física". O nome sozinho pode se
+// repetir entre categorias diferentes do mesmo setor; `rotulo` vem pronto de categorias.php.
+function rotuloSubcategoria(cat) {
+    if (!cat) return '';
+    if (cat.rotulo) return cat.rotulo;
+    return cat.macrocategoria_nome ? `${cat.nome} - ${cat.macrocategoria_nome}` : cat.nome;
+}
+
 // Admin trocou o setor no cabeçalho: refaz a lista de subcategorias usada nos filtros
 document.addEventListener('setor-contexto-alterado', function () {
     if (typeof carregarCategorias === 'function') carregarCategorias();
@@ -63,7 +71,7 @@ function configurarPesquisaCategoria() {
             categoriasFiltradas = todasCategorias;
         } else {
             categoriasFiltradas = todasCategorias.filter(cat =>
-                cat.nome.toLowerCase().includes(termo)
+                rotuloSubcategoria(cat).toLowerCase().includes(termo)
             );
         }
 
@@ -161,7 +169,7 @@ function renderizarCategoriasForm(categorias) {
     categorias.forEach((categoria, index) => {
         const item = document.createElement('div');
         item.className = 'categoria-item-form';
-        item.textContent = categoria.nome;
+        item.textContent = rotuloSubcategoria(categoria);
         item.setAttribute('data-categoria-id', categoria.id);
 
         item.onclick = function () {
@@ -170,7 +178,7 @@ function renderizarCategoriasForm(categorias) {
             // Selecionar atual
             item.classList.add('selected');
             // Definir valores
-            document.getElementById('categoria-busca').value = categoria.nome;
+            document.getElementById('categoria-busca').value = rotuloSubcategoria(categoria);
             document.getElementById('categoria-id').value = categoria.id;
             // Ocultar lista
             document.getElementById('categoria-lista-form').classList.remove('show');
@@ -204,10 +212,10 @@ function mostrarCategoriasDropdown(categorias) {
     categorias.forEach(categoria => {
         const item = document.createElement('div');
         item.className = 'categoria-item';
-        item.textContent = categoria.nome;
+        item.textContent = rotuloSubcategoria(categoria);
 
         item.onclick = function () {
-            document.getElementById('categoria').value = categoria.nome;
+            document.getElementById('categoria').value = rotuloSubcategoria(categoria);
             document.getElementById('categoria-id').value = categoria.id;
             dropdown.classList.remove('show');
         };
@@ -499,10 +507,12 @@ async function criarCategoria(event) {
     try {
         // Verificar se subcategoria já existe
         const categorias = await Api.get(urlComSetor('categorias.php'));
-        const categoriaExiste = categorias.some(cat => cat.nome.toLowerCase() === nome.toLowerCase());
+        // O mesmo nome pode existir em outra categoria; só não pode repetir dentro da mesma
+        const categoriaExiste = categorias.some(cat =>
+            cat.nome.toLowerCase() === nome.toLowerCase() && String(cat.macrocategoria_id) === String(macrocategoria_id));
 
         if (categoriaExiste) {
-            mostrarAlert('Erro', 'Esta subcategoria já existe!');
+            mostrarAlert('Erro', 'Esta subcategoria já existe nesta categoria!');
             return;
         }
 

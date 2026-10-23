@@ -648,7 +648,9 @@ function alterarCategoria(ticketId) {
 
     xhr.onload = function () {
         if (xhr.status === 200) {
-            const categorias = JSON.parse(xhr.responseText);
+            // Mostra "Subcategoria - Categoria": o nome sozinho pode se repetir entre categorias
+            const categorias = JSON.parse(xhr.responseText)
+                .map(cat => Object.assign({}, cat, { nome: rotuloSubcategoria(cat) }));
 
             mostrarSelect(
                 'Alterar Subcategoria',

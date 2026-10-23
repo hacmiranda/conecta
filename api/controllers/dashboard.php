@@ -81,11 +81,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
         }
 
         // Top 5 categorias (excluindo cancelados)
-        $query = "SELECT c.nome, COUNT(t.id) as total
+        $query = "SELECT CONCAT_WS(' - ', c.nome, mc.nome) as nome, COUNT(t.id) as total
                   FROM categorias c
+                  LEFT JOIN macrocategorias mc ON c.macrocategoria_id = mc.id
                   LEFT JOIN tickets t ON c.id = t.categoria_id
                   WHERE t.status != 'cancelado'{$filtroT}
-                  GROUP BY c.id, c.nome
+                  GROUP BY c.id, c.nome, mc.nome
                   ORDER BY total DESC
                   LIMIT 5";
         $stmt = $db->prepare($query);
