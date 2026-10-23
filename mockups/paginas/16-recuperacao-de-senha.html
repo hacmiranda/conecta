@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Recuperação de senha - Mockup de e-mail</title>
+<link rel="stylesheet" href="../assets/mockup.css">
+<script src="../assets/mockup.js" defer></script>
+</head>
+<body>
+<main class="cartao">
+  <p class="cartao-grupo">Para a equipe (internos) · 16 de 16</p>
+  <h1>Recuperação de senha</h1>
+  <section class="descricao" aria-label="Quando e para quem">
+    <dl>
+      <dt>Quando é enviado</dt><dd>Quando alguém usa &quot;Esqueci minha senha&quot; na tela de login. É enviado na hora, sem passar pela fila.</dd>
+      <dt>Para quem</dt><dd>O usuário da conta. Solicitantes externos (cliente) não recebem.</dd>
+      <dt>Observação</dt><dd>O link vale 1 hora e só pode ser usado uma vez. A resposta da tela é sempre a mesma, exista a conta ou não.</dd>
+    </dl>
+  </section>
+  <section class="cliente-email" aria-label="Pré-visualização do e-mail">
+    <dl class="cabecalho-email">
+      <dt>De</dt><dd>administrador@crprs.org.br (remetente global do sistema)</dd>
+      <dt>Para</dt><dd>O usuário que pediu a recuperação (apenas contas ativas que podem entrar no sistema)</dd>
+      <dt>Assunto</dt><dd class="assunto">Recuperação de Senha - Conecta CRPRS</dd>
+      <dt>Formato</dt><dd>HTML</dd>
+    </dl>
+    <div class="corpo-email"><iframe class="email-quadro" title="E-mail: Recuperação de senha" srcdoc="
+        &lt;h2&gt;Recuperação de Senha&lt;/h2&gt;
+        &lt;p&gt;Olá, Carlos Pereira!&lt;/p&gt;
+        &lt;p&gt;Você solicitou a recuperação de senha do Conecta CRPRS.&lt;/p&gt;
+        &lt;p&gt;Clique no link abaixo para redefinir sua senha:&lt;/p&gt;
+        &lt;p&gt;&lt;a href=&quot;#&quot; style=&quot;background-color: #f79226; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; display: inline-block;&quot;&gt;Redefinir Senha&lt;/a&gt;&lt;/p&gt;
+        &lt;p&gt;Ou copie e cole este link no navegador:&lt;/p&gt;
+        &lt;p&gt;https://crp07.org.br/conecta/frontend/redefinir-senha.html?token=EXEMPLO&lt;/p&gt;
+        &lt;p&gt;&lt;strong&gt;Este link expira em 1 hora.&lt;/strong&gt;&lt;/p&gt;
+        &lt;p&gt;Se você não solicitou esta recuperação, ignore este email.&lt;/p&gt;
+    "></iframe></div>
+  </section>
+</main>
+</body>
+</html>

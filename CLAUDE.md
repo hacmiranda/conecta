@@ -204,6 +204,9 @@ Testado no navegador e via `curl` com 4 demandas de teste (vencida, em alerta/50
 
 **23/10/2026**: botão de mostrar senha em todos os campos de senha (`senha-visivel.js`); subcategorias com o mesmo nome em categorias diferentes (migração 24) exibidas como "Subcategoria - Categoria"; destaque do submenu ativo e botão de recolher a sidebar (`sidebar-navegacao.js`). As subtelas ainda têm código antigo que tenta marcar `.active` em IDs inexistentes (`btn-usuarios`, `btn-categorias`…) ou em `btn-config-email` — inofensivo, o `sidebar-navegacao.js` recalcula o destaque logo depois.
 
+### Mockups dos e-mails (`mockups/`, 23/10/2026)
+Catálogo visual dos 16 e-mails que o sistema envia (7 ao solicitante, 9 internos), cada um com o momento do envio e o destinatário: `mockups/README.md` (tabela + imagens) e `mockups/index.html` (galeria). `php mockups/gerar-mockups.php` regenera as páginas a partir dos modelos reais `backend/email-template-*.html`; os e-mails montados direto em `email-sender.php`/`lembrete-service.php`/`recuperar-senha.php` e os avisos em texto puro são **cópias** no catálogo do gerador — ao mudar o texto de um e-mail, atualizar o gerador, rodar de novo e refazer os PNGs de `mockups/imagens/`. `mockups/.htaccess` só libera o logotipo externo (CSP `img-src`) para a pré-visualização; o e-mail entra na moldura por `srcdoc` porque o `.htaccess` raiz manda `X-Frame-Options DENY`. A pasta não deve ir para o servidor de produção.
+
 ### Manutenção deste arquivo
 Após qualquer alteração relevante (nova tela/arquivo JS, migração, endpoint, regra de acesso, decisão de arquitetura, item de pendência resolvido ou criado), atualizar este `CLAUDE.md` no mesmo trabalho e mencionar no commit.
 

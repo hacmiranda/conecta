@@ -1,0 +1,153 @@
+/* Estilo das páginas de mockup de e-mail (moldura de cliente de e-mail + galeria) */
+:root {
+    --fundo: #eef1f5;
+    --cartao: #ffffff;
+    --texto: #1f2937;
+    --texto-suave: #4b5563;
+    --borda: #d5dbe3;
+    --marca: #004373;
+    --destaque: #f79226;
+    --destaque-fundo: #fff7ec;
+}
+
+* { box-sizing: border-box; }
+
+body {
+    margin: 0;
+    padding: 1.5rem 1rem;
+    background: var(--fundo);
+    color: var(--texto);
+    font-family: 'Inter', Arial, sans-serif;
+    line-height: 1.5;
+}
+
+.cartao {
+    max-width: 860px;
+    margin: 0 auto;
+}
+
+.cartao-grupo {
+    margin: 0 0 0.25rem;
+    color: var(--texto-suave);
+    font-size: 0.8125rem;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+}
+
+h1 {
+    margin: 0 0 1rem;
+    color: var(--marca);
+    font-size: 1.5rem;
+}
+
+h2 {
+    margin: 1.75rem 0 0.75rem;
+    color: var(--marca);
+    font-size: 1.125rem;
+}
+
+dl { margin: 0; }
+dt { font-weight: 700; }
+dd { margin: 0; }
+
+/* Bloco "quando / para quem" */
+.descricao {
+    margin-bottom: 1rem;
+    padding: 1rem 1.25rem;
+    background: var(--destaque-fundo);
+    border-left: 4px solid var(--destaque);
+    border-radius: 0.5rem;
+}
+
+.descricao dt {
+    margin-top: 0.5rem;
+    color: var(--marca);
+    font-size: 0.8125rem;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+}
+
+.descricao dt:first-child { margin-top: 0; }
+
+/* Moldura do e-mail */
+.cliente-email {
+    background: var(--cartao);
+    border: 1px solid var(--borda);
+    border-radius: 0.5rem;
+    overflow: hidden;
+}
+
+.cabecalho-email {
+    display: grid;
+    grid-template-columns: 5rem 1fr;
+    gap: 0.25rem 0.75rem;
+    padding: 1rem 1.25rem;
+    background: #f8fafc;
+    border-bottom: 1px solid var(--borda);
+    font-size: 0.875rem;
+}
+
+.cabecalho-email dt { color: var(--texto-suave); font-weight: 600; }
+.cabecalho-email dd { overflow-wrap: anywhere; }
+.cabecalho-email .assunto { font-weight: 700; }
+
+.corpo-email { background: #ffffff; }
+
+.email-quadro {
+    display: block;
+    width: 100%;
+    height: 700px; /* padrão; mockup.js ajusta ao conteúdo */
+    border: 0;
+}
+
+.email-texto {
+    margin: 0;
+    padding: 1.25rem;
+    font-family: Consolas, 'Courier New', monospace;
+    font-size: 0.9375rem;
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+}
+
+/* Galeria */
+.intro { color: var(--texto-suave); }
+
+.grade {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+    gap: 1rem;
+}
+
+.miniatura {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    padding: 0.5rem;
+    background: var(--cartao);
+    border: 1px solid var(--borda);
+    border-radius: 0.5rem;
+    color: var(--texto);
+    font-size: 0.875rem;
+    font-weight: 600;
+    text-decoration: none;
+}
+
+.miniatura:hover,
+.miniatura:focus-visible {
+    border-color: var(--marca);
+    outline: 2px solid var(--marca);
+    outline-offset: 2px;
+}
+
+.miniatura img {
+    width: 100%;
+    height: 180px;
+    object-fit: cover;
+    object-position: top;
+    border-radius: 0.25rem;
+    background: var(--fundo);
+}
+
+@media (max-width: 600px) {
+    .cabecalho-email { grid-template-columns: 1fr; }
+}

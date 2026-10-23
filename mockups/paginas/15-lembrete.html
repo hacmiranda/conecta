@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Lembrete de demanda - Mockup de e-mail</title>
+<link rel="stylesheet" href="../assets/mockup.css">
+<script src="../assets/mockup.js" defer></script>
+</head>
+<body>
+<main class="cartao">
+  <p class="cartao-grupo">Para a equipe (internos) · 15 de 16</p>
+  <h1>Lembrete de demanda</h1>
+  <section class="descricao" aria-label="Quando e para quem">
+    <dl>
+      <dt>Quando é enviado</dt><dd>Na data e hora agendadas no lembrete (o cron de lembretes dispara a cada rodada). Lembretes de demandas encerradas ou canceladas são cancelados e não enviados.</dd>
+      <dt>Para quem</dt><dd>A pessoa escolhida ao criar o lembrete; se não houve escolha, o responsável pela demanda ou, sem responsável, os gestores do setor.</dd>
+      <dt>Observação</dt><dd>O sistema também cria uma notificação no sino. Lembretes de demandas em &quot;Aguardando data&quot; voltam a demanda para &quot;Em atendimento&quot;.</dd>
+    </dl>
+  </section>
+  <section class="cliente-email" aria-label="Pré-visualização do e-mail">
+    <dl class="cabecalho-email">
+      <dt>De</dt><dd>administrador@crprs.org.br (remetente global do sistema)</dd>
+      <dt>Para</dt><dd>Destinatário escolhido no lembrete; sem destinatário, o responsável pela demanda (ou os gestores do setor)</dd>
+      <dt>Assunto</dt><dd class="assunto">🔔 [Lembrete] Demanda #00123 - Dúvida sobre inscrição de pessoa jurídica</dd>
+      <dt>Formato</dt><dd>HTML</dd>
+    </dl>
+    <div class="corpo-email"><iframe class="email-quadro" title="E-mail: Lembrete de demanda" srcdoc="
+            &lt;h2&gt;🔔 Lembrete de Demanda&lt;/h2&gt;
+            &lt;p&gt;&lt;strong&gt;Demanda:&lt;/strong&gt; #00123 - Dúvida sobre inscrição de pessoa jurídica&lt;/p&gt;
+            &lt;p&gt;&lt;strong&gt;Lembrete:&lt;/strong&gt; Cobrar o envio do contrato social assinado&lt;/p&gt;
+            &lt;p&gt;&lt;strong&gt;Data/Hora:&lt;/strong&gt; 28/10/2026 10:00&lt;/p&gt;
+            &lt;p&gt;&lt;a href=&#039;https://crp07.org.br/conecta/frontend/index.html&#039;&gt;Acessar o Conecta CRPRS&lt;/a&gt;&lt;/p&gt;
+        "></iframe></div>
+  </section>
+</main>
+</body>
+</html>

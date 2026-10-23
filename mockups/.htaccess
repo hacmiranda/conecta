@@ -1,0 +1,5 @@
+# Só para a pré-visualização dos mockups: libera o logotipo externo dos e-mails (img-src).
+# Não altera a política do restante do sistema.
+<IfModule mod_headers.c>
+    Header always set Content-Security-Policy "default-src 'self'; img-src 'self' data: blob: http://www.crprs.org.br https://www.crprs.org.br; style-src 'self' 'unsafe-inline'; script-src 'self'; frame-ancestors 'self'"
+</IfModule>
