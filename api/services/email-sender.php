@@ -6,6 +6,7 @@ require_once __DIR__ . '/acesso-service.php';
 require_once __DIR__ . '/crypto-service.php';
 require_once __DIR__ . '/email-cabecalho.php';
 require_once __DIR__ . '/email-historico.php';
+require_once __DIR__ . '/email-tipografia.php';
 
 use PHPMailer\PHPMailer\PHPMailer;
 use PHPMailer\PHPMailer\Exception;
@@ -574,6 +575,8 @@ class EmailSender {
                 '<em style="color:#888;">[Imagem disponível no sistema]</em>',
                 $dados['comentario']
             );
+            // Mesma fonte, tamanho e entrelinha em toda resposta da equipe, qualquer que seja o texto colado
+            $comentario_email = EmailTipografia::padronizar($comentario_email);
 
             // Template para o solicitante
             $template_solicitante = $this->carregarModelo(dirname(__DIR__, 2) . '/backend/email-template-resposta.html', (int) $ticket_id, (int) $comentario_id);

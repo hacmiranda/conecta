@@ -20,6 +20,7 @@ $saida  = __DIR__;
 $esc    = function ($t) { return htmlspecialchars((string) $t, ENT_QUOTES, 'UTF-8'); };
 require_once $raiz . '/api/services/email-cabecalho.php';
 require_once $raiz . '/api/services/email-historico.php';
+require_once $raiz . '/api/services/email-tipografia.php';
 
 // Conversa de exemplo (mais recente primeiro) — só mensagens visíveis ao solicitante; uma nota interna
 // da equipe existiria na demanda, mas nunca aparece aqui.
@@ -80,7 +81,8 @@ $avisoAnexos = '<div style="background-color:#fff3cd;border-left:4px solid #ffc1
     . '<li><b>planilha.exe:</b> Tipo de arquivo não permitido</li></ul>'
     . '<p><b>Limites:</b> 5 arquivos, 20MB total, tipos: PDF, DOC, DOCX, TXT, CSV, XLS, XLSX, PNG, JPG</p></div>';
 
-$comentarioAgente = '<p>Recebi o contrato social. Falta apenas o CNPJ atualizado.</p><p>Qualquer dúvida, é só responder a este e-mail.</p>';
+// O texto de exemplo traz tamanhos e fontes diferentes de propósito; EmailTipografia os uniformiza, como no envio real
+$comentarioAgente = EmailTipografia::padronizar('<h2>Documentos recebidos</h2><p>Recebi o <span style="font-size:26px;font-family:Georgia">contrato social</span>. <span style="font-family:Courier New;font-size:11px">Falta apenas o CNPJ atualizado.</span></p><p><strong>Qualquer dúvida</strong>, é só responder a este e-mail.</p>');
 
 // ---- Catálogo --------------------------------------------------------------------------------
 $emails = [];

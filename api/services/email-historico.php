@@ -12,6 +12,7 @@
  * EmailSender::carregarModelo() troca por este bloco.
  */
 require_once __DIR__ . '/html-sanitizer.php';
+require_once __DIR__ . '/email-tipografia.php';
 
 class EmailHistorico {
     // Quantas mensagens entram (as mais recentes); evita e-mail gigante em conversas longas
@@ -139,7 +140,7 @@ class EmailHistorico {
     private static function texto(string $conteudo): string {
         $conteudo = preg_replace('/<img\s[^>]*src=["\']data:[^"\']+["\'][^>]*>/i',
             '<em style="color:#8b837b;">[Imagem disponível no sistema]</em>', $conteudo);
-        $limpo = HtmlSanitizer::rico($conteudo);
+        $limpo = EmailTipografia::padronizar(HtmlSanitizer::rico($conteudo));
         // Evita que um texto com "{{...}}" seja tratado como marcador do modelo
         return str_replace(['{{', '}}'], ['&#123;&#123;', '&#125;&#125;'], $limpo);
     }

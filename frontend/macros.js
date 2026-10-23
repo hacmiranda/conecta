@@ -81,11 +81,11 @@ function abrirFormularioMacro() {
             theme: 'snow',
             placeholder: 'Escreva a resposta padrão aqui...',
             modules: {
+                // Sem seletor de tamanho: toda resposta usa a mesma fonte e tamanho (ver --fonte-resposta)
                 toolbar: [
                     ['bold', 'italic', 'underline', 'strike'],
                     ['blockquote', 'code-block'],
                     [{ 'list': 'ordered' }, { 'list': 'bullet' }],
-                    [{ 'size': ['small', false, 'large', 'huge'] }],
                     [{ 'color': [] }, { 'background': [] }],
                     ['link'],
                     ['clean']

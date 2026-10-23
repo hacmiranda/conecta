@@ -23,6 +23,11 @@
     --neutro-800: #2b2523;
     --neutro-900: #1f1a18;
 
+    /* Tipografia das respostas da equipe (comentários na demanda e editor); a mesma dos e-mails */
+    --fonte-resposta: 'Inter', 'Segoe UI', Verdana, sans-serif;
+    --tamanho-resposta: 0.9375rem;
+    --entrelinha-resposta: 1.6;
+
     /* Nomes antigos, mantidos por compatibilidade */
     --laranja: var(--laranja-500);
     --vermelho: var(--vinho-600);
@@ -843,9 +848,31 @@ select {
     overflow-y: auto;
     word-wrap: break-word;
     white-space: pre-wrap;
-    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif !important;
-    font-size: 0.95rem !important;
-    line-height: 1.5 !important;
+    font-family: var(--fonte-resposta) !important;
+    font-size: var(--tamanho-resposta) !important;
+    line-height: var(--entrelinha-resposta) !important;
+}
+
+/* Tudo dentro da resposta herda a mesma fonte/tamanho, mesmo que o texto traga estilos próprios */
+.comentario *,
+#editor-comentario .ql-editor,
+#editor-comentario .ql-editor *,
+#editor-macro .ql-editor,
+#editor-macro .ql-editor * {
+    font-family: var(--fonte-resposta) !important;
+    font-size: var(--tamanho-resposta) !important;
+    line-height: var(--entrelinha-resposta) !important;
+}
+
+.comentario :is(h1, h2, h3, h4, h5, h6) {
+    font-weight: 700;
+}
+
+.comentario :is(pre, code),
+#editor-comentario .ql-editor :is(pre, code),
+#editor-macro .ql-editor :is(pre, code) {
+    font-family: ui-monospace, Consolas, 'Courier New', monospace !important;
+    font-size: 0.875rem !important;
 }
 
 .ticket-detalhes .descricao-ticket {
