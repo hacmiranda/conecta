@@ -1010,6 +1010,21 @@ select {
     font-size: 0.9rem;
 }
 
+/* Botões do topo do detalhe da demanda (Voltar, Reabrir, Excluir): mesma altura,
+   mesmo com emoji de tamanhos diferentes no texto */
+#ticket-detalhes .btn-voltar,
+#ticket-detalhes .btn-reabrir,
+#ticket-detalhes .btn-excluir {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    box-sizing: border-box;
+    height: 2.5rem;
+    padding-top: 0;
+    padding-bottom: 0;
+    line-height: 1;
+}
+
 .form-usuario {
     background: white;
     border-radius: 8px;
