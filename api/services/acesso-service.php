@@ -6,6 +6,8 @@
  * é o responsável ou que ele mesmo abriu) e cliente (somente as próprias).
  * Toda leitura/escrita de demanda deve passar por aqui, para a regra existir em um só lugar.
  */
+require_once __DIR__ . '/protocolo-service.php';
+
 class AcessoService {
 
     /** Status que movem a demanda para o Arquivo */
@@ -273,7 +275,7 @@ class AcessoService {
             $limpar->execute([$ticketId, $usuarioId]);
             $janela->execute([$ticketId, $usuarioId]);
             $hist->execute([$ticketId, $autorId, $d['responsavel_nome']]);
-            $mensagem = 'A demanda (#' . str_pad($ticketId, 5, '0', STR_PAD_LEFT) . ') voltou para o setor: ' . $motivo . '.';
+            $mensagem = 'A demanda (' . ProtocoloService::rotuloPorId($db, $ticketId) . ') voltou para o setor: ' . $motivo . '.';
             foreach (self::destinatariosInternosDoSetor($db, $d['setor_id'] ? (int) $d['setor_id'] : null, $usuarioId) as $dest) {
                 $notif->execute([$dest['id'], $mensagem, $ticketId]);
             }

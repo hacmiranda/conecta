@@ -388,7 +388,7 @@ function mostrarDetalhesTicket(ticket) {
         <div class="ticket-detalhes ${classeAcesso}">
             <div class="ticket-header">
                 <div style="display: flex; align-items: center; gap: 1rem;">
-                    <span class="ticket-id" style="font-size: 1.5rem;">#${String(ticket.id).padStart(5, '0')}</span>
+                    <span class="ticket-id" style="font-size: 1.5rem;">${numeroDemanda(ticket)}</span>
                     ${ticket.eh_mesclado > 0 ? '<span title="Demanda mesclada" style="font-size: 1.5rem;">🔗</span>' : ''}
                     ${ticket.status === 'fechado' ? '<span class="carimbo-fechado">FECHADO</span>' : ''}
                 </div>

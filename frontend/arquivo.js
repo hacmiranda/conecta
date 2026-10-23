@@ -187,7 +187,7 @@ function mostrarTicketsFechadosNaTela(tickets) {
         tabelaHTML += `
             <tr data-ticket-id="${ticket.id}" ${modoMergeFechadosAtivo ? 'style="cursor: pointer;"' : ''}>
                 <td data-label="Nº Demanda">
-                    <a href="#" onclick="${modoMergeFechadosAtivo ? 'event.stopPropagation();' : ''} verDetalhes(${ticket.id})" class="ticket-link">#${String(ticket.id).padStart(5, '0')}</a>
+                    <a href="#" onclick="${modoMergeFechadosAtivo ? 'event.stopPropagation();' : ''} verDetalhes(${ticket.id})" class="ticket-link">${numeroDemanda(ticket)}</a>
                     ${iconeMesclado}${iconeAnexo}
                 </td>
                 <td data-label="Abertura">${new Date(ticket.criado_em).toLocaleDateString('pt-BR')}<span class="ticket-data-hora">${new Date(ticket.criado_em).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}</span></td>
@@ -448,10 +448,11 @@ function executarMergeFechados() {
 
     const ticketPrincipal = ticketsFechadosSelecionados[0];
     const ticketsSecundarios = ticketsFechadosSelecionados.slice(1);
+    const rotuloPrincipal = numeroDemanda(ticketsFechadosAtuais.find(t => t.id == ticketPrincipal) || ticketPrincipal);
 
     mostrarConfirm(
         'Confirmar Merge',
-        `Mesclar ${ticketsSecundarios.length} demanda(s) fechada(s) na demanda principal #${String(ticketPrincipal).padStart(5, '0')}?\n\n⚠️ ATENÇÃO: Esta ação não pode ser desfeita!`,
+        `Mesclar ${ticketsSecundarios.length} demanda(s) fechada(s) na demanda principal ${rotuloPrincipal}?\n\n⚠️ ATENÇÃO: Esta ação não pode ser desfeita!`,
         async function (confirmado) {
             if (!confirmado) return;
 

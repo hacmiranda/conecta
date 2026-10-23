@@ -55,10 +55,10 @@ try {
         
         $where = count($filtros) > 0 ? 'WHERE ' . implode(' AND ', $filtros) : '';
         
-        $query = "SELECT a.*, 
-                         u.nome as usuario_nome, 
+        $query = "SELECT a.*,
+                         u.nome as usuario_nome,
                          u.email as usuario_email,
-                         CASE 
+                         CASE
                              WHEN a.acao IN ('ativar_usuario', 'desativar_usuario', 'excluir_usuario') THEN
                                  CONCAT(
                                      COALESCE(JSON_UNQUOTE(JSON_EXTRACT(a.dados_anteriores, '$.nome')), ''),
@@ -67,9 +67,11 @@ try {
                                      ')'
                                  )
                              ELSE NULL
-                         END as usuario_afetado
+                         END as usuario_afetado,
+                         CASE WHEN a.tabela = 'tickets' THEN t.protocolo ELSE NULL END as ticket_protocolo
                   FROM auditoria a
                   LEFT JOIN usuarios u ON a.usuario_id = u.id
+                  LEFT JOIN tickets t ON a.tabela = 'tickets' AND t.id = a.registro_id
                   $where
                   ORDER BY a.criado_em DESC
                   LIMIT 500";

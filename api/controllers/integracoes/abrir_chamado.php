@@ -22,6 +22,7 @@ require_once __DIR__ . '/../../config/database.php';
 require_once __DIR__ . '/../../config/environment.php';
 require_once __DIR__ . '/../../services/acesso-service.php';
 require_once __DIR__ . '/../../services/html-sanitizer.php';
+require_once __DIR__ . '/../../services/protocolo-service.php';
 
 // Validar API KEY da Transação (Segurança Server-to-Server)
 $headers = getallheaders();
@@ -150,8 +151,10 @@ try {
     $setor_id = $setor_stmt->fetchColumn() ?: null;
 
     // 3. Gerar o Ticket com Status Novo Mapeado para API
-    $query = "INSERT INTO tickets (titulo, descricao, usuario_id, origem_api, email_solicitante, prioridade, categoria_id, setor_id, status) VALUES (:titulo, :descricao, :usuario_id, :origem_api, :email_solicitante, :prioridade, :categoria_id, :setor_id, 'novo')";
+    $protocolo = ProtocoloService::gerar($db);
+    $query = "INSERT INTO tickets (protocolo, titulo, descricao, usuario_id, origem_api, email_solicitante, prioridade, categoria_id, setor_id, status) VALUES (:protocolo, :titulo, :descricao, :usuario_id, :origem_api, :email_solicitante, :prioridade, :categoria_id, :setor_id, 'novo')";
     $stmt = $db->prepare($query);
+    $stmt->bindParam(':protocolo', $protocolo);
     $stmt->bindParam(':titulo', $titulo);
     $stmt->bindParam(':descricao', $descricao_final); // Conteúdo carimbado pela Flag
     $stmt->bindParam(':usuario_id', $usuario_id);
@@ -160,7 +163,7 @@ try {
     $stmt->bindParam(':prioridade', $prioridade);
     $stmt->bindParam(':categoria_id', $categoria_id);
     $stmt->bindParam(':setor_id', $setor_id);
-    
+
     $stmt->execute();
     $ticket_id = $db->lastInsertId();
 
@@ -230,7 +233,7 @@ try {
     
     // Notificar Sino dos Agentes Logados no HD
     try {
-        $msg_notificacao = "🤖 Novo ticket M2M (#" . str_pad($ticket_id, 5, '0', STR_PAD_LEFT) . ") gerado a partir da: " . strtoupper(str_replace('_', ' ', $origem));
+        $msg_notificacao = "🤖 Novo ticket M2M (" . ProtocoloService::rotulo($protocolo, (int) $ticket_id) . ") gerado a partir da: " . strtoupper(str_replace('_', ' ', $origem));
         // Apenas os gestores do setor de entrada (admins se não houver gestor)
         $agentes = array_column(AcessoService::destinatariosInternosDoSetor($db, $setor_id ? (int) $setor_id : null), 'id');
         
@@ -245,10 +248,11 @@ try {
     }
 
     echo json_encode([
-        'success' => true, 
-        'ticket_id' => $ticket_id, 
+        'success' => true,
+        'ticket_id' => $ticket_id,
+        'protocolo' => ProtocoloService::rotulo($protocolo, (int) $ticket_id),
         'origem' => $origem,
-        'message' => "Demanda do Satélite inserida limpa na Mesa de TI com identificador: #{$ticket_id}"
+        'message' => "Demanda do Satélite inserida limpa na Mesa de TI com identificador: " . ProtocoloService::rotulo($protocolo, (int) $ticket_id)
     ]);
     
 } catch (Exception $e) {

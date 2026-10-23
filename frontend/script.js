@@ -3,6 +3,21 @@ function sanitizeHTML(str) {
     return String(str ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 }
 
+/**
+ * Protocolo único da demanda, sempre com "#" (ex.: "#CRPRS2026-0001"). Aceita o objeto da demanda
+ * (campo `protocolo` ou `ticket_protocolo`, conforme o endpoint) ou só o id/número — nesse caso cai
+ * no número interno (#00080), só para a tela não ficar vazia em dados antigos sem protocolo.
+ */
+function numeroDemanda(obj) {
+    if (obj && typeof obj === 'object') {
+        const protocolo = obj.protocolo || obj.ticket_protocolo;
+        if (protocolo) return '#' + protocolo;
+        const id = obj.id ?? obj.ticket_id ?? obj.registro_id;
+        if (id != null) return '#' + String(id).padStart(5, '0');
+    }
+    return '#' + String(obj).padStart(5, '0');
+}
+
 // HTML rico (descrição, comentários, macros): mantém só a formatação segura (DOMPurify)
 function htmlSeguro(html) {
     if (window.DOMPurify) {

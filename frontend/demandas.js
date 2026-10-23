@@ -519,7 +519,7 @@ function renderizarKanbanTela(tickets) {
             kanbanHTML += `
                 <div class="kanban-card ${isNovaResposta ? 'kanban-nova-resposta' : ''}" draggable="true" ondragstart="dragKanban(event)" data-id="${ticket.id}" onclick="verDetalhes(${ticket.id})">
                     <div class="kanban-card-header">
-                        <span class="kanban-ticket-id">#${String(ticket.id).padStart(5, '0')}</span>
+                        <span class="kanban-ticket-id">${numeroDemanda(ticket)}</span>
                         <span class="kanban-ticket-prioridade p-${ticket.prioridade || 'normal'}">${(ticket.prioridade || 'normal').toUpperCase()}</span>
                     </div>
                     <div class="kanban-card-title" title="${tituloSeguro}">${sanitizeHTML(ticket.titulo)}</div>
@@ -684,7 +684,7 @@ function mostrarTicketsNaTela(tickets) {
         tabelaHTML += `
             <tr data-ticket-id="${ticket.id}" class="${isNovaResposta ? 'ticket-nova-resposta' : ''}" ${modoMergeAtivo ? 'style="cursor:pointer;"' : ''}>
                 <td data-label="Nº Demanda">
-                    <a href="#" onclick="${modoMergeAtivo ? 'event.stopPropagation();' : ''} verDetalhes(${ticket.id})" class="ticket-link">#${String(ticket.id).padStart(5, '0')}</a>
+                    <a href="#" onclick="${modoMergeAtivo ? 'event.stopPropagation();' : ''} verDetalhes(${ticket.id})" class="ticket-link">${numeroDemanda(ticket)}</a>
                     ${iconeMesclado}${iconeAnexo}${iconeComentario}${iconomeLembrete}
                 </td>
                 <td data-label="Abertura">
@@ -1094,10 +1094,11 @@ function executarMerge() {
 
     const ticketPrincipal = ticketsSelecionados[0];
     const ticketsSecundarios = ticketsSelecionados.slice(1);
+    const rotuloPrincipal = numeroDemanda((window.ticketsAtuais || []).find(t => t.id == ticketPrincipal) || ticketPrincipal);
 
     mostrarConfirm(
         'Confirmar Merge',
-        `Mesclar ${ticketsSecundarios.length} demanda(s) na demanda principal #${String(ticketPrincipal).padStart(5, '0')}?\n\nAs demandas secundárias serão encerradas e seus comentários/anexos serão transferidos.\n\n⚠️ ATENÇÃO: Esta ação não pode ser desfeita!`,
+        `Mesclar ${ticketsSecundarios.length} demanda(s) na demanda principal ${rotuloPrincipal}?\n\nAs demandas secundárias serão encerradas e seus comentários/anexos serão transferidos.\n\n⚠️ ATENÇÃO: Esta ação não pode ser desfeita!`,
         async function (confirmado) {
             if (!confirmado) return;
 

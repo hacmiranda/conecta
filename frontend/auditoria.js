@@ -257,7 +257,7 @@ function mostrarLogEmails(dados, paginaAtual = 1) {
                 : `<span style="background:${badgeFalhaBg}; color:#e74c3c; padding:3px 8px; border-radius:12px; font-weight:600;" title="${sanitizeHTML(log.erro || '')}">❌ Falha</span>`;
 
             const ticketLink = log.ticket_id
-                ? `<span style="font-family:monospace; font-weight:600; color:${corTicket};">#${String(log.ticket_id).padStart(5, '0')}</span>`
+                ? `<span style="font-family:monospace; font-weight:600; color:${corTicket};">${numeroDemanda(log)}</span>`
                 : `<span style="color:${corTextoSub};">—</span>`;
 
             const tipoTexto = tipoLabels[log.tipo] || log.tipo;
@@ -348,7 +348,7 @@ function mostrarListaAuditoria(registros) {
 
         let detalhes = '';
         if (registro.acao.includes('ticket')) {
-            detalhes = `Demanda #${String(registro.registro_id).padStart(5, '0')} - ${sanitizeHTML(dados.titulo || 'N/A')}`;
+            detalhes = `Demanda ${numeroDemanda(registro)} - ${sanitizeHTML(dados.titulo || 'N/A')}`;
             // Se for exclusão de ticket, adicionar dados do solicitante
             if (registro.acao === 'excluir_ticket') {
                 const solicitanteNome = dados.solicitante_nome || dados.usuario_nome || 'N/A';
@@ -658,7 +658,7 @@ function mostrarRegistrosTicketsAudit(registros) {
         html += `
             <div class="auditoria-card">
                 <div class="auditoria-header">
-                    <span class="auditoria-acao">Demanda #${String(reg.ticket_id).padStart(5, '0')} - ${sanitizeHTML(reg.campo)}</span>
+                    <span class="auditoria-acao">Demanda ${numeroDemanda(reg)} - ${sanitizeHTML(reg.campo)}</span>
                     <span class="auditoria-data">${new Date(reg.criado_em).toLocaleString('pt-BR')}</span>
                 </div>
                 <div class="auditoria-body">

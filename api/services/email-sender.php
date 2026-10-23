@@ -8,6 +8,7 @@ require_once __DIR__ . '/email-cabecalho.php';
 require_once __DIR__ . '/email-historico.php';
 require_once __DIR__ . '/email-tipografia.php';
 require_once __DIR__ . '/email-imagens.php';
+require_once __DIR__ . '/protocolo-service.php';
 
 use PHPMailer\PHPMailer\PHPMailer;
 use PHPMailer\PHPMailer\Exception;
@@ -206,7 +207,11 @@ class EmailSender {
                 error_log("[EMAIL-SENDER] Ticket nao encontrado");
                 return false;
             }
-            
+            // $rotulo com "#" (assunto/mensagens de texto); $numero sem "#" (os modelos HTML já
+            // têm o "#" literal antes de {{NUMERO_TICKET}})
+            $rotulo = ProtocoloService::rotulo($ticket['protocolo'] ?? null, (int) $ticket_id);
+            $numero = ltrim($rotulo, '#');
+
             $email_destino = $ticket['email_solicitante'] ?: $ticket['usuario_email'];
             
             if (!$email_destino) {
@@ -221,11 +226,11 @@ class EmailSender {
             $template = $this->carregarModelo($template_path, (int) $ticket_id);
             $nome_exibir = $ticket['email_solicitante'] ?: $ticket['usuario_nome'];
             $template = str_replace('{{NOME_USUARIO}}', $this->esc($nome_exibir), $template);
-            $template = str_replace('{{NUMERO_TICKET}}', str_pad($ticket_id, 5, '0', STR_PAD_LEFT), $template);
+            $template = str_replace('{{NUMERO_TICKET}}', $numero, $template);
             $template = str_replace('{{TITULO_TICKET}}', $this->esc($ticket['titulo']), $template);
             $template = str_replace('{{DATA_ABERTURA}}', date('d/m/Y H:i', strtotime($ticket['criado_em'])), $template);
             $template = str_replace('{{ASSINATURA_EMAIL}}', $this->getAssinatura(), $template);
-            
+
             // Adicionar aviso de anexos rejeitados se houver
             if (!empty($anexos_rejeitados)) {
                 $aviso = '<div style="background-color:#fff3cd;border-left:4px solid #ffc107;padding:15px;margin:20px 0"><h3 style="color:#856404;margin-top:0">⚠️ Anexos rejeitados</h3><ul>';
@@ -236,7 +241,7 @@ class EmailSender {
                 $template = str_replace('</body>', $aviso . '</body>', $template);
             }
             
-            $assunto = "🎫 [#" . str_pad($ticket_id, 5, '0', STR_PAD_LEFT) . "] Demanda criada - " . $ticket['titulo'];
+            $assunto = "🎫 [" . $rotulo . "] Demanda criada - " . $ticket['titulo'];
             
             $resultado = $this->enviarEmail($email_destino, $assunto, $template);
             error_log("[EMAIL-SENDER] Resultado: " . ($resultado ? "SUCESSO" : "FALHA"));
@@ -263,18 +268,19 @@ class EmailSender {
             if (!$ticket) {
                 return false;
             }
-            
+            $rotulo = ProtocoloService::rotulo($ticket['protocolo'] ?? null, (int) $ticket_id);
+
             // Somente os gestores do setor da demanda (admins se o setor não tiver gestor)
             $agentes = AcessoService::destinatariosInternosDoSetor(
                 $this->db,
                 !empty($ticket['setor_id']) ? (int) $ticket['setor_id'] : null
             );
             $agentes = array_values(array_filter($agentes, function ($a) { return !empty($a['email']); }));
-            
-            $assunto = "🎫 [NOVA DEMANDA] #" . str_pad($ticket_id, 5, '0', STR_PAD_LEFT) . " - " . $ticket['titulo'];
+
+            $assunto = "🎫 [NOVA DEMANDA] " . $rotulo . " - " . $ticket['titulo'];
 
             $mensagem = "🎫 NOVA DEMANDA CRIADA\n\n";
-            $mensagem .= "Número: #" . str_pad($ticket_id, 5, '0', STR_PAD_LEFT) . "\n";
+            $mensagem .= "Número: " . $rotulo . "\n";
             $mensagem .= "Título: " . $ticket['titulo'] . "\n";
             $mensagem .= "Solicitante: " . ($ticket['email_solicitante'] ?: $ticket['usuario_email']) . "\n";
             $mensagem .= "Data: " . date('d/m/Y H:i', strtotime($ticket['criado_em'])) . "\n";
@@ -363,9 +369,12 @@ class EmailSender {
         $ticket_id = $this->logContext['ticket_id'];
         $tipo      = $this->logContext['tipo'];
 
-        // Auto-detectar ticket_id pelo assunto se não informado
-        if ($ticket_id === null && preg_match('/#(\d{5})/', $assunto, $m)) {
-            $ticket_id = (int) $m[1];
+        // Auto-detectar ticket_id pelo assunto (protocolo #CRPRS2026-0001) se não informado
+        if ($ticket_id === null) {
+            $protocolo = ProtocoloService::extrair($assunto);
+            if ($protocolo !== null) {
+                $ticket_id = ProtocoloService::buscarId($this->db, $protocolo);
+            }
         }
 
         // Auto-detectar tipo pelo assunto se não informado (case-insensitive via mb_strtolower)
@@ -567,8 +576,10 @@ class EmailSender {
             if (!$dados || $destino_solicitante === '') return false;
             $dados['usuario_email'] = $destino_solicitante;
             $esc = function ($t) { return htmlspecialchars((string) $t, ENT_QUOTES, 'UTF-8'); };
+            $rotulo = ProtocoloService::rotulo($dados['protocolo'] ?? null, (int) $ticket_id);
+            $numero = ltrim($rotulo, '#');
 
-            $assunto = "🎫 [#" . str_pad($ticket_id, 5, '0', STR_PAD_LEFT) . "] Resposta da Equipe - " . $dados['titulo'];
+            $assunto = "🎫 [" . $rotulo . "] Resposta da Equipe - " . $dados['titulo'];
 
             // Imagens coladas/inseridas no editor (base64) ficam no texto e são embutidas no e-mail
             // na hora do envio (EmailImagens::embutir), como imagem inline — o Gmail e o Outlook não
@@ -584,7 +595,7 @@ class EmailSender {
 
             $html_solicitante = str_replace(
                 ['{{NOME_USUARIO}}', '{{NUMERO_TICKET}}', '{{TITULO_TICKET}}', '{{NOME_AGENTE}}', '{{DATA_RESPOSTA}}', '{{COMENTARIO_AGENTE}}', '{{ASSINATURA_EMAIL}}'],
-                [$esc($dados['usuario_nome']), str_pad($ticket_id, 5, '0', STR_PAD_LEFT), $esc($dados['titulo']), $esc($dados['comentario_autor']), date('d/m/Y H:i'), $comentario_email, $assinatura],
+                [$esc($dados['usuario_nome']), $numero, $esc($dados['titulo']), $esc($dados['comentario_autor']), date('d/m/Y H:i'), $comentario_email, $assinatura],
                 $template_solicitante
             );
 
@@ -608,7 +619,7 @@ class EmailSender {
 
                 $html_copia = str_replace(
                     ['{{NUMERO_TICKET}}', '{{TITULO_TICKET}}', '{{NOME_AGENTE}}', '{{DATA_RESPOSTA}}', '{{COMENTARIO_AGENTE}}', '{{ASSINATURA_EMAIL}}'],
-                    [str_pad($ticket_id, 5, '0', STR_PAD_LEFT), $esc($dados['titulo']), $esc($dados['comentario_autor']), date('d/m/Y H:i'), $comentario_email, $assinatura],
+                    [$numero, $esc($dados['titulo']), $esc($dados['comentario_autor']), date('d/m/Y H:i'), $comentario_email, $assinatura],
                     $template_copia
                 );
 
@@ -664,9 +675,9 @@ class EmailSender {
             $autor       = $stmt_autor->fetch();
             $autor_id    = $autor ? $autor['usuario_id'] : null;
 
-            $num_ticket = str_pad($ticket_id, 5, '0', STR_PAD_LEFT);
-            $assunto    = "🎫 [#$num_ticket] Novo comentário - " . $dados['titulo'];
-            $mensagem   = "Novo comentário adicionado à demanda #$num_ticket\n\n";
+            $rotulo     = ProtocoloService::rotulo($dados['protocolo'] ?? null, (int) $ticket_id);
+            $assunto    = "🎫 [$rotulo] Novo comentário - " . $dados['titulo'];
+            $mensagem   = "Novo comentário adicionado à demanda $rotulo\n\n";
             $mensagem  .= "Demanda: " . $dados['titulo'] . "\n";
             $mensagem  .= "Autor: " . ($dados['comentario_autor'] ?? 'Solicitante') . "\n";
             $mensagem  .= "Data: " . date('d/m/Y H:i') . "\n\n";
@@ -718,11 +729,13 @@ class EmailSender {
             $ticket = $stmt->fetch();
             
             if (!$ticket) return false;
-            
-            $assunto = "🎫 [#" . str_pad($ticket_id, 5, '0', STR_PAD_LEFT) . "] Comentário recebido - " . $ticket['titulo'];
-            
+            $rotulo = ProtocoloService::rotulo($ticket['protocolo'] ?? null, (int) $ticket_id);
+            $numero = ltrim($rotulo, '#');
+
+            $assunto = "🎫 [" . $rotulo . "] Comentário recebido - " . $ticket['titulo'];
+
             $mensagem = "Seu comentário foi adicionado à demanda com sucesso!\n\n";
-            $mensagem .= "Demanda: #" . str_pad($ticket_id, 5, '0', STR_PAD_LEFT) . "\n";
+            $mensagem .= "Demanda: " . $rotulo . "\n";
             $mensagem .= "Título: " . $ticket['titulo'] . "\n";
             $mensagem .= "Status: " . ucfirst($ticket['status']) . "\n";
             $mensagem .= "Data: " . date('d/m/Y H:i') . "\n\n";
@@ -745,7 +758,7 @@ class EmailSender {
             $template_path = dirname(__DIR__, 2) . '/backend/email-template-comentario.html';
             $template = $this->carregarModelo($template_path, (int) $ticket_id);
             $template = str_replace('{{NOME_USUARIO}}', $this->esc($ticket['usuario_nome']), $template);
-            $template = str_replace('{{NUMERO_TICKET}}', str_pad($ticket_id, 5, '0', STR_PAD_LEFT), $template);
+            $template = str_replace('{{NUMERO_TICKET}}', $numero, $template);
             $template = str_replace('{{TITULO_TICKET}}', $this->esc($ticket['titulo']), $template);
             $template = str_replace('{{DATA_COMENTARIO}}', date('d/m/Y, H:i'), $template);
             $template = str_replace('{{ASSINATURA_EMAIL}}', $this->getAssinatura(), $template);
@@ -782,7 +795,9 @@ class EmailSender {
             $ticket = $stmt->fetch();
             
             if (!$ticket) return false;
-            
+            $rotulo = ProtocoloService::rotulo($ticket['protocolo'] ?? null, (int) $ticket_id);
+            $numero = ltrim($rotulo, '#');
+
             // Enviar para solicitante se tiver email
             if (($ticket['email_solicitante'] ?: $ticket['usuario_email']) && strpos(($ticket['email_solicitante'] ?: $ticket['usuario_email']), '@')) {
                 $template_path = dirname(__DIR__, 2) . '/backend/email-template-fechamento.html';
@@ -806,13 +821,13 @@ class EmailSender {
                 }
                 
                 $template = str_replace('{{NOME_USUARIO}}', $this->esc($nome_exibir), $template);
-                $template = str_replace('{{NUMERO_TICKET}}', str_pad($ticket_id, 5, '0', STR_PAD_LEFT), $template);
+                $template = str_replace('{{NUMERO_TICKET}}', $numero, $template);
                 $template = str_replace('{{TITULO_TICKET}}', $this->esc($ticket['titulo']), $template);
                 $template = str_replace('{{NOME_AGENTE}}', $this->esc($ticket['fechado_por_nome'] ?: 'Sistema'), $template);
                 $template = str_replace('{{DATA_FECHAMENTO}}', date('d/m/Y H:i', strtotime($ticket['fechado_em'])), $template);
                 $template = str_replace('{{ASSINATURA_EMAIL}}', $this->getAssinatura(), $template);
-                
-                $assunto = "🎫 [#" . str_pad($ticket_id, 5, '0', STR_PAD_LEFT) . "] Demanda encerrada - " . $ticket['titulo'];
+
+                $assunto = "🎫 [" . $rotulo . "] Demanda encerrada - " . $ticket['titulo'];
                 $this->enviarEmail(($ticket['email_solicitante'] ?: $ticket['usuario_email']), $assunto, $template);
             }
             
@@ -826,11 +841,11 @@ class EmailSender {
                 
                 if ($agente && $agente['email']) {
                     $msg = "🔒 DEMANDA FECHADA POR OUTRO USUÁRIO\n\n";
-                    $msg .= "Demanda: #" . str_pad($ticket_id, 5, '0', STR_PAD_LEFT) . "\n";
+                    $msg .= "Demanda: " . $rotulo . "\n";
                     $msg .= "Título: " . $ticket['titulo'] . "\n";
                     $msg .= "Fechado por: " . ($ticket['fechado_por_nome'] ?: 'Sistema') . "\n";
                     $msg .= "Data: " . date('d/m/Y H:i') . "\n";
-                    $this->enviarEmailTexto($agente['email'], "🔒 Demanda #" . str_pad($ticket_id, 5, '0', STR_PAD_LEFT) . " foi fechada", $msg);
+                    $this->enviarEmailTexto($agente['email'], "🔒 Demanda " . $rotulo . " foi fechada", $msg);
                 }
             }
             
@@ -857,16 +872,17 @@ class EmailSender {
             $ticket = $stmt->fetch();
             
             if (!$ticket) return false;
-            
+            $rotulo = ProtocoloService::rotulo($ticket['protocolo'] ?? null, (int) $ticket_id);
+
             // Notificar agente responsável
             if ($ticket['agente_email']) {
                 $msg = "🔄 DEMANDA REABERTA\n\n";
-                $msg .= "Demanda: #" . str_pad($ticket_id, 5, '0', STR_PAD_LEFT) . "\n";
+                $msg .= "Demanda: " . $rotulo . "\n";
                 $msg .= "Título: " . $ticket['titulo'] . "\n";
                 $msg .= "Solicitante: " . $ticket['usuario_nome'] . "\n";
                 $msg .= "Data: " . date('d/m/Y H:i') . "\n\n";
                 $msg .= "Acesse o sistema para verificar.\n";
-                $this->enviarEmailTexto($ticket['agente_email'], "🔄 Demanda #" . str_pad($ticket_id, 5, '0', STR_PAD_LEFT) . " foi reaberta", $msg);
+                $this->enviarEmailTexto($ticket['agente_email'], "🔄 Demanda " . $rotulo . " foi reaberta", $msg);
             }
             
             return true;
@@ -889,7 +905,9 @@ class EmailSender {
             $ticket = $stmt->fetch();
             
             if (!$ticket || !$ticket['usuario_email']) return false;
-            
+            $rotulo = ProtocoloService::rotulo($ticket['protocolo'] ?? null, (int) $ticket_id);
+            $numero = ltrim($rotulo, '#');
+
             // Carregar template HTML
             $template_path = dirname(__DIR__, 2) . '/backend/email-template-reabertura.html';
             $template = $this->carregarModelo($template_path, (int) $ticket_id);
@@ -899,13 +917,13 @@ class EmailSender {
             
             // Substituir variáveis
             $template = str_replace('{{NOME_USUARIO}}', $this->esc($ticket['usuario_nome']), $template);
-            $template = str_replace('{{NUMERO_TICKET}}', str_pad($ticket_id, 5, '0', STR_PAD_LEFT), $template);
+            $template = str_replace('{{NUMERO_TICKET}}', $numero, $template);
             $template = str_replace('{{TITULO_TICKET}}', $this->esc($ticket['titulo']), $template);
             $template = str_replace('{{DATA_REABERTURA}}', date('d/m/Y H:i'), $template);
             $template = str_replace('{{ASSINATURA_EMAIL}}', $assinatura, $template);
-            
-            $assunto = "🎫 [#" . str_pad($ticket_id, 5, '0', STR_PAD_LEFT) . "] Demanda reaberta - " . $ticket['titulo'];
-            
+
+            $assunto = "🎫 [" . $rotulo . "] Demanda reaberta - " . $ticket['titulo'];
+
             return $this->enviarEmail($ticket['usuario_email'], $assunto, $template);
         } catch (Exception $e) {
             error_log('Erro ao notificar solicitante sobre reabertura: ' . $e->getMessage());
@@ -934,17 +952,18 @@ class EmailSender {
             $ticket = $stmt->fetch();
             
             if (!$ticket || !$agente) return false;
-            
+            $rotulo = ProtocoloService::rotulo($ticket['protocolo'] ?? null, (int) $ticket_id);
+
             // Notificar agente
             if ($agente['email']) {
                 $msg = "👤 DEMANDA ATRIBUÍDA PARA VOCÊ\n\n";
-                $msg .= "Demanda: #" . str_pad($ticket_id, 5, '0', STR_PAD_LEFT) . "\n";
+                $msg .= "Demanda: " . $rotulo . "\n";
                 $msg .= "Título: " . $ticket['titulo'] . "\n";
                 $msg .= "Atribuído por: " . $atribuido_por_nome . "\n";
                 $msg .= "Data: " . date('d/m/Y H:i') . "\n\n";
                 $msg .= "Acesse o sistema para atender esta demanda.\n";
 
-                $this->enviarEmailTexto($agente['email'], "👤 Demanda #" . str_pad($ticket_id, 5, '0', STR_PAD_LEFT) . " atribuída para você", $msg);
+                $this->enviarEmailTexto($agente['email'], "👤 Demanda " . $rotulo . " atribuída para você", $msg);
             }
             
             // Se era sem atribuição, enviar primeira resposta ao solicitante
@@ -974,19 +993,21 @@ class EmailSender {
             $ticket = $stmt->fetch();
             
             if (!$ticket || !$ticket['usuario_email']) return false;
-            
+            $rotulo = ProtocoloService::rotulo($ticket['protocolo'] ?? null, (int) $ticket_id);
+            $numero = ltrim($rotulo, '#');
+
             $template_path = dirname(__DIR__, 2) . '/backend/email-template-primeira-resposta.html';
             $template = $this->carregarModelo($template_path, (int) $ticket_id);
             $assinatura = $this->getAssinatura();
             
             $template = str_replace('{{NOME_USUARIO}}', $this->esc($ticket['usuario_nome']), $template);
-            $template = str_replace('{{NUMERO_TICKET}}', str_pad($ticket_id, 5, '0', STR_PAD_LEFT), $template);
+            $template = str_replace('{{NUMERO_TICKET}}', $numero, $template);
             $template = str_replace('{{TITULO_TICKET}}', $this->esc($ticket['titulo']), $template);
             $template = str_replace('{{NOME_AGENTE}}', $this->esc($nome_agente), $template);
             $template = str_replace('{{DATA_RESPOSTA}}', date('d/m/Y H:i'), $template);
             $template = str_replace('{{ASSINATURA_EMAIL}}', $assinatura, $template);
-            
-            $assunto = "🎫 [#" . str_pad($ticket_id, 5, '0', STR_PAD_LEFT) . "] Primeira resposta - " . $ticket['titulo'];
+
+            $assunto = "🎫 [" . $rotulo . "] Primeira resposta - " . $ticket['titulo'];
             
             $resultado = $this->enviarEmail(($ticket['email_solicitante'] ?: $ticket['usuario_email']), $assunto, $template);
             
@@ -1023,7 +1044,7 @@ class EmailSender {
             }
 
             // Buscar dados do ticket e comentário
-            $q_ticket = "SELECT t.titulo, c.comentario
+            $q_ticket = "SELECT t.titulo, t.protocolo, c.comentario
                          FROM tickets t
                          LEFT JOIN comentarios c ON c.id = :comentario_id
                          WHERE t.id = :ticket_id";
@@ -1038,14 +1059,14 @@ class EmailSender {
                 return false;
             }
 
-            $num_ticket  = str_pad($ticket_id, 5, '0', STR_PAD_LEFT);
+            $rotulo      = ProtocoloService::rotulo($dados['protocolo'] ?? null, (int) $ticket_id);
             $titulo      = $dados['titulo'];
             $trecho      = mb_substr(strip_tags($dados['comentario'] ?? ''), 0, 300);
             if (mb_strlen($dados['comentario'] ?? '') > 300) {
                 $trecho .= '...';
             }
 
-            $assunto = "💬 Novo comentário na Demanda #{$num_ticket} - {$titulo}";
+            $assunto = "💬 Novo comentário na Demanda {$rotulo} - {$titulo}";
 
             $e_nome = $this->esc($agente['nome']);
             $e_autor = $this->esc($autor_nome);
@@ -1061,10 +1082,10 @@ class EmailSender {
                     <p style='margin: 0 0 12px 0;'>Olá, <strong>{$e_nome}</strong>!</p>
                     <p style='margin: 0 0 16px 0;'>
                         O agente <strong>{$e_autor}</strong> adicionou um novo comentário na demanda
-                        <strong>#{$num_ticket}</strong> que está atribuída a você.
+                        <strong>{$rotulo}</strong> que está atribuída a você.
                     </p>
                     <div style='background: #fff; border-left: 4px solid #e0a800; padding: 14px 18px; border-radius: 4px; margin-bottom: 20px;'>
-                        <p style='margin: 0 0 6px 0; font-size: 13px; color: #888;'>Demanda: <strong>#{$num_ticket}</strong> — {$e_titulo}</p>
+                        <p style='margin: 0 0 6px 0; font-size: 13px; color: #888;'>Demanda: <strong>{$rotulo}</strong> — {$e_titulo}</p>
                         <p style='margin: 0; font-size: 14px; color: #333;'>{$e_trecho}</p>
                     </div>
                     <p style='margin: 0 0 20px 0; font-size: 13px; color: #555;'>

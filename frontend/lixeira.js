@@ -28,7 +28,7 @@ async function carregarLixeira() {
         demandas.forEach(d => {
             const quando = d.excluido_em ? new Date(d.excluido_em.replace(' ', 'T')).toLocaleString('pt-BR') : '—';
             html += `<tr data-ticket-id="${Number(d.id)}">
-                <td data-label="Nº Demanda">#${String(d.id).padStart(5, '0')}</td>
+                <td data-label="Nº Demanda">${numeroDemanda(d)}</td>
                 <td data-label="Assunto">${sanitizeHTML(d.titulo)}</td>
                 <td data-label="Setor">${sanitizeHTML(d.setor_nome || '—')}</td>
                 <td data-label="Status">${sanitizeHTML(typeof formatarNomeStatus === 'function' ? formatarNomeStatus(d.status) : d.status)}</td>

@@ -25,7 +25,7 @@ require_once $raiz . '/api/services/email-tipografia.php';
 // Conversa de exemplo (mais recente primeiro) — só mensagens visíveis ao solicitante; uma nota interna
 // da equipe existiria na demanda, mas nunca aparece aqui.
 $demandaExemplo = [
-    'id' => 123, 'titulo' => 'Dúvida sobre inscrição de pessoa jurídica',
+    'id' => 123, 'protocolo' => 'CRPRS2026-0001', 'titulo' => 'Dúvida sobre inscrição de pessoa jurídica',
     'descricao' => '<p>Boa tarde,</p><p>Gostaria de saber quais documentos são necessários para a inscrição de uma pessoa jurídica no CRPRS.</p><p>Obrigada.</p>',
     'criado_em' => '2026-10-23 14:35:00', 'usuario_id' => 1,
     'email_solicitante' => 'maria.souza@exemplo.com.br', 'usuario_email' => 'maria.souza@exemplo.com.br',
@@ -45,7 +45,7 @@ $modelo = function (string $arquivo, array $mensagens = []) use ($raiz, $demanda
 };
 
 // ---- Dados fictícios -------------------------------------------------------------------------
-$num        = '00123';
+$num        = 'CRPRS2026-0001'; // protocolo único do Conselho (sem "#": os modelos já têm o "#" literal)
 $titulo     = 'Dúvida sobre inscrição de pessoa jurídica';
 $solicitante = 'Maria Souza';
 $emailSolic = 'maria.souza@exemplo.com.br';

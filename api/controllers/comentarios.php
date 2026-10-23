@@ -5,6 +5,7 @@ header('Content-Type: application/json');
 require_once __DIR__ . '/../middleware/auth.php';
 require_once __DIR__ . '/../services/acesso-service.php';
 require_once __DIR__ . '/../services/html-sanitizer.php';
+require_once __DIR__ . '/../services/protocolo-service.php';
 AuthMiddleware::configurarCORS(['POST', 'PUT', 'DELETE']);
 
 if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
@@ -346,7 +347,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
             
             // Inserir registro e notificação para cada agente
-            $msg_notificacao = "Novo comentário na demanda (#" . str_pad($ticket_id, 5, '0', STR_PAD_LEFT) . ") adicionado por " . ($autor_nome ?? 'Usuário') . ".";
+            $msg_notificacao = "Novo comentário na demanda (" . ProtocoloService::rotuloPorId($db, (int) $ticket_id) . ") adicionado por " . ($autor_nome ?? 'Usuário') . ".";
             $notif_query = "INSERT INTO notificacoes (usuario_id, titulo, mensagem, ticket_id) VALUES (?, 'Novo Comentário', ?, ?)";
             $stmt_notif = $db->prepare($notif_query);
 

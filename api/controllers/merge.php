@@ -4,6 +4,7 @@ header('Content-Type: application/json');
 require_once __DIR__ . '/../config/database.php';
 require_once __DIR__ . '/../middleware/auth.php';
 require_once __DIR__ . '/../services/acesso-service.php';
+require_once __DIR__ . '/../services/protocolo-service.php';
 
 AuthMiddleware::configurarCORS(['POST']);
 
@@ -53,17 +54,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $db->beginTransaction();
         
         // Buscar dados do ticket principal
-        $query = "SELECT categoria_id FROM tickets WHERE id = :id";
+        $query = "SELECT categoria_id, protocolo FROM tickets WHERE id = :id";
         $stmt = $db->prepare($query);
         $stmt->bindParam(':id', $ticket_principal);
         $stmt->execute();
         $ticket_principal_data = $stmt->fetch(PDO::FETCH_ASSOC);
         $categoria_principal = $ticket_principal_data['categoria_id'];
-        
+        $principal_rotulo = ProtocoloService::rotulo($ticket_principal_data['protocolo'] ?? null, (int) $ticket_principal);
+
         // Buscar dados dos tickets secundários
         $tickets_secundarios_info = [];
         foreach ($tickets_secundarios as $ticket_id) {
-            $query = "SELECT id, titulo, descricao, categoria_id FROM tickets WHERE id = :id";
+            $query = "SELECT id, titulo, descricao, categoria_id, protocolo FROM tickets WHERE id = :id";
             $stmt = $db->prepare($query);
             $stmt->bindParam(':id', $ticket_id);
             $stmt->execute();
@@ -89,20 +91,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
         
         // Adicionar ao histórico do ticket principal
-        $tickets_ids = implode(', #', array_map(function($id) {
-            return str_pad($id, 5, '0', STR_PAD_LEFT);
-        }, $tickets_secundarios));
-        
+        $tickets_rotulos = implode(', ', array_map(function ($info) {
+            return ProtocoloService::rotulo($info['protocolo'] ?? null, (int) $info['id']);
+        }, $tickets_secundarios_info));
+
         // Linha do tempo da demanda principal
         $db->prepare("INSERT INTO ticket_historico (ticket_id, usuario_id, acao, valor_anterior, valor_novo) VALUES (?, ?, 'merge', NULL, ?)")
-           ->execute([$ticket_principal, $user['id'], mb_substr((string) $tickets_ids, 0, 255)]);
+           ->execute([$ticket_principal, $user['id'], mb_substr((string) $tickets_rotulos, 0, 255)]);
 
         // Adicionar comentário detalhado de merge no ticket principal
         $comentario_merge = "🔗 **MESCLAGEM DE DEMANDAS**\n\n";
-        $comentario_merge .= "Demandas mescladas: #" . $tickets_ids . "\n\n";
+        $comentario_merge .= "Demandas mescladas: " . $tickets_rotulos . "\n\n";
         foreach ($tickets_secundarios_info as $info) {
-            $ticket_num = str_pad($info['id'], 5, '0', STR_PAD_LEFT);
-            $comentario_merge .= "**Demanda #" . $ticket_num . "**\n";
+            $rotulo_info = ProtocoloService::rotulo($info['protocolo'] ?? null, (int) $info['id']);
+            $comentario_merge .= "**Demanda " . $rotulo_info . "**\n";
             $comentario_merge .= "Assunto: " . htmlspecialchars((string) $info['titulo'], ENT_QUOTES, 'UTF-8') . "\n";
             $comentario_merge .= "Descrição: " . strip_tags((string) $info['descricao']) . "\n\n";
         }
@@ -134,20 +136,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $stmt->bindParam(':id', $ticket_id);
             $stmt->execute();
 
-            $principal_formatted = str_pad($ticket_principal, 5, '0', STR_PAD_LEFT);
-
             // Linha do tempo da demanda mesclada + fechamento das janelas de setor/responsável
             $db->prepare("INSERT INTO ticket_historico (ticket_id, usuario_id, acao, valor_anterior, valor_novo) VALUES (?, ?, 'merge', NULL, ?)")
-               ->execute([$ticket_id, $user['id'], $principal_formatted]);
+               ->execute([$ticket_id, $user['id'], $principal_rotulo]);
             AcessoService::fecharJanelasDaDemanda($db, (int) $ticket_id);
             require_once __DIR__ . '/../services/lembrete-service.php';
-            LembreteService::cancelarPendentes($db, (int) $ticket_id, 'Demanda mesclada à #' . $principal_formatted);
+            LembreteService::cancelarPendentes($db, (int) $ticket_id, 'Demanda mesclada à ' . $principal_rotulo);
 
             // Adicionar comentário detalhado nos tickets fechados
-            $ticket_num = str_pad($ticket_id, 5, '0', STR_PAD_LEFT);
-            $principal_num = str_pad($ticket_principal, 5, '0', STR_PAD_LEFT);
             $comentario_fechado = "🔗 **TICKET MESCLADO**\n\n";
-            $comentario_fechado .= "Este ticket foi mesclado ao ticket principal #" . $principal_num;
+            $comentario_fechado .= "Este ticket foi mesclado ao ticket principal " . $principal_rotulo;
 
             $query = "INSERT INTO comentarios (ticket_id, usuario_id, comentario) VALUES (:ticket_id, :usuario_id, :comentario)";
             $stmt = $db->prepare($query);

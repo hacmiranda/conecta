@@ -11,6 +11,7 @@ require_once __DIR__ . '/../services/html-sanitizer.php';
 require_once __DIR__ . '/../services/lembrete-service.php';
 require_once __DIR__ . '/../services/catalogo-service.php';
 require_once __DIR__ . '/../services/demanda-service.php';
+require_once __DIR__ . '/../services/protocolo-service.php';
 
 AuthMiddleware::configurarCORS(['GET', 'POST', 'PUT', 'DELETE']);
 
@@ -115,11 +116,14 @@ function listarTicketsPaginado(PDO $db, string $selectCompleto, array $where, ar
     if ($busca !== '') {
         $termo = '%' . str_replace(['\\', '%', '_'], ['\\\\', '\\%', '\\_'], mb_substr($busca, 0, 100)) . '%';
         $numero = '%' . ltrim(str_replace('#', '', $busca), '0') . '%';
+        // Protocolo: aceita "CRPRS2026-0001", "2026-0001" ou só "0001" (sem o "#")
+        $protocoloBusca = '%' . str_replace(['\\', '%', '_'], ['\\\\', '\\%', '\\_'], ltrim($busca, '#')) . '%';
         $filtros[] = "(t.titulo LIKE :b1 OR t.descricao LIKE :b2 OR u.nome LIKE :b3 OR t.email_solicitante LIKE :b4
-                       OR (:b6 <> '%%' AND CAST(t.id AS CHAR) LIKE :b5))";
+                       OR (:b6 <> '%%' AND CAST(t.id AS CHAR) LIKE :b5) OR t.protocolo LIKE :b7)";
         $pf[':b1'] = $pf[':b2'] = $pf[':b3'] = $pf[':b4'] = $termo;
         $pf[':b5'] = $numero;
         $pf[':b6'] = $numero;
+        $pf[':b7'] = $protocoloBusca;
     }
     $onde = $base . ($filtros ? ' AND ' . implode(' AND ', $filtros) : '');
 
@@ -483,9 +487,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $categoria_id = null;
         }
 
-        $query = "INSERT INTO tickets (titulo, descricao, usuario_id, email_solicitante, prioridade, categoria_id, setor_id, status) VALUES (:titulo, :descricao, :usuario_id, :email_solicitante, :prioridade, :categoria_id, :setor_id, 'novo')";
+        // Protocolo gerado antes do INSERT da demanda: não usa o id dela, então não interfere
+        // no lastInsertId() logo abaixo
+        $protocolo = ProtocoloService::gerar($db);
+
+        $query = "INSERT INTO tickets (protocolo, titulo, descricao, usuario_id, email_solicitante, prioridade, categoria_id, setor_id, status) VALUES (:protocolo, :titulo, :descricao, :usuario_id, :email_solicitante, :prioridade, :categoria_id, :setor_id, 'novo')";
 
         $stmt = $db->prepare($query);
+        $stmt->bindParam(':protocolo', $protocolo);
         $stmt->bindParam(':titulo', $titulo);
         $stmt->bindParam(':descricao', $descricao);
         $stmt->bindParam(':usuario_id', $user['id']);
@@ -572,7 +581,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $emailSender->notificarAgentesNovoTicket($ticket_id);
             
             // Notificação interna: apenas os gestores do setor da demanda (admins se não houver gestor)
-            $msg_novo_ticket = "Uma nova demanda (#" . str_pad($ticket_id, 5, '0', STR_PAD_LEFT) . ") foi aberta por " . ($user['nome'] ?? 'Desconhecido') . ".";
+            $msg_novo_ticket = "Uma nova demanda (" . ProtocoloService::rotulo($protocolo, (int) $ticket_id) . ") foi aberta por " . ($user['nome'] ?? 'Desconhecido') . ".";
             $notif_insert = "INSERT INTO notificacoes (usuario_id, titulo, mensagem, ticket_id) VALUES (?, 'Nova Demanda', ?, ?)";
             $stmt_insert = $db->prepare($notif_insert);
 
@@ -888,7 +897,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'PUT') {
                     $emailSender->notificarAtribuicaoTicket($ticket_id, $dest_id, $autor_nome, $pos_commit['atribuicao']['era_sem_atribuicao']);
                     $db->prepare("INSERT INTO notificacoes (usuario_id, titulo, mensagem, ticket_id) VALUES (?, ?, ?, ?)")
                        ->execute([$dest_id, 'Demanda atribuída',
-                           'A demanda (#' . str_pad($ticket_id, 5, '0', STR_PAD_LEFT) . ') foi atribuída a você por ' . $autor_nome . '.', $ticket_id]);
+                           'A demanda (' . ProtocoloService::rotuloPorId($db, (int) $ticket_id) . ') foi atribuída a você por ' . $autor_nome . '.', $ticket_id]);
                 }
                 if ($pos_commit['encerrado']) {
                     $emailSender->notificarFechamentoTicket($ticket_id);

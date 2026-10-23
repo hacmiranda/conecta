@@ -13,6 +13,7 @@
  */
 require_once __DIR__ . '/html-sanitizer.php';
 require_once __DIR__ . '/email-tipografia.php';
+require_once __DIR__ . '/protocolo-service.php';
 
 class EmailHistorico {
     // Quantas mensagens entram (as mais recentes); evita e-mail gigante em conversas longas
@@ -23,7 +24,7 @@ class EmailHistorico {
      * @return array{demanda: ?array, mensagens: array, total: int}
      */
     public static function buscar(PDO $db, int $ticketId, ?int $excluirComentarioId = null): array {
-        $stmt = $db->prepare("SELECT t.id, t.titulo, t.descricao, t.criado_em, t.usuario_id, t.email_solicitante,
+        $stmt = $db->prepare("SELECT t.id, t.protocolo, t.titulo, t.descricao, t.criado_em, t.usuario_id, t.email_solicitante,
                                      u.nome AS usuario_nome, u.email AS usuario_email
                               FROM tickets t LEFT JOIN usuarios u ON u.id = t.usuario_id
                               WHERE t.id = ?");
@@ -91,7 +92,8 @@ class EmailHistorico {
         // --- Demanda registrada ---
         $html .= '<div style="padding:12px 20px;border-bottom:1px solid #efeae4;font-size:15px;font-weight:bold;color:#8b1d17;">Demanda registrada</div>';
         $html .= '<div style="padding:16px 20px;">';
-        $html .= '<div style="font-size:12px;line-height:18px;color:#5f5852;">Demanda #' . str_pad((string) $demanda['id'], 5, '0', STR_PAD_LEFT)
+        $rotulo = ProtocoloService::rotulo($demanda['protocolo'] ?? null, (int) $demanda['id']);
+        $html .= '<div style="font-size:12px;line-height:18px;color:#5f5852;">Demanda ' . $e($rotulo)
             . ' &middot; aberta em ' . $e(date('d/m/Y H:i', strtotime((string) $demanda['criado_em'])))
             . ($solicitante !== '' ? ' &middot; solicitante: ' . $e($solicitante) : '') . '</div>';
         $html .= '<div style="font-size:16px;font-weight:bold;color:#2b2523;padding:6px 0 8px;">' . $e($demanda['titulo']) . '</div>';

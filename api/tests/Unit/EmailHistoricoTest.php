@@ -29,6 +29,14 @@ final class EmailHistoricoTest extends TestCase {
         $this->assertStringNotContainsString('Histórico da conversa', $html);
     }
 
+    public function test_usa_o_protocolo_quando_a_demanda_tem_um(): void {
+        $demanda = $this->demanda();
+        $demanda['protocolo'] = 'CRPRS2026-0042';
+        $html = EmailHistorico::renderizar($demanda, [], 0);
+        $this->assertStringContainsString('#CRPRS2026-0042', $html);
+        $this->assertStringNotContainsString('#00007', $html);
+    }
+
     public function test_titulo_da_demanda_e_escapado(): void {
         $html = EmailHistorico::renderizar($this->demanda(), [], 0);
         $this->assertStringContainsString('Dúvida &lt;b&gt;x&lt;/b&gt;', $html);

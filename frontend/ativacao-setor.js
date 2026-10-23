@@ -182,7 +182,7 @@ async function carregarLogEmailsProcessadosSetor() {
                         </div>
                         <div style="font-size:0.85rem;color:#666;">
                             De: ${sanitizeHTML(r.email_remetente)} · Caixa: ${sanitizeHTML(r.setor_email_endereco || '—')} · ${sanitizeHTML(rotuloTipo[r.tipo] || r.tipo)}
-                            ${r.ticket_id ? ` · Demanda #${String(r.ticket_id).padStart(5, '0')}` : ''}
+                            ${r.ticket_id ? ` · Demanda ${numeroDemanda(r)}` : ''}
                         </div>
                     </div>
                 `).join('')}

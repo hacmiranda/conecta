@@ -165,7 +165,7 @@ try {
             $total = $stmtCount->fetch(PDO::FETCH_ASSOC)['total'];
 
             // Buscar registros
-            $query = "SELECT at.*, u.nome as usuario_nome, t.titulo as ticket_titulo
+            $query = "SELECT at.*, u.nome as usuario_nome, t.titulo as ticket_titulo, t.protocolo as ticket_protocolo
                       FROM auditoria_tickets at
                       LEFT JOIN usuarios u ON at.usuario_id = u.id
                       LEFT JOIN tickets t ON at.ticket_id = t.id
@@ -335,14 +335,16 @@ try {
                                          ')'
                                      )
                                  ELSE NULL
-                             END as usuario_afetado
+                             END as usuario_afetado,
+                             CASE WHEN a.tabela = 'tickets' THEN t.protocolo ELSE NULL END as ticket_protocolo
                       FROM auditoria a
                       LEFT JOIN usuarios u ON a.usuario_id = u.id
+                      LEFT JOIN tickets t ON a.tabela = 'tickets' AND t.id = a.registro_id
                       $filtroExport
                       ORDER BY a.criado_em DESC";
         } elseif ($tipo === 'tickets') {
             $filtroExport = $ehGestor ? "WHERE t.setor_id = :setor_id_escopo" : "";
-            $query = "SELECT at.*, u.nome as usuario_nome, t.titulo as ticket_titulo
+            $query = "SELECT at.*, u.nome as usuario_nome, t.titulo as ticket_titulo, t.protocolo as ticket_protocolo
                       FROM auditoria_tickets at
                       LEFT JOIN usuarios u ON at.usuario_id = u.id
                       LEFT JOIN tickets t ON at.ticket_id = t.id

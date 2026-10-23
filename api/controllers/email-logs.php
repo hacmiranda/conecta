@@ -61,7 +61,8 @@ $sql = "SELECT
             el.ticket_id,
             el.status,
             el.erro,
-            t.titulo AS ticket_titulo
+            t.titulo AS ticket_titulo,
+            t.protocolo AS ticket_protocolo
         FROM email_logs el
         LEFT JOIN tickets t ON t.id = el.ticket_id
         $whereSQL

@@ -28,7 +28,7 @@ function mostrarFluxosEmail() {
                         </div>
                         <div class="email-item">
                             <div class="email-label">Assunto:</div>
-                            <div class="email-value">🎫 [#00123] Demanda criada - [Título]</div>
+                            <div class="email-value">🎫 [#CRPRS2026-0001] Demanda criada - [Título]</div>
                         </div>
                         <div class="email-item">
                             <div class="email-label">Quando:</div>
@@ -42,7 +42,7 @@ function mostrarFluxosEmail() {
                         </div>
                         <div class="email-item">
                             <div class="email-label">Assunto:</div>
-                            <div class="email-value">🎫 [NOVA DEMANDA] #00123 - [Título]</div>
+                            <div class="email-value">🎫 [NOVA DEMANDA] #CRPRS2026-0001 - [Título]</div>
                         </div>
                     </div>
                 </div>
@@ -59,7 +59,7 @@ function mostrarFluxosEmail() {
                         </div>
                         <div class="email-item">
                             <div class="email-label">Assunto:</div>
-                            <div class="email-value">[#00123] Resposta do Suporte - [Título]</div>
+                            <div class="email-value">[#CRPRS2026-0001] Resposta do Suporte - [Título]</div>
                         </div>
                         <div class="email-item">
                             <div class="email-label">Anexos:</div>
@@ -87,7 +87,7 @@ function mostrarFluxosEmail() {
                         </div>
                         <div class="email-item">
                             <div class="email-label">Assunto:</div>
-                            <div class="email-value">🎫 [#00123] Novo comentário - [Título]</div>
+                            <div class="email-value">🎫 [#CRPRS2026-0001] Novo comentário - [Título]</div>
                         </div>
                         <div class="email-divider" style="background: linear-gradient(to right, #a7241c, transparent); height: 2px;"></div>
                         <div class="email-badge" style="background: #fff3cd; color: #f57c00; margin-bottom: 1rem;">📧 Email adicional de confirmação</div>
@@ -97,7 +97,7 @@ function mostrarFluxosEmail() {
                         </div>
                         <div class="email-item">
                             <div class="email-label">Assunto:</div>
-                            <div class="email-value">🎫 [#00123] Comentário recebido - [Título]</div>
+                            <div class="email-value">🎫 [#CRPRS2026-0001] Comentário recebido - [Título]</div>
                         </div>
                     </div>
                 </div>
@@ -114,7 +114,7 @@ function mostrarFluxosEmail() {
                         </div>
                         <div class="email-item">
                             <div class="email-label">Assunto:</div>
-                            <div class="email-value">👤 Demanda #00123 atribuída para você</div>
+                            <div class="email-value">👤 Demanda #CRPRS2026-0001 atribuída para você</div>
                         </div>
                         <div class="email-divider" style="background: linear-gradient(to right, #a7241c, transparent); height: 2px;"></div>
                         <div class="email-badge" style="background: #fff3cd; color: #f57c00; margin-bottom: 1rem;">⭐ Email adicional ao solicitante</div>
@@ -124,7 +124,7 @@ function mostrarFluxosEmail() {
                         </div>
                         <div class="email-item">
                             <div class="email-label">Assunto:</div>
-                            <div class="email-value">🎫 [#00123] Primeira resposta - [Título]</div>
+                            <div class="email-value">🎫 [#CRPRS2026-0001] Primeira resposta - [Título]</div>
                         </div>
                         <div class="email-item">
                             <div class="email-label">Quando:</div>
@@ -146,7 +146,7 @@ function mostrarFluxosEmail() {
                         </div>
                         <div class="email-item">
                             <div class="email-label">Assunto:</div>
-                            <div class="email-value">✅ [#00123] Demanda fechada - [Título]</div>
+                            <div class="email-value">✅ [#CRPRS2026-0001] Demanda fechada - [Título]</div>
                         </div>
                         <div class="email-divider" style="background: linear-gradient(to right, #a7241c, transparent); height: 2px;"></div>
                         <div class="email-badge" style="background: #ffebee; color: #c62828; margin-bottom: 1rem;">📧 Email adicional (condicional)</div>
@@ -156,7 +156,7 @@ function mostrarFluxosEmail() {
                         </div>
                         <div class="email-item">
                             <div class="email-label">Assunto:</div>
-                            <div class="email-value">🔒 Demanda #00123 foi fechada</div>
+                            <div class="email-value">🔒 Demanda #CRPRS2026-0001 foi fechada</div>
                         </div>
                     </div>
                 </div>
@@ -173,7 +173,7 @@ function mostrarFluxosEmail() {
                         </div>
                         <div class="email-item">
                             <div class="email-label">Assunto:</div>
-                            <div class="email-value">🔄 Demanda #00123 foi reaberta</div>
+                            <div class="email-value">🔄 Demanda #CRPRS2026-0001 foi reaberta</div>
                         </div>
                         <div class="email-item">
                             <div class="email-label">Quando:</div>

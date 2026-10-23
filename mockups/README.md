@@ -1,6 +1,6 @@
 # Mockups dos e-mails do Conecta CRPRS
 
-Todos os e-mails que o sistema envia, com dados fictícios (solicitante *Maria Souza*, demanda *#00123*, setor *Cadastro*). Abra `index.html` no navegador para a galeria, ou veja as imagens abaixo.
+Todos os e-mails que o sistema envia, com dados fictícios (solicitante *Maria Souza*, demanda *#CRPRS2026-0001*, setor *Cadastro*). Abra `index.html` no navegador para a galeria, ou veja as imagens abaixo.
 
 ## Resumo
 
@@ -31,7 +31,7 @@ Todos os e-mails que o sistema envia, com dados fictícios (solicitante *Maria S
 
 - **De:** Conecta CRPRS - Cadastro <administrador@crprs.org.br>
 - **Para:** Maria Souza <maria.souza@exemplo.com.br>
-- **Assunto:** 🎫 [#00123] Demanda criada - Dúvida sobre inscrição de pessoa jurídica
+- **Assunto:** 🎫 [#CRPRS2026-0001] Demanda criada - Dúvida sobre inscrição de pessoa jurídica
 - **Quando:** Assim que uma demanda é aberta: por um e-mail recebido na caixa do setor, pelo formulário "Nova Demanda" do sistema ou por um sistema integrado (API).
 - **Quem recebe:** O solicitante da demanda.
 - **Observação:** Sai pela caixa de e-mail do setor da demanda (ou pelo remetente global, se o setor não tiver caixa). Traz a demanda registrada (título e descrição).
@@ -42,7 +42,7 @@ Todos os e-mails que o sistema envia, com dados fictícios (solicitante *Maria S
 
 - **De:** Conecta CRPRS - Cadastro <administrador@crprs.org.br>
 - **Para:** Maria Souza <maria.souza@exemplo.com.br>
-- **Assunto:** 🎫 [#00123] Demanda criada - Dúvida sobre inscrição de pessoa jurídica
+- **Assunto:** 🎫 [#CRPRS2026-0001] Demanda criada - Dúvida sobre inscrição de pessoa jurídica
 - **Quando:** Mesmo momento do e-mail anterior, mas só quando a demanda nasce de um e-mail com anexos que o sistema recusou (tipo não permitido, mais de 5 arquivos ou mais de 20MB).
 - **Quem recebe:** O solicitante da demanda.
 - **Observação:** É o e-mail anterior com um aviso amarelo no final listando cada anexo recusado e o motivo.
@@ -53,7 +53,7 @@ Todos os e-mails que o sistema envia, com dados fictícios (solicitante *Maria S
 
 - **De:** Conecta CRPRS - Cadastro <administrador@crprs.org.br>
 - **Para:** Maria Souza <maria.souza@exemplo.com.br>
-- **Assunto:** 🎫 [#00123] Resposta da Equipe - Dúvida sobre inscrição de pessoa jurídica
+- **Assunto:** 🎫 [#CRPRS2026-0001] Resposta da Equipe - Dúvida sobre inscrição de pessoa jurídica
 - **Quando:** Quando um atendente escreve um comentário na demanda com a opção "Enviar por e-mail" marcada (também no botão "Enviar e Fechar"). Notas internas nunca geram este e-mail.
 - **Quem recebe:** O solicitante da demanda. Os anexos do comentário seguem junto.
 - **Observação:** Sai pela caixa de e-mail do setor da demanda e assina como a equipe desse setor.
@@ -64,7 +64,7 @@ Todos os e-mails que o sistema envia, com dados fictícios (solicitante *Maria S
 
 - **De:** Conecta CRPRS - Cadastro <administrador@crprs.org.br>
 - **Para:** diretoria@exemplo.com.br (endereço informado no campo "Com cópia")
-- **Assunto:** 🎫 [#00123] Resposta da Equipe - Dúvida sobre inscrição de pessoa jurídica
+- **Assunto:** 🎫 [#CRPRS2026-0001] Resposta da Equipe - Dúvida sobre inscrição de pessoa jurídica
 - **Quando:** Junto com a "Resposta da equipe", quando o atendente preenche o campo "Com cópia" ao comentar. Sai uma mensagem para cada endereço informado.
 - **Quem recebe:** Cada endereço do campo "Com cópia" (pessoas que não são o solicitante).
 - **Observação:** Mostra quem é o solicitante e assina como a equipe do setor. Se alguém dessa lista responder ao e-mail com o número da demanda, vira comentário.
@@ -75,7 +75,7 @@ Todos os e-mails que o sistema envia, com dados fictícios (solicitante *Maria S
 
 - **De:** Conecta CRPRS - Cadastro <administrador@crprs.org.br>
 - **Para:** Maria Souza <maria.souza@exemplo.com.br>
-- **Assunto:** 🎫 [#00123] Comentário recebido - Dúvida sobre inscrição de pessoa jurídica
+- **Assunto:** 🎫 [#CRPRS2026-0001] Comentário recebido - Dúvida sobre inscrição de pessoa jurídica
 - **Quando:** Quando o solicitante responde por e-mail a uma demanda (assunto com #NNNNN) e a resposta é registrada como comentário.
 - **Quem recebe:** Quem enviou a resposta (o remetente do e-mail recebido).
 - **Observação:** Se houver anexos recusados, um aviso amarelo com os motivos é incluído antes do agradecimento.
@@ -86,7 +86,7 @@ Todos os e-mails que o sistema envia, com dados fictícios (solicitante *Maria S
 
 - **De:** Conecta CRPRS - Cadastro <administrador@crprs.org.br>
 - **Para:** Maria Souza <maria.souza@exemplo.com.br>
-- **Assunto:** 🎫 [#00123] Primeira resposta - Dúvida sobre inscrição de pessoa jurídica
+- **Assunto:** 🎫 [#CRPRS2026-0001] Primeira resposta - Dúvida sobre inscrição de pessoa jurídica
 - **Quando:** Quando uma demanda que ainda não tinha responsável é atribuída a um atendente pela primeira vez (inclusive quando o atendente a assume). Também marca a primeira resposta do SLA.
 - **Quem recebe:** O solicitante da demanda.
 - **Observação:** Só sai na primeira atribuição; reatribuições posteriores não geram este e-mail.
@@ -97,7 +97,7 @@ Todos os e-mails que o sistema envia, com dados fictícios (solicitante *Maria S
 
 - **De:** Conecta CRPRS - Cadastro <administrador@crprs.org.br>
 - **Para:** Maria Souza <maria.souza@exemplo.com.br>
-- **Assunto:** 🎫 [#00123] Demanda encerrada - Dúvida sobre inscrição de pessoa jurídica
+- **Assunto:** 🎫 [#CRPRS2026-0001] Demanda encerrada - Dúvida sobre inscrição de pessoa jurídica
 - **Quando:** Quando a demanda é encerrada (status encerrado/resolvido que a move para o Arquivo).
 - **Quem recebe:** O solicitante da demanda.
 - **Observação:** Cancelar uma demanda não envia este e-mail.
@@ -108,7 +108,7 @@ Todos os e-mails que o sistema envia, com dados fictícios (solicitante *Maria S
 
 - **De:** Conecta CRPRS - Cadastro <administrador@crprs.org.br>
 - **Para:** Maria Souza <maria.souza@exemplo.com.br>
-- **Assunto:** 🎫 [#00123] Demanda reaberta - Dúvida sobre inscrição de pessoa jurídica
+- **Assunto:** 🎫 [#CRPRS2026-0001] Demanda reaberta - Dúvida sobre inscrição de pessoa jurídica
 - **Quando:** Quando o solicitante responde por e-mail a uma demanda já encerrada e o sistema a reabre automaticamente.
 - **Quem recebe:** O solicitante da demanda.
 - **Observação:** Assina como a equipe do setor da demanda.
@@ -121,7 +121,7 @@ Todos os e-mails que o sistema envia, com dados fictícios (solicitante *Maria S
 
 - **De:** administrador@crprs.org.br (remetente global do sistema)
 - **Para:** Gestores do setor da demanda (se o setor não tiver gestor, os administradores)
-- **Assunto:** 🎫 [NOVA DEMANDA] #00123 - Dúvida sobre inscrição de pessoa jurídica
+- **Assunto:** 🎫 [NOVA DEMANDA] #CRPRS2026-0001 - Dúvida sobre inscrição de pessoa jurídica
 - **Quando:** Junto com a confirmação ao solicitante, sempre que uma demanda é aberta (e-mail recebido, formulário do sistema ou integração).
 - **Quem recebe:** Os gestores do setor da demanda; um e-mail para cada gestor.
 - **Observação:** Texto puro, sem modelo HTML. A descrição é cortada em 500 caracteres.
@@ -132,7 +132,7 @@ Todos os e-mails que o sistema envia, com dados fictícios (solicitante *Maria S
 
 - **De:** administrador@crprs.org.br (remetente global do sistema)
 - **Para:** Responsável pela demanda; sem responsável, os gestores do setor
-- **Assunto:** 🎫 [#00123] Novo comentário - Dúvida sobre inscrição de pessoa jurídica
+- **Assunto:** 🎫 [#CRPRS2026-0001] Novo comentário - Dúvida sobre inscrição de pessoa jurídica
 - **Quando:** Quando o solicitante responde por e-mail a uma demanda e a resposta vira comentário.
 - **Quem recebe:** O atendente responsável pela demanda. Se ainda não há responsável, os gestores do setor (ou os administradores, se não houver gestor).
 - **Observação:** Texto puro. O corpo do comentário não vai no e-mail: só o aviso para abrir o sistema.
@@ -143,7 +143,7 @@ Todos os e-mails que o sistema envia, com dados fictícios (solicitante *Maria S
 
 - **De:** administrador@crprs.org.br (remetente global do sistema)
 - **Para:** Carlos Pereira <carlos.pereira@crprs.org.br> (atendente que recebeu a demanda)
-- **Assunto:** 👤 Demanda #00123 atribuída para você
+- **Assunto:** 👤 Demanda #CRPRS2026-0001 atribuída para você
 - **Quando:** Quando uma demanda é atribuída a um atendente (por um gestor, administrador ou pelo próprio atendente).
 - **Quem recebe:** O atendente que passou a ser o responsável.
 - **Observação:** Texto puro. O sistema também cria uma notificação no sino.
@@ -154,7 +154,7 @@ Todos os e-mails que o sistema envia, com dados fictícios (solicitante *Maria S
 
 - **De:** Conecta CRPRS - Cadastro <administrador@crprs.org.br>
 - **Para:** Atendente responsável pela demanda (quando quem encerrou foi outra pessoa)
-- **Assunto:** 🔒 Demanda #00123 foi fechada
+- **Assunto:** 🔒 Demanda #CRPRS2026-0001 foi fechada
 - **Quando:** Junto com o aviso "Demanda encerrada", quando quem encerrou a demanda não é o atendente responsável por ela.
 - **Quem recebe:** O atendente responsável, se ativo.
 - **Observação:** Texto puro. Sai pela caixa do setor da demanda (o código seleciona o remetente do setor antes do fechamento).
@@ -165,7 +165,7 @@ Todos os e-mails que o sistema envia, com dados fictícios (solicitante *Maria S
 
 - **De:** administrador@crprs.org.br (remetente global do sistema)
 - **Para:** Atendente responsável pela demanda
-- **Assunto:** 🔄 Demanda #00123 foi reaberta
+- **Assunto:** 🔄 Demanda #CRPRS2026-0001 foi reaberta
 - **Quando:** Quando uma demanda encerrada é reaberta: por um atendente que muda o status ou automaticamente quando o solicitante responde por e-mail.
 - **Quem recebe:** O atendente responsável pela demanda (se houver).
 - **Observação:** Texto puro.
@@ -176,7 +176,7 @@ Todos os e-mails que o sistema envia, com dados fictícios (solicitante *Maria S
 
 - **De:** administrador@crprs.org.br (remetente global do sistema)
 - **Para:** Atendente responsável pela demanda
-- **Assunto:** 💬 Novo comentário na Demanda #00123 - Dúvida sobre inscrição de pessoa jurídica
+- **Assunto:** 💬 Novo comentário na Demanda #CRPRS2026-0001 - Dúvida sobre inscrição de pessoa jurídica
 - **Quando:** Quando outro atendente, gestor ou administrador comenta numa demanda que está atribuída a você. O status da demanda passa para "Nova Resposta".
 - **Quem recebe:** O atendente responsável pela demanda.
 - **Observação:** Notas internas não geram este e-mail (só a notificação do sistema).
@@ -187,7 +187,7 @@ Todos os e-mails que o sistema envia, com dados fictícios (solicitante *Maria S
 
 - **De:** administrador@crprs.org.br (remetente global do sistema)
 - **Para:** Destinatário escolhido no lembrete; sem destinatário, o responsável pela demanda (ou os gestores do setor)
-- **Assunto:** 🔔 [Lembrete] Demanda #00123 - Dúvida sobre inscrição de pessoa jurídica
+- **Assunto:** 🔔 [Lembrete] Demanda #CRPRS2026-0001 - Dúvida sobre inscrição de pessoa jurídica
 - **Quando:** Na data e hora agendadas no lembrete (o cron de lembretes dispara a cada rodada). Lembretes de demandas encerradas ou canceladas são cancelados e não enviados.
 - **Quem recebe:** A pessoa escolhida ao criar o lembrete; se não houve escolha, o responsável pela demanda ou, sem responsável, os gestores do setor.
 - **Observação:** O sistema também cria uma notificação no sino. Lembretes de demandas em "Aguardando data" voltam a demanda para "Em atendimento".

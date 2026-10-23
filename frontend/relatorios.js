@@ -170,7 +170,7 @@ function exibirRelatorio(dados) {
         html += `
             <tr>
                 <td>
-                    #${String(ticket.id).padStart(5, '0')}
+                    ${numeroDemanda(ticket)}
                     ${ticket.tem_anexos > 0 ? '<img src="images/clipe-de-anexo.png" class="icone-anexo" title="Demanda com anexos" alt="Anexo">' : ''}
                 </td>
                 <td>${dataAberturaFormatada}<br><small style="color: #666;">${horaAberturaFormatada}</small></td>
@@ -228,7 +228,7 @@ function exportarExcel() {
             horaFechamento = dataFech.toLocaleTimeString('pt-BR');
         }
 
-        const numero = String(ticket.id).padStart(5, '0');
+        const numero = numeroDemanda(ticket);
         const titulo = ticket.titulo.replace(/;/g, ',');
         const solicitante = (ticket.usuario_nome || 'N/A').replace(/;/g, ',');
         const responsavel = (ticket.agente_nome || 'Não atribuído').replace(/;/g, ',');
@@ -236,7 +236,7 @@ function exportarExcel() {
         const status = ticket.status.charAt(0).toUpperCase() + ticket.status.slice(1);
         const prioridade = ticket.prioridade.charAt(0).toUpperCase() + ticket.prioridade.slice(1);
 
-        csv += `#${numero};${dataAberturaFormatada};${horaAberturaFormatada};${titulo};${solicitante};${responsavel};${categoria};${status};${prioridade};${dataFechamento};${horaFechamento}\n`;
+        csv += `${numero};${dataAberturaFormatada};${horaAberturaFormatada};${titulo};${solicitante};${responsavel};${categoria};${status};${prioridade};${dataFechamento};${horaFechamento}\n`;
     });
 
     const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
@@ -314,10 +314,10 @@ function exportarPDF() {
             dataFechamento = dataFech.toLocaleDateString('pt-BR') + '<br>' + dataFech.toLocaleTimeString('pt-BR');
         }
 
-        const numero = String(ticket.id).padStart(5, '0');
+        const numero = numeroDemanda(ticket);
         printWindow.document.write(`
             <tr>
-                <td>#${numero}</td>
+                <td>${numero}</td>
                 <td>${dataAberturaFormatada}<br><small>${horaAberturaFormatada}</small></td>
                 <td>${sanitizeHTML(ticket.titulo)}</td>
                 <td>${sanitizeHTML(ticket.usuario_nome || 'N/A')}</td>

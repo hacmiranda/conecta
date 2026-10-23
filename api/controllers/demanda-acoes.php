@@ -13,6 +13,7 @@ require_once __DIR__ . '/../middleware/auth.php';
 require_once __DIR__ . '/../services/acesso-service.php';
 require_once __DIR__ . '/../services/auditoria-service.php';
 require_once __DIR__ . '/../services/lembrete-service.php';
+require_once __DIR__ . '/../services/protocolo-service.php';
 
 AuthMiddleware::configurarCORS(['POST']);
 
@@ -152,7 +153,7 @@ try {
         $hist_acao = 'atribuicao_supervisor';
 
         $auditoria->registrarTicket($ticket_id, $user['id'], 'agente', $agente_anterior_nome, $destino['nome']);
-        $notificar[$destino_id] = "A demanda (#" . str_pad($ticket_id, 5, '0', STR_PAD_LEFT) . ") foi atribuída a você por {$nome_ator}.";
+        $notificar[$destino_id] = "A demanda (" . ProtocoloService::rotuloPorId($db, (int) $ticket_id) . ") foi atribuída a você por {$nome_ator}.";
 
     } elseif ($acao === 'devolver') {
         $agente_anterior_nome = $responsavel_atual_nome;
@@ -173,7 +174,7 @@ try {
 
         // Notifica os gestores do setor atual da demanda (admins se o setor não tiver gestor)
         foreach (AcessoService::destinatariosInternosDoSetor($db, $ticket['setor_id'] ? (int) $ticket['setor_id'] : null, (int) $user['id']) as $dest) {
-            $notificar[$dest['id']] = "{$nome_ator} devolveu a demanda (#" . str_pad($ticket_id, 5, '0', STR_PAD_LEFT) . ") para o setor.";
+            $notificar[$dest['id']] = "{$nome_ator} devolveu a demanda (" . ProtocoloService::rotuloPorId($db, (int) $ticket_id) . ") para o setor.";
         }
 
     } elseif ($acao === 'reatribuir_colega') {
@@ -204,7 +205,7 @@ try {
         $hist_acao = 'reatribuicao_colega';
 
         $auditoria->registrarTicket($ticket_id, $user['id'], 'agente', $responsavel_atual_nome, $destino['nome']);
-        $notificar[$destino_id] = "{$nome_ator} repassou a demanda (#" . str_pad($ticket_id, 5, '0', STR_PAD_LEFT) . ") para você.";
+        $notificar[$destino_id] = "{$nome_ator} repassou a demanda (" . ProtocoloService::rotuloPorId($db, (int) $ticket_id) . ") para você.";
 
     } else { // transferir_setor
         $setor_destino_id = isset($input['setor_id']) ? (int) $input['setor_id'] : 0;
@@ -267,7 +268,7 @@ try {
         $auditoria->registrarTicket($ticket_id, $user['id'], 'setor', $setor_origem_nome, $setor_destino['nome']);
 
         foreach (AcessoService::destinatariosInternosDoSetor($db, $setor_destino_id, (int) $user['id']) as $dest) {
-            $notificar[$dest['id']] = "{$nome_ator} transferiu uma demanda (#" . str_pad($ticket_id, 5, '0', STR_PAD_LEFT) . ") para o setor {$setor_destino['nome']}.";
+            $notificar[$dest['id']] = "{$nome_ator} transferiu uma demanda (" . ProtocoloService::rotuloPorId($db, (int) $ticket_id) . ") para o setor {$setor_destino['nome']}.";
         }
     }
 

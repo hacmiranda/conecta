@@ -2,6 +2,7 @@
 require_once __DIR__ . '/acesso-service.php';
 require_once __DIR__ . '/html-sanitizer.php';
 require_once __DIR__ . '/log-service.php';
+require_once __DIR__ . '/protocolo-service.php';
 date_default_timezone_set('America/Sao_Paulo');
 
 class EmailService {
@@ -227,13 +228,13 @@ class EmailService {
             $recusa = $ticket_id ? $this->motivoRecusaComentario((int) $ticket_id, $remetente) : null;
 
             if ($ticket_id && $recusa === null) {
-                LogService::info('email-cron', 'Resposta à demanda #' . str_pad($ticket_id, 5, '0', STR_PAD_LEFT));
+                LogService::info('email-cron', 'Resposta à demanda ' . ProtocoloService::rotuloPorId($this->db, (int) $ticket_id));
                 $anexos_processados = $this->processarAnexosEmail($inbox, $email_number);
                 $this->adicionarComentario($ticket_id, $body, $remetente, $anexos_processados, $inbox, $email_number);
                 $tipo = 'comentario';
             } else {
                 if ($ticket_id) {
-                    $observacao = 'Mencionou a demanda #' . str_pad($ticket_id, 5, '0', STR_PAD_LEFT) . ', mas ' . $recusa . '; aberta demanda nova.';
+                    $observacao = 'Mencionou a demanda ' . ProtocoloService::rotuloPorId($this->db, (int) $ticket_id) . ', mas ' . $recusa . '; aberta demanda nova.';
                     $body = '<p><em>' . htmlspecialchars($observacao, ENT_QUOTES, 'UTF-8') . '</em></p>' . $body;
                     LogService::aviso('email-cron', $observacao);
                 }
@@ -466,9 +467,11 @@ class EmailService {
 
             // Criar ticket
             LogService::info('email-cron', 'Criando ticket no banco...');
-            $query = "INSERT INTO tickets (titulo, descricao, usuario_id, status, prioridade, setor_id)
-                     VALUES (:titulo, :descricao, :usuario_id, 'novo', 'normal', :setor_id)";
+            $protocolo = ProtocoloService::gerar($this->db);
+            $query = "INSERT INTO tickets (protocolo, titulo, descricao, usuario_id, status, prioridade, setor_id)
+                     VALUES (:protocolo, :titulo, :descricao, :usuario_id, 'novo', 'normal', :setor_id)";
             $stmt = $this->db->prepare($query);
+            $stmt->bindParam(':protocolo', $protocolo);
             $stmt->bindParam(':titulo', $assunto);
             $stmt->bindParam(':descricao', $corpo_limpo);
             $stmt->bindParam(':usuario_id', $usuario_id);
@@ -476,7 +479,7 @@ class EmailService {
             $stmt->execute();
 
             $ticket_id = $this->db->lastInsertId();
-            LogService::info('email-cron', 'Ticket criado com ID: #' . str_pad($ticket_id, 5, '0', STR_PAD_LEFT));
+            LogService::info('email-cron', 'Ticket criado: ' . ProtocoloService::rotulo($protocolo, (int) $ticket_id));
 
             // SLA, janela de setor e evento de abertura (com a caixa de origem, quando houver)
             $detalhe_abertura = 'via e-mail';
@@ -792,20 +795,18 @@ class EmailService {
     }
     
     private function extrairTicketId($assunto) {
-        // Buscar padrões: [#12345], #00156, ticket 12345, etc.
-        // Priorizar #00156 (5 dígitos) sobre outros padrões
-        if (preg_match('/#(\d{5})/', $assunto, $matches)) {
-            return (int)$matches[1];
+        // Protocolo único (#CRPRS2026-0001), com ou sem colchetes/RE:/espaços internos. O formato
+        // antigo (#00123, número interno de 5 dígitos) não é mais reconhecido: o sistema ainda não
+        // estava em produção quando o protocolo foi introduzido.
+        $protocolo = ProtocoloService::extrair((string) $assunto);
+        if ($protocolo === null) {
+            return null;
         }
-        // Fallback para outros padrões
-        if (preg_match('/\[#(\d+)\]|ticket\s+(\d+)/i', $assunto, $matches)) {
-            return (int)($matches[1] ?? $matches[2]);
-        }
-        return null;
+        return ProtocoloService::buscarId($this->db, $protocolo);
     }
     
     private function adicionarComentario($ticket_id, $comentario, $email, $anexos_processados = [], $inbox = null, $email_number = null) {
-        LogService::info('email-cron', 'Adicionando comentário ao ticket #' . str_pad($ticket_id, 5, '0', STR_PAD_LEFT));
+        LogService::info('email-cron', 'Adicionando comentário à demanda ' . ProtocoloService::rotuloPorId($this->db, (int) $ticket_id));
         
         // Verificar se ticket está fechado - se sim, reabrir
         $this->verificarEReabrirTicket($ticket_id);
@@ -862,7 +863,7 @@ class EmailService {
         $stmt->execute();
         
         $comentario_id = $this->db->lastInsertId();
-        LogService::info('email-cron', 'Comentário adicionado ao ticket #' . str_pad($ticket_id, 5, '0', STR_PAD_LEFT));
+        LogService::info('email-cron', 'Comentário adicionado à demanda ' . ProtocoloService::rotuloPorId($this->db, (int) $ticket_id));
 
         // Salvar todos os anexos
         foreach ($anexos_processados['validos'] as $anexo) {

@@ -71,7 +71,7 @@ try {
                      ep.processado_em, ep.tentativas,
                      se.id as setor_email_id, se.email as setor_email_endereco,
                      s.id as setor_id, s.nome as setor_nome,
-                     t.titulo as ticket_titulo
+                     t.titulo as ticket_titulo, t.protocolo as ticket_protocolo
               FROM emails_processados ep
               LEFT JOIN setor_emails se ON ep.setor_email_id = se.id
               LEFT JOIN setores s ON se.setor_id = s.id

@@ -13,6 +13,7 @@
 require_once __DIR__ . '/acesso-service.php';
 require_once __DIR__ . '/sla-service.php';
 require_once __DIR__ . '/auditoria-service.php';
+require_once __DIR__ . '/protocolo-service.php';
 
 class LembreteService {
 
@@ -39,7 +40,7 @@ class LembreteService {
     public static function dispararVencidos(PDO $db, $emailSender): array {
         $resumo = ['enviados' => 0, 'cancelados' => 0, 'erros' => 0];
 
-        $stmt = $db->query("SELECT l.*, t.titulo AS ticket_titulo, t.status AS ticket_status, t.excluido_em AS ticket_excluido,
+        $stmt = $db->query("SELECT l.*, t.titulo AS ticket_titulo, t.protocolo AS ticket_protocolo, t.status AS ticket_status, t.excluido_em AS ticket_excluido,
                                    t.setor_id AS ticket_setor_id, t.agente_id AS ticket_agente_id,
                                    u.nome AS agente_nome, u.email AS agente_email, u.ativo AS agente_ativo,
                                    u.setor_id AS agente_setor_id
@@ -103,21 +104,21 @@ class LembreteService {
      * para o responsável da demanda (ou os gestores do setor).
      */
     private static function avisar(PDO $db, $emailSender, array $lembrete): void {
-        $numero = str_pad($lembrete['ticket_id'], 5, '0', STR_PAD_LEFT);
+        $rotulo = ProtocoloService::rotulo($lembrete['ticket_protocolo'] ?? null, (int) $lembrete['ticket_id']);
         $titulo = (string) $lembrete['ticket_titulo'];
         $descricao = (string) $lembrete['descricao'];
         $quando = date('d/m/Y H:i', strtotime($lembrete['data_lembrete'] . ' ' . $lembrete['hora_lembrete']));
         $e = function ($t) { return htmlspecialchars((string) $t, ENT_QUOTES, 'UTF-8'); };
 
-        $assunto = "🔔 [Lembrete] Demanda #{$numero} - {$titulo}";
+        $assunto = "🔔 [Lembrete] Demanda {$rotulo} - {$titulo}";
         $mensagem = "
             <h2>🔔 Lembrete de Demanda</h2>
-            <p><strong>Demanda:</strong> #{$numero} - {$e($titulo)}</p>
+            <p><strong>Demanda:</strong> {$e($rotulo)} - {$e($titulo)}</p>
             <p><strong>Lembrete:</strong> {$e($descricao)}</p>
             <p><strong>Data/Hora:</strong> {$quando}</p>
             <p><a href='" . $e(rtrim((string) Environment::get('base_url'), '/') . '/frontend/index.html') . "'>Acessar o Conecta CRPRS</a></p>
         ";
-        $notifTitulo = mb_substr("🔔 Lembrete: Demanda #{$numero} - {$titulo}", 0, 255);
+        $notifTitulo = mb_substr("🔔 Lembrete: Demanda {$rotulo} - {$titulo}", 0, 255);
         $notifMsg = 'Seu lembrete agendado: ' . $descricao;
 
         if (!empty($lembrete['agente_id'])) {
