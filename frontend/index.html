@@ -23,7 +23,7 @@
     <link rel="stylesheet" href="nova_resposta.css?v=c1">
     <link rel="stylesheet" href="email-alert.css?v=c1">
     <link rel="stylesheet" href="nav-dropdown.css?v=2.c1">
-    <link rel="stylesheet" href="sidebar.css?v=5.c1">
+    <link rel="stylesheet" href="sidebar.css?v=5.c3">
     <link rel="stylesheet" href="senha-visivel.css?v=1.c1">
     <link rel="stylesheet" href="tickets-melhorias.css?v=7.c1">
     <link rel="stylesheet" href="vanguard-tooltip.css?v=c1">
@@ -122,6 +122,13 @@
                 </button>
             </div>
         </div>
+
+        <!-- Recolher/expandir a sidebar (todos os perfis; estado salvo no navegador) -->
+        <button type="button" class="sidebar-recolher" id="btn-recolher-sidebar"
+            aria-controls="app-sidebar" aria-expanded="true" aria-label="Recolher menu">
+            <span class="material-symbols-outlined nav-icon" aria-hidden="true">keyboard_double_arrow_left</span>
+            <span class="nav-label">Recolher menu</span>
+        </button>
 
         <nav class="sidebar-nav" aria-label="Menu principal">
             <ul role="list">
@@ -236,13 +243,6 @@
             </li>
             </ul>
         </nav>
-
-        <!-- Recolher/expandir a sidebar (todos os perfis; estado salvo no navegador) -->
-        <button type="button" class="sidebar-recolher" id="btn-recolher-sidebar"
-            aria-controls="app-sidebar" aria-expanded="true" aria-label="Recolher menu">
-            <span class="material-symbols-outlined nav-icon" aria-hidden="true">keyboard_double_arrow_left</span>
-            <span class="nav-label">Recolher menu</span>
-        </button>
     </aside>
 
     <div class="app-main">

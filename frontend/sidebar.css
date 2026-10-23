@@ -161,8 +161,7 @@
 
 /* --- Navegação principal --- */
 .sidebar-nav {
-    /* não encolhe: com os grupos abertos a sidebar inteira rola, e o botão
-       "Recolher menu" fica sempre depois dos itens, sem sobrepor */
+    /* não encolhe: com os grupos abertos a sidebar inteira rola */
     flex: 1 0 auto;
     min-height: 0;
     width: 100%;
@@ -334,7 +333,9 @@
     align-items: center;
     gap: 0.75rem;
     width: 100%;
-    margin-top: auto;
+    /* Fica entre as duas linhas divisórias do topo (abaixo do avatar, acima do menu);
+       a margem negativa aproxima o botão das linhas, pois a sidebar tem gap de 1.5rem */
+    margin: -0.5rem 0;
     padding: 0.625rem 1rem;
     border: 1px solid rgba(255, 255, 255, 0.15);
     border-radius: 0.5rem;
