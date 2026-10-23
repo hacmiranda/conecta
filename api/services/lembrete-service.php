@@ -14,6 +14,7 @@ require_once __DIR__ . '/acesso-service.php';
 require_once __DIR__ . '/sla-service.php';
 require_once __DIR__ . '/auditoria-service.php';
 require_once __DIR__ . '/protocolo-service.php';
+require_once __DIR__ . '/notificacao-email-service.php';
 
 class LembreteService {
 
@@ -130,9 +131,13 @@ class LembreteService {
             ]);
         }
 
+        // E-mail desligado no setor atual da demanda? O sino continua avisando de qualquer jeito.
+        $setorAtual = $lembrete['ticket_setor_id'] ? (int) $lembrete['ticket_setor_id'] : null;
+        $emailLigado = NotificacaoEmailService::ativa($db, $setorAtual, 'int_lembrete');
+
         $notif = $db->prepare("INSERT INTO notificacoes (usuario_id, titulo, mensagem, ticket_id) VALUES (?, ?, ?, ?)");
         foreach ($destinatarios as $dest) {
-            if (!empty($dest['email'])) {
+            if ($emailLigado && !empty($dest['email'])) {
                 $emailSender->enviarEmail($dest['email'], $assunto, $mensagem);
             }
             $notif->execute([$dest['id'], $notifTitulo, $notifMsg, $lembrete['ticket_id']]);

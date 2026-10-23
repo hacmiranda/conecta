@@ -3283,6 +3283,58 @@ select {
     flex-shrink: 0;
 }
 
+/* Envio de e-mails por setor (aba "Envio de E-mails" em Ativação por Setor) */
+.notif-email-aviso {
+    color: var(--neutro-600, #666);
+    font-size: 0.85rem;
+    margin-bottom: 1.25rem;
+}
+
+.notif-email-grupo {
+    margin-bottom: 1.5rem;
+}
+
+.notif-email-grupo-cabecalho {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    margin-bottom: 0.5rem;
+}
+
+.notif-email-grupo-cabecalho h4 {
+    margin: 0;
+    color: var(--vinho-700, #8b1d17);
+    font-size: 0.9rem;
+    letter-spacing: 0.03em;
+}
+
+.notif-email-grupo-acoes {
+    display: flex;
+    gap: 0.5rem;
+}
+
+.notif-email-item {
+    align-items: flex-start;
+}
+
+.notif-email-info {
+    display: flex;
+    flex-direction: column;
+    gap: 0.15rem;
+}
+
+.notif-email-quando {
+    color: var(--neutro-600, #666);
+    font-size: 0.85rem;
+}
+
+.modo-escuro .notif-email-quando,
+.modo-escuro .notif-email-aviso {
+    color: var(--neutro-200, #ccc);
+}
+
 /* Switch Toggle */
 .switch-label {
     display: flex;

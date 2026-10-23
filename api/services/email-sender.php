@@ -9,6 +9,8 @@ require_once __DIR__ . '/email-historico.php';
 require_once __DIR__ . '/email-tipografia.php';
 require_once __DIR__ . '/email-imagens.php';
 require_once __DIR__ . '/protocolo-service.php';
+require_once __DIR__ . '/notificacao-email-service.php';
+require_once __DIR__ . '/log-service.php';
 
 use PHPMailer\PHPMailer\PHPMailer;
 use PHPMailer\PHPMailer\Exception;
@@ -188,8 +190,27 @@ class EmailSender {
             $this->usarRemetenteDoSetor(null);
         }
     }
-    
+
+    /**
+     * Esse e-mail está ligado no setor atual da demanda? (NotificacaoEmailService; sem linha
+     * para o setor = ativado). Quando desligado, registra o motivo e quem chamou não envia nada.
+     */
+    private function emailAtivo(string $codigo, $ticket_id): bool {
+        $stmt = $this->db->prepare("SELECT setor_id FROM tickets WHERE id = ?");
+        $stmt->execute([(int) $ticket_id]);
+        $setorId = $stmt->fetchColumn();
+        $ativo = NotificacaoEmailService::ativa($this->db, $setorId ? (int) $setorId : null, $codigo);
+        if (!$ativo) {
+            LogService::info('email-cron', "E-mail '$codigo' não enviado: desativado no setor da demanda "
+                . ProtocoloService::rotuloPorId($this->db, (int) $ticket_id));
+        }
+        return $ativo;
+    }
+
     public function enviarEmailNovoTicket($ticket_id, $anexos_rejeitados = []) {
+        if (!$this->emailAtivo('sol_demanda_criada', $ticket_id)) {
+            return false;
+        }
         $this->prepararRemetenteDoTicket($ticket_id);
         try {
             error_log("[EMAIL-SENDER] Iniciando envio para ticket #$ticket_id");
@@ -254,6 +275,9 @@ class EmailSender {
     }
     
     public function notificarAgentesNovoTicket($ticket_id) {
+        if (!$this->emailAtivo('int_nova_demanda', $ticket_id)) {
+            return false;
+        }
         $this->usarRemetenteGlobal();
         try {
             $query = "SELECT t.*, u.nome as usuario_nome, u.email as usuario_email 
@@ -611,10 +635,11 @@ class EmailSender {
             }
 
             // Enviar para o solicitante (o resultado real do envio é devolvido)
-            $enviado = $this->enviarEmailComAnexos($dados['usuario_email'], $assunto, $html_solicitante, $anexos);
+            $enviado = $this->emailAtivo('sol_resposta_equipe', $ticket_id)
+                && $this->enviarEmailComAnexos($dados['usuario_email'], $assunto, $html_solicitante, $anexos);
 
-            // Enviar cópia se fornecido
-            if ($com_copia) {
+            // Enviar cópia se fornecido (e se o e-mail de cópia estiver ligado no setor)
+            if ($com_copia && $this->emailAtivo('sol_copia_resposta', $ticket_id)) {
                 $template_copia = $this->carregarModelo(dirname(__DIR__, 2) . '/backend/email-template-emcopia.html', (int) $ticket_id, (int) $comentario_id);
 
                 $html_copia = str_replace(
@@ -641,6 +666,9 @@ class EmailSender {
     }
     
     public function notificarNovoComentario($ticket_id, $comentario_id) {
+        if (!$this->emailAtivo('int_novo_comentario_solicitante', $ticket_id)) {
+            return false;
+        }
         $this->usarRemetenteGlobal();
         try {
             $query = "SELECT t.*, u.nome as usuario_nome, u.email as usuario_email,
@@ -717,9 +745,12 @@ class EmailSender {
 
     
     public function confirmarComentarioParaRemetente($ticket_id, $email_remetente, $anexos_rejeitados = []) {
+        if (!$this->emailAtivo('sol_comentario_recebido', $ticket_id)) {
+            return false;
+        }
         $this->prepararRemetenteDoTicket($ticket_id);
         try {
-            $query = "SELECT t.*, u.nome as usuario_nome 
+            $query = "SELECT t.*, u.nome as usuario_nome
                      FROM tickets t 
                      LEFT JOIN usuarios u ON t.usuario_id = u.id 
                      WHERE t.id = :ticket_id";
@@ -799,7 +830,8 @@ class EmailSender {
             $numero = ltrim($rotulo, '#');
 
             // Enviar para solicitante se tiver email
-            if (($ticket['email_solicitante'] ?: $ticket['usuario_email']) && strpos(($ticket['email_solicitante'] ?: $ticket['usuario_email']), '@')) {
+            if (($ticket['email_solicitante'] ?: $ticket['usuario_email']) && strpos(($ticket['email_solicitante'] ?: $ticket['usuario_email']), '@')
+                && $this->emailAtivo('sol_demanda_encerrada', $ticket_id)) {
                 $template_path = dirname(__DIR__, 2) . '/backend/email-template-fechamento.html';
                 $template = $this->carregarModelo($template_path, (int) $ticket_id);
                 
@@ -832,7 +864,7 @@ class EmailSender {
             }
             
             // Notificar agente responsável se for outro que fechou
-            if ($ticket['agente_id'] && $ticket['fechado_por'] != $ticket['agente_id']) {
+            if ($ticket['agente_id'] && $ticket['fechado_por'] != $ticket['agente_id'] && $this->emailAtivo('int_demanda_fechada_por_outro', $ticket_id)) {
                 $query_agente = "SELECT email FROM usuarios WHERE id = :id AND ativo = 1";
                 $stmt_agente = $this->db->prepare($query_agente);
                 $stmt_agente->bindParam(':id', $ticket['agente_id']);
@@ -858,6 +890,9 @@ class EmailSender {
     }
     
     public function notificarReaberturaTicket($ticket_id) {
+        if (!$this->emailAtivo('int_demanda_reaberta', $ticket_id)) {
+            return false;
+        }
         $this->usarRemetenteGlobal();
         try {
             $query = "SELECT t.*, u.nome as usuario_nome, u.email as usuario_email,
@@ -893,6 +928,9 @@ class EmailSender {
     }
     
     public function notificarReaberturaParaSolicitante($ticket_id) {
+        if (!$this->emailAtivo('sol_demanda_reaberta', $ticket_id)) {
+            return false;
+        }
         $this->prepararRemetenteDoTicket($ticket_id);
         try {
             $query = "SELECT t.*, u.nome as usuario_nome, u.email as usuario_email
@@ -955,7 +993,7 @@ class EmailSender {
             $rotulo = ProtocoloService::rotulo($ticket['protocolo'] ?? null, (int) $ticket_id);
 
             // Notificar agente
-            if ($agente['email']) {
+            if ($agente['email'] && $this->emailAtivo('int_demanda_atribuida', $ticket_id)) {
                 $msg = "👤 DEMANDA ATRIBUÍDA PARA VOCÊ\n\n";
                 $msg .= "Demanda: " . $rotulo . "\n";
                 $msg .= "Título: " . $ticket['titulo'] . "\n";
@@ -996,6 +1034,14 @@ class EmailSender {
             $rotulo = ProtocoloService::rotulo($ticket['protocolo'] ?? null, (int) $ticket_id);
             $numero = ltrim($rotulo, '#');
 
+            // A primeira resposta do SLA é marcada na atribuição em si, não no envio do e-mail
+            // (o e-mail pode estar desligado no setor e o SLA continua precisando do marco)
+            $this->registrarPrimeiraResposta($ticket_id);
+
+            if (!$this->emailAtivo('sol_primeira_resposta', $ticket_id)) {
+                return false;
+            }
+
             $template_path = dirname(__DIR__, 2) . '/backend/email-template-primeira-resposta.html';
             $template = $this->carregarModelo($template_path, (int) $ticket_id);
             $assinatura = $this->getAssinatura();
@@ -1009,14 +1055,7 @@ class EmailSender {
 
             $assunto = "🎫 [" . $rotulo . "] Primeira resposta - " . $ticket['titulo'];
             
-            $resultado = $this->enviarEmail(($ticket['email_solicitante'] ?: $ticket['usuario_email']), $assunto, $template);
-            
-            // Registrar primeira resposta no SLA
-            if ($resultado) {
-                $this->registrarPrimeiraResposta($ticket_id);
-            }
-            
-            return $resultado;
+            return $this->enviarEmail(($ticket['email_solicitante'] ?: $ticket['usuario_email']), $assunto, $template);
             
         } catch (Exception $e) {
             error_log('Erro ao enviar primeira resposta: ' . $e->getMessage());
@@ -1029,6 +1068,9 @@ class EmailSender {
      * Também altera status para 'nova_resposta'.
      */
     public function notificarComentarioEntreAgentes($ticket_id, $comentario_id, $autor_nome, $agente_responsavel_id) {
+        if (!$this->emailAtivo('int_comentario_entre_agentes', $ticket_id)) {
+            return false;
+        }
         $this->usarRemetenteGlobal();
         try {
             // Buscar dados do agente responsável

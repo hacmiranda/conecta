@@ -12,6 +12,7 @@ require_once __DIR__ . '/../services/lembrete-service.php';
 require_once __DIR__ . '/../services/catalogo-service.php';
 require_once __DIR__ . '/../services/demanda-service.php';
 require_once __DIR__ . '/../services/protocolo-service.php';
+require_once __DIR__ . '/../services/notificacao-email-service.php';
 
 AuthMiddleware::configurarCORS(['GET', 'POST', 'PUT', 'DELETE']);
 
@@ -229,6 +230,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
             $ticket['na_lixeira'] = !empty($ticket['excluido_em']);
             $ticket['acesso_historico'] = !AcessoService::podeVerTicket($user, $ticket);   // só leitura do histórico
             $ticket['somente_leitura'] = !AcessoService::podeOperarTicket($user, $ticket); // não pode alterar
+
+            // Para o formulário de comentário desabilitar "Enviar por e-mail"/"Com cópia" quando
+            // desligados no setor atual da demanda (NotificacaoEmailService)
+            $setorDaDemanda = $ticket['setor_id'] ? (int) $ticket['setor_id'] : null;
+            $ticket['email_resposta_ativo'] = NotificacaoEmailService::ativa($db, $setorDaDemanda, 'sol_resposta_equipe');
+            $ticket['email_copia_ativo'] = NotificacaoEmailService::ativa($db, $setorDaDemanda, 'sol_copia_resposta');
 
             // SLA calculado no servidor (prazo de resposta/resolução restante, só demandas abertas)
             $ticket = anexarSla([$ticket], $db)[0];

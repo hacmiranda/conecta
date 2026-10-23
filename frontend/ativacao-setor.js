@@ -58,6 +58,7 @@ function renderizarPainelConfigSetor(setores, setorInicialId) {
         <div class="tabs-container" style="margin-bottom:1rem;">
             <button type="button" class="tab-btn active" id="tab-config-status" onclick="carregarAbaConfigSetor('status')">🚦 Status</button>
             <button type="button" class="tab-btn" id="tab-config-prioridades" onclick="carregarAbaConfigSetor('prioridades')">🔥 Prioridades</button>
+            <button type="button" class="tab-btn" id="tab-config-notificacoes" onclick="carregarAbaConfigSetor('notificacoes')">🔔 Envio de E-mails</button>
         </div>
         <div id="config-setor-lista"></div>
     `;
@@ -81,6 +82,11 @@ async function carregarAbaConfigSetor(tipo) {
         return;
     }
 
+    if (tipo === 'notificacoes') {
+        carregarNotificacoesEmailSetor();
+        return;
+    }
+
     const lista = document.getElementById('config-setor-lista');
     if (!lista || !setorConfigAtual) return;
     lista.innerHTML = '<p>Carregando...</p>';
@@ -90,6 +96,84 @@ async function carregarAbaConfigSetor(tipo) {
         renderizarListaConfigSetor(itens, tipo);
     } catch (e) {
         lista.innerHTML = '<p>Erro ao carregar configuração.</p>';
+    }
+}
+
+// ==== Envio de e-mails por setor (ligar/desligar cada e-mail do sistema) ====
+
+async function carregarNotificacoesEmailSetor() {
+    const lista = document.getElementById('config-setor-lista');
+    if (!lista || !setorConfigAtual) return;
+    lista.innerHTML = '<p>Carregando...</p>';
+
+    try {
+        const dados = await Api.get(`setor-notificacoes-email.php?setor_id=${setorConfigAtual}`);
+        renderizarNotificacoesEmailSetor(dados);
+    } catch (e) {
+        lista.innerHTML = '<p>Erro ao carregar a configuração de e-mails.</p>';
+    }
+}
+
+function renderizarNotificacoesEmailSetor(dados) {
+    const lista = document.getElementById('config-setor-lista');
+    if (!lista) return;
+
+    const blocoItem = (item) => `
+        <div class="config-setor-item notif-email-item ${item.ativo ? '' : 'config-setor-item-inativo'}">
+            <div class="notif-email-info">
+                <strong>${sanitizeHTML(item.nome)}</strong>
+                <div class="notif-email-quando">${sanitizeHTML(item.quando)}</div>
+            </div>
+            <label class="switch-label">
+                <label class="switch">
+                    <input type="checkbox" ${item.ativo ? 'checked' : ''}
+                        onchange="alternarNotificacaoEmailSetor('${item.codigo}', this.checked)"
+                        aria-label="Ativar ${sanitizeHTML(item.nome)}">
+                    <span class="slider"></span>
+                </label>
+            </label>
+        </div>
+    `;
+
+    const blocoGrupo = (g) => `
+        <div class="notif-email-grupo">
+            <div class="notif-email-grupo-cabecalho">
+                <h4>${g.grupo === 'solicitante' ? '📨' : '👥'} ${sanitizeHTML(g.nome_grupo.toUpperCase())}</h4>
+                <div class="notif-email-grupo-acoes">
+                    <button type="button" class="btn-small" onclick="alternarGrupoNotificacaoEmailSetor('${g.grupo}', true)">Ativar todos</button>
+                    <button type="button" class="btn-small" onclick="alternarGrupoNotificacaoEmailSetor('${g.grupo}', false)">Desativar todos</button>
+                </div>
+            </div>
+            <div class="config-setor-itens">${g.itens.map(blocoItem).join('')}</div>
+        </div>
+    `;
+
+    lista.innerHTML = `
+        <p style="color:#666;margin-bottom:1rem;">Ative ou desative, um por um ou em bloco, cada e-mail que o sistema envia para este setor. O que estiver desligado aqui simplesmente não é enviado — a demanda continua sendo registrada normalmente.</p>
+        <p class="notif-email-aviso">⚠️ A recuperação de senha não entra nesta lista: é sempre enviada, por segurança da conta.</p>
+        ${dados.grupos.map(blocoGrupo).join('')}
+    `;
+}
+
+async function alternarNotificacaoEmailSetor(codigo, ativo) {
+    try {
+        await Api.put('setor-notificacoes-email.php', { setor_id: setorConfigAtual, codigo, ativo });
+        if (codigo === 'sol_demanda_criada' && !ativo) {
+            mostrarToast('Atenção', 'O solicitante não receberá mais o número do protocolo por e-mail ao abrir uma demanda neste setor.', 'warning');
+        }
+    } catch (e) {
+        mostrarAlert('Erro', (e.dados && e.dados.error) || 'Erro ao atualizar a configuração de e-mail');
+        carregarNotificacoesEmailSetor(); // desfaz visualmente o interruptor
+    }
+}
+
+async function alternarGrupoNotificacaoEmailSetor(grupo, ativo) {
+    try {
+        await Api.put('setor-notificacoes-email.php', { setor_id: setorConfigAtual, grupo, ativo });
+        carregarNotificacoesEmailSetor();
+        mostrarToast('Sucesso', ativo ? 'Todos os e-mails do grupo foram ativados.' : 'Todos os e-mails do grupo foram desativados.', 'success');
+    } catch (e) {
+        mostrarAlert('Erro', (e.dados && e.dados.error) || 'Erro ao atualizar a configuração de e-mail');
     }
 }
 

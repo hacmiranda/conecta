@@ -6,6 +6,7 @@ require_once __DIR__ . '/../middleware/auth.php';
 require_once __DIR__ . '/../services/acesso-service.php';
 require_once __DIR__ . '/../services/html-sanitizer.php';
 require_once __DIR__ . '/../services/protocolo-service.php';
+require_once __DIR__ . '/../services/notificacao-email-service.php';
 AuthMiddleware::configurarCORS(['POST', 'PUT', 'DELETE']);
 
 if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
@@ -127,6 +128,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         http_response_code(400);
         echo json_encode(['error' => 'A demanda está na lixeira']);
         exit;
+    }
+
+    // E-mail de resposta/cópia desligado no setor da demanda? Ignora o pedido mesmo que a tela
+    // tenha enviado enviar_email/com_copia (não confia só na tela — o interruptor já vem
+    // desabilitado nesse caso, mas a API não depende disso)
+    $setorDemanda = $ticket_comentario['setor_id'] ? (int) $ticket_comentario['setor_id'] : null;
+    if ($enviar_email && !NotificacaoEmailService::ativa($db, $setorDemanda, 'sol_resposta_equipe')) {
+        $enviar_email = false;
+        $com_copia = null;
+    } elseif (!empty($com_copia) && !NotificacaoEmailService::ativa($db, $setorDemanda, 'sol_copia_resposta')) {
+        $com_copia = null;
     }
 
     // Cópia por e-mail: endereços válidos (até 5), separados por vírgula ou ponto e vírgula

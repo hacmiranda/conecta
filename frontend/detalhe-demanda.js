@@ -492,20 +492,22 @@ function mostrarDetalhesTicket(ticket) {
                     <div class="form-group">
                         <label class="switch-label">
                             <label class="switch">
-                                <input type="checkbox" id="enviar-email" onchange="toggleCampoComCopia(); verificarAnexosEmail();">
+                                <input type="checkbox" id="enviar-email" onchange="toggleCampoComCopia(); verificarAnexosEmail();" ${ticket.email_resposta_ativo === false ? 'disabled' : ''}>
                                 <span class="slider"></span>
                             </label>
                             <span>Enviar comentário por e-mail para o solicitante</span>
                         </label>
+                        ${ticket.email_resposta_ativo === false ? '<small class="ajuda-editor">Envio de resposta por e-mail desativado neste setor.</small>' : ''}
                     </div>
                     <div class="form-group" id="campo-com-copia" style="display: none;">
                         <label class="switch-label">
                             <label class="switch">
-                                <input type="checkbox" id="toggle-com-copia" onchange="toggleCampoEmailCopia()">
+                                <input type="checkbox" id="toggle-com-copia" onchange="toggleCampoEmailCopia()" ${ticket.email_copia_ativo === false ? 'disabled' : ''}>
                                 <span class="slider"></span>
                             </label>
                             <span>Enviar cópia para outro e-mail</span>
                         </label>
+                        ${ticket.email_copia_ativo === false ? '<small class="ajuda-editor">Envio de cópia por e-mail desativado neste setor.</small>' : ''}
                     </div>
                     <div class="form-group" id="campo-email-copia" style="display: none;">
                         <label for="com-copia">E-mail para cópia:</label>

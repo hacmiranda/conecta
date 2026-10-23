@@ -169,6 +169,14 @@ The frontend polls `api/controllers/notificacoes.php` every 30 s (`notificacoes.
 ### Reminders
 `api/services/lembrete-service.php`, fired only by the cron (never by the browser). Reminders of closed/cancelled demands and directed reminders of transferred demands are cancelled (`lembretes.cancelado_em`/`cancelado_motivo`), not sent.
 
+### Per-sector e-mail on/off (23/10/2026)
+Admin (any sector) and gestor (own sector only) can turn each of the 14 system e-mails on/off per sector, in two blocks — PARA SOLICITANTES / PARA AGENTES INTERNOS — in the new "🔔 Envio de E-mails" tab of Ativação por Setor (`ativacao-setor.js`, next to Status/Prioridades). `NotificacaoEmailService` (`api/services/notificacao-email-service.php`) holds the catalog (`CATALOGO`: code → group/name/description, same texts as `mockups/README.md`) and `ativa($db, $setorId, $codigo)` (cached per request). **No row in `setor_notificacoes_email` = on** — a new sector, or a new e-mail code added later, starts fully enabled; the table only stores what was turned off. Password recovery is outside this system (no sector, always sent, security-critical).
+
+- **Where it's enforced**: `EmailSender::emailAtivo($codigo, $ticketId)` at the top of every public notification method (reads the demand's *current* sector; gated methods return `false` without sending — checked against a 50/50 pass in the backend test suite). Methods that send to two different audiences (e.g. `enviarComentarioParaSolicitante` → resposta + cópia; `notificarFechamentoTicket` → solicitante + outro agente) gate each send separately. `LembreteService::avisar()` gates only the e-mail — the bell notification (`notificacoes`) always fires. SLA's "primeira resposta" timestamp is now set in `enviarPrimeiraRespostaAoSolicitante()` *before* the gate check, so it's recorded even when the e-mail is off.
+- **Comment form**: `comentarios.php` POST re-checks `sol_resposta_equipe`/`sol_copia_resposta` for the demand's sector and silently drops `enviar_email`/`com_copia` if off (never trusts the client) — confirmed with a direct API call forcing `enviar_email=1` while the tab had it off: comment saved, nothing queued, `visivel_solicitante` came back `0`. `tickets.php` detail adds `email_resposta_ativo`/`email_copia_ativo`; `detalhe-demanda.js` disables those two switches with a "desativado neste setor" hint when `false` (defense in depth, not the only check).
+- **API**: `api/controllers/setor-notificacoes-email.php` — `GET ?setor_id=` (grouped list), `PUT {setor_id, codigo|grupo, ativo}` (one code or a whole group; upsert, `AuditoriaService` logs only actual changes, `atualizado_por`). Same access pattern as `setor-config.php` (`AuthMiddleware::verificarGestor` + `mesmoSetor`).
+- Migration 27 (`setor_notificacoes_email`, PK `setor_id, codigo`).
+
 ### File Uploads
 Attachments stored in `backend/anexos/`. Max 5 files, 20MB each. Allowed: pdf, doc, docx, txt, csv, xls, xlsx, png, jpg, jpeg.
 
