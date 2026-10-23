@@ -7,6 +7,7 @@ require_once __DIR__ . '/crypto-service.php';
 require_once __DIR__ . '/email-cabecalho.php';
 require_once __DIR__ . '/email-historico.php';
 require_once __DIR__ . '/email-tipografia.php';
+require_once __DIR__ . '/email-imagens.php';
 
 use PHPMailer\PHPMailer\PHPMailer;
 use PHPMailer\PHPMailer\Exception;
@@ -326,7 +327,7 @@ class EmailSender {
             }
             $this->mailer->addAddress($para);
             $this->mailer->Subject = $assunto;
-            $this->mailer->Body    = $html;
+            $this->mailer->Body    = EmailImagens::embutir($this->mailer, $html);
             $this->mailer->isHTML(true);
             $this->mailer->CharSet = 'UTF-8';
             
@@ -494,6 +495,7 @@ class EmailSender {
             $mail->addAddress($para);
             $mail->isHTML(true);
             $mail->Subject = $assunto;
+            $html = EmailImagens::embutir($mail, $html);
             $mail->Body    = $html;
             $mail->AltBody = strip_tags($html);
             
@@ -568,13 +570,10 @@ class EmailSender {
 
             $assunto = "🎫 [#" . str_pad($ticket_id, 5, '0', STR_PAD_LEFT) . "] Resposta da Equipe - " . $dados['titulo'];
 
-            // Remove imagens base64 inline (inseridas no editor Quill) para não "estourar" o e-mail.
-            // Imagens anexadas como arquivo continuam sendo enviadas normalmente como attachment.
-            $comentario_email = preg_replace(
-                '/<img\s[^>]*src=["\']data:[^"\']+["\'][^>]*>/i',
-                '<em style="color:#888;">[Imagem disponível no sistema]</em>',
-                $dados['comentario']
-            );
+            // Imagens coladas/inseridas no editor (base64) ficam no texto e são embutidas no e-mail
+            // na hora do envio (EmailImagens::embutir), como imagem inline — o Gmail e o Outlook não
+            // mostram <img src="data:...">.
+            $comentario_email = (string) $dados['comentario'];
             // Mesma fonte, tamanho e entrelinha em toda resposta da equipe, qualquer que seja o texto colado
             $comentario_email = EmailTipografia::padronizar($comentario_email);
 

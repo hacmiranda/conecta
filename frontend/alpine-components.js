@@ -21,11 +21,13 @@ document.addEventListener('alpine:init', () => {
                             [{ 'indent': '-1' }, { 'indent': '+1' }],
                             [{ 'size': ['small', false, 'large', 'huge'] }],
                             [{ 'color': [] }, { 'background': [] }],
-                            ['link'],
+                            ['link', 'image'],
                             ['clean']
                         ]
                     }
                 });
+                // O texto de ajuda do formulário promete colar imagens: ativa colar/arrastar/botão
+                if (typeof habilitarImagensNoEditor === 'function') habilitarImagensNoEditor(this.quillInstance);
 
                 // Atualizar o state Alpine sempre que o usúario digitar no editor
                 this.quillInstance.on('text-change', () => {

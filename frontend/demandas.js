@@ -295,6 +295,26 @@ function aplicarFiltroMeusTickets() {
     filtrarEMostrarTickets(ticketsFiltrados);
 }
 
+// Alerta "nova resposta" ao lado do título da lista de demandas
+function atualizarAlertaNovaResposta(quantidade) {
+    const botao = document.getElementById('alerta-nova-resposta');
+    if (!botao) return;
+    if (quantidade > 0) {
+        botao.textContent = '💬 ' + quantidade + (quantidade === 1 ? ' nova resposta' : ' novas respostas') + ' do solicitante';
+        botao.setAttribute('aria-label', quantidade + (quantidade === 1 ? ' demanda com nova resposta' : ' demandas com nova resposta') + '. Ativar para listar.');
+        botao.hidden = false;
+    } else {
+        botao.hidden = true;
+        botao.textContent = '';
+    }
+}
+
+// Clique no alerta: mostra só as demandas com nova resposta (mesmo filtro do botão "Nova resposta")
+function filtrarNovaResposta() {
+    const pill = document.querySelector('.filtro-pill[data-status="nova_resposta"]');
+    if (pill) aplicarFiltroPill(pill);
+}
+
 // Atualizar contadores dos pills de filtro
 function atualizarContadoresPill(tickets) {
     const contagens = { todos: tickets.length };
@@ -563,6 +583,11 @@ function mostrarTicketsNaTela(tickets) {
     document.getElementById('total-tickets-abertos').textContent = `(${totalAbertos})`;
     document.getElementById('total-meus-tickets').textContent = meusTickets > 0 ? `(${meusTickets})` : '';
 
+    // Alerta visível de nova resposta (a linha vermelha da tabela pode estar fora da tela)
+    atualizarAlertaNovaResposta(doServidor
+        ? (paginacaoServidor.contadores.nova_resposta || 0)
+        : ticketsAtuais.filter(t => t.status === 'nova_resposta').length);
+
     // Atualizar contadores dos pills
     if (doServidor) {
         ['todos', 'novo', 'em_atendimento', 'aguardando', 'nova_resposta', 'urgente'].forEach(chave => {
@@ -791,12 +816,19 @@ function limparFormularioTicket() {
     document.getElementById('titulo').value = '';
     document.getElementById('descricao').value = '';
     // Limpar editor isolado via Dispatch no Alpine (se for o formulário da main SPA)
-    const alpineNode = document.getElementById('editor-descricao');
-    if (alpineNode && alpineNode.__x) {
-        // Apenas limpamos o state no frontend form
-        // Alpine.js ou dispatch faria isso mas neste caso recarregar limpamos o innerHTML forçado
-        alpineNode.innerHTML = '<p><br></p>';
+    // O editor é um componente Alpine (Quill): usa o clearEditor() dele, que esvazia o texto, o estado
+    // e o campo oculto. (Antes procurava a propriedade __x, que só existe no Alpine 2 — o Alpine 3 em
+    // uso nunca limpava.) Sem Alpine, limpa o Quill direto.
+    const nodoEditor = document.getElementById('editor-descricao');
+    const componente = nodoEditor ? nodoEditor.closest('[x-data]') : null;
+    if (componente && window.Alpine && typeof window.Alpine.$data === 'function') {
+        window.Alpine.$data(componente).clearEditor();
+    } else if (nodoEditor) {
+        const area = nodoEditor.querySelector('.ql-editor');
+        if (area) area.innerHTML = '';
     }
+    const campoDescricao = document.getElementById('descricao');
+    if (campoDescricao) campoDescricao.value = '';
 
     // Limpar campo de categoria
     const categoriaBusca = document.getElementById('categoria-busca');

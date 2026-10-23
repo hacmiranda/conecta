@@ -1096,3 +1096,94 @@
     background: #fbbf24;
     color: #1c1302;
 }
+
+/* ----------------------------------------------------------
+   Alerta de nova resposta ao lado do título "Demandas Abertas"
+   Sempre visível no topo da lista (a linha vermelha da tabela pode ficar fora da tela).
+   ---------------------------------------------------------- */
+.tickets-titulo {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 0.75rem 1.25rem;
+}
+
+.alerta-nova-resposta {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    padding: 0.55rem 1.1rem;
+    border: 2px solid var(--laranja-500);
+    border-radius: 999px;
+    background: var(--vinho-600);
+    color: #ffffff;
+    font-family: 'Inter', sans-serif;
+    font-size: 0.95rem;
+    font-weight: 700;
+    line-height: 1.2;
+    cursor: pointer;
+    box-shadow: 0 0 0 0 rgba(167, 36, 28, 0.55);
+    animation: alerta-nova-resposta-pulso 1.8s ease-out infinite;
+}
+
+.alerta-nova-resposta[hidden] {
+    display: none;
+}
+
+.alerta-nova-resposta:hover {
+    background: var(--vinho-700);
+}
+
+.alerta-nova-resposta:focus-visible {
+    outline: 3px solid var(--neutro-900);
+    outline-offset: 2px;
+}
+
+@keyframes alerta-nova-resposta-pulso {
+    0%   { box-shadow: 0 0 0 0 rgba(167, 36, 28, 0.55); }
+    70%  { box-shadow: 0 0 0 12px rgba(167, 36, 28, 0); }
+    100% { box-shadow: 0 0 0 0 rgba(167, 36, 28, 0); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .alerta-nova-resposta {
+        animation: none;
+    }
+}
+
+/* ----------------------------------------------------------
+   Caixas de comentário e de descrição redimensionáveis (textos grandes) e imagens no texto
+   ---------------------------------------------------------- */
+.comentario,
+.ticket-detalhes .descricao-ticket {
+    resize: vertical;
+    min-height: 3.5rem;
+}
+
+.comentario img,
+.ticket-detalhes .descricao-ticket img,
+.ql-editor img {
+    max-width: 100%;
+    height: auto;
+    border-radius: 4px;
+}
+
+/* Editor de resposta e de respostas rápidas: a caixa também pode ser aumentada */
+#editor-comentario,
+#editor-macro {
+    resize: vertical;
+    overflow: auto;
+    min-height: 100px;
+    max-height: 85vh;
+}
+
+.ajuda-editor {
+    display: block;
+    margin-top: 0.25rem;
+    color: var(--neutro-600);
+    font-size: 0.8rem;
+}
+
+.modo-escuro .ajuda-editor {
+    color: var(--neutro-200);
+}

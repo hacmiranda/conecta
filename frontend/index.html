@@ -25,7 +25,7 @@
     <link rel="stylesheet" href="nav-dropdown.css?v=2.c1">
     <link rel="stylesheet" href="sidebar.css?v=5.c3">
     <link rel="stylesheet" href="senha-visivel.css?v=1.c1">
-    <link rel="stylesheet" href="tickets-melhorias.css?v=7.c4">
+    <link rel="stylesheet" href="tickets-melhorias.css?v=7.c7">
     <link rel="stylesheet" href="vanguard-tooltip.css?v=c1">
     <link rel="stylesheet" href="dashboard-redesign.css?v=c1">
     <!-- Material Symbols para ícones da tabela -->
@@ -39,7 +39,7 @@
     <!-- Configuração de deploy (base da API) -->
     <script src="app-config.js?v=2.c1"></script>
     <!-- Alpine.js - Componentização e Reatividade Leve -->
-    <script src="alpine-components.js?v=c1"></script>
+    <script src="alpine-components.js?v=c7"></script>
     <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.14.1/dist/cdn.min.js"
         integrity="sha384-l8f0VcPi/M1iHPv8egOnY/15TDwqgbOR1anMIJWvU6nLRgZVLTLSaNqi/TOoT5Fh" crossorigin="anonymous"></script>
 </head>
@@ -250,9 +250,16 @@
         <!-- Lista de Demandas -->
         <section id="tickets" class="secao active">
             <div class="tickets-header">
-                <h2 style="color: var(--laranja); font-size: 1.8rem; font-weight: bold; margin: 0;">🎫 Demandas Abertas
-                    <span id="total-tickets-abertos" style="color: var(--laranja);"></span>
-                </h2>
+                <div class="tickets-titulo">
+                    <h2 style="color: var(--laranja); font-size: 1.8rem; font-weight: bold; margin: 0;">🎫 Demandas Abertas
+                        <span id="total-tickets-abertos" style="color: var(--laranja);"></span>
+                    </h2>
+                    <!-- Aviso de nova resposta do solicitante: sempre visível ao lado do título, mesmo com muitas linhas -->
+                    <div id="alerta-nova-resposta-area" role="status" aria-live="polite">
+                        <button type="button" id="alerta-nova-resposta" class="alerta-nova-resposta" hidden
+                            onclick="filtrarNovaResposta()"></button>
+                    </div>
+                </div>
                 <div class="tickets-actions">
                     <div class="busca-avancada" style="display: flex; align-items: center; gap: 2rem;">
                         <label class="switch-label"
@@ -872,8 +879,9 @@
     <script src="dashboard.js?v=1.c1"></script>
     <script src="auditoria.js?v=1.c1"></script>
     <script src="arquivo.js?v=1.c1"></script>
-    <script src="detalhe-demanda.js?v=2.c2"></script>
-    <script src="demandas.js?v=3.c1"></script>
+    <script src="editor-imagens.js?v=3"></script>
+    <script src="detalhe-demanda.js?v=2.c7"></script>
+    <script src="demandas.js?v=3.c1.c7"></script>
     <script src="acessibilidade.js?v=1.c1"></script>
     <script src="graficos-dashboard.js?v=c1"></script>
     <script src="status-sla.js?v=3.0.c1"></script>
@@ -881,7 +889,7 @@
     <script src="lembretes.js?v=2.c1"></script>
     <script src="fluxos-email-func.js?v=c1"></script>
     <script src="horarios-sla.js?v=2.1.c1"></script>
-    <script src="macros.js?v=1.2.c2"></script>
+    <script src="macros.js?v=1.2.c7"></script>
     <script src="notificacoes.js?v=2.2.c1"></script>
     <script src="avatar.js?v=1.7.c1"></script>
     <script src="cabecalho-setor.js?v=1.0.c1"></script>

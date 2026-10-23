@@ -46,12 +46,20 @@ final class EmailHistoricoTest extends TestCase {
         $this->assertStringContainsString('Anexos: contrato.pdf', $html);
     }
 
-    public function test_remove_script_e_troca_imagem_colada(): void {
-        $msgs = [$this->mensagem(1, 'cliente', 'Maria', 'oi <script>alert(1)</script><img src="data:image/png;base64,AAAA">')];
+    public function test_remove_script_e_mantem_imagem_colada(): void {
+        $png = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==';
+        $msgs = [$this->mensagem(1, 'cliente', 'Maria', 'oi <script>alert(1)</script><img src="data:image/png;base64,' . $png . '" alt="print">')];
         $html = EmailHistorico::renderizar($this->demanda(), $msgs, 1);
         $this->assertStringNotContainsString('<script', $html);
-        $this->assertStringNotContainsString('base64', $html);
-        $this->assertStringContainsString('Imagem disponível no sistema', $html);
+        // A imagem válida fica no HTML: o EmailImagens a embute como imagem inline no envio
+        $this->assertStringContainsString('data:image/png;base64,' . $png, $html);
+    }
+
+    public function test_imagem_com_esquema_perigoso_nao_passa(): void {
+        $msgs = [$this->mensagem(1, 'cliente', 'Maria', '<img src="javascript:alert(1)"><a href="data:text/html;base64,AAAA">x</a>')];
+        $html = EmailHistorico::renderizar($this->demanda(), $msgs, 1);
+        $this->assertStringNotContainsString('javascript:', $html);
+        $this->assertStringNotContainsString('data:text/html', $html);
     }
 
     public function test_texto_do_usuario_nao_vira_marcador_do_modelo(): void {

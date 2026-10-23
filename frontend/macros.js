@@ -87,11 +87,12 @@ function abrirFormularioMacro() {
                     ['blockquote', 'code-block'],
                     [{ 'list': 'ordered' }, { 'list': 'bullet' }],
                     [{ 'color': [] }, { 'background': [] }],
-                    ['link'],
+                    ['link', 'image'],
                     ['clean']
                 ]
             }
         });
+        habilitarImagensNoEditor(window.quillMacro);
     } else {
         window.quillMacro.root.innerHTML = '';
     }

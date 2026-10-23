@@ -138,11 +138,13 @@ async function verDetalhes(ticketId) {
                         ['blockquote', 'code-block'],
                         [{ 'list': 'ordered' }, { 'list': 'bullet' }],
                         [{ 'color': [] }, { 'background': [] }],
-                        ['link'],
+                        ['link', 'image'],
                         ['clean']
                     ]
                 }
             });
+            // Imagens no corpo do comentário: botão, colar (Ctrl+V) e arrastar; a imagem vai no e-mail
+            habilitarImagensNoEditor(window.quillComentario);
 
             carregarLembretes(ticketId);
             if (typeof carregarSeletorMacros === 'function') carregarSeletorMacros();
@@ -475,6 +477,7 @@ function mostrarDetalhesTicket(ticket) {
                     </div>
                     <div class="form-group">
                         <div id="editor-comentario" style="height: 150px; background: #fff;"></div>
+                        <small class="ajuda-editor">Arraste a borda inferior para aumentar a caixa. Para incluir imagem, use o botão da barra, cole (Ctrl+V) ou arraste o arquivo.</small>
                         <input type="hidden" id="novo-comentario" required>
                     </div>
                     <div class="form-group">
@@ -1126,3 +1129,16 @@ function enviarEFecharTicket(ticketId) {
         xhr.send(formData);
     }, true);
 }
+
+// Caixas de comentário/descrição: têm altura máxima de 200 px, mas podem ser aumentadas arrastando o
+// canto inferior direito. O navegador não deixa passar do max-height, então, ao segurar o canto,
+// o limite é solto e a altura atual vira altura fixa (a partir daí o arraste cresce livremente).
+document.addEventListener('pointerdown', function (e) {
+    const caixa = e.target.closest && e.target.closest('.comentario, .ticket-detalhes .descricao-ticket');
+    if (!caixa) return;
+    const r = caixa.getBoundingClientRect();
+    if (e.clientX >= r.right - 24 && e.clientY >= r.bottom - 24) {
+        caixa.style.maxHeight = 'none';
+        caixa.style.height = r.height + 'px';
+    }
+}, true);
