@@ -579,7 +579,7 @@ function mostrarTicketsNaTela(tickets) {
 
     if (tickets.length === 0) {
         listaTickets.innerHTML = `
-            <div style="text-align:center; padding: 3rem 1rem; color: #64748b;">
+            <div style="text-align:center; padding: 3rem 1rem; color: #5f5852;">
                 <span class="material-symbols-outlined" style="font-size:3rem; opacity:0.4;">inbox</span>
                 <p style="margin-top:0.5rem; font-size:0.95rem;">Nenhuma demanda encontrada para este filtro.</p>
             </div>`;
@@ -636,7 +636,7 @@ function mostrarTicketsNaTela(tickets) {
         const iconomeLembrete = ticket.proximo_lembrete
             ? `<span class="material-symbols-outlined icone-tabela icone-lembrete-ms" data-vg-tooltip="Lembrete agendado para ${new Date(ticket.proximo_lembrete).toLocaleString('pt-BR')}." data-vg-title="LEMBRETE ATIVO" aria-label="Tem lembrete">event</span>` : '';
         const iconeMesclado = ticket.eh_mesclado > 0
-            ? `<span class="material-symbols-outlined icone-tabela" data-vg-tooltip="Esta demanda foi mesclada com outra demanda." data-vg-title="DEMANDA MESCLADA" aria-label="Mesclado" style="color:#6366f1">call_merge</span>` : '';
+            ? `<span class="material-symbols-outlined icone-tabela" data-vg-tooltip="Esta demanda foi mesclada com outra demanda." data-vg-title="DEMANDA MESCLADA" aria-label="Mesclado" style="color:#a7241c">call_merge</span>` : '';
 
         // SLA badge inline
         const slaInfo = calcularTextoSLA(ticket);

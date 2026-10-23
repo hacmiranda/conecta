@@ -9,7 +9,7 @@ function criarGraficoAgente(dados) {
             if (entry.isIntersecting) {
                 const ctx = canvas.getContext('2d');
                 const agentes = dados.por_agente || [];
-                const cores = ['#2797e1', '#c52ee7', '#39dd52', '#d7e744', '#e56b46', '#e62c45'];
+                const cores = ['#f89327', '#9bcb52', '#70ab2a', '#ffe6c7', '#d1453b', '#a7241c'];
                 const total = agentes.reduce((sum, a) => sum + parseInt(a.total), 0);
                 descreverGraficoCanvas(canvas, 'Demandas por responsável', agentes.map(a => a.nome), agentes.map(a => parseInt(a.total)));
                 const centerX = canvas.width / 2;
@@ -20,7 +20,7 @@ function criarGraficoAgente(dados) {
                 ctx.clearRect(0, 0, canvas.width, canvas.height);
 
                 function desenharBuracoRosca() {
-                    ctx.fillStyle = '#0d1117';
+                    ctx.fillStyle = '#1f1a18';
                     ctx.beginPath();
                     ctx.arc(centerX, centerY, raioInterno, 0, Math.PI * 2);
                     ctx.fill();
@@ -82,7 +82,7 @@ function criarGraficoAgente(dados) {
                             const labelX = centerX + Math.cos(labelAngulo) * (raio + 15);
                             const labelY = centerY + Math.sin(labelAngulo) * (raio + 15);
 
-                            ctx.fillStyle = '#94a3b8';
+                            ctx.fillStyle = '#ddd6cd';
                             ctx.font = 'bold 14px Arial';
 
                             const anguloGraus = (labelAngulo * 180 / Math.PI) % 360;
@@ -153,7 +153,7 @@ function criarGraficoResolucao(dados) {
                 const fechados = dados.taxa_resolucao?.fechados || 0;
                 const valores = [abertos, fechados];
                 const labels = ['Abertos', 'Fechados'];
-                const cores = ['#e56b46', '#39dd52'];
+                const cores = ['#d1453b', '#70ab2a'];
                 const totalResolucao = (abertos + fechados) || 1;
                 const maxValor = Math.max(...valores) || 1;
                 const alturaBarra = 40;
@@ -176,7 +176,7 @@ function criarGraficoResolucao(dados) {
                     const larguraFinal = barrasResolucao[i].largura;
                     const y = barrasResolucao[i].y;
 
-                    ctx.fillStyle = '#94a3b8';
+                    ctx.fillStyle = '#ddd6cd';
                     ctx.font = '14px Arial';
                     ctx.textAlign = 'right';
                     ctx.fillText(labels[i], margemEsquerda - 10, y + alturaBarra / 2 + 5);
@@ -191,7 +191,7 @@ function criarGraficoResolucao(dados) {
                         }
                         ctx.fillStyle = cores[i];
                         ctx.fillRect(margemEsquerda, y, larguraAtual, alturaBarra);
-                        ctx.fillStyle = '#94a3b8';
+                        ctx.fillStyle = '#ddd6cd';
                         ctx.font = 'bold 14px Arial';
                         ctx.textAlign = 'left';
                         ctx.fillText(valor, margemEsquerda + larguraAtual + 5, y + alturaBarra / 2 + 5);
@@ -263,7 +263,7 @@ function criarGraficoDiaSemana(dados) {
                 ctx.clearRect(0, 0, canvas.width, canvas.height);
 
                 dias.forEach((dia, i) => {
-                    ctx.fillStyle = '#94a3b8';
+                    ctx.fillStyle = '#ddd6cd';
                     ctx.font = '14px Arial';
                     ctx.textAlign = 'center';
                     const x = margemEsquerda + i * (larguraBarra + espacamento);
@@ -284,10 +284,10 @@ function criarGraficoDiaSemana(dados) {
                             clearInterval(animacao);
                         }
                         const y = yBase - alturaAtual;
-                        ctx.fillStyle = '#39dd52';
+                        ctx.fillStyle = '#70ab2a';
                         ctx.fillRect(x, y, larguraBarra, alturaAtual);
                         if (alturaAtual >= alturaFinal) {
-                            ctx.fillStyle = '#94a3b8';
+                            ctx.fillStyle = '#ddd6cd';
                             ctx.font = 'bold 14px Arial';
                             ctx.textAlign = 'center';
                             ctx.fillText(valor, x + larguraBarra / 2, y - 5);
@@ -312,7 +312,7 @@ function criarGraficoDiaSemana(dados) {
 
                     const pct = Math.round((barra.valor / totalDias) * 100);
                     CanvasTooltip.show(e,
-                        `<strong style="color:#39dd52">${barra.dia}</strong><br>` +
+                        `<strong style="color:#70ab2a">${barra.dia}</strong><br>` +
                         `Demandas: <strong>${barra.valor}</strong><br>` +
                         `Percentual: <strong>${pct}%</strong>`
                     );
@@ -346,12 +346,12 @@ function criarGraficoStatusAgente(dados) {
                     'aguardando_data': 'Aguard. Data'
                 };
                 const cores = {
-                    'novo': '#e56b46',
-                    'em_atendimento': '#2797e1',
-                    'aguardando': '#d7e744',
-                    'aguardando_resposta': '#e56b46',
-                    'aguardando_terceiros': '#c52ee7',
-                    'aguardando_data': '#39dd52'
+                    'novo': '#d1453b',
+                    'em_atendimento': '#f89327',
+                    'aguardando': '#ffe6c7',
+                    'aguardando_resposta': '#d1453b',
+                    'aguardando_terceiros': '#9bcb52',
+                    'aguardando_data': '#70ab2a'
                 };
                 const margemDireita = 140;
                 const larguraUtil = canvas.width - margemDireita;
@@ -370,12 +370,12 @@ function criarGraficoStatusAgente(dados) {
                 ctx.clearRect(0, 0, canvas.width, canvas.height);
 
                 const legenda = [
-                    { label: 'Novo',             cor: '#e56b46' },
-                    { label: 'Em Atendimento',   cor: '#2797e1' },
-                    { label: 'Aguardando',        cor: '#d7e744' },
-                    { label: 'Aguard. Resposta',  cor: '#e56b46' },
-                    { label: 'Aguard. Terceiros', cor: '#c52ee7' },
-                    { label: 'Aguard. Data',      cor: '#39dd52' }
+                    { label: 'Novo',             cor: '#d1453b' },
+                    { label: 'Em Atendimento',   cor: '#f89327' },
+                    { label: 'Aguardando',        cor: '#ffe6c7' },
+                    { label: 'Aguard. Resposta',  cor: '#d1453b' },
+                    { label: 'Aguard. Terceiros', cor: '#9bcb52' },
+                    { label: 'Aguard. Data',      cor: '#70ab2a' }
                 ];
 
                 const legendaX = canvas.width - 130;
@@ -383,7 +383,7 @@ function criarGraficoStatusAgente(dados) {
                 legenda.forEach(item => {
                     ctx.fillStyle = item.cor;
                     ctx.fillRect(legendaX, legendaY, 14, 14);
-                    ctx.fillStyle = '#94a3b8';
+                    ctx.fillStyle = '#ddd6cd';
                     ctx.font = '14px Arial';
                     ctx.textAlign = 'left';
                     ctx.fillText(item.label, legendaX + 20, legendaY + 11);
@@ -392,7 +392,7 @@ function criarGraficoStatusAgente(dados) {
 
                 agentes.forEach((agente, i) => {
                     const x = margemEsquerda + i * (larguraBarra + espacamento);
-                    ctx.fillStyle = '#94a3b8';
+                    ctx.fillStyle = '#ddd6cd';
                     ctx.font = '14px Arial';
                     ctx.textAlign = 'center';
                     const nomeAgente = agente.length > 16 ? agente.substring(0, 16) + '...' : agente;
@@ -417,7 +417,7 @@ function criarGraficoStatusAgente(dados) {
                         totalAgente += valor;
                         if (valor > 0) {
                             const altura = valor * 15;
-                            segmentos.push({ status: st, label: statusLabels[st] || st, altura, cor: cores[st] || '#6c757d', valor });
+                            segmentos.push({ status: st, label: statusLabels[st] || st, altura, cor: cores[st] || '#5f5852', valor });
                             alturaTotal += altura;
                         }
                     });
@@ -480,7 +480,7 @@ function criarGraficoStatusAgente(dados) {
                         }
 
                         if (alturaAtual >= alturaTotal) {
-                            ctx.fillStyle = '#94a3b8';
+                            ctx.fillStyle = '#ddd6cd';
                             ctx.font = 'bold 14px Arial';
                             ctx.textAlign = 'center';
                             ctx.fillText(totalAgente, x + larguraBarra / 2, yBase - alturaTotal - 5);
@@ -507,7 +507,7 @@ function criarGraficoStatusAgente(dados) {
 
                     const pct = Math.round((seg.valor / seg.totalAgente) * 100);
                     CanvasTooltip.show(e,
-                        `<strong style="color:#94a3b8">${seg.agente}</strong><br>` +
+                        `<strong style="color:#ddd6cd">${seg.agente}</strong><br>` +
                         `<span style="color:${seg.cor}">● ${seg.label}</span><br>` +
                         `Demandas: <strong>${seg.valor}</strong><br>` +
                         `Percentual: <strong>${pct}%</strong>`
@@ -538,7 +538,7 @@ function criarGraficoFunil(dados) {
                 ];
                 const totalFunil = etapas.reduce((s, e) => s + e.valor, 0) || 1;
                 const maxValor = Math.max(...etapas.map(e => e.valor)) || 1;
-                const cores = ['#2797e1', '#c52ee7', '#d7e744', '#39dd52', '#475569'];
+                const cores = ['#f89327', '#9bcb52', '#ffe6c7', '#70ab2a', '#8b837b'];
                 const alturaEtapa = 45;
                 const espacamento = 15;
                 const centerX = canvas.width / 2;
@@ -688,7 +688,7 @@ function criarGraficoDiarios30d(dados) {
                 ctx.lineTo(canvas.width - margemDir, y);
                 ctx.stroke();
                 const labelVal = Math.round((g / linhasGrade) * maxValor);
-                ctx.fillStyle = '#475569';
+                ctx.fillStyle = '#8b837b';
                 ctx.font = '14px Arial';
                 ctx.textAlign = 'right';
                 ctx.fillText(labelVal, margemEsq - 4, y + 4);
@@ -697,7 +697,7 @@ function criarGraficoDiarios30d(dados) {
             diasLabels.forEach((d, i) => {
                 if (i % 5 === 0 || i === diasLabels.length - 1) {
                     const x = margemEsq + i * passoX;
-                    ctx.fillStyle = '#475569';
+                    ctx.fillStyle = '#8b837b';
                     ctx.font = '14px Arial';
                     ctx.textAlign = 'center';
                     ctx.fillText(d.label, x, canvas.height - 4);
@@ -717,7 +717,7 @@ function criarGraficoDiarios30d(dados) {
                     ctx.lineTo(canvas.width - margemDir, y);
                     ctx.stroke();
                     const labelVal = Math.round((g / linhasGrade) * maxValor);
-                    ctx.fillStyle = '#475569';
+                    ctx.fillStyle = '#8b837b';
                     ctx.font = '14px Arial';
                     ctx.textAlign = 'right';
                     ctx.fillText(labelVal, margemEsq - 4, y + 4);
@@ -725,7 +725,7 @@ function criarGraficoDiarios30d(dados) {
                 diasLabels.forEach((d, i) => {
                     if (i % 5 === 0 || i === diasLabels.length - 1) {
                         const x = margemEsq + i * passoX;
-                        ctx.fillStyle = '#475569';
+                        ctx.fillStyle = '#8b837b';
                         ctx.font = '14px Arial';
                         ctx.textAlign = 'center';
                         ctx.fillText(d.label, x, canvas.height - 4);
@@ -740,13 +740,13 @@ function criarGraficoDiarios30d(dados) {
                 ctx.lineTo(pontos30d[limite].x, margemSup + alturaUtil);
                 ctx.closePath();
                 const gradArea = ctx.createLinearGradient(0, margemSup, 0, margemSup + alturaUtil);
-                gradArea.addColorStop(0, 'rgba(57,221,82,0.18)');
-                gradArea.addColorStop(1, 'rgba(57,221,82,0)');
+                gradArea.addColorStop(0, 'rgba(112, 171, 42,0.18)');
+                gradArea.addColorStop(1, 'rgba(112, 171, 42,0)');
                 ctx.fillStyle = gradArea;
                 ctx.fill();
 
                 ctx.beginPath();
-                ctx.strokeStyle = '#39dd52';
+                ctx.strokeStyle = '#70ab2a';
                 ctx.lineWidth = 2;
                 ctx.lineJoin = 'round';
                 pontos30d.slice(0, limite + 1).forEach((p, idx) => idx === 0 ? ctx.moveTo(p.x, p.y) : ctx.lineTo(p.x, p.y));
@@ -754,7 +754,7 @@ function criarGraficoDiarios30d(dados) {
 
                 ctx.beginPath();
                 ctx.arc(pontos30d[limite].x, pontos30d[limite].y, 3, 0, Math.PI * 2);
-                ctx.fillStyle = '#39dd52';
+                ctx.fillStyle = '#70ab2a';
                 ctx.fill();
 
                 pontoAtual += 2;
@@ -763,7 +763,7 @@ function criarGraficoDiarios30d(dados) {
                     // Mostrar valor em laranja em todos os dias com ticket > 0
                     pontos30d.forEach(p => {
                         if (p.valor > 0) {
-                            ctx.fillStyle = '#e56b46';
+                            ctx.fillStyle = '#d1453b';
                             ctx.font = 'bold 10px Inter, Arial';
                             ctx.textAlign = 'center';
                             ctx.fillText(p.valor, p.x, p.y - 6);
@@ -773,7 +773,7 @@ function criarGraficoDiarios30d(dados) {
                     const maxIdx = valores.indexOf(Math.max(...valores));
                     ctx.beginPath();
                     ctx.arc(pontos30d[maxIdx].x, pontos30d[maxIdx].y, 4, 0, Math.PI * 2);
-                    ctx.fillStyle = '#39dd52';
+                    ctx.fillStyle = '#70ab2a';
                     ctx.fill();
                 }
             }, 20);
@@ -796,8 +796,8 @@ function criarGraficoDiarios30d(dados) {
                 const pct = Math.round((closest.valor / totalDiarios) * 100);
                 const isPico = closest.valor === Math.max(...valores);
                 CanvasTooltip.show(e,
-                    `<strong style="color:#39dd52">${closest.label}</strong>` +
-                    (isPico ? ' <span style="color:#39dd52">▲ Pico</span>' : '') + `<br>` +
+                    `<strong style="color:#70ab2a">${closest.label}</strong>` +
+                    (isPico ? ' <span style="color:#70ab2a">▲ Pico</span>' : '') + `<br>` +
                     `Demandas: <strong>${closest.valor}</strong><br>` +
                     `Percentual: <strong>${pct}%</strong>`
                 );
@@ -825,13 +825,13 @@ function criarGraficoStatusMensal(dados) {
             const registros = dados.status_por_mes || [];
 
             const statusConfig = [
-                { key: 'novo',                  cor: '#e56b46', label: 'Novo' },
-                { key: 'em_atendimento',        cor: '#2797e1', label: 'Em Atend.' },
-                { key: 'aguardando_resposta',   cor: '#d7e744', label: 'Ag. Resposta' },
-                { key: 'aguardando_terceiros',  cor: '#c52ee7', label: 'Ag. Terceiros' },
-                { key: 'aguardando_data',       cor: '#39dd52', label: 'Ag. Data' },
-                { key: 'resolvido',             cor: '#39dd52', label: 'Resolvido' },
-                { key: 'encerrado',             cor: '#475569', label: 'Encerrado' },
+                { key: 'novo',                  cor: '#d1453b', label: 'Novo' },
+                { key: 'em_atendimento',        cor: '#f89327', label: 'Em Atend.' },
+                { key: 'aguardando_resposta',   cor: '#ffe6c7', label: 'Ag. Resposta' },
+                { key: 'aguardando_terceiros',  cor: '#9bcb52', label: 'Ag. Terceiros' },
+                { key: 'aguardando_data',       cor: '#70ab2a', label: 'Ag. Data' },
+                { key: 'resolvido',             cor: '#70ab2a', label: 'Resolvido' },
+                { key: 'encerrado',             cor: '#8b837b', label: 'Encerrado' },
             ];
 
             const mesesNomes = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
@@ -845,7 +845,7 @@ function criarGraficoStatusMensal(dados) {
 
             const meses = Object.keys(porMes).map(Number).sort((a, b) => a - b);
             if (meses.length === 0) {
-                ctx.fillStyle = '#475569';
+                ctx.fillStyle = '#8b837b';
                 ctx.font = '14px Arial';
                 ctx.textAlign = 'center';
                 ctx.fillText('Sem dados para o período', canvas.width / 2, canvas.height / 2);
@@ -876,7 +876,7 @@ function criarGraficoStatusMensal(dados) {
                 ctx.moveTo(margemEsq, y);
                 ctx.lineTo(canvas.width - margemDir, y);
                 ctx.stroke();
-                ctx.fillStyle = '#475569';
+                ctx.fillStyle = '#8b837b';
                 ctx.font = '14px Arial';
                 ctx.textAlign = 'right';
                 ctx.fillText(Math.round((g / 4) * maxTotal), margemEsq - 4, y + 4);
@@ -887,7 +887,7 @@ function criarGraficoStatusMensal(dados) {
             statusConfig.forEach(sc => {
                 ctx.fillStyle = sc.cor;
                 ctx.fillRect(legendaX, legendaY - 8, 8, 8);
-                ctx.fillStyle = '#475569';
+                ctx.fillStyle = '#8b837b';
                 ctx.font = '14px Arial';
                 ctx.textAlign = 'left';
                 ctx.fillText(sc.label, legendaX + 11, legendaY);
@@ -961,13 +961,13 @@ function criarGraficoStatusMensal(dados) {
                         alturaRestante -= h;
                     }
 
-                    ctx.fillStyle = '#94a3b8';
+                    ctx.fillStyle = '#ddd6cd';
                     ctx.font = '14px Arial';
                     ctx.textAlign = 'center';
                     ctx.fillText(mesesNomes[m - 1], x + larguraBarra / 2, margemSup + alturaUtil + 14);
 
                     if (alturaAtual >= alturaTotal) {
-                        ctx.fillStyle = '#94a3b8';
+                        ctx.fillStyle = '#ddd6cd';
                         ctx.font = 'bold 14px Arial';
                         ctx.textAlign = 'center';
                         ctx.fillText(totalMes, x + larguraBarra / 2, margemSup + alturaUtil - alturaTotal - 4);
@@ -992,7 +992,7 @@ function criarGraficoStatusMensal(dados) {
 
                 const pct = Math.round((seg.valor / seg.totalMes) * 100);
                 CanvasTooltip.show(e,
-                    `<strong style="color:#94a3b8">${seg.mes}</strong><br>` +
+                    `<strong style="color:#ddd6cd">${seg.mes}</strong><br>` +
                     `<span style="color:${seg.cor}">● ${seg.label}</span><br>` +
                     `Demandas: <strong>${seg.valor}</strong><br>` +
                     `Percentual: <strong>${pct}%</strong>`
@@ -1045,7 +1045,7 @@ function criarGraficoHeatmap(dados) {
 
             for (let h = 0; h < 24; h += 3) {
                 const x = margemEsq + h * larguraCelula + larguraCelula / 2;
-                ctx.fillStyle = '#475569';
+                ctx.fillStyle = '#8b837b';
                 ctx.font = '14px Arial';
                 ctx.textAlign = 'center';
                 ctx.fillText(`${String(h).padStart(2,'0')}h`, x, canvas.height - 4);
@@ -1055,7 +1055,7 @@ function criarGraficoHeatmap(dados) {
                 const diaDOW = dIdx + 1;
                 const y = margemSup + dIdx * alturaCelula;
 
-                ctx.fillStyle = '#475569';
+                ctx.fillStyle = '#8b837b';
                 ctx.font = '14px Arial';
                 ctx.textAlign = 'right';
                 ctx.fillText(diasNomes[dIdx], margemEsq - 4, y + alturaCelula / 2 + 4);
@@ -1078,7 +1078,7 @@ function criarGraficoHeatmap(dados) {
                     ctx.fillRect(x + pad, y + pad, larguraCelula - pad * 2, alturaCelula - pad * 2);
 
                     if (valor > 0 && larguraCelula >= 14) {
-                        ctx.fillStyle = intensidade > 0.5 ? '#0d1117' : '#94a3b8';
+                        ctx.fillStyle = intensidade > 0.5 ? '#1f1a18' : '#ddd6cd';
                         ctx.font = `${Math.min(14, larguraCelula - 2)}px Arial`;
                         ctx.textAlign = 'center';
                         ctx.fillText(valor, x + larguraCelula / 2, y + alturaCelula / 2 + 3);
@@ -1114,7 +1114,7 @@ function criarGraficoHeatmap(dados) {
                 const pct = Math.round((valor / totalHeatmap) * 100);
                 const horaStr = `${String(hora).padStart(2,'0')}:00`;
                 CanvasTooltip.show(e,
-                    `<strong style="color:#94a3b8">${diasNomes[dIdx]}, ${horaStr}</strong><br>` +
+                    `<strong style="color:#ddd6cd">${diasNomes[dIdx]}, ${horaStr}</strong><br>` +
                     `Demandas: <strong>${valor}</strong><br>` +
                     `Percentual: <strong>${pct}%</strong>`
                 );
@@ -1137,9 +1137,9 @@ function getCorLabel() {
     /* Dashboard é sempre dark; retorna cor clara para legibilidade */
     const dashboardAtivo = document.getElementById('dashboard')?.classList.contains('active');
     if (dashboardAtivo || document.body.classList.contains('modo-escuro')) {
-        return '#94a3b8';
+        return '#ddd6cd';
     }
-    return '#475569';
+    return '#8b837b';
 }
 
 /**
@@ -1167,19 +1167,19 @@ function criarGraficoStatus(dados) {
 
     // Cor única e dedicada para cada status — sem repetições
     const coresStatus = {
-        'novo':                  '#e56b46',
-        'aberto':                '#f59e0b',
-        'atendimento':           '#2797e1',
-        'em_atendimento':        '#2797e1',
-        'nova_resposta':         '#06b6d4',
-        'aguardando_resposta':   '#d7e744',
-        'aguardando_terceiros':  '#c52ee7',
-        'aguardando_aprovacao':  '#f97316',
-        'aguardando_data':       '#8b5cf6',
-        'resolvido':             '#39dd52',
-        'encerrado':             '#475569',
-        'cancelado':             '#e62c45',
-        'reaberto':              '#ec4899'
+        'novo':                  '#d1453b',
+        'aberto':                '#ffc27a',
+        'atendimento':           '#f89327',
+        'em_atendimento':        '#f89327',
+        'nova_resposta':         '#ffc27a',
+        'aguardando_resposta':   '#ffe6c7',
+        'aguardando_terceiros':  '#9bcb52',
+        'aguardando_aprovacao':  '#ffc27a',
+        'aguardando_data':       '#8b837b',
+        'resolvido':             '#70ab2a',
+        'encerrado':             '#8b837b',
+        'cancelado':             '#a7241c',
+        'reaberto':              '#d1453b'
     };
 
     const labelsStatus = {
@@ -1200,7 +1200,7 @@ function criarGraficoStatus(dados) {
     };
 
     // Paleta de fallback para status desconhecidos (cores distintas, sem repetição dos fixos acima)
-    const paletaFallback = ['#10b981', '#0ea5e9', '#a78bfa', '#fb7185', '#34d399', '#facc15'];
+    const paletaFallback = ['#70ab2a', '#a7241c', '#9bcb52', '#d1453b', '#9bcb52', '#ffe6c7'];
 
     const statusOrdenados = Object.keys(dados.por_status || {}).filter(s => dados.por_status[s] > 0);
     const valores = statusOrdenados.map(s => parseInt(dados.por_status[s]));
@@ -1216,7 +1216,7 @@ function criarGraficoStatus(dados) {
         while (fallbackIdx < paletaFallback.length && coresUsadas.has(paletaFallback[fallbackIdx])) {
             fallbackIdx++;
         }
-        const cor = paletaFallback[fallbackIdx] || '#6c757d';
+        const cor = paletaFallback[fallbackIdx] || '#5f5852';
         coresUsadas.add(cor);
         fallbackIdx++;
         return cor;
@@ -1250,7 +1250,7 @@ function criarGraficoStatus(dados) {
 
     // Buraco central da rosca
     function desenharBuraco() {
-        ctx.fillStyle = '#0d1117';
+        ctx.fillStyle = '#1f1a18';
         ctx.beginPath();
         ctx.arc(centerX, centerY, raioInterno, 0, Math.PI * 2);
         ctx.fill();
@@ -1258,13 +1258,13 @@ function criarGraficoStatus(dados) {
 
     // Total no centro
     function desenharCentro() {
-        ctx.fillStyle = '#94a3b8';
+        ctx.fillStyle = '#ddd6cd';
         ctx.font = 'bold 15px Inter, Arial';
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
         ctx.fillText(total, centerX, centerY - 6);
         ctx.font = '9px Inter, Arial';
-        ctx.fillStyle = '#475569';
+        ctx.fillStyle = '#8b837b';
         ctx.fillText('demandas', centerX, centerY + 9);
         ctx.textBaseline = 'alphabetic';
     }
@@ -1284,7 +1284,7 @@ function criarGraficoStatus(dados) {
             ctx.fillRect(legendaX, ly - 6, 10, 10);
 
             // Nome do status
-            ctx.fillStyle = '#94a3b8';
+            ctx.fillStyle = '#ddd6cd';
             ctx.font = '12px Inter, Arial';
             ctx.textAlign = 'left';
             ctx.textBaseline = 'middle';
@@ -1292,7 +1292,7 @@ function criarGraficoStatus(dados) {
 
             // Valor + percentual logo após o nome
             const larguraNome = ctx.measureText(f.label).width;
-            ctx.fillStyle = '#cbd5e1';
+            ctx.fillStyle = '#ddd6cd';
             ctx.font = 'bold 12px Inter, Arial';
             ctx.fillText(`${f.valor} (${pct}%)`, legendaX + 14 + larguraNome + 5, ly);
 
@@ -1391,10 +1391,10 @@ function criarGraficoPrioridade(dados) {
 
     const ctx = canvas.getContext('2d');
     const cores = {
-        'baixa': '#475569',
-        'normal': '#39dd52',
-        'alta': '#e56b46',
-        'urgente': '#e62c45'
+        'baixa': '#8b837b',
+        'normal': '#70ab2a',
+        'alta': '#d1453b',
+        'urgente': '#a7241c'
     };
 
     const prioridades = ['urgente', 'alta', 'normal', 'baixa'];
@@ -1537,10 +1537,10 @@ function criarGraficoMensal(dados) {
                     const ultimoI = Math.min(pontosVisiveis, valores.length - 1);
                     ctx.lineTo(margemEsquerda + ultimoI * stepX, baseY);
                     ctx.closePath();
-                    ctx.fillStyle = 'rgba(57, 221, 82, 0.07)';
+                    ctx.fillStyle = 'rgba(112, 171, 42, 0.07)';
                     ctx.fill();
 
-                    ctx.strokeStyle = '#39dd52';
+                    ctx.strokeStyle = '#70ab2a';
                     ctx.lineWidth = 2.5;
                     ctx.beginPath();
                     valores.forEach((valor, i) => {
@@ -1557,13 +1557,13 @@ function criarGraficoMensal(dados) {
                         if (i <= pontosVisiveis) {
                             const x = margemEsquerda + i * stepX;
                             const y = canvas.height - 40 - (valor / maxValor) * (canvas.height - 60);
-                            ctx.fillStyle = '#39dd52';
+                            ctx.fillStyle = '#70ab2a';
                             ctx.beginPath();
                             ctx.arc(x, y, 4, 0, Math.PI * 2);
                             ctx.fill();
                             // Valor em laranja acima do ponto quando > 0
                             if (valor > 0) {
-                                ctx.fillStyle = '#e56b46';
+                                ctx.fillStyle = '#d1453b';
                                 ctx.font = 'bold 11px Inter, Arial';
                                 ctx.textAlign = 'center';
                                 ctx.fillText(valor, x, y - 8);
@@ -1597,7 +1597,7 @@ function criarGraficoMensal(dados) {
 
                     const pct = Math.round((closest.valor / totalMensal) * 100);
                     CanvasTooltip.show(e,
-                        `<strong style="color:#39dd52">${closest.mes}</strong><br>` +
+                        `<strong style="color:#70ab2a">${closest.mes}</strong><br>` +
                         `Demandas: <strong>${closest.valor}</strong><br>` +
                         `Percentual: <strong>${pct}%</strong>`
                     );

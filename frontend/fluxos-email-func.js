@@ -6,7 +6,7 @@ function mostrarFluxosEmail() {
     const content = document.getElementById('ajuda-content');
     content.innerHTML = `
         <div class="ajuda-container" style="animation: fadeInUp 0.4s ease-out;">
-            <div style="background: linear-gradient(135deg, #5a6c7d 0%, #3d4f5d 100%); color: white; padding: 2rem; border-radius: 12px; margin-bottom: 2rem; box-shadow: 0 4px 15px rgba(0,0,0,0.1);">
+            <div style="background: linear-gradient(135deg, #5f5852 0%, #2b2523 100%); color: white; padding: 2rem; border-radius: 12px; margin-bottom: 2rem; box-shadow: 0 4px 15px rgba(0,0,0,0.1);">
                 <h3 style="margin: 0; font-size: 1.8rem; display: flex; align-items: center; gap: 0.5rem;">
                     <span style="font-size: 2rem;">📧</span>
                     Lógica de Envio de E-mails do Sistema
@@ -16,12 +16,12 @@ function mostrarFluxosEmail() {
             
             <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 1.5rem;">
                 <div class="email-card">
-                    <div class="email-card-header" style="background: #506C7E;">
+                    <div class="email-card-header" style="background: #5f5852;">
                         <span class="email-icon">🎫</span>
                         <h4>1. Nova Demanda Criada</h4>
                     </div>
                     <div class="email-card-body">
-                        <div class="email-badge" style="background: #e3f2fd; color: #1976d2; margin-bottom: 1rem;">📧 Envio 1 de 2</div>
+                        <div class="email-badge" style="background: #fbeceb; color: #a7241c; margin-bottom: 1rem;">📧 Envio 1 de 2</div>
                         <div class="email-item">
                             <div class="email-label">Para:</div>
                             <div class="email-value">Solicitante (usuário que criou)</div>
@@ -34,8 +34,8 @@ function mostrarFluxosEmail() {
                             <div class="email-label">Quando:</div>
                             <div class="email-value">Demanda criada via interface</div>
                         </div>
-                        <div class="email-divider" style="background: linear-gradient(to right, #1976d2, transparent); height: 2px;"></div>
-                        <div class="email-badge" style="background: #e3f2fd; color: #1976d2; margin-bottom: 1rem;">📧 Envio 2 de 2</div>
+                        <div class="email-divider" style="background: linear-gradient(to right, #a7241c, transparent); height: 2px;"></div>
+                        <div class="email-badge" style="background: #fbeceb; color: #a7241c; margin-bottom: 1rem;">📧 Envio 2 de 2</div>
                         <div class="email-item">
                             <div class="email-label">Para:</div>
                             <div class="email-value">Gestores do setor da demanda (ou administradores, se o setor não tiver gestor)</div>
@@ -48,7 +48,7 @@ function mostrarFluxosEmail() {
                 </div>
                 
                 <div class="email-card">
-                    <div class="email-card-header" style="background: #506C7E;">
+                    <div class="email-card-header" style="background: #5f5852;">
                         <span class="email-icon">💬</span>
                         <h4>2. Comentário Adicionado pela Equipe</h4>
                     </div>
@@ -73,7 +73,7 @@ function mostrarFluxosEmail() {
                 </div>
                 
                 <div class="email-card">
-                    <div class="email-card-header" style="background: #506C7E;">
+                    <div class="email-card-header" style="background: #5f5852;">
                         <span class="email-icon">📨</span>
                         <h4>3. Comentário Recebido por Email</h4>
                     </div>
@@ -89,7 +89,7 @@ function mostrarFluxosEmail() {
                             <div class="email-label">Assunto:</div>
                             <div class="email-value">🎫 [#00123] Novo comentário - [Título]</div>
                         </div>
-                        <div class="email-divider" style="background: linear-gradient(to right, #1976d2, transparent); height: 2px;"></div>
+                        <div class="email-divider" style="background: linear-gradient(to right, #a7241c, transparent); height: 2px;"></div>
                         <div class="email-badge" style="background: #fff3cd; color: #f57c00; margin-bottom: 1rem;">📧 Email adicional de confirmação</div>
                         <div class="email-item">
                             <div class="email-label">Para:</div>
@@ -103,7 +103,7 @@ function mostrarFluxosEmail() {
                 </div>
                 
                 <div class="email-card">
-                    <div class="email-card-header" style="background: #506C7E;">
+                    <div class="email-card-header" style="background: #5f5852;">
                         <span class="email-icon">👤</span>
                         <h4>4. Demanda Atribuída</h4>
                     </div>
@@ -116,7 +116,7 @@ function mostrarFluxosEmail() {
                             <div class="email-label">Assunto:</div>
                             <div class="email-value">👤 Demanda #00123 atribuída para você</div>
                         </div>
-                        <div class="email-divider" style="background: linear-gradient(to right, #1976d2, transparent); height: 2px;"></div>
+                        <div class="email-divider" style="background: linear-gradient(to right, #a7241c, transparent); height: 2px;"></div>
                         <div class="email-badge" style="background: #fff3cd; color: #f57c00; margin-bottom: 1rem;">⭐ Email adicional ao solicitante</div>
                         <div class="email-item">
                             <div class="email-label">Para:</div>
@@ -135,7 +135,7 @@ function mostrarFluxosEmail() {
                 </div>
                 
                 <div class="email-card">
-                    <div class="email-card-header" style="background: #506C7E;">
+                    <div class="email-card-header" style="background: #5f5852;">
                         <span class="email-icon">✅</span>
                         <h4>5. Demanda Fechada</h4>
                     </div>
@@ -148,7 +148,7 @@ function mostrarFluxosEmail() {
                             <div class="email-label">Assunto:</div>
                             <div class="email-value">✅ [#00123] Demanda fechada - [Título]</div>
                         </div>
-                        <div class="email-divider" style="background: linear-gradient(to right, #1976d2, transparent); height: 2px;"></div>
+                        <div class="email-divider" style="background: linear-gradient(to right, #a7241c, transparent); height: 2px;"></div>
                         <div class="email-badge" style="background: #ffebee; color: #c62828; margin-bottom: 1rem;">📧 Email adicional (condicional)</div>
                         <div class="email-item">
                             <div class="email-label">Para:</div>
@@ -162,7 +162,7 @@ function mostrarFluxosEmail() {
                 </div>
                 
                 <div class="email-card">
-                    <div class="email-card-header" style="background: #506C7E;">
+                    <div class="email-card-header" style="background: #5f5852;">
                         <span class="email-icon">🔄</span>
                         <h4>6. Demanda Reaberta</h4>
                     </div>
@@ -186,24 +186,24 @@ function mostrarFluxosEmail() {
                 </div>
             </div>
             
-            <div class="email-section" style="background: #f8f9fa; padding: 1.5rem; border-radius: 12px; margin-top: 2rem; border-left: 4px solid #6c757d;">
+            <div class="email-section" style="background: #f7f4f0; padding: 1.5rem; border-radius: 12px; margin-top: 2rem; border-left: 4px solid #5f5852;">
                 <h4 style="color: #495057; margin-top: 0; display: flex; align-items: center; gap: 0.5rem;">
                     <span style="font-size: 1.5rem;">📄</span>
                     Formatos de Email
                 </h4>
                 <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
-                    <div class="email-format-box" style="background: white; padding: 1rem; border-radius: 8px; border: 1px solid #dee2e6;">
+                    <div class="email-format-box" style="background: white; padding: 1rem; border-radius: 8px; border: 1px solid #ddd6cd;">
                         <div style="font-weight: 600; color: #495057; margin-bottom: 0.5rem;">👥 Equipe do setor (gestores e operadores)</div>
-                        <div style="color: #6c757d; font-size: 0.9rem;">Recebem emails em <strong>texto simples</strong></div>
+                        <div style="color: #5f5852; font-size: 0.9rem;">Recebem emails em <strong>texto simples</strong></div>
                     </div>
-                    <div class="email-format-box" style="background: white; padding: 1rem; border-radius: 8px; border: 1px solid #dee2e6;">
+                    <div class="email-format-box" style="background: white; padding: 1rem; border-radius: 8px; border: 1px solid #ddd6cd;">
                         <div style="font-weight: 600; color: #495057; margin-bottom: 0.5rem;">👤 Solicitantes</div>
-                        <div style="color: #6c757d; font-size: 0.9rem;">Recebem emails com <strong>templates HTML</strong></div>
+                        <div style="color: #5f5852; font-size: 0.9rem;">Recebem emails com <strong>templates HTML</strong></div>
                     </div>
                 </div>
             </div>
             
-            <div class="email-section" style="background: #f8f9fa; padding: 1.5rem; border-radius: 12px; margin-top: 1.5rem; border-left: 4px solid #17a2b8;">
+            <div class="email-section" style="background: #f7f4f0; padding: 1.5rem; border-radius: 12px; margin-top: 1.5rem; border-left: 4px solid #17a2b8;">
                 <h4 style="color: #495057; margin-top: 0; display: flex; align-items: center; gap: 0.5rem;">
                     <span style="font-size: 1.5rem;">📋</span>
                     Templates HTML Utilizados
@@ -211,40 +211,40 @@ function mostrarFluxosEmail() {
                 <div style="display: grid; gap: 0.75rem;">
                     <div class="template-box" style="background: white; padding: 1rem; border-radius: 8px; border-left: 3px solid #28a745;">
                         <div style="font-weight: 600; color: #495057; margin-bottom: 0.25rem;">email-template.html</div>
-                        <div style="color: #6c757d; font-size: 0.85rem; margin-bottom: 0.25rem;">Confirmação de criação de demanda</div>
+                        <div style="color: #5f5852; font-size: 0.85rem; margin-bottom: 0.25rem;">Confirmação de criação de demanda</div>
                         <div style="color: #868e96; font-size: 0.8rem; font-family: monospace;">📁 backend/email-template.html</div>
                     </div>
-                    <div class="template-box" style="background: white; padding: 1rem; border-radius: 8px; border-left: 3px solid #007bff;">
+                    <div class="template-box" style="background: white; padding: 1rem; border-radius: 8px; border-left: 3px solid #a7241c;">
                         <div style="font-weight: 600; color: #495057; margin-bottom: 0.25rem;">email-template-resposta.html</div>
-                        <div style="color: #6c757d; font-size: 0.85rem; margin-bottom: 0.25rem;">Resposta da equipe ao solicitante</div>
+                        <div style="color: #5f5852; font-size: 0.85rem; margin-bottom: 0.25rem;">Resposta da equipe ao solicitante</div>
                         <div style="color: #868e96; font-size: 0.8rem; font-family: monospace;">📁 backend/email-template-resposta.html</div>
                     </div>
                     <div class="template-box" style="background: white; padding: 1rem; border-radius: 8px; border-left: 3px solid #ffc107;">
                         <div style="font-weight: 600; color: #495057; margin-bottom: 0.25rem;">email-template-comentario.html</div>
-                        <div style="color: #6c757d; font-size: 0.85rem; margin-bottom: 0.25rem;">Confirmação de comentário recebido por email</div>
+                        <div style="color: #5f5852; font-size: 0.85rem; margin-bottom: 0.25rem;">Confirmação de comentário recebido por email</div>
                         <div style="color: #868e96; font-size: 0.8rem; font-family: monospace;">📁 backend/email-template-comentario.html</div>
                     </div>
-                    <div class="template-box" style="background: white; padding: 1rem; border-radius: 8px; border-left: 3px solid #6f42c1;">
+                    <div class="template-box" style="background: white; padding: 1rem; border-radius: 8px; border-left: 3px solid #8b1d17;">
                         <div style="font-weight: 600; color: #495057; margin-bottom: 0.25rem;">email-template-emcopia.html</div>
-                        <div style="color: #6c757d; font-size: 0.85rem; margin-bottom: 0.25rem;">Cópia de resposta para terceiros</div>
+                        <div style="color: #5f5852; font-size: 0.85rem; margin-bottom: 0.25rem;">Cópia de resposta para terceiros</div>
                         <div style="color: #868e96; font-size: 0.8rem; font-family: monospace;">📁 backend/email-template-emcopia.html</div>
                     </div>
                     <div class="template-box" style="background: white; padding: 1rem; border-radius: 8px; border-left: 3px solid #dc3545;">
                         <div style="font-weight: 600; color: #495057; margin-bottom: 0.25rem;">email-template-fechamento.html</div>
-                        <div style="color: #6c757d; font-size: 0.85rem; margin-bottom: 0.25rem;">Notificação de demanda fechada</div>
+                        <div style="color: #5f5852; font-size: 0.85rem; margin-bottom: 0.25rem;">Notificação de demanda fechada</div>
                         <div style="color: #868e96; font-size: 0.8rem; font-family: monospace;">📁 backend/email-template-fechamento.html</div>
                     </div>
                     <div class="template-box" style="background: white; padding: 1rem; border-radius: 8px; border-left: 3px solid #fd7e14;">
                         <div style="font-weight: 600; color: #495057; margin-bottom: 0.25rem;">email-template-primeira-resposta.html</div>
-                        <div style="color: #6c757d; font-size: 0.85rem; margin-bottom: 0.25rem;">Primeira atribuição da demanda ao solicitante</div>
+                        <div style="color: #5f5852; font-size: 0.85rem; margin-bottom: 0.25rem;">Primeira atribuição da demanda ao solicitante</div>
                         <div style="color: #868e96; font-size: 0.8rem; font-family: monospace;">📁 backend/email-template-primeira-resposta.html</div>
                     </div>
                 </div>
             </div>
             
             <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; margin-top: 2rem;">
-                <div class="info-box" style="background: linear-gradient(135deg, #e3f2fd 0%, #bbdefb 100%); border-left: 4px solid #2196f3;">
-                    <h4 style="color: #1565c0; margin-top: 0; display: flex; align-items: center; gap: 0.5rem;">
+                <div class="info-box" style="background: linear-gradient(135deg, #fbeceb 0%, #f5d3d0 100%); border-left: 4px solid #a7241c;">
+                    <h4 style="color: #a7241c; margin-top: 0; display: flex; align-items: center; gap: 0.5rem;">
                         <span style="font-size: 1.5rem;">🔔</span>
                         Indicadores Visuais
                     </h4>

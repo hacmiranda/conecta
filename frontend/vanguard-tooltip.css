@@ -22,9 +22,9 @@
     z-index: 9999;
     width: max-content;
     max-width: 280px;
-    background: #0f1115;
+    background: #1f1a18;
     /* Graphite Profundo (Sem Glassmorphism) */
-    color: #f8fafc;
+    color: var(--neutro-50);
     padding: 14px 18px;
     border-radius: 2px 12px 12px 12px;
     /* Tensão Assimétrica no shape */
@@ -90,7 +90,7 @@
     font-weight: 700;
     text-transform: uppercase;
     letter-spacing: 0.08em;
-    color: #94a3b8;
+    color: #ddd6cd;
 }
 
 /* Corpo do Texto de Leitura Rápida */
@@ -98,7 +98,7 @@
     font-family: 'Inter', system-ui, sans-serif;
     font-size: 0.8rem;
     line-height: 1.6;
-    color: #e2e8f0;
+    color: var(--neutro-200);
     overflow-wrap: break-word;
 }
 
@@ -111,7 +111,7 @@
     /* Quebra de simetria (Muda de apontador central para canto) */
     border-width: 6px 6px 0;
     border-style: solid;
-    border-color: #0f1115 transparent transparent transparent;
+    border-color: #1f1a18 transparent transparent transparent;
 }
 
 /* Adaptação se o tooltip for virado para cima */
@@ -119,7 +119,7 @@
     bottom: auto;
     top: -6px;
     border-width: 0 6px 6px;
-    border-color: transparent transparent #0f1115 transparent;
+    border-color: transparent transparent #1f1a18 transparent;
 }
 
 /* Respeito à Acessibilidade (Prevenção de Labirintite Digital) */

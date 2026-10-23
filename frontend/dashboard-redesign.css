@@ -5,28 +5,28 @@
 
 /* === PALETA CROMÁTICA LOCAL (CORES.md) === */
 #dashboard {
-    --dr-bg:       #07090f;
-    --dr-surface:  #0d1117;
-    --dr-surf-2:   #0f1521;
+    --dr-bg:       #171211;
+    --dr-surface:  #1f1a18;
+    --dr-surf-2:   #2b2523;
     --dr-border:   rgba(255, 255, 255, 0.065);
-    --dr-text-1:   #f1f5f9;
-    --dr-text-2:   #94a3b8;
-    --dr-text-3:   #475569;
-    --dr-cyan:     #2797e1;  /* azul petróleo — destaque principal */
-    --dr-purple:   #c52ee7;  /* magenta vibrante */
-    --dr-lime:     #39dd52;  /* verde */
-    --dr-magenta:  #d7e744;  /* limão */
-    --dr-orange:   #e56b46;  /* laranja */
-    --dr-blue:     #2797e1;  /* azul petróleo */
-    --dr-red:      #e62c45;  /* vermelho */
+    --dr-text-1:   #f7f4f0;
+    --dr-text-2:   #ddd6cd;
+    --dr-text-3:   #8b837b;
+    --dr-cyan:     #f89327;  /* azul petróleo — destaque principal */
+    --dr-purple:   #9bcb52;  /* magenta vibrante */
+    --dr-lime:     #70ab2a;  /* verde */
+    --dr-magenta:  #ffe6c7;  /* limão */
+    --dr-orange:   #d1453b;  /* laranja */
+    --dr-blue:     #f89327;  /* azul petróleo */
+    --dr-red:      #a7241c;  /* vermelho */
 }
 
 /* === SEÇÃO SEMPRE ESCURA === */
 #dashboard {
     background:
-        radial-gradient(ellipse 800px 550px at 5% 15%,  rgba(39, 151, 225, 0.022) 0%, transparent 70%),
-        radial-gradient(ellipse 700px 500px at 95% 85%, rgba(197, 46, 231, 0.028) 0%, transparent 70%),
-        #07090f;
+        radial-gradient(ellipse 800px 550px at 5% 15%,  rgba(248, 147, 39, 0.022) 0%, transparent 70%),
+        radial-gradient(ellipse 700px 500px at 95% 85%, rgba(155, 203, 82, 0.028) 0%, transparent 70%),
+        #171211;
     padding: 2rem 2.5rem 3rem;
     margin: 0 -20px 0;
     position: relative;
@@ -34,7 +34,7 @@
 
 /* Garante fundo escuro mesmo durante o carregamento inicial */
 #dashboard-content {
-    background: #07090f;
+    background: #171211;
     min-height: 100px;
 }
 
@@ -134,7 +134,7 @@
     left: 0;
     right: 0;
     height: 2px !important;
-    background: linear-gradient(90deg, var(--dr-cyan) 0%, rgba(197, 46, 231, 0.45) 55%, transparent 100%) !important;
+    background: linear-gradient(90deg, var(--dr-cyan) 0%, rgba(155, 203, 82, 0.45) 55%, transparent 100%) !important;
     border-radius: 14px 14px 0 0;
 }
 
@@ -143,9 +143,9 @@
     transform: translateY(-3px);
     box-shadow:
         0 10px 42px rgba(0, 0, 0, 0.55),
-        0 0 26px rgba(39, 151, 225, 0.055),
+        0 0 26px rgba(248, 147, 39, 0.055),
         0 1px 0 rgba(255, 255, 255, 0.04) inset !important;
-    border-color: rgba(39, 151, 225, 0.13) !important;
+    border-color: rgba(248, 147, 39, 0.13) !important;
 }
 
 /* === TÍTULOS DOS CARDS === */
@@ -182,7 +182,7 @@
 #dashboard .info-icon:hover {
     color: var(--dr-cyan) !important;
     opacity: 1;
-    text-shadow: 0 0 10px rgba(0, 229, 255, 0.55);
+    text-shadow: 0 0 10px rgba(248, 147, 39, 0.55);
     transform: scale(1.22) !important;
 }
 
@@ -193,7 +193,7 @@
     color: var(--dr-cyan) !important;
     letter-spacing: -0.04em;
     line-height: 1.1;
-    text-shadow: 0 0 22px rgba(39, 151, 225, 0.22);
+    text-shadow: 0 0 22px rgba(248, 147, 39, 0.22);
 }
 
 /* === SUBTÍTULO === */
@@ -207,7 +207,7 @@
 
 /* === CAPTION === */
 #dashboard .text-caption {
-    color: #2d3748;
+    color: var(--neutro-800);
     font-size: 0.68rem;
 }
 
@@ -218,7 +218,7 @@
 /* Card 1 — Total de Tickets — Azul Petróleo */
 #dashboard .dashboard-grid.kpi-row-5:first-child .dashboard-card:nth-child(1) .dashboard-number {
     color: var(--dr-cyan) !important;
-    text-shadow: 0 0 22px rgba(39, 151, 225, 0.25);
+    text-shadow: 0 0 22px rgba(248, 147, 39, 0.25);
 }
 #dashboard .dashboard-grid.kpi-row-5:first-child .dashboard-card:nth-child(1)::before {
     background: linear-gradient(90deg, var(--dr-cyan) 0%, transparent 100%) !important;
@@ -226,14 +226,14 @@
 #dashboard .dashboard-grid.kpi-row-5:first-child .dashboard-card:nth-child(1):hover {
     box-shadow:
         0 10px 42px rgba(0, 0, 0, 0.55),
-        0 0 28px rgba(39, 151, 225, 0.08),
+        0 0 28px rgba(248, 147, 39, 0.08),
         0 1px 0 rgba(255, 255, 255, 0.04) inset !important;
 }
 
 /* Card 2 — Encerrados — Verde */
 #dashboard .dashboard-grid.kpi-row-5:first-child .dashboard-card:nth-child(2) .dashboard-number {
     color: var(--dr-lime) !important;
-    text-shadow: 0 0 22px rgba(57, 221, 82, 0.25);
+    text-shadow: 0 0 22px rgba(112, 171, 42, 0.25);
 }
 #dashboard .dashboard-grid.kpi-row-5:first-child .dashboard-card:nth-child(2)::before {
     background: linear-gradient(90deg, var(--dr-lime) 0%, transparent 100%) !important;
@@ -241,14 +241,14 @@
 #dashboard .dashboard-grid.kpi-row-5:first-child .dashboard-card:nth-child(2):hover {
     box-shadow:
         0 10px 42px rgba(0, 0, 0, 0.55),
-        0 0 28px rgba(57, 221, 82, 0.07),
+        0 0 28px rgba(112, 171, 42, 0.07),
         0 1px 0 rgba(255, 255, 255, 0.04) inset !important;
 }
 
 /* Card 3 — Ativos — Laranja */
 #dashboard .dashboard-grid.kpi-row-5:first-child .dashboard-card:nth-child(3) .dashboard-number {
     color: var(--dr-orange) !important;
-    text-shadow: 0 0 22px rgba(229, 107, 70, 0.25);
+    text-shadow: 0 0 22px rgba(209, 69, 59, 0.25);
 }
 #dashboard .dashboard-grid.kpi-row-5:first-child .dashboard-card:nth-child(3)::before {
     background: linear-gradient(90deg, var(--dr-orange) 0%, transparent 100%) !important;
@@ -256,14 +256,14 @@
 #dashboard .dashboard-grid.kpi-row-5:first-child .dashboard-card:nth-child(3):hover {
     box-shadow:
         0 10px 42px rgba(0, 0, 0, 0.55),
-        0 0 28px rgba(229, 107, 70, 0.08),
+        0 0 28px rgba(209, 69, 59, 0.08),
         0 1px 0 rgba(255, 255, 255, 0.04) inset !important;
 }
 
 /* Card 4 — Taxa de Conclusão — Magenta */
 #dashboard .dashboard-grid.kpi-row-5:first-child .dashboard-card:nth-child(4) .dashboard-number {
     color: var(--dr-purple) !important;
-    text-shadow: 0 0 22px rgba(197, 46, 231, 0.28);
+    text-shadow: 0 0 22px rgba(155, 203, 82, 0.28);
 }
 #dashboard .dashboard-grid.kpi-row-5:first-child .dashboard-card:nth-child(4)::before {
     background: linear-gradient(90deg, var(--dr-purple) 0%, transparent 100%) !important;
@@ -271,14 +271,14 @@
 #dashboard .dashboard-grid.kpi-row-5:first-child .dashboard-card:nth-child(4):hover {
     box-shadow:
         0 10px 42px rgba(0, 0, 0, 0.55),
-        0 0 28px rgba(197, 46, 231, 0.09),
+        0 0 28px rgba(155, 203, 82, 0.09),
         0 1px 0 rgba(255, 255, 255, 0.04) inset !important;
 }
 
 /* Card 5 — Tempo Médio Total — Azul */
 #dashboard .dashboard-grid.kpi-row-5:first-child .dashboard-card:nth-child(5) .dashboard-number {
     color: var(--dr-blue) !important;
-    text-shadow: 0 0 22px rgba(39, 151, 225, 0.28);
+    text-shadow: 0 0 22px rgba(248, 147, 39, 0.28);
 }
 #dashboard .dashboard-grid.kpi-row-5:first-child .dashboard-card:nth-child(5)::before {
     background: linear-gradient(90deg, var(--dr-blue) 0%, transparent 100%) !important;
@@ -286,7 +286,7 @@
 #dashboard .dashboard-grid.kpi-row-5:first-child .dashboard-card:nth-child(5):hover {
     box-shadow:
         0 10px 42px rgba(0, 0, 0, 0.55),
-        0 0 28px rgba(39, 151, 225, 0.08),
+        0 0 28px rgba(248, 147, 39, 0.08),
         0 1px 0 rgba(255, 255, 255, 0.04) inset !important;
 }
 
@@ -297,7 +297,7 @@
 /* Card 1 — Tempo Médio 1º Atend. — Amarelo */
 #dashboard .dashboard-grid.kpi-row-5:not(:first-child) .dashboard-card:nth-child(1) .dashboard-number {
     color: var(--dr-magenta) !important;
-    text-shadow: 0 0 22px rgba(215, 231, 68, 0.28);
+    text-shadow: 0 0 22px rgba(255, 230, 199, 0.28);
 }
 #dashboard .dashboard-grid.kpi-row-5:not(:first-child) .dashboard-card:nth-child(1)::before {
     background: linear-gradient(90deg, var(--dr-magenta) 0%, transparent 100%) !important;
@@ -307,40 +307,40 @@
    CARD FCR — Gradiente azul petróleo premium
    ============================================================ */
 #dashboard .fcr-card {
-    background: linear-gradient(148deg, #080f20 0%, #0c1832 65%, #091426 100%) !important;
-    border-color: rgba(39, 151, 225, 0.2) !important;
+    background: linear-gradient(148deg, #171211 0%, #171211 65%, #171211 100%) !important;
+    border-color: rgba(248, 147, 39, 0.2) !important;
 }
 
 #dashboard .fcr-card::before {
-    background: linear-gradient(90deg, #2797e1 0%, #c52ee7 55%, transparent 100%) !important;
+    background: linear-gradient(90deg, #f89327 0%, #9bcb52 55%, transparent 100%) !important;
 }
 
 #dashboard .fcr-card:hover {
-    border-color: rgba(39, 151, 225, 0.38) !important;
+    border-color: rgba(248, 147, 39, 0.38) !important;
     box-shadow:
         0 10px 42px rgba(0, 0, 0, 0.55),
-        0 0 28px rgba(39, 151, 225, 0.1),
+        0 0 28px rgba(248, 147, 39, 0.1),
         0 1px 0 rgba(255, 255, 255, 0.04) inset !important;
 }
 
 #dashboard .fcr-card .card-title-flex {
-    color: #1d6faa !important;
+    color: var(--vinho-700) !important;
 }
 
 #dashboard .fcr-card .title-left .material-symbols-outlined {
-    color: #2797e1 !important;
+    color: #f89327 !important;
     opacity: 0.85;
 }
 
 #dashboard .fcr-number {
     color: #ffffff !important;
     font-size: 2.65rem !important;
-    text-shadow: 0 0 28px rgba(39, 151, 225, 0.4) !important;
+    text-shadow: 0 0 28px rgba(248, 147, 39, 0.4) !important;
     letter-spacing: -0.04em;
 }
 
 #dashboard .fcr-subtitle {
-    color: #1d6faa !important;
+    color: var(--vinho-700) !important;
     font-size: 0.73rem;
 }
 
@@ -361,8 +361,8 @@
 }
 
 #dashboard .dashboard-item {
-    background: rgba(57, 221, 82, 0.045) !important;
-    border: 1px solid rgba(57, 221, 82, 0.1) !important;
+    background: rgba(112, 171, 42, 0.045) !important;
+    border: 1px solid rgba(112, 171, 42, 0.1) !important;
     border-radius: 8px !important;
     color: var(--dr-text-2) !important;
     padding: 0.58rem 0.9rem !important;
@@ -370,8 +370,8 @@
 }
 
 #dashboard .dashboard-item:hover {
-    background: rgba(57, 221, 82, 0.08) !important;
-    border-color: rgba(57, 221, 82, 0.2) !important;
+    background: rgba(112, 171, 42, 0.08) !important;
+    border-color: rgba(112, 171, 42, 0.2) !important;
 }
 
 #dashboard .dashboard-item span:first-child {
@@ -383,15 +383,15 @@
     color: var(--dr-orange) !important;
     font-weight: 700;
     font-size: 0.88rem;
-    text-shadow: 0 0 8px rgba(229, 107, 70, 0.25);
+    text-shadow: 0 0 8px rgba(209, 69, 59, 0.25);
 }
 
 #dashboard .item-trofeu {
     font-size: 1rem !important;
-    color: #f59e0b !important;
+    color: #ffc27a !important;
     vertical-align: middle;
     margin-left: 4px;
-    filter: drop-shadow(0 0 5px rgba(245, 158, 11, 0.5));
+    filter: drop-shadow(0 0 5px rgba(255, 194, 122, 0.5));
 }
 
 /* ============================================================
@@ -400,9 +400,9 @@
    ============================================================ */
 .modo-escuro #dashboard {
     background:
-        radial-gradient(ellipse 800px 550px at 5% 15%,  rgba(39, 151, 225, 0.022) 0%, transparent 70%),
-        radial-gradient(ellipse 700px 500px at 95% 85%, rgba(197, 46, 231, 0.028) 0%, transparent 70%),
-        #07090f;
+        radial-gradient(ellipse 800px 550px at 5% 15%,  rgba(248, 147, 39, 0.022) 0%, transparent 70%),
+        radial-gradient(ellipse 700px 500px at 95% 85%, rgba(155, 203, 82, 0.028) 0%, transparent 70%),
+        #171211;
 }
 
 .modo-escuro #dashboard .dashboard-card,
@@ -433,7 +433,7 @@
 #dashboard .kpi-sla-vencido .dashboard-number,
 #dashboard .kpi-sla-vencido .sla-vencido-number {
     color: var(--dr-red) !important;
-    text-shadow: 0 0 22px rgba(230, 44, 69, 0.28);
+    text-shadow: 0 0 22px rgba(167, 36, 28, 0.28);
 }
 #dashboard .kpi-sla-vencido::before {
     background: linear-gradient(90deg, var(--dr-red) 0%, transparent 100%) !important;
@@ -441,9 +441,9 @@
 #dashboard .kpi-sla-vencido:hover {
     box-shadow:
         0 10px 42px rgba(0, 0, 0, 0.55),
-        0 0 28px rgba(230, 44, 69, 0.1),
+        0 0 28px rgba(167, 36, 28, 0.1),
         0 1px 0 rgba(255, 255, 255, 0.04) inset !important;
-    border-color: rgba(230, 44, 69, 0.2) !important;
+    border-color: rgba(167, 36, 28, 0.2) !important;
 }
 #dashboard .kpi-sla-vencido .title-left .material-symbols-outlined {
     color: var(--dr-red) !important;
@@ -453,7 +453,7 @@
 #dashboard .kpi-origem-externa .dashboard-number,
 #dashboard .kpi-origem-externa .origem-externa-number {
     color: var(--dr-cyan) !important;
-    text-shadow: 0 0 22px rgba(39, 151, 225, 0.28);
+    text-shadow: 0 0 22px rgba(248, 147, 39, 0.28);
 }
 #dashboard .kpi-origem-externa::before {
     background: linear-gradient(90deg, var(--dr-cyan) 0%, var(--dr-purple) 60%, transparent 100%) !important;
@@ -461,9 +461,9 @@
 #dashboard .kpi-origem-externa:hover {
     box-shadow:
         0 10px 42px rgba(0, 0, 0, 0.55),
-        0 0 28px rgba(39, 151, 225, 0.08),
+        0 0 28px rgba(248, 147, 39, 0.08),
         0 1px 0 rgba(255, 255, 255, 0.04) inset !important;
-    border-color: rgba(39, 151, 225, 0.13) !important;
+    border-color: rgba(248, 147, 39, 0.13) !important;
 }
 #dashboard .kpi-origem-externa .title-left .material-symbols-outlined {
     color: var(--dr-cyan) !important;

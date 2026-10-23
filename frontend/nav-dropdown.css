@@ -47,7 +47,7 @@
     background: none;
     border: none;
     font-size: 0.88rem;
-    color: #004373;
+    color: var(--vinho-600);
     cursor: pointer;
     font-family: inherit;
     transition: background 0.15s;
@@ -55,8 +55,8 @@
 }
 
 .nav-dropdown-item:hover {
-    background: #f0f4ff;
-    color: var(--laranja, #f79226);
+    background: var(--vinho-50);
+    color: var(--laranja, var(--laranja-500));
 }
 
 @keyframes pulse-notif {
@@ -82,7 +82,7 @@
 
 /* Cabeçalho do dropdown de notificações */
 .notif-dropdown-header {
-    background: #004373;
+    background: var(--vinho-600);
     color: white;
     border: 1px solid rgba(255, 255, 255, 0.3);
     border-bottom: none;
@@ -90,7 +90,7 @@
 
 /* Corpo da lista de notificações */
 .notif-dropdown-body {
-    background: #f8f9fa;
+    background: var(--neutro-50);
 }
 
 /* Modo escuro */
@@ -105,12 +105,12 @@
 }
 
 .modo-escuro .nav-dropdown-item:hover {
-    background: #3a3f52;
-    color: #93c5fd;
+    background: var(--neutro-800);
+    color: var(--laranja-500);
 }
 
 .modo-escuro .notif-dropdown-header {
-    background: #001830;
+    background: var(--neutro-900);
     color: #e0e0e0;
 }
 

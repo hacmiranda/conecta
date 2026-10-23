@@ -18,7 +18,7 @@
     flex-direction: column;
     gap: 1.5rem;
     padding: 1.5rem 1rem;
-    background: linear-gradient(180deg, #003a63 0%, #004373 50%, #002d4d 100%);
+    background: linear-gradient(180deg, var(--vinho-700) 0%, var(--vinho-600) 50%, var(--vinho-900) 100%);
     box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
     transition: background 0.3s ease;
     z-index: 1000;
@@ -32,7 +32,7 @@
 .sidebar::-webkit-scrollbar-thumb:hover { background: rgba(255, 255, 255, 0.45); }
 
 .modo-escuro .sidebar {
-    background: linear-gradient(180deg, #001830 0%, #002040 100%);
+    background: linear-gradient(180deg, var(--neutro-900) 0%, var(--neutro-800) 100%);
 }
 
 .app-main {
@@ -85,7 +85,7 @@
 /* Nome do setor logo abaixo de "Conecta CRPRS" */
 .sidebar .sidebar-logo .cabecalho-setor {
     margin: 0;
-    color: #dbeafe;
+    color: var(--vinho-100);
     font-family: 'Inter', sans-serif;
     font-size: 0.8125rem;
     font-weight: 600;
@@ -105,7 +105,7 @@
     border: 1px solid rgba(255, 255, 255, 0.35);
     border-radius: 0.5rem;
     background: rgba(255, 255, 255, 0.95);
-    color: #1e3a8a;
+    color: var(--vinho-700);
     font-family: 'Inter', sans-serif;
     font-size: 0.8125rem;
     font-weight: 600;
@@ -205,7 +205,7 @@
     border: none;
     border-left: 4px solid transparent;
     text-align: left;
-    color: #dbeafe;
+    color: var(--vinho-100);
     font-family: 'Inter', sans-serif;
     font-size: 0.9375rem;
     font-weight: 500;
@@ -222,7 +222,7 @@
 .sidebar-nav .btn-nav.active {
     background: rgba(255, 255, 255, 0.15);
     color: #ffffff;
-    border-left-color: #ffffff;
+    border-left-color: var(--laranja-500);
     font-weight: 500;
 }
 
@@ -302,7 +302,7 @@
     width: 100%;
     padding: 0.625rem 1rem 0.625rem 2.25rem;
     border-radius: 0.5rem;
-    color: #dbeafe;
+    color: var(--vinho-100);
     font-family: 'Inter', sans-serif;
     font-size: 0.875rem;
     background: none;
@@ -320,7 +320,7 @@
     background: rgba(255, 255, 255, 0.18);
     color: #ffffff;
     font-weight: 600;
-    box-shadow: inset 4px 0 0 #ffffff;
+    box-shadow: inset 4px 0 0 var(--laranja-500);
 }
 
 .sidebar-nav .nav-dropdown-item:focus-visible {
@@ -339,7 +339,7 @@
     border: 1px solid rgba(255, 255, 255, 0.15);
     border-radius: 0.5rem;
     background: rgba(255, 255, 255, 0.06);
-    color: #dbeafe;
+    color: var(--vinho-100);
     font-family: 'Inter', sans-serif;
     font-size: 0.875rem;
     font-weight: 500;
@@ -457,7 +457,7 @@
 }
 
 .badge-notificacoes {
-    background: var(--vermelho, #a8231e);
+    background: var(--vermelho, var(--vinho-600));
     color: white;
     border-radius: 12px;
     font-size: 0.78rem;

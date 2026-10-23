@@ -12,12 +12,12 @@
 }
 
 .tickets-tabela th.sort-ativo {
-    background: linear-gradient(135deg, #2a4fa8 0%, #234298 100%) !important;
+    background: linear-gradient(135deg, var(--vinho-700) 0%, var(--vinho-700) 100%) !important;
 }
 
 .tickets-tabela th.sort-ativo .sort-arrows {
     opacity: 1;
-    color: #f79226;
+    color: var(--laranja-500);
     font-size: 0.9rem;
 }
 
@@ -57,9 +57,9 @@
     font-weight: 500;
     cursor: pointer;
     transition: all 0.18s ease;
-    background: #f1f5f9;
-    color: #475569;
-    border-color: #e2e8f0;
+    background: var(--neutro-100);
+    color: var(--neutro-600);
+    border-color: var(--neutro-200);
     white-space: nowrap;
 }
 
@@ -69,10 +69,10 @@
 }
 
 .filtro-pill.ativo {
-    background: #004373;
+    background: var(--vinho-600);
     color: #fff;
-    border-color: #004373;
-    box-shadow: 0 2px 8px rgba(0, 67, 115, 0.3);
+    border-color: var(--vinho-600);
+    box-shadow: 0 2px 8px rgba(167, 36, 28, 0.3);
 }
 
 .filtro-pill-count {
@@ -92,8 +92,8 @@
 
 /* Pills por status */
 .filtro-pill[data-status="novo"].ativo {
-    background: #004373;
-    border-color: #004373;
+    background: var(--vinho-600);
+    border-color: var(--vinho-600);
 }
 
 .filtro-pill[data-status="em_atendimento"].ativo {
@@ -163,8 +163,8 @@
 }
 
 .sla-badge.sla-pausado {
-    background: #f1f5f9;
-    color: #64748b;
+    background: var(--neutro-100);
+    color: var(--neutro-600);
     font-style: italic;
 }
 
@@ -199,14 +199,14 @@
 }
 
 .skeleton-tabela th {
-    background: linear-gradient(135deg, #004373 0%, #002d4d 100%);
+    background: linear-gradient(135deg, var(--vinho-600) 0%, var(--vinho-900) 100%);
     padding: 0.75rem 1rem;
     height: 38px;
 }
 
 .skeleton-tabela td {
     padding: 0.9rem 1rem;
-    border-bottom: 1px solid #e2e8f0;
+    border-bottom: 1px solid var(--neutro-200);
 }
 
 .skeleton-tabela tbody tr:nth-child(even) td {
@@ -216,7 +216,7 @@
 .skeleton-block {
     height: 14px;
     border-radius: 4px;
-    background: linear-gradient(90deg, #e2e8f0 25%, #f1f5f9 50%, #e2e8f0 75%);
+    background: linear-gradient(90deg, var(--neutro-200) 25%, var(--neutro-100) 50%, var(--neutro-200) 75%);
     background-size: 200% 100%;
     animation: skeleton-shimmer 1.4s ease infinite;
 }
@@ -250,7 +250,7 @@
 @media (prefers-reduced-motion: reduce) {
     .skeleton-block {
         animation: none;
-        background: #e2e8f0;
+        background: var(--neutro-200);
     }
 }
 
@@ -274,7 +274,7 @@
 }
 
 .icone-tabela.icone-anexo-ms {
-    color: #64748b;
+    color: var(--neutro-600);
 }
 
 .icone-tabela.icone-comentario-ms {
@@ -309,7 +309,7 @@
    ---------------------------------------------------------- */
 .ticket-data-hora {
     font-size: 0.78rem;
-    color: var(--cinza-texto-secundario, #64748b);
+    color: var(--cinza-texto-secundario, var(--neutro-600));
     display: block;
 }
 
@@ -322,7 +322,7 @@
     justify-content: space-between;
     padding: 0.75rem 1rem;
     background: white;
-    border-top: 1px solid #e2e8f0;
+    border-top: 1px solid var(--neutro-200);
     border-radius: 0 0 8px 8px;
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
     gap: 1rem;
@@ -331,12 +331,12 @@
 
 .tabela-resumo {
     font-size: 0.82rem;
-    color: var(--cinza-texto-secundario, #64748b);
+    color: var(--cinza-texto-secundario, var(--neutro-600));
     font-weight: 500;
 }
 
 .tabela-resumo strong {
-    color: #004373;
+    color: var(--vinho-600);
 }
 
 .paginacao {
@@ -347,7 +347,7 @@
 
 .paginacao-info {
     font-size: 0.82rem;
-    color: #64748b;
+    color: var(--neutro-600);
     padding: 0 0.5rem;
     white-space: nowrap;
 }
@@ -359,9 +359,9 @@
     width: 32px;
     height: 32px;
     border-radius: 6px;
-    border: 1.5px solid #e2e8f0;
+    border: 1.5px solid var(--neutro-200);
     background: white;
-    color: #475569;
+    color: var(--neutro-600);
     cursor: pointer;
     font-size: 0.85rem;
     transition: all 0.15s ease;
@@ -369,9 +369,9 @@
 }
 
 .btn-paginacao:hover:not(:disabled) {
-    background: #004373;
+    background: var(--vinho-600);
     color: white;
-    border-color: #004373;
+    border-color: var(--vinho-600);
 }
 
 .btn-paginacao:disabled {
@@ -380,9 +380,9 @@
 }
 
 .btn-paginacao.ativo {
-    background: #004373;
+    background: var(--vinho-600);
     color: white;
-    border-color: #004373;
+    border-color: var(--vinho-600);
     font-weight: 700;
 }
 
@@ -391,15 +391,15 @@
     align-items: center;
     gap: 0.4rem;
     font-size: 0.8rem;
-    color: #64748b;
+    color: var(--neutro-600);
 }
 
 .paginacao-por-pagina select {
     padding: 0.2rem 0.4rem;
-    border: 1.5px solid #e2e8f0;
+    border: 1.5px solid var(--neutro-200);
     border-radius: 6px;
     font-size: 0.8rem;
-    color: #1e293b;
+    color: var(--neutro-800);
     cursor: pointer;
     background: white;
 }
@@ -408,72 +408,72 @@
    9. MODO ESCURO
    ---------------------------------------------------------- */
 .modo-escuro .filtro-pill {
-    background: #1e293b;
-    color: #94a3b8;
-    border-color: #334155;
+    background: var(--neutro-800);
+    color: var(--neutro-400);
+    border-color: var(--neutro-800);
 }
 
 .modo-escuro .filtro-pill:hover {
-    border-color: #475569;
+    border-color: var(--neutro-600);
 }
 
 .modo-escuro .filtros-rapidos-label {
-    color: #94a3b8;
+    color: var(--neutro-400);
 }
 
 .modo-escuro .tabela-footer {
-    background: #1e293b;
-    border-color: #334155;
+    background: var(--neutro-800);
+    border-color: var(--neutro-800);
 }
 
 .modo-escuro .tabela-resumo {
-    color: #94a3b8;
+    color: var(--neutro-400);
 }
 
 .modo-escuro .tabela-resumo strong {
-    color: #93c5fd;
+    color: var(--laranja-500);
 }
 
 .modo-escuro .paginacao-info {
-    color: #94a3b8;
+    color: var(--neutro-400);
 }
 
 .modo-escuro .btn-paginacao {
-    background: #1e293b;
-    border-color: #334155;
-    color: #94a3b8;
+    background: var(--neutro-800);
+    border-color: var(--neutro-800);
+    color: var(--neutro-400);
 }
 
 .modo-escuro .btn-paginacao:hover:not(:disabled) {
-    background: #004373;
+    background: var(--vinho-600);
     color: white;
 }
 
 .modo-escuro .btn-paginacao.ativo {
-    background: #004373;
+    background: var(--vinho-600);
     color: white;
 }
 
 .modo-escuro .paginacao-por-pagina select {
-    background: #0f172a;
-    color: #e2e8f0;
-    border-color: #334155;
+    background: var(--neutro-900);
+    color: var(--neutro-200);
+    border-color: var(--neutro-800);
 }
 
 .modo-escuro .skeleton-tabela {
-    background: #1e293b;
+    background: var(--neutro-800);
 }
 
 .modo-escuro .skeleton-tabela td {
-    border-color: #334155;
+    border-color: var(--neutro-800);
 }
 
 .modo-escuro .skeleton-tabela tbody tr:nth-child(even) td {
-    background: #162032;
+    background: var(--neutro-900);
 }
 
 .modo-escuro .skeleton-block {
-    background: linear-gradient(90deg, #1e293b 25%, #273548 50%, #1e293b 75%);
+    background: linear-gradient(90deg, var(--neutro-800) 25%, var(--neutro-800) 50%, var(--neutro-800) 75%);
     background-size: 200% 100%;
 }
 
@@ -535,45 +535,45 @@
 
 .kanban-coluna {
     flex: 0 0 320px;
-    background: #f8fafc;
+    background: var(--neutro-50);
     border-radius: var(--radius-md, 10px);
-    border: 1px solid #e2e8f0;
+    border: 1px solid var(--neutro-200);
     display: flex;
     flex-direction: column;
     min-height: 200px;
 }
 
 .modo-escuro .kanban-coluna {
-    background: #1e293b;
-    border-color: #334155;
+    background: var(--neutro-800);
+    border-color: var(--neutro-800);
 }
 
 .kanban-coluna-header {
     padding: 1rem;
     font-weight: 600;
-    color: #475569;
-    border-bottom: 2px solid #e2e8f0;
+    color: var(--neutro-600);
+    border-bottom: 2px solid var(--neutro-200);
     display: flex;
     justify-content: space-between;
     align-items: center;
 }
 
 .modo-escuro .kanban-coluna-header {
-    color: #cbd5e1;
-    border-color: #334155;
+    color: var(--neutro-200);
+    border-color: var(--neutro-800);
 }
 
 .kanban-count {
-    background: #e2e8f0;
+    background: var(--neutro-200);
     padding: 0.2rem 0.6rem;
     border-radius: 20px;
     font-size: 0.8rem;
-    color: #475569;
+    color: var(--neutro-600);
 }
 
 .modo-escuro .kanban-count {
-    background: #334155;
-    color: #cbd5e1;
+    background: var(--neutro-800);
+    color: var(--neutro-200);
 }
 
 .kanban-cards {
@@ -589,7 +589,7 @@
     border-radius: 8px;
     padding: 1rem;
     box-shadow: 0 2px 4px rgba(0, 0, 0, 0.04);
-    border: 1px solid #e2e8f0;
+    border: 1px solid var(--neutro-200);
     cursor: grab;
     transition: transform 0.2s, box-shadow 0.2s;
 }
@@ -604,8 +604,8 @@
 }
 
 .modo-escuro .kanban-card {
-    background: #0f172a;
-    border-color: #334155;
+    background: var(--neutro-900);
+    border-color: var(--neutro-800);
 }
 
 .kanban-card-header {
@@ -629,8 +629,8 @@
 }
 
 .kanban-ticket-prioridade.p-baixa {
-    background: #e2e8f0;
-    color: #475569;
+    background: var(--neutro-200);
+    color: var(--neutro-600);
 }
 
 .kanban-ticket-prioridade.p-normal {
@@ -662,7 +662,7 @@
 
 .kanban-card-info {
     font-size: 0.8rem;
-    color: #64748b;
+    color: var(--neutro-600);
     margin-bottom: 0.5rem;
 }
 
@@ -671,23 +671,23 @@
     justify-content: space-between;
     align-items: center;
     font-size: 0.75rem;
-    border-top: 1px solid #f1f5f9;
+    border-top: 1px solid var(--neutro-100);
     padding-top: 0.5rem;
     margin-top: 0.5rem;
-    color: #94a3b8;
+    color: var(--neutro-400);
 }
 
 .modo-escuro .kanban-card-footer {
-    border-color: #334155;
+    border-color: var(--neutro-800);
 }
 
 .kanban-agente {
     font-weight: 600;
-    color: #4b79a1;
+    color: var(--vinho-600);
 }
 
 .modo-escuro .kanban-agente {
-    color: #63b3ed;
+    color: var(--laranja-500);
 }
 
 /* ----------------------------------------------------------
@@ -711,7 +711,7 @@
     }
 
     .secao.active .tickets-tabela tr {
-        border: 1px solid #e2e8f0;
+        border: 1px solid var(--neutro-200);
         border-radius: var(--radius-lg, 12px);
         margin-bottom: 1.5rem;
         background: #fff;
@@ -724,7 +724,7 @@
 
     .secao.active .tickets-tabela td {
         border: none;
-        border-bottom: 1px solid #f1f5f9;
+        border-bottom: 1px solid var(--neutro-100);
         position: relative;
         padding: 0.75rem 1rem 0.75rem 45%;
         text-align: right;
@@ -738,7 +738,7 @@
     .secao.active .tickets-tabela td:last-child {
         border-bottom: 0;
         justify-content: center;
-        background: #f8fafc;
+        background: var(--neutro-50);
     }
 
     /* O pseudo-elemento que cria o "rótulo" de cada linha no mobile puxando o "data-label" */
@@ -749,7 +749,7 @@
         width: 40%;
         text-align: left;
         font-weight: 600;
-        color: #64748b;
+        color: var(--neutro-600);
         font-size: 0.85rem;
         text-transform: uppercase;
         letter-spacing: 0.5px;
@@ -769,26 +769,26 @@
     }
 
     .modo-escuro .secao.active .tickets-tabela tr {
-        background: #1e293b;
-        border-color: #334155;
+        background: var(--neutro-800);
+        border-color: var(--neutro-800);
     }
 
     .modo-escuro .secao.active .tickets-tabela td {
-        border-color: #334155;
+        border-color: var(--neutro-800);
     }
 
     .modo-escuro .secao.active .tickets-tabela td:last-child {
-        background: #0f172a;
+        background: var(--neutro-900);
     }
 
     .modo-escuro .secao.active .tickets-tabela td::before {
-        color: #94a3b8;
+        color: var(--neutro-400);
     }
 }
 /* ===== Ações da demanda (encaminhar / devolver / repassar / transferir) ===== */
 .acoes-demanda-section {
     margin-top: 1.5rem;
-    border-top: 1px solid #e5e7eb;
+    border-top: 1px solid var(--neutro-200);
     padding-top: 1rem;
 }
 
@@ -805,7 +805,7 @@
 }
 
 .btn-acao-devolver {
-    background-color: #6c757d;
+    background-color: var(--neutro-600);
 }
 
 .btn-acao-repassar {
@@ -817,12 +817,12 @@
 }
 
 .acoes-demanda-botoes button:focus-visible {
-    outline: 2px solid #1e3a8a;
+    outline: 2px solid var(--vinho-700);
     outline-offset: 2px;
 }
 
 .modo-escuro .acoes-demanda-section {
-    border-top-color: #334155;
+    border-top-color: var(--neutro-800);
 }
 
 /* ===== Filtro do Arquivo (encerradas / transferidas / repassadas) ===== */
@@ -844,23 +844,23 @@
 
 .filtro-arquivo-select {
     padding: 0.45rem 0.75rem;
-    border: 1px solid #cbd5e1;
+    border: 1px solid var(--neutro-200);
     border-radius: 8px;
     background: #fff;
-    color: #1f2937;
+    color: var(--neutro-800);
     font-family: inherit;
     font-size: 0.9rem;
 }
 
 .filtro-arquivo-select:focus-visible {
-    outline: 2px solid #1e3a8a;
+    outline: 2px solid var(--vinho-700);
     outline-offset: 2px;
 }
 
 .modo-escuro .filtro-arquivo-select {
-    background: #1e293b;
-    border-color: #334155;
-    color: #e2e8f0;
+    background: var(--neutro-800);
+    border-color: var(--neutro-800);
+    color: var(--neutro-200);
 }
 
 /* ===== Personalização ===== */
@@ -874,12 +874,12 @@
 }
 
 .aviso-somente-leitura {
-    background: #e0f2fe;
+    background: var(--vinho-50);
     padding: 0.75rem 1rem;
     border-radius: 4px;
-    border-left: 4px solid #0369a1;
+    border-left: 4px solid var(--vinho-600);
     margin: 0 0 2rem 0;
-    color: #0c4a6e;
+    color: var(--vinho-900);
 }
 
 .personalizacao-dica {
@@ -912,28 +912,28 @@
 }
 
 .modo-escuro .aviso-somente-leitura {
-    background: #0c2a3d;
-    color: #bae6fd;
+    background: var(--vinho-900);
+    color: var(--vinho-100);
 }
 
 /* ===== Formulário de usuário: ajuda da senha inicial ===== */
 .ajuda-senha-usuario {
     margin: 0 0 1rem 0;
     font-size: 0.85rem;
-    color: #4b5563;
+    color: var(--neutro-600);
 }
 
 .modo-escuro .ajuda-senha-usuario {
-    color: #cbd5e1;
+    color: var(--neutro-200);
 }
 
 /* ===== Configurar e-mail: remetente global (somente leitura) ===== */
 .config-email-aviso {
-    background: #eff6ff;
-    border-left: 4px solid #1e3a8a;
+    background: var(--vinho-50);
+    border-left: 4px solid var(--vinho-700);
     padding: 0.75rem 1rem;
     border-radius: 4px;
-    color: #1e3a8a;
+    color: var(--vinho-700);
 }
 
 .config-email-global {
@@ -945,22 +945,22 @@
 
 .config-email-global dt {
     font-weight: 600;
-    color: #374151;
+    color: var(--neutro-800);
 }
 
 .config-email-global dd {
     margin: 0;
-    color: #111827;
+    color: var(--neutro-900);
     word-break: break-all;
 }
 
 .modo-escuro .config-email-aviso {
-    background: #1e293b;
-    color: #bfdbfe;
+    background: var(--neutro-800);
+    color: var(--vinho-100);
 }
 
-.modo-escuro .config-email-global dt { color: #cbd5e1; }
-.modo-escuro .config-email-global dd { color: #f1f5f9; }
+.modo-escuro .config-email-global dt { color: var(--neutro-200); }
+.modo-escuro .config-email-global dd { color: var(--neutro-100); }
 
 @media (max-width: 600px) {
     .config-email-global { grid-template-columns: 1fr; }
@@ -988,7 +988,7 @@
 
 /* ===== Usuários: redefinir senha ===== */
 .btn-redefinir-senha {
-    background: #1e3a8a;
+    background: var(--vinho-700);
     color: #fff;
     border: none;
     border-radius: 4px;
@@ -998,7 +998,7 @@
 
 .btn-redefinir-senha:hover,
 .btn-redefinir-senha:focus-visible {
-    background: #172e6e;
+    background: var(--vinho-700);
 }
 
 .btn-redefinir-senha:focus-visible {
@@ -1008,9 +1008,9 @@
 
 /* ===== Lixeira e detalhe somente leitura ===== */
 .lixeira-aviso {
-    background: #f1f5f9;
-    border-left: 4px solid #64748b;
-    color: #334155;
+    background: var(--neutro-100);
+    border-left: 4px solid var(--neutro-600);
+    color: var(--neutro-800);
     padding: 0.75rem 1rem;
     border-radius: 4px;
     margin: 1rem 0;
@@ -1026,9 +1026,9 @@
 .lixeira-excluir { background-color: #b91c1c; color: #fff; }
 
 .faixa-aviso-demanda {
-    background: #eff6ff;
-    border-left: 4px solid #1e3a8a;
-    color: #1e3a8a;
+    background: var(--vinho-50);
+    border-left: 4px solid var(--vinho-700);
+    color: var(--vinho-700);
     padding: 0.75rem 1rem;
     border-radius: 4px;
     margin: 0 0 1rem 0;
@@ -1055,8 +1055,8 @@
     display: none;
 }
 
-.modo-escuro .lixeira-aviso { background: #1e293b; color: #cbd5e1; }
-.modo-escuro .faixa-aviso-demanda { background: #1e293b; color: #bfdbfe; }
+.modo-escuro .lixeira-aviso { background: var(--neutro-800); color: var(--neutro-200); }
+.modo-escuro .faixa-aviso-demanda { background: var(--neutro-800); color: var(--vinho-100); }
 .modo-escuro .faixa-aviso-demanda.faixa-lixeira { background: #450a0a; color: #fecaca; }
 
 /* Fase 6 das melhorias adiadas: nota interna (nunca vai por e-mail ao solicitante) */

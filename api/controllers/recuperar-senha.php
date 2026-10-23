@@ -79,7 +79,7 @@ try {
         <p>Olá, {$nomeHtml}!</p>
         <p>Você solicitou a recuperação de senha do Conecta CRPRS.</p>
         <p>Clique no link abaixo para redefinir sua senha:</p>
-        <p><a href=\"{$linkHtml}\" style=\"background-color: #f79226; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; display: inline-block;\">Redefinir Senha</a></p>
+        <p><a href=\"{$linkHtml}\" style=\"background-color: #f89327; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; display: inline-block;\">Redefinir Senha</a></p>
         <p>Ou copie e cole este link no navegador:</p>
         <p>{$linkHtml}</p>
         <p><strong>Este link expira em 1 hora.</strong></p>

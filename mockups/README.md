@@ -56,7 +56,7 @@ Todos os e-mails que o sistema envia, com dados fictícios (solicitante *Maria S
 - **Assunto:** 🎫 [#00123] Resposta da Equipe - Dúvida sobre inscrição de pessoa jurídica
 - **Quando:** Quando um atendente escreve um comentário na demanda com a opção "Enviar por e-mail" marcada (também no botão "Enviar e Fechar"). Notas internas nunca geram este e-mail.
 - **Quem recebe:** O solicitante da demanda. Os anexos do comentário seguem junto.
-- **Observação:** Este modelo usa a assinatura estática do arquivo backend/AssinaturaEmail.html (Equipe de Suporte em TI), e não a assinatura do setor.
+- **Observação:** Sai pela caixa de e-mail do setor da demanda e assina como a equipe desse setor.
 
 ![Resposta da equipe](imagens/03-resposta-da-equipe.png)
 
@@ -67,7 +67,7 @@ Todos os e-mails que o sistema envia, com dados fictícios (solicitante *Maria S
 - **Assunto:** 🎫 [#00123] Resposta da Equipe - Dúvida sobre inscrição de pessoa jurídica
 - **Quando:** Junto com a "Resposta da equipe", quando o atendente preenche o campo "Com cópia" ao comentar. Sai uma mensagem para cada endereço informado.
 - **Quem recebe:** Cada endereço do campo "Com cópia" (pessoas que não são o solicitante).
-- **Observação:** Mostra quem é o solicitante. Se alguém dessa lista responder ao e-mail com o número da demanda, vira comentário.
+- **Observação:** Mostra quem é o solicitante e assina como a equipe do setor. Se alguém dessa lista responder ao e-mail com o número da demanda, vira comentário.
 
 ![Cópia da resposta da equipe](imagens/04-resposta-em-copia.png)
 
@@ -111,7 +111,7 @@ Todos os e-mails que o sistema envia, com dados fictícios (solicitante *Maria S
 - **Assunto:** 🎫 [#00123] Demanda reaberta - Dúvida sobre inscrição de pessoa jurídica
 - **Quando:** Quando o solicitante responde por e-mail a uma demanda já encerrada e o sistema a reabre automaticamente.
 - **Quem recebe:** O solicitante da demanda.
-- **Observação:** O arquivo de assinatura que este e-mail procura (frontend/AssinaturaEmail.html) não existe, então ele sai sem assinatura.
+- **Observação:** Assina como a equipe do setor da demanda.
 
 ![Demanda reaberta (aviso ao solicitante)](imagens/08-demanda-reaberta-solicitante.png)
 
@@ -212,8 +212,4 @@ Todos os e-mails que o sistema envia, com dados fictícios (solicitante *Maria S
 - `emails/` guarda o e-mail puro (HTML ou texto), `paginas/` a moldura com o momento do envio, `imagens/` os PNGs.
 - O logotipo dos e-mails vem de `www.crprs.org.br`; sem internet, a imagem não aparece na pré-visualização.
 
-## Pontos de atenção encontrados
-
-- `backend/email-template-atribuicao.html` existe mas nenhum código o usa: a atribuição envia só o aviso em texto puro ao atendente.
-- "Resposta da equipe" e "Cópia da resposta" usam a assinatura fixa de `backend/AssinaturaEmail.html` (Equipe de Suporte em TI, `suporte@crprs.org.br`), diferente dos demais, que assinam como a equipe do setor.
-- "Demanda reaberta" (solicitante) procura `frontend/AssinaturaEmail.html`, que não existe; o e-mail sai sem assinatura.
+- Os e-mails internos (equipe) continuam em texto puro, exceto os avisos montados em HTML (comentário de outro atendente, lembrete e recuperação de senha).

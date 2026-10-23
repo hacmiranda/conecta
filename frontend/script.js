@@ -1529,7 +1529,7 @@ function mostrarSobre() {
         <div class="ajuda-container" style="animation: fadeInUp 0.4s ease-out; max-width: 900px; margin: 0 auto; padding-top: 2.5rem;">
 
             <!-- Cabeçalho da página -->
-            <div style="background: linear-gradient(135deg, #004373 0%, #002d4d 100%); color: white; padding: 2.5rem 2rem; border-radius: 14px; margin-bottom: 2rem; box-shadow: 0 4px 20px rgba(0, 67, 115,0.25); display: flex; align-items: center; gap: 2rem; flex-wrap: wrap;">
+            <div style="background: linear-gradient(135deg, #a7241c 0%, #5e130e 100%); color: white; padding: 2.5rem 2rem; border-radius: 14px; margin-bottom: 2rem; box-shadow: 0 4px 20px rgba(167, 36, 28,0.25); display: flex; align-items: center; gap: 2rem; flex-wrap: wrap;">
                 <div style="flex-shrink: 0; width: 80px; height: 80px; background: rgba(255,255,255,0.12); border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 2.5rem; box-shadow: 0 2px 12px rgba(0,0,0,0.2);">
                     🖥️
                 </div>
@@ -1539,19 +1539,19 @@ function mostrarSobre() {
                     <div style="font-size: 1rem; opacity: 0.9;">Conselho Regional de Psicologia do Rio Grande do Sul</div>
                 </div>
                 <div style="text-align: center; flex-shrink: 0;">
-                    <div style="background: rgba(247,146,38,0.85); border-radius: 8px; padding: 0.4rem 1.1rem; display: inline-block; font-size: 0.85rem; font-weight: 700; letter-spacing: 0.5px; text-transform: uppercase; margin-bottom: 0.4rem;">VERSÃO</div>
+                    <div style="background: rgba(248, 147, 39,0.85); border-radius: 8px; padding: 0.4rem 1.1rem; display: inline-block; font-size: 0.85rem; font-weight: 700; letter-spacing: 0.5px; text-transform: uppercase; margin-bottom: 0.4rem;">VERSÃO</div>
                     <div style="font-size: 2.2rem; font-weight: 800; line-height: 1;">3.0</div>
                 </div>
             </div>
 
             <!-- Cards de informação -->
             <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 1rem; margin-bottom: 2rem;">
-                <div style="background: var(--bg-card, #fff); border-radius: 10px; padding: 1.2rem 1.4rem; box-shadow: var(--shadow-sm, 0 1px 4px rgba(0,0,0,0.08)); border-left: 4px solid #004373;">
+                <div style="background: var(--bg-card, #fff); border-radius: 10px; padding: 1.2rem 1.4rem; box-shadow: var(--shadow-sm, 0 1px 4px rgba(0,0,0,0.08)); border-left: 4px solid #a7241c;">
                     <div style="font-size: 1.4rem; margin-bottom: 0.4rem;">🏛️</div>
                     <div style="font-size: 0.75rem; text-transform: uppercase; color: var(--text-secondary, #666); letter-spacing: 0.8px; margin-bottom: 0.2rem;">Organização</div>
-                    <div style="font-size: 0.95rem; font-weight: 600; color: var(--text-primary, #004373);">CRPRS — Conselho Regional de Psicologia do Rio Grande do Sul</div>
+                    <div style="font-size: 0.95rem; font-weight: 600; color: var(--text-primary, #a7241c);">CRPRS — Conselho Regional de Psicologia do Rio Grande do Sul</div>
                 </div>
-                <div style="background: var(--bg-card, #fff); border-radius: 10px; padding: 1.2rem 1.4rem; box-shadow: var(--shadow-sm, 0 1px 4px rgba(0,0,0,0.08)); border-left: 4px solid #f79226;">
+                <div style="background: var(--bg-card, #fff); border-radius: 10px; padding: 1.2rem 1.4rem; box-shadow: var(--shadow-sm, 0 1px 4px rgba(0,0,0,0.08)); border-left: 4px solid #f89327;">
                     <div style="font-size: 1.4rem; margin-bottom: 0.4rem;">🛠️</div>
                     <div style="font-size: 0.75rem; text-transform: uppercase; color: var(--text-secondary, #666); letter-spacing: 0.8px; margin-bottom: 0.2rem;">Stack Tecnológica</div>
                     <div style="font-size: 0.95rem; font-weight: 600; color: var(--text-primary, #333);">PHP 8.2 · MySQL · Vanilla JS · Alpine.js · Quill.js</div>
@@ -1565,7 +1565,7 @@ function mostrarSobre() {
 
             <!-- Changelog 3.0 -->
             <div style="background: var(--bg-card, #fff); border-radius: 12px; box-shadow: var(--shadow-sm, 0 1px 4px rgba(0,0,0,0.08)); overflow: hidden; margin-bottom: 1.5rem;">
-                <div style="background: linear-gradient(135deg, #004373 0%, #002d4d 100%); padding: 1rem 1.5rem; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 0.5rem;">
+                <div style="background: linear-gradient(135deg, #a7241c 0%, #5e130e 100%); padding: 1rem 1.5rem; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 0.5rem;">
                     <div style="display: flex; align-items: center; gap: 0.75rem;">
                         <span style="font-size: 1.3rem;">📦</span>
                         <span style="color: white; font-size: 1.1rem; font-weight: 700;">Versão 3.0</span>
@@ -1578,7 +1578,7 @@ function mostrarSobre() {
 
                     <!-- Tabela de demandas -->
                     <div style="margin-bottom: 1.5rem;">
-                        <div style="font-size: 0.9rem; font-weight: 700; color: var(--text-primary, #004373); margin-bottom: 0.8rem; display: flex; align-items: center; gap: 0.5rem; padding-bottom: 0.5rem; border-bottom: 1px solid var(--border-color, #e5e7eb);">
+                        <div style="font-size: 0.9rem; font-weight: 700; color: var(--text-primary, #a7241c); margin-bottom: 0.8rem; display: flex; align-items: center; gap: 0.5rem; padding-bottom: 0.5rem; border-bottom: 1px solid var(--border-color, #ddd6cd);">
                             <span>🎫</span> Lista de Demandas
                         </div>
                         <ul style="margin: 0; padding-left: 1.4rem; font-size: 0.88rem; color: var(--text-secondary, #555); line-height: 1.8;">
@@ -1596,7 +1596,7 @@ function mostrarSobre() {
 
                     <!-- Macros -->
                     <div style="margin-bottom: 1.5rem;">
-                        <div style="font-size: 0.9rem; font-weight: 700; color: var(--text-primary, #004373); margin-bottom: 0.8rem; display: flex; align-items: center; gap: 0.5rem; padding-bottom: 0.5rem; border-bottom: 1px solid var(--border-color, #e5e7eb);">
+                        <div style="font-size: 0.9rem; font-weight: 700; color: var(--text-primary, #a7241c); margin-bottom: 0.8rem; display: flex; align-items: center; gap: 0.5rem; padding-bottom: 0.5rem; border-bottom: 1px solid var(--border-color, #ddd6cd);">
                             <span>⚡</span> Respostas Rápidas (Macros)
                         </div>
                         <ul style="margin: 0; padding-left: 1.4rem; font-size: 0.88rem; color: var(--text-secondary, #555); line-height: 1.8;">
@@ -1608,7 +1608,7 @@ function mostrarSobre() {
 
                     <!-- Notificações -->
                     <div style="margin-bottom: 1.5rem;">
-                        <div style="font-size: 0.9rem; font-weight: 700; color: var(--text-primary, #004373); margin-bottom: 0.8rem; display: flex; align-items: center; gap: 0.5rem; padding-bottom: 0.5rem; border-bottom: 1px solid var(--border-color, #e5e7eb);">
+                        <div style="font-size: 0.9rem; font-weight: 700; color: var(--text-primary, #a7241c); margin-bottom: 0.8rem; display: flex; align-items: center; gap: 0.5rem; padding-bottom: 0.5rem; border-bottom: 1px solid var(--border-color, #ddd6cd);">
                             <span>🔔</span> Notificações
                         </div>
                         <ul style="margin: 0; padding-left: 1.4rem; font-size: 0.88rem; color: var(--text-secondary, #555); line-height: 1.8;">
@@ -1621,7 +1621,7 @@ function mostrarSobre() {
 
                     <!-- Segurança -->
                     <div style="margin-bottom: 1.5rem;">
-                        <div style="font-size: 0.9rem; font-weight: 700; color: var(--text-primary, #004373); margin-bottom: 0.8rem; display: flex; align-items: center; gap: 0.5rem; padding-bottom: 0.5rem; border-bottom: 1px solid var(--border-color, #e5e7eb);">
+                        <div style="font-size: 0.9rem; font-weight: 700; color: var(--text-primary, #a7241c); margin-bottom: 0.8rem; display: flex; align-items: center; gap: 0.5rem; padding-bottom: 0.5rem; border-bottom: 1px solid var(--border-color, #ddd6cd);">
                             <span>🛡️</span> Segurança e Privacidade
                         </div>
                         <ul style="margin: 0; padding-left: 1.4rem; font-size: 0.88rem; color: var(--text-secondary, #555); line-height: 1.8;">
@@ -1632,7 +1632,7 @@ function mostrarSobre() {
 
                     <!-- BI -->
                     <div style="margin-bottom: 1.5rem;">
-                        <div style="font-size: 0.9rem; font-weight: 700; color: var(--text-primary, #004373); margin-bottom: 0.8rem; display: flex; align-items: center; gap: 0.5rem; padding-bottom: 0.5rem; border-bottom: 1px solid var(--border-color, #e5e7eb);">
+                        <div style="font-size: 0.9rem; font-weight: 700; color: var(--text-primary, #a7241c); margin-bottom: 0.8rem; display: flex; align-items: center; gap: 0.5rem; padding-bottom: 0.5rem; border-bottom: 1px solid var(--border-color, #ddd6cd);">
                             <span>📈</span> Dashboard
                         </div>
                         <ul style="margin: 0; padding-left: 1.4rem; font-size: 0.88rem; color: var(--text-secondary, #555); line-height: 1.8;">
@@ -1643,7 +1643,7 @@ function mostrarSobre() {
 
                     <!-- Login -->
                     <div style="margin-bottom: 1.5rem;">
-                        <div style="font-size: 0.9rem; font-weight: 700; color: var(--text-primary, #004373); margin-bottom: 0.8rem; display: flex; align-items: center; gap: 0.5rem; padding-bottom: 0.5rem; border-bottom: 1px solid var(--border-color, #e5e7eb);">
+                        <div style="font-size: 0.9rem; font-weight: 700; color: var(--text-primary, #a7241c); margin-bottom: 0.8rem; display: flex; align-items: center; gap: 0.5rem; padding-bottom: 0.5rem; border-bottom: 1px solid var(--border-color, #ddd6cd);">
                             <span>🔐</span> Tela de Login
                         </div>
                         <ul style="margin: 0; padding-left: 1.4rem; font-size: 0.88rem; color: var(--text-secondary, #555); line-height: 1.8;">
@@ -1656,7 +1656,7 @@ function mostrarSobre() {
 
                     <!-- E-mail -->
                     <div style="margin-bottom: 0;">
-                        <div style="font-size: 0.9rem; font-weight: 700; color: var(--text-primary, #004373); margin-bottom: 0.8rem; display: flex; align-items: center; gap: 0.5rem; padding-bottom: 0.5rem; border-bottom: 1px solid var(--border-color, #e5e7eb);">
+                        <div style="font-size: 0.9rem; font-weight: 700; color: var(--text-primary, #a7241c); margin-bottom: 0.8rem; display: flex; align-items: center; gap: 0.5rem; padding-bottom: 0.5rem; border-bottom: 1px solid var(--border-color, #ddd6cd);">
                             <span>📧</span> E-mail e Demandas Abertas por E-mail
                         </div>
                         <ul style="margin: 0; padding-left: 1.4rem; font-size: 0.88rem; color: var(--text-secondary, #555); line-height: 1.8;">
@@ -1673,7 +1673,7 @@ function mostrarSobre() {
             </div>
 
             <!-- Rodapé -->
-            <div style="text-align: center; padding: 1.5rem; font-size: 0.82rem; color: var(--text-secondary, #888); border-top: 1px solid var(--border-color, #e5e7eb); margin-top: 0.5rem;">
+            <div style="text-align: center; padding: 1.5rem; font-size: 0.82rem; color: var(--text-secondary, #888); border-top: 1px solid var(--border-color, #ddd6cd); margin-top: 0.5rem;">
                 Conecta CRPRS v3.0 &mdash; Desenvolvido para o Conselho Regional de Psicologia do Rio Grande do Sul (CRPRS)<br>
                 <span style="opacity: 0.7;">PHP 8.2 · MySQL · Vanilla JS · Alpine.js · Quill.js · Chart.js</span>
             </div>
@@ -1683,7 +1683,7 @@ function mostrarSobre() {
         <style>
             .modo-escuro #sobre-content code {
                 background: #3a3a3a;
-                color: #93c5fd;
+                color: #f89327;
                 padding: 0.1rem 0.3rem;
                 border-radius: 3px;
                 font-size: 0.82em;

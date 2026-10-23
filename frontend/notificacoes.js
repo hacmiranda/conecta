@@ -174,7 +174,7 @@ function renderizarNotificacoes(notificacoes) {
         if (notif._tipo === 'email_falha') {
             const foiLida = notif.lida == 1;
             const bgCor    = foiLida ? '#ffffff' : '#fffbeb';
-            const bordaCor = foiLida ? '#d1d5db' : '#d97706';
+            const bordaCor = foiLida ? '#ddd6cd' : '#d97706';
             const tituloCor = foiLida ? '#555' : '#92400e';
             const msgCor    = foiLida ? '#777' : '#b45309';
             const ultimaFalhaEsc = (notif._ultima_falha || '').replace(/'/g, "\\'");

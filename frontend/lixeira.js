@@ -16,7 +16,7 @@ async function carregarLixeira() {
     try {
         const demandas = await Api.get(urlComSetor('tickets.php?escopo=lixeira'));
         if (demandas.length === 0) {
-            lista.innerHTML = '<div style="text-align:center; padding: 3rem 1rem; color: #64748b;"><span class="material-symbols-outlined" style="font-size:3rem; opacity:0.4;" aria-hidden="true">delete</span><p>A lixeira está vazia.</p></div>';
+            lista.innerHTML = '<div style="text-align:center; padding: 3rem 1rem; color: #5f5852;"><span class="material-symbols-outlined" style="font-size:3rem; opacity:0.4;" aria-hidden="true">delete</span><p>A lixeira está vazia.</p></div>';
             return;
         }
         let html = `<table class="tickets-tabela">

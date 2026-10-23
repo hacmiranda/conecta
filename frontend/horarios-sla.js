@@ -142,7 +142,7 @@ function mostrarHorariosEFeriados(horarios, feriados) {
             <button class="btn-primary" onclick="mostrarFormFeriado()">➕ Adicionar Feriado</button>
         </div>
         
-        <div id="form-feriado" style="display: none; background: #f8f9fa; padding: 1.25rem; border-radius: 8px; margin-bottom: 1.5rem;">
+        <div id="form-feriado" style="display: none; background: #f7f4f0; padding: 1.25rem; border-radius: 8px; margin-bottom: 1.5rem;">
             <h4 style="margin-top: 0; margin-bottom: 1rem;">Novo Feriado</h4>
             <div class="form-group">
                 <label>Data:</label>

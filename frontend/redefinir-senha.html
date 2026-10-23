@@ -11,9 +11,9 @@
     <title>Redefinir Senha - Conecta CRPRS</title>
     <link rel="icon" type="image/png" href="images/logo_vazado.png">
     <!-- Configuração de deploy (base da API) -->
-    <script src="app-config.js"></script>
-    <link rel="stylesheet" href="senha-visivel.css?v=1">
-    <script src="senha-visivel.js?v=1" defer></script>
+    <script src="app-config.js?v=c1"></script>
+    <link rel="stylesheet" href="senha-visivel.css?v=1.c1">
+    <script src="senha-visivel.js?v=1.c1" defer></script>
     <style>
         * {
             margin: 0;
@@ -23,7 +23,7 @@
 
         body {
             font-family: Arial, sans-serif;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            background: linear-gradient(135deg, #8b1d17 0%, #5e130e 100%);
             min-height: 100vh;
             display: flex;
             justify-content: center;
@@ -76,13 +76,13 @@
 
         input:focus {
             outline: none;
-            border-color: #667eea;
+            border-color: #8b1d17;
         }
 
         .btn {
             width: 100%;
             padding: 0.75rem;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            background: linear-gradient(135deg, #8b1d17 0%, #5e130e 100%);
             color: white;
             border: none;
             border-radius: 5px;
@@ -120,7 +120,7 @@
         }
 
         .back-link a {
-            color: #667eea;
+            color: #8b1d17;
             text-decoration: none;
         }
     </style>
@@ -141,7 +141,7 @@
                 <label for="senha">Nova Senha:</label>
                 <input type="password" id="senha" required minlength="10" autocomplete="new-password" aria-describedby="regras-senha">
                 <div
-                    style="margin-top: 0.5rem; padding: 0.75rem; background: #f8f9fa; border-radius: 4px; border: 1px solid #ddd; font-size: 0.85rem;">
+                    style="margin-top: 0.5rem; padding: 0.75rem; background: #f7f4f0; border-radius: 4px; border: 1px solid #ddd; font-size: 0.85rem;">
                     <div id="regras-senha" style="margin-bottom: 0.25rem; color: #666;">A senha deve conter:</div>
                     <div id="check-length" style="color: #999;">✗ Mínimo 10 caracteres</div>
                     <div id="check-upper" style="color: #999;">✗ Pelo menos 1 letra maiúscula</div>

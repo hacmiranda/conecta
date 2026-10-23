@@ -258,14 +258,14 @@ function exportarPDF() {
             <title>Relatório de Demandas</title>
             <style>
                 body { font-family: Arial, sans-serif; margin: 20px; }
-                h1 { color: #f79226; text-align: center; }
+                h1 { color: #f89327; text-align: center; }
                 .resumo { display: flex; justify-content: space-around; margin: 20px 0; }
                 .resumo-card { text-align: center; padding: 10px; border: 1px solid #ddd; border-radius: 5px; }
                 .resumo-card h3 { margin: 0; font-size: 14px; color: #666; }
-                .resumo-numero { font-size: 24px; font-weight: bold; color: #f79226; }
+                .resumo-numero { font-size: 24px; font-weight: bold; color: #f89327; }
                 table { width: 100%; border-collapse: collapse; margin-top: 20px; }
                 th, td { border: 1px solid #ddd; padding: 8px; text-align: left; font-size: 12px; }
-                th { background-color: #f79226; color: white; }
+                th { background-color: #f89327; color: white; }
                 tr:nth-child(even) { background-color: #f9f9f9; }
                 @media print { body { margin: 0; } }
             </style>

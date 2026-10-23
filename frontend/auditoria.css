@@ -33,7 +33,7 @@
     gap: 0.75rem;
     margin-bottom: 1.5rem;
     padding: 1rem;
-    background: #f8f9fa;
+    background: var(--neutro-50);
     border-radius: 8px;
 }
 
@@ -153,7 +153,7 @@
 }
 
 .auditoria-card.logout {
-    border-left-color: #6c757d;
+    border-left-color: var(--neutro-600);
 }
 
 .auditoria-header {
@@ -204,7 +204,7 @@
     gap: 1rem;
     margin-top: 0.5rem;
     padding: 0.75rem;
-    background: #f8f9fa;
+    background: var(--neutro-50);
     border-radius: 4px;
 }
 
@@ -256,7 +256,7 @@
     display: flex;
     justify-content: space-between;
     padding: 0.5rem;
-    background: #f8f9fa;
+    background: var(--neutro-50);
     border-radius: 4px;
 }
 

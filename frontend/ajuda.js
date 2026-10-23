@@ -85,8 +85,8 @@ function mostrarSLA() {
             </table>
 
             <h4>🕰️ Horário de Atendimento</h4>
-            <div id="horarios-atendimento-info" style="background: #e3f2fd; padding: 1rem; border-radius: 8px; margin-bottom: 1rem;">
-                <p style="margin: 0; color: #1976d2;">⚙️ <strong>Configurável:</strong> Os horários de atendimento podem ser personalizados em <strong>Configurações → Horários e Feriados</strong></p>
+            <div id="horarios-atendimento-info" style="background: #fbeceb; padding: 1rem; border-radius: 8px; margin-bottom: 1rem;">
+                <p style="margin: 0; color: #a7241c;">⚙️ <strong>Configurável:</strong> Os horários de atendimento podem ser personalizados em <strong>Configurações → Horários e Feriados</strong></p>
             </div>
             <div id="horarios-dinamicos">Carregando horários...</div>
 
@@ -191,7 +191,7 @@ function mostrarStatusGuia() {
             </div>
 
             <div class="status-item">
-                <span class="status-badge" style="background:#e3f2fd;color:#0277bd;">🔧 Em atendimento</span>
+                <span class="status-badge" style="background:#fbeceb;color:#a7241c;">🔧 Em atendimento</span>
                 <div>
                     <strong>Responsável trabalhando ativamente</strong><br>
                     A demanda está sendo analisada ou trabalhada pelo responsável.
@@ -217,7 +217,7 @@ function mostrarStatusGuia() {
             </div>
 
             <div class="status-item">
-                <span class="status-badge" style="background:#f3e5f5;color:#6a1b9a;">🔄 Aguardando terceiros</span>
+                <span class="status-badge" style="background:#fbeceb;color:#8b1d17;">🔄 Aguardando terceiros</span>
                 <div>
                     <strong>Depende de terceiros</strong><br>
                     Quando depende de outro setor ou fornecedor externo para resolução.
@@ -235,7 +235,7 @@ function mostrarStatusGuia() {
             </div>
 
             <div class="status-item">
-                <span class="status-badge" style="background:#e0f7fa;color:#00695c;">📅 Aguardando data</span>
+                <span class="status-badge" style="background:#fbeceb;color:#00695c;">📅 Aguardando data</span>
                 <div>
                     <strong>Agendado para data futura</strong><br>
                     O atendimento está pausado até uma data/hora específica agendada para retomar.
@@ -244,7 +244,7 @@ function mostrarStatusGuia() {
             </div>
 
             <div class="status-item">
-                <span class="status-badge" style="background:#e3f2fd;color:#1565c0;">💬 Nova Resposta</span>
+                <span class="status-badge" style="background:#fbeceb;color:#a7241c;">💬 Nova Resposta</span>
                 <div>
                     <strong>Solicitante respondeu</strong><br>
                     O solicitante enviou uma nova resposta ou comentário. A demanda aguarda retomada do atendimento pelo responsável.

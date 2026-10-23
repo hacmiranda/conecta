@@ -13,10 +13,10 @@
     <title>Login - Conecta CRPRS</title>
     <link rel="icon" type="image/png" href="images/logo_vazado.png">
     <!-- Configuração de deploy (base da API) -->
-    <script src="app-config.js"></script>
+    <script src="app-config.js?v=c1"></script>
     <!-- Ponte de SSO (ativa somente quando incorporado em <iframe>) -->
-    <link rel="stylesheet" href="sso-bridge.css">
-    <script src="sso-bridge.js"></script>
+    <link rel="stylesheet" href="sso-bridge.css?v=c1">
+    <script src="sso-bridge.js?v=c1"></script>
     <!-- Google Fonts: Inter -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -39,21 +39,21 @@
         }
 
         :root {
-            --laranja: #f79226;
+            --laranja: #f89327;
             --laranja-dark: #d97c15;
-            --vermelho: #a8231e;
-            --azul: #004373;
-            --azul-mid: #004373;
-            --azul-light: #3b82f6;
-            --azul-pale: #dbeafe;
-            --verde: #71aa29;
+            --vermelho: #a7241c;
+            --azul: #5e130e;
+            --azul-mid: #8b1d17;
+            --azul-light: #a7241c;
+            --azul-pale: #f5d3d0;
+            --verde: #70ab2a;
             --branco: #ffffff;
-            --cinza-bg: #f0f4ff;
-            --texto-escuro: #111827;
-            --texto-medio: #374151;
+            --cinza-bg: #fbeceb;
+            --texto-escuro: #1f1a18;
+            --texto-medio: #2b2523;
             --texto-claro: #6b7280;
-            --borda: #e5e7eb;
-            --shadow-card: 0 20px 60px rgba(0, 67, 115, 0.18), 0 8px 24px rgba(0, 0, 0, 0.12);
+            --borda: #ddd6cd;
+            --shadow-card: 0 20px 60px rgba(167, 36, 28, 0.18), 0 8px 24px rgba(0, 0, 0, 0.12);
             --shadow-input: 0 1px 3px rgba(0, 0, 0, 0.08);
             --radius-card: 20px;
             --radius-input: 10px;
@@ -85,9 +85,9 @@
             position: fixed;
             inset: 0;
             background: linear-gradient(135deg,
-                    rgba(10, 20, 60, 0.82) 0%,
-                    rgba(0, 67, 115, 0.75) 50%,
-                    rgba(15, 25, 70, 0.85) 100%);
+                    rgba(94, 19, 14, 0.82) 0%,
+                    rgba(167, 36, 28, 0.75) 50%,
+                    rgba(94, 19, 14, 0.85) 100%);
             z-index: 0;
         }
 
@@ -170,7 +170,7 @@
         ============================================ */
         .login-brand {
             flex: 0 0 42%;
-            background: linear-gradient(160deg, #004373 0%, #002d4d 45%, #001830 100%);
+            background: linear-gradient(160deg, #a7241c 0%, #5e130e 45%, #1f1a18 100%);
             display: flex;
             flex-direction: column;
             align-items: center;
@@ -200,8 +200,8 @@
             width: 260px;
             height: 260px;
             border-radius: 50%;
-            border: 2px solid rgba(247, 146, 38, 0.25);
-            box-shadow: inset 0 0 60px rgba(247, 146, 38, 0.1);
+            border: 2px solid rgba(248, 147, 39, 0.25);
+            box-shadow: inset 0 0 60px rgba(248, 147, 39, 0.1);
         }
 
         .brand-content {
@@ -399,7 +399,7 @@
             font-size: 0.92rem;
             font-family: 'Inter', Arial, sans-serif;
             color: var(--texto-escuro);
-            background: #f9fafb;
+            background: #f7f4f0;
             box-shadow: var(--shadow-input);
             transition: border-color var(--transition), box-shadow var(--transition), background var(--transition);
             outline: none;
@@ -413,7 +413,7 @@
         .field-input:focus {
             border-color: var(--azul-light);
             background: #ffffff;
-            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15), var(--shadow-input);
+            box-shadow: 0 0 0 3px rgba(167, 36, 28, 0.15), var(--shadow-input);
         }
 
         .field-input:focus+.field-focus-indicator,
@@ -426,7 +426,7 @@
         }
 
         .field-input.input-error:focus {
-            box-shadow: 0 0 0 3px rgba(168, 35, 30, 0.12);
+            box-shadow: 0 0 0 3px rgba(167, 36, 28, 0.12);
         }
 
         /* Botão toggle senha */
@@ -447,7 +447,7 @@
 
         .btn-toggle-pass:hover {
             color: var(--azul);
-            background: rgba(0, 67, 115, 0.07);
+            background: rgba(167, 36, 28, 0.07);
         }
 
         .btn-toggle-pass:focus {
@@ -512,14 +512,14 @@
             align-items: center;
             justify-content: center;
             gap: 0.5rem;
-            box-shadow: 0 4px 16px rgba(0, 67, 115, 0.35);
+            box-shadow: 0 4px 16px rgba(167, 36, 28, 0.35);
             transition: transform var(--transition), box-shadow var(--transition), filter var(--transition);
             margin-top: 0.5rem;
         }
 
         .btn-entrar:hover:not(:disabled) {
             transform: translateY(-2px);
-            box-shadow: 0 8px 24px rgba(0, 67, 115, 0.42);
+            box-shadow: 0 8px 24px rgba(167, 36, 28, 0.42);
             filter: brightness(1.08);
         }
 
@@ -616,7 +616,7 @@
         .btn-secundario:hover {
             border-color: var(--azul-light);
             color: var(--azul);
-            background: rgba(59, 130, 246, 0.04);
+            background: rgba(167, 36, 28, 0.04);
         }
 
         .btn-secundario:focus {
@@ -732,7 +732,7 @@
 
         /* btn-secondary dentro do form recuperar */
         .btn-secondary {
-            background: #6c757d;
+            background: #5f5852;
             color: white;
             border: none;
             padding: 0.78rem 1rem;
@@ -751,7 +751,7 @@
         }
 
         .btn-secondary:focus {
-            outline: 2px solid #6c757d;
+            outline: 2px solid #5f5852;
             outline-offset: 2px;
         }
 
@@ -873,7 +873,7 @@
             justify-content: space-between;
             align-items: center;
             padding: 0.85rem 0;
-            border-bottom: 1px solid #f0f4ff;
+            border-bottom: 1px solid #fbeceb;
         }
 
         .preference-info h5 {
@@ -905,7 +905,7 @@
         .toggle-slider {
             position: absolute;
             inset: 0;
-            background: #d1d5db;
+            background: #ddd6cd;
             border-radius: 24px;
             cursor: pointer;
             transition: background 0.2s;

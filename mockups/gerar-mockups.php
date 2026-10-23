@@ -48,8 +48,6 @@ $assinatura = '<table width="100%" border="0" cellspacing="3" cellpadding="3" st
     </td>
   </tr>
 </table>';
-// Os modelos "resposta" e "cópia" usam o arquivo estático backend/AssinaturaEmail.html (assinatura do TI)
-$assinaturaEstatica = $modelo('AssinaturaEmail.html');
 
 function preencher(string $html, array $mapa): string {
     return str_replace(array_keys($mapa), array_values($mapa), $html);
@@ -99,17 +97,17 @@ $emails[] = [
     'assunto' => "🎫 [#{$num}] Resposta da Equipe - {$titulo}",
     'quando' => 'Quando um atendente escreve um comentário na demanda com a opção "Enviar por e-mail" marcada (também no botão "Enviar e Fechar"). Notas internas nunca geram este e-mail.',
     'quem' => 'O solicitante da demanda. Os anexos do comentário seguem junto.',
-    'obs' => 'Este modelo usa a assinatura estática do arquivo backend/AssinaturaEmail.html (Equipe de Suporte em TI), e não a assinatura do setor.',
+    'obs' => 'Sai pela caixa de e-mail do setor da demanda e assina como a equipe desse setor.',
     'corpo' => preencher($modelo('email-template-resposta.html'), [
         '{{NOME_USUARIO}}' => $esc($solicitante), '{{NUMERO_TICKET}}' => $num, '{{TITULO_TICKET}}' => $esc($titulo),
         '{{NOME_AGENTE}}' => $esc($agente), '{{DATA_RESPOSTA}}' => $resposta, '{{COMENTARIO_AGENTE}}' => $comentarioAgente,
-        '{{ASSINATURA_EMAIL}}' => $assinaturaEstatica,
+        '{{ASSINATURA_EMAIL}}' => $assinatura,
     ]),
 ];
 
 $htmlCopia = preencher($modelo('email-template-emcopia.html'), [
     '{{NUMERO_TICKET}}' => $num, '{{TITULO_TICKET}}' => $esc($titulo), '{{NOME_AGENTE}}' => $esc($agente),
-    '{{DATA_RESPOSTA}}' => $resposta, '{{COMENTARIO_AGENTE}}' => $comentarioAgente, '{{ASSINATURA_EMAIL}}' => $assinaturaEstatica,
+    '{{DATA_RESPOSTA}}' => $resposta, '{{COMENTARIO_AGENTE}}' => $comentarioAgente, '{{ASSINATURA_EMAIL}}' => $assinatura,
 ]);
 $htmlCopia = str_replace('<strong>Solicitante:</strong> <br>', '<strong>Solicitante:</strong> ' . $esc($solicitante) . ' (' . $esc($emailSolic) . ')<br>', $htmlCopia);
 $emails[] = [
@@ -119,7 +117,7 @@ $emails[] = [
     'assunto' => "🎫 [#{$num}] Resposta da Equipe - {$titulo}",
     'quando' => 'Junto com a "Resposta da equipe", quando o atendente preenche o campo "Com cópia" ao comentar. Sai uma mensagem para cada endereço informado.',
     'quem' => 'Cada endereço do campo "Com cópia" (pessoas que não são o solicitante).',
-    'obs' => 'Mostra quem é o solicitante. Se alguém dessa lista responder ao e-mail com o número da demanda, vira comentário.',
+    'obs' => 'Mostra quem é o solicitante e assina como a equipe do setor. Se alguém dessa lista responder ao e-mail com o número da demanda, vira comentário.',
     'corpo' => $htmlCopia,
 ];
 
@@ -172,10 +170,10 @@ $emails[] = [
     'assunto' => "🎫 [#{$num}] Demanda reaberta - {$titulo}",
     'quando' => 'Quando o solicitante responde por e-mail a uma demanda já encerrada e o sistema a reabre automaticamente.',
     'quem' => 'O solicitante da demanda.',
-    'obs' => 'O arquivo de assinatura que este e-mail procura (frontend/AssinaturaEmail.html) não existe, então ele sai sem assinatura.',
+    'obs' => 'Assina como a equipe do setor da demanda.',
     'corpo' => preencher($modelo('email-template-reabertura.html'), [
         '{{NOME_USUARIO}}' => $esc($solicitante), '{{NUMERO_TICKET}}' => $num, '{{TITULO_TICKET}}' => $esc($titulo),
-        '{{DATA_REABERTURA}}' => '24/10/2026 09:05', '{{ASSINATURA_EMAIL}}' => '',
+        '{{DATA_REABERTURA}}' => '24/10/2026 09:05', '{{ASSINATURA_EMAIL}}' => $assinatura,
     ]),
 ];
 
@@ -247,7 +245,7 @@ $emails[] = [
     'obs' => 'Notas internas não geram este e-mail (só a notificação do sistema).',
     'corpo' => "
             <div style='font-family: Arial, sans-serif; color: #333; max-width: 600px; margin: 0 auto;'>
-                <div style='background: #1e3a5f; padding: 20px; border-radius: 8px 8px 0 0;'>
+                <div style='background: #8b1d17; padding: 20px; border-radius: 8px 8px 0 0;'>
                     <h2 style='color: #fff; margin: 0; font-size: 18px;'>💬 Novo Comentário na Sua Demanda</h2>
                 </div>
                 <div style='background: #f9f9f9; padding: 24px; border-radius: 0 0 8px 8px; border: 1px solid #e0e0e0;'>
@@ -299,7 +297,7 @@ $emails[] = [
         <p>Olá, Carlos Pereira!</p>
         <p>Você solicitou a recuperação de senha do Conecta CRPRS.</p>
         <p>Clique no link abaixo para redefinir sua senha:</p>
-        <p><a href=\"#\" style=\"background-color: #f79226; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; display: inline-block;\">Redefinir Senha</a></p>
+        <p><a href=\"#\" style=\"background-color: #f89327; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; display: inline-block;\">Redefinir Senha</a></p>
         <p>Ou copie e cole este link no navegador:</p>
         <p>https://crp07.org.br/conecta/frontend/redefinir-senha.html?token=EXEMPLO</p>
         <p><strong>Este link expira em 1 hora.</strong></p>
@@ -430,10 +428,8 @@ $md .= "- `gerar-mockups.php` monta tudo a partir dos modelos reais de `backend/
 $md .= "- Os e-mails montados direto no código (agente→agente, lembrete, recuperação de senha e os avisos em texto puro) são cópias do texto original; atualize o catálogo do gerador quando o código mudar.\n";
 $md .= "- `emails/` guarda o e-mail puro (HTML ou texto), `paginas/` a moldura com o momento do envio, `imagens/` os PNGs.\n";
 $md .= "- O logotipo dos e-mails vem de `www.crprs.org.br`; sem internet, a imagem não aparece na pré-visualização.\n\n";
-$md .= "## Pontos de atenção encontrados\n\n";
-$md .= "- `backend/email-template-atribuicao.html` existe mas nenhum código o usa: a atribuição envia só o aviso em texto puro ao atendente.\n";
-$md .= "- \"Resposta da equipe\" e \"Cópia da resposta\" usam a assinatura fixa de `backend/AssinaturaEmail.html` (Equipe de Suporte em TI, `suporte@crprs.org.br`), diferente dos demais, que assinam como a equipe do setor.\n";
-$md .= "- \"Demanda reaberta\" (solicitante) procura `frontend/AssinaturaEmail.html`, que não existe; o e-mail sai sem assinatura.\n";
+$md .= "- Os e-mails internos (equipe) continuam em texto puro, exceto os avisos montados em HTML (comentário de outro atendente, lembrete e recuperação de senha).
+";
 file_put_contents("$saida/README.md", $md);
 
 echo "Gerados " . count($emails) . " mockups em $saida\n";

@@ -10,24 +10,24 @@
     <meta property="og:type" content="website">
     <title>Conecta CRPRS</title>
     <link rel="icon" type="image/png" href="images/logo_vazado.png">
-    <link rel="stylesheet" href="style.css?v=3.10">
-    <link rel="stylesheet" href="historico.css">
-    <link rel="stylesheet" href="modal-modern.css">
-    <link rel="stylesheet" href="funcionalidades.css">
-    <link rel="stylesheet" href="status-sla.css">
-    <link rel="stylesheet" href="responsive.css">
-    <link rel="stylesheet" href="tutorial.css">
-    <link rel="stylesheet" href="lembretes.css?v=2">
-    <link rel="stylesheet" href="auditoria.css">
-    <link rel="stylesheet" href="modern-enhancements.css">
-    <link rel="stylesheet" href="nova_resposta.css">
-    <link rel="stylesheet" href="email-alert.css">
-    <link rel="stylesheet" href="nav-dropdown.css?v=2">
-    <link rel="stylesheet" href="sidebar.css?v=5">
-    <link rel="stylesheet" href="senha-visivel.css?v=1">
-    <link rel="stylesheet" href="tickets-melhorias.css?v=7">
-    <link rel="stylesheet" href="vanguard-tooltip.css">
-    <link rel="stylesheet" href="dashboard-redesign.css">
+    <link rel="stylesheet" href="style.css?v=3.10.c1">
+    <link rel="stylesheet" href="historico.css?v=c1">
+    <link rel="stylesheet" href="modal-modern.css?v=c1">
+    <link rel="stylesheet" href="funcionalidades.css?v=c1">
+    <link rel="stylesheet" href="status-sla.css?v=c1">
+    <link rel="stylesheet" href="responsive.css?v=c1">
+    <link rel="stylesheet" href="tutorial.css?v=c1">
+    <link rel="stylesheet" href="lembretes.css?v=2.c1">
+    <link rel="stylesheet" href="auditoria.css?v=c1">
+    <link rel="stylesheet" href="modern-enhancements.css?v=c1">
+    <link rel="stylesheet" href="nova_resposta.css?v=c1">
+    <link rel="stylesheet" href="email-alert.css?v=c1">
+    <link rel="stylesheet" href="nav-dropdown.css?v=2.c1">
+    <link rel="stylesheet" href="sidebar.css?v=5.c1">
+    <link rel="stylesheet" href="senha-visivel.css?v=1.c1">
+    <link rel="stylesheet" href="tickets-melhorias.css?v=7.c1">
+    <link rel="stylesheet" href="vanguard-tooltip.css?v=c1">
+    <link rel="stylesheet" href="dashboard-redesign.css?v=c1">
     <!-- Material Symbols para ícones da tabela -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -37,9 +37,9 @@
     <link href="https://cdn.jsdelivr.net/npm/quill@1.3.6/dist/quill.snow.css" rel="stylesheet"
         integrity="sha384-07UbSXbd8HpaOfxZsiO6Y8H1HTX6v0J96b5qP6PKSpYEuSZSYD4GFFHlLRjvjVrL" crossorigin="anonymous">
     <!-- Configuração de deploy (base da API) -->
-    <script src="app-config.js?v=2"></script>
+    <script src="app-config.js?v=2.c1"></script>
     <!-- Alpine.js - Componentização e Reatividade Leve -->
-    <script src="alpine-components.js"></script>
+    <script src="alpine-components.js?v=c1"></script>
     <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.14.1/dist/cdn.min.js"
         integrity="sha384-l8f0VcPi/M1iHPv8egOnY/15TDwqgbOR1anMIJWvU6nLRgZVLTLSaNqi/TOoT5Fh" crossorigin="anonymous"></script>
 </head>
@@ -312,9 +312,9 @@
                 </div>
                 <div style="display: flex; gap: 0.5rem; align-items: center; margin-left: auto;">
                     <button onclick="toggleVisaoTickets()" class="btn-small" id="btn-toggle-view"
-                        style="background-color: #4B79A1; display: inline-flex; align-items: center; gap: 0.4rem; padding: 0.6rem 1.2rem; font-weight: 600; font-size: 0.95rem; box-shadow: 0 4px 12px rgba(75, 121, 161, 0.3); border-radius: 8px; transition: transform 0.2s, background 0.2s;"
-                        onmouseover="this.style.backgroundColor='#283E51'; this.style.transform='translateY(-1px)'"
-                        onmouseout="this.style.backgroundColor='#4B79A1'; this.style.transform='translateY(0)'">
+                        style="background-color: #a7241c; display: inline-flex; align-items: center; gap: 0.4rem; padding: 0.6rem 1.2rem; font-weight: 600; font-size: 0.95rem; box-shadow: 0 4px 12px rgba(167, 36, 28, 0.3); border-radius: 8px; transition: transform 0.2s, background 0.2s;"
+                        onmouseover="this.style.backgroundColor='#5e130e'; this.style.transform='translateY(-1px)'"
+                        onmouseout="this.style.backgroundColor='#a7241c'; this.style.transform='translateY(0)'">
                         <span class="material-symbols-outlined" style="font-size: 1.2rem;">view_kanban</span> Kanban
                     </button>
                     <button onclick="mostrarSecao('novo')" class="btn-small" id="btn-novo-ticket"
@@ -334,7 +334,7 @@
         <!-- Demandas Fechadas -->
         <section id="lixeira" class="secao">
             <div class="tickets-header">
-                <h2 style="color: #6c757d; font-size: 1.8rem; font-weight: bold; margin: 0;">🗑️ Lixeira</h2>
+                <h2 style="color: #5f5852; font-size: 1.8rem; font-weight: bold; margin: 0;">🗑️ Lixeira</h2>
             </div>
             <p class="lixeira-aviso">Demandas excluídas pelos usuários. Só o administrador as vê: restaure uma demanda para devolvê-la ao setor ou exclua-a definitivamente (comentários, anexos e histórico são apagados e não podem ser recuperados).</p>
             <div id="lista-lixeira" aria-live="polite"></div>
@@ -342,7 +342,7 @@
 
         <section id="fechados" class="secao">
             <div class="tickets-header">
-                <h2 style="color: #6c757d; font-size: 1.8rem; font-weight: bold; margin: 0;">🏁 Demandas Encerradas</h2>
+                <h2 style="color: #5f5852; font-size: 1.8rem; font-weight: bold; margin: 0;">🏁 Demandas Encerradas</h2>
                 <div class="tickets-actions">
                     <div class="busca-avancada" style="display: flex; align-items: center; gap: 2rem;">
                         <div id="filtro-arquivo-wrapper" class="filtro-arquivo">
@@ -596,11 +596,11 @@
                     <input type="file" id="anexos" multiple
                         accept=".pdf,.doc,.docx,.txt,.csv,.xls,.xlsx,.png,.jpg,.jpeg">
                     <div
-                        style="background: linear-gradient(135deg, #e3f2fd 0%, #f3e5f5 100%); border: 1px solid #4299e1; border-radius: 8px; padding: 0.75rem; margin-top: 0.5rem; font-size: 0.85rem;">
-                        <div style="color: #2d3748; margin-bottom: 0.25rem;">
+                        style="background: linear-gradient(135deg, #fbeceb 0%, #fbeceb 100%); border: 1px solid #a7241c; border-radius: 8px; padding: 0.75rem; margin-top: 0.5rem; font-size: 0.85rem;">
+                        <div style="color: #2b2523; margin-bottom: 0.25rem;">
                             📎 <strong>Tipos aceitos:</strong> PDF, DOC, DOCX, TXT, CSV, XLS, XLSX, PNG, JPG, ZIP, RAR
                         </div>
-                        <div style="color: #2d3748;">
+                        <div style="color: #2b2523;">
                             📏 <strong>Limite:</strong> Máximo 5 arquivos com 20MB no total
                         </div>
                     </div>
@@ -779,7 +779,7 @@
                 </div>
 
                 <div id="form-macro-container"
-                    style="display: none; background: #f8f9fa; padding: 1rem; border-radius: 8px; margin-bottom: 1rem; border: 1px solid #ddd;">
+                    style="display: none; background: #f7f4f0; padding: 1rem; border-radius: 8px; margin-bottom: 1rem; border: 1px solid #ddd;">
                     <input type="hidden" id="macro-id">
                     <div class="form-group">
                         <label for="macro-titulo">Título da Macro:</label>
@@ -847,9 +847,9 @@
 
     </div><!-- fim modal-overlay -->
 
-    <script src="inicio-pagina.js?v=1"></script>
-    <script src="sidebar-navegacao.js?v=1"></script>
-    <script src="senha-visivel.js?v=1"></script>
+    <script src="inicio-pagina.js?v=1.c1"></script>
+    <script src="sidebar-navegacao.js?v=1.c1"></script>
+    <script src="senha-visivel.js?v=1.c1"></script>
 
 
     <!-- Socket.io removido para PHP -->
@@ -857,34 +857,34 @@
     <!-- Scripts Base -->
     <!-- DOMPurify 3.2.6 (cópia local, hash conferido com o registro npm) -->
     <script src="lib/purify.min.js"></script>
-    <script src="canvas-tooltip.js"></script>
-    <script src="vanguard-tooltip.js?v=2"></script>
-    <script src="script.js?v=4.26"></script>
-    <script src="api.js?v=1"></script>
-    <script src="setores.js?v=1"></script>
-    <script src="lixeira.js?v=1"></script>
-    <script src="usuarios.js?v=3"></script>
-    <script src="categorias.js?v=2"></script>
-    <script src="ativacao-setor.js?v=1"></script>
-    <script src="relatorios.js?v=2"></script>
-    <script src="configuracoes.js?v=1"></script>
-    <script src="ajuda.js?v=1"></script>
-    <script src="dashboard.js?v=1"></script>
-    <script src="auditoria.js?v=1"></script>
-    <script src="arquivo.js?v=1"></script>
-    <script src="detalhe-demanda.js?v=2"></script>
-    <script src="demandas.js?v=3"></script>
-    <script src="acessibilidade.js?v=1"></script>
-    <script src="graficos-dashboard.js"></script>
-    <script src="status-sla.js?v=3.0"></script>
-    <script src="tutorial.js?v=3.7"></script>
-    <script src="lembretes.js?v=2"></script>
-    <script src="fluxos-email-func.js"></script>
-    <script src="horarios-sla.js?v=2.1"></script>
-    <script src="macros.js?v=1.2"></script>
-    <script src="notificacoes.js?v=2.2"></script>
-    <script src="avatar.js?v=1.7"></script>
-    <script src="cabecalho-setor.js?v=1.0"></script>
+    <script src="canvas-tooltip.js?v=c1"></script>
+    <script src="vanguard-tooltip.js?v=2.c1"></script>
+    <script src="script.js?v=4.26.c1"></script>
+    <script src="api.js?v=1.c1"></script>
+    <script src="setores.js?v=1.c1"></script>
+    <script src="lixeira.js?v=1.c1"></script>
+    <script src="usuarios.js?v=3.c1"></script>
+    <script src="categorias.js?v=2.c1"></script>
+    <script src="ativacao-setor.js?v=1.c1"></script>
+    <script src="relatorios.js?v=2.c1"></script>
+    <script src="configuracoes.js?v=1.c1"></script>
+    <script src="ajuda.js?v=1.c1"></script>
+    <script src="dashboard.js?v=1.c1"></script>
+    <script src="auditoria.js?v=1.c1"></script>
+    <script src="arquivo.js?v=1.c1"></script>
+    <script src="detalhe-demanda.js?v=2.c1"></script>
+    <script src="demandas.js?v=3.c1"></script>
+    <script src="acessibilidade.js?v=1.c1"></script>
+    <script src="graficos-dashboard.js?v=c1"></script>
+    <script src="status-sla.js?v=3.0.c1"></script>
+    <script src="tutorial.js?v=3.7.c1"></script>
+    <script src="lembretes.js?v=2.c1"></script>
+    <script src="fluxos-email-func.js?v=c1"></script>
+    <script src="horarios-sla.js?v=2.1.c1"></script>
+    <script src="macros.js?v=1.2.c1"></script>
+    <script src="notificacoes.js?v=2.2.c1"></script>
+    <script src="avatar.js?v=1.7.c1"></script>
+    <script src="cabecalho-setor.js?v=1.0.c1"></script>
 
     <!-- Botão Voltar ao Topo -->
     <button id="btn-voltar-topo" onclick="voltarAoTopo()" title="Voltar ao topo"></button>

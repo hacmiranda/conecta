@@ -553,7 +553,8 @@ class EmailSender {
 
             // Template para o solicitante
             $template_solicitante = file_get_contents(dirname(__DIR__, 2) . '/backend/email-template-resposta.html');
-            $assinatura = file_get_contents(dirname(__DIR__, 2) . '/backend/AssinaturaEmail.html');
+            // Assinatura do setor que envia (a mesma dos demais e-mails ao solicitante)
+            $assinatura = $this->getAssinatura();
 
             $html_solicitante = str_replace(
                 ['{{NOME_USUARIO}}', '{{NUMERO_TICKET}}', '{{TITULO_TICKET}}', '{{NOME_AGENTE}}', '{{DATA_RESPOSTA}}', '{{COMENTARIO_AGENTE}}', '{{ASSINATURA_EMAIL}}'],
@@ -867,9 +868,8 @@ class EmailSender {
             $template_path = dirname(__DIR__, 2) . '/backend/email-template-reabertura.html';
             $template = file_get_contents($template_path);
             
-            // Carregar assinatura
-            $assinatura_path = dirname(__DIR__, 2) . '/frontend/AssinaturaEmail.html';
-            $assinatura = file_exists($assinatura_path) ? file_get_contents($assinatura_path) : '';
+            // Assinatura do setor que envia
+            $assinatura = $this->getAssinatura();
             
             // Substituir variáveis
             $template = str_replace('{{NOME_USUARIO}}', $this->esc($ticket['usuario_nome']), $template);
@@ -1028,7 +1028,7 @@ class EmailSender {
 
             $html = "
             <div style='font-family: Arial, sans-serif; color: #333; max-width: 600px; margin: 0 auto;'>
-                <div style='background: #1e3a5f; padding: 20px; border-radius: 8px 8px 0 0;'>
+                <div style='background: #8b1d17; padding: 20px; border-radius: 8px 8px 0 0;'>
                     <h2 style='color: #fff; margin: 0; font-size: 18px;'>💬 Novo Comentário na Sua Demanda</h2>
                 </div>
                 <div style='background: #f9f9f9; padding: 24px; border-radius: 0 0 8px 8px; border: 1px solid #e0e0e0;'>

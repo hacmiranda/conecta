@@ -25,7 +25,7 @@
 
 .lembrete-card.lembrete-notificado {
     background: #f0f0f0;
-    border-left-color: #6c757d;
+    border-left-color: var(--neutro-600);
     opacity: 0.7;
 }
 
@@ -67,7 +67,7 @@
 
 .modo-escuro .lembrete-card.lembrete-notificado {
     background: #2d2d2d;
-    border-left-color: #6c757d;
+    border-left-color: var(--neutro-600);
 }
 
 .modo-escuro .lembrete-info strong {
@@ -84,7 +84,7 @@
 
 /* Lembrete cancelado automaticamente (demanda encerrada/transferida) */
 .lembrete-card.lembrete-cancelado {
-    background: #f8f9fa;
+    background: var(--neutro-50);
     border-left-color: #b45309;
     opacity: 0.8;
 }

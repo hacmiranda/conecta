@@ -5,7 +5,7 @@ const STATUS_CONFIG = {
     'novo': {
         nome: 'Novo',
         icone: '🆕',
-        cor: '#f79226'
+        cor: '#f89327'
     },
     'em_atendimento': {
         nome: 'Em atendimento',
@@ -25,7 +25,7 @@ const STATUS_CONFIG = {
     'aguardando_terceiros': {
         nome: 'Aguardando terceiros',
         icone: '🔄',
-        cor: '#6f42c1'
+        cor: '#8b1d17'
     },
     'aguardando_aprovacao': {
         nome: 'Aguardando aprovação',
@@ -45,7 +45,7 @@ const STATUS_CONFIG = {
     'encerrado': {
         nome: 'Encerrado',
         icone: '🏁',
-        cor: '#6c757d'
+        cor: '#5f5852'
     },
     'cancelado': {
         nome: 'Cancelado',
@@ -55,7 +55,7 @@ const STATUS_CONFIG = {
     'reaberto': {
         nome: 'Reaberto',
         icone: '🔄',
-        cor: '#e83e8c'
+        cor: '#a7241c'
     },
     'nova_resposta': {
         nome: 'Nova Resposta',

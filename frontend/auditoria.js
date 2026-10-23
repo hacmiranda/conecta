@@ -123,7 +123,7 @@ function mostrarLogEmails(dados, paginaAtual = 1) {
     const corCard      = escuro ? '#2d2d2d' : '#fff';
     const corBorda     = escuro ? '#444'    : '#e0e0e0';
     const corTextoSub  = escuro ? '#aaa'    : '#666';
-    const corTextoNum  = escuro ? '#93c5fd' : '#1e3a5f';
+    const corTextoNum  = escuro ? '#f89327' : '#5e130e';
     const corBordaSep  = escuro ? '#444'    : '#eee';
     const corLinhaImpar = escuro ? '#2d2d2d' : '#fff';
     const corLinhaPar   = escuro ? '#353535' : '#fafafa';
@@ -131,7 +131,7 @@ function mostrarLogEmails(dados, paginaAtual = 1) {
     const corSelectBorda = escuro ? '#555'  : '#ddd';
     const corSelectTxt = escuro ? '#e0e0e0' : 'inherit';
     const corFiltrosBg = escuro ? '#1e1e1e' : '#f5f5f5';
-    const corTicket    = escuro ? '#93c5fd' : '#1e3a5f';
+    const corTicket    = escuro ? '#f89327' : '#5e130e';
     const corPagInativa = escuro ? '#2d2d2d' : '#fff';
     const corPagTxtInativa = escuro ? '#e0e0e0' : '#333';
 
@@ -241,7 +241,7 @@ function mostrarLogEmails(dados, paginaAtual = 1) {
             <table style="width:100%; border-collapse:collapse; font-size:13px;">
                 <caption class="sr-only">Log de e-mails enviados</caption>
                 <thead>
-                    <tr style="background:#1e3a5f; color:#fff;">
+                    <tr style="background:#5e130e; color:#fff;">
                         <th scope="col" style="padding:10px 12px; text-align:left;">Data/Hora</th>
                         <th scope="col" style="padding:10px 12px; text-align:left;">Destinatário</th>
                         <th scope="col" style="padding:10px 12px; text-align:left;">Assunto</th>
@@ -295,7 +295,7 @@ function mostrarLogEmails(dados, paginaAtual = 1) {
         let pagHtml = `<div style="text-align:center; margin-top:16px; display:flex; gap:8px; justify-content:center; flex-wrap:wrap;">`;
         for (let p = 1; p <= paginas; p++) {
             const ativo = p === paginaAtual
-                ? 'background:#1e3a5f; color:#fff;'
+                ? 'background:#5e130e; color:#fff;'
                 : `background:${corPagInativa}; color:${corPagTxtInativa};`;
             pagHtml += `<button onclick="carregarLogEmails(${p})" style="${ativo} border:1px solid ${corSelectBorda}; padding:6px 12px; border-radius:6px; cursor:pointer;">${p}</button>`;
         }
@@ -959,13 +959,13 @@ function exportarAuditoriaPDF() {
             justify-content: space-between;
             align-items: flex-end;
             padding-bottom: 8px;
-            border-bottom: 3px solid #004373;
+            border-bottom: 3px solid #a7241c;
             margin-bottom: 14px;
         }
         .cabecalho-pdf .logo-bloco { display: flex; flex-direction: column; gap: 2px; }
         .cabecalho-pdf .titulo-principal {
             font-size: 17px; font-weight: 800;
-            color: #004373; letter-spacing: -0.3px;
+            color: #a7241c; letter-spacing: -0.3px;
         }
         .cabecalho-pdf .titulo-secao {
             font-size: 11px; font-weight: 600; color: #444; margin-top: 1px;
@@ -988,7 +988,7 @@ function exportarAuditoriaPDF() {
             margin-bottom: 14px;
             table-layout: fixed;
         }
-        thead tr { background: #004373 !important; color: #fff !important; }
+        thead tr { background: #a7241c !important; color: #fff !important; }
         th {
             padding: 6px 7px;
             text-align: left;
@@ -1004,7 +1004,7 @@ function exportarAuditoriaPDF() {
             word-break: break-word;
             overflow-wrap: break-word;
         }
-        tbody tr:nth-child(even) td { background: #f4f6fb !important; }
+        tbody tr:nth-child(even) td { background: #fbeceb !important; }
 
         /* ── Cards de estatísticas ── */
         .stats-row {
@@ -1015,11 +1015,11 @@ function exportarAuditoriaPDF() {
             width: 100%;
         }
         .stat-card {
-            border: 1px solid #d0d7e8;
+            border: 1px solid #f5d3d0;
             border-radius: 6px;
             padding: 10px 8px;
             text-align: center;
-            background: #f8faff !important;
+            background: #fbeceb !important;
         }
         .stat-num { font-size: 20px; font-weight: 800; }
         .stat-label { font-size: 8.5px; color: #666; margin-top: 3px; }
@@ -1031,7 +1031,7 @@ function exportarAuditoriaPDF() {
             border-radius: 5px;
             padding: 8px 10px;
             margin-bottom: 8px;
-            border-left: 3px solid #004373;
+            border-left: 3px solid #a7241c;
             border: 1px solid #e0e0e0;
             page-break-inside: avoid;
         }

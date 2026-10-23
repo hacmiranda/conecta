@@ -298,7 +298,7 @@ function mostrarDetalhesTicket(ticket) {
                         const nomeExibir = anexo.nome_original || anexo.nome_arquivo;
                         const tamanhoMB = (anexo.tamanho / 1024 / 1024).toFixed(2);
                         comentariosHtml += `
-                            <div style="background: #f8f9fa; padding: 0.75rem; margin: 0.5rem 0; border-radius: 4px; display: flex; justify-content: space-between; align-items: center;">
+                            <div style="background: #f7f4f0; padding: 0.75rem; margin: 0.5rem 0; border-radius: 4px; display: flex; justify-content: space-between; align-items: center;">
                                 <div>
                                     <strong>${sanitizeHTML(nomeExibir)}</strong><br>
                                     <small style="color: #666;">${tamanhoMB}MB</small>
@@ -435,7 +435,7 @@ function mostrarDetalhesTicket(ticket) {
                     <h3><img src="images/clipe-de-anexo.png" style="width: 20px; height: 20px; vertical-align: middle; margin-right: 0.5rem;" alt="Anexos">Anexos (${ticket.anexos.length})</h3>
                     <div class="anexos-lista">
                         ${ticket.anexos.map(anexo => `
-                            <div class="anexo-item" style="background: #f8f9fa; padding: 0.75rem; margin: 0.5rem 0; border-radius: 4px; display: flex; justify-content: space-between; align-items: center;">
+                            <div class="anexo-item" style="background: #f7f4f0; padding: 0.75rem; margin: 0.5rem 0; border-radius: 4px; display: flex; justify-content: space-between; align-items: center;">
                                 <div>
                                     <strong>${sanitizeHTML(anexo.nome_original)}</strong><br>
                                     <small style="color: #666;">${(anexo.tamanho / 1024 / 1024).toFixed(2)}MB - ${new Date(anexo.criado_em).toLocaleDateString('pt-BR')}</small>
@@ -900,7 +900,7 @@ function adicionarComentario(event, ticketId) {
                             itemDiv.style.marginTop = '0.3rem';
 
                             const link = document.createElement('button');
-                            link.style.cssText = 'color: #007bff; text-decoration: none; background: none; border: none; cursor: pointer; padding: 0; font-size: inherit;';
+                            link.style.cssText = 'color: #a7241c; text-decoration: none; background: none; border: none; cursor: pointer; padding: 0; font-size: inherit;';
                             const imgClipe = document.createElement('img');
                             imgClipe.src = 'images/clipe-de-anexo.png';
                             imgClipe.style.cssText = 'width: 14px; height: 14px; vertical-align: middle; margin-right: 4px;';
@@ -913,7 +913,7 @@ function adicionarComentario(event, ticketId) {
                             if (isPDF || isImage) {
                                 const btnVer = document.createElement('button');
                                 btnVer.textContent = '👁️ Ver';
-                                btnVer.style.cssText = 'margin-left: 0.5rem; padding: 0.2rem 0.5rem; font-size: 0.8rem; cursor: pointer; border: 1px solid #007bff; background: white; color: #007bff; border-radius: 3px;';
+                                btnVer.style.cssText = 'margin-left: 0.5rem; padding: 0.2rem 0.5rem; font-size: 0.8rem; cursor: pointer; border: 1px solid #a7241c; background: white; color: #a7241c; border-radius: 3px;';
                                 btnVer.addEventListener('click', () => visualizarAnexo(anexoIdSafe, tipo));
                                 itemDiv.appendChild(btnVer);
                             }

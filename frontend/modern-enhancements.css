@@ -8,10 +8,10 @@
 
 :root {
     /* Cores existentes mantidas */
-    --laranja: #f79226;
-    --vermelho: #a8231e;
-    --verde: #71aa29;
-    --cinza: #f5f5f5;
+    --laranja: var(--laranja-500);
+    --vermelho: var(--vinho-600);
+    --verde: var(--verde-500);
+    --cinza: var(--neutro-50);
     --branco: #ffffff;
 
     /* Novas variÃ¡veis para consistÃªncia */
@@ -38,7 +38,7 @@ body {
 
 /* === HEADER MODERNO === */
 header {
-    background: linear-gradient(135deg, #004373 0%, #004373 50%, #002d4d 100%);
+    background: linear-gradient(135deg, var(--vinho-600) 0%, var(--vinho-600) 50%, var(--vinho-900) 100%);
     box-shadow: var(--shadow-lg);
     border-bottom: 1px solid rgba(255, 255, 255, 0.08);
 }
@@ -76,7 +76,7 @@ header h1 {
 }
 
 .btn-nav.active {
-    box-shadow: 0 4px 12px rgba(168, 35, 30, 0.4);
+    box-shadow: 0 4px 12px rgba(167, 36, 28, 0.4);
 }
 
 /* === CARDS MODERNOS === */
@@ -144,7 +144,7 @@ header h1 {
 }
 
 .tickets-tabela th {
-    background: linear-gradient(135deg, #004373 0%, #002d4d 100%);
+    background: linear-gradient(135deg, var(--vinho-600) 0%, var(--vinho-900) 100%);
     font-weight: 600;
     letter-spacing: 0.02em;
     text-transform: uppercase;
@@ -157,7 +157,7 @@ header h1 {
 }
 
 .tickets-tabela tr:hover {
-    background-color: rgba(247, 146, 38, 0.03);
+    background-color: rgba(248, 147, 39, 0.03);
     transform: scale(1.001);
 }
 
@@ -206,7 +206,7 @@ input,
 textarea,
 select {
     border-radius: var(--radius-md);
-    border: 2px solid #e2e8f0;
+    border: 2px solid var(--neutro-200);
     transition: all var(--transition-base);
     font-family: 'Inter', sans-serif;
 }
@@ -216,7 +216,7 @@ textarea:focus,
 select:focus {
     outline: none;
     border-color: var(--laranja);
-    box-shadow: 0 0 0 4px rgba(247, 146, 38, 0.1);
+    box-shadow: 0 0 0 4px rgba(248, 147, 39, 0.1);
     transform: translateY(-1px);
 }
 
@@ -259,7 +259,7 @@ select:focus {
     align-items: center;
     font-size: 1rem;
     margin-bottom: 1rem;
-    color: #475569;
+    color: var(--neutro-600);
 }
 
 .card-title-flex::after {
@@ -267,7 +267,7 @@ select:focus {
 }
 
 .modo-escuro .card-title-flex {
-    color: #cbd5e1;
+    color: var(--neutro-200);
 }
 
 .title-left {
@@ -282,16 +282,16 @@ select:focus {
 }
 
 .fcr-card {
-    background: linear-gradient(135deg, #004373 0%, #3b82f6 100%) !important;
+    background: linear-gradient(135deg, var(--vinho-600) 0%, var(--vinho-600) 100%) !important;
     border: none;
 }
 
 .fcr-card .card-title-flex {
-    color: #bfdbfe !important;
+    color: var(--vinho-100) !important;
 }
 
 .fcr-card .title-left .material-symbols-outlined {
-    color: #bfdbfe;
+    color: var(--vinho-100);
 }
 
 .fcr-number {
@@ -302,24 +302,24 @@ select:focus {
 .fcr-subtitle {
     font-size: 0.8rem;
     margin-top: 0.5rem;
-    color: #bfdbfe;
+    color: var(--vinho-100);
     font-weight: 500;
 }
 
 .dashboard-subtitle {
     font-size: 0.8rem;
-    color: #64748b;
+    color: var(--neutro-600);
     margin-top: 0.4rem;
     font-weight: 500;
 }
 
 .modo-escuro .dashboard-subtitle {
-    color: #94a3b8;
+    color: var(--neutro-400);
 }
 
 .text-caption {
     font-size: 0.75rem;
-    color: #94a3b8;
+    color: var(--neutro-400);
     font-weight: normal;
     margin-left: 4px;
 }
@@ -354,14 +354,14 @@ select:focus {
 }
 
 ::-webkit-scrollbar-track {
-    background: #f1f5f9;
+    background: var(--neutro-100);
     border-radius: 10px;
 }
 
 ::-webkit-scrollbar-thumb {
     background: linear-gradient(135deg, var(--laranja), var(--vermelho));
     border-radius: 10px;
-    border: 2px solid #f1f5f9;
+    border: 2px solid var(--neutro-100);
 }
 
 ::-webkit-scrollbar-thumb:hover {
@@ -401,7 +401,7 @@ h2::after {
 }
 
 .loader-logo {
-    filter: drop-shadow(0 8px 24px rgba(247, 146, 38, 0.4));
+    filter: drop-shadow(0 8px 24px rgba(248, 147, 39, 0.4));
 }
 
 /* === MENU USUÃRIO MODERNO === */
@@ -431,14 +431,14 @@ h2::after {
 }
 
 .menu-usuario a:hover {
-    background: linear-gradient(90deg, rgba(247, 146, 38, 0.1), transparent);
+    background: linear-gradient(90deg, rgba(248, 147, 39, 0.1), transparent);
     padding-left: 1.25rem;
 }
 
 /* === BUSCA AVANÃ‡ADA MODERNA === */
 .input-busca {
     border-radius: 24px;
-    border: 2px solid #e2e8f0;
+    border: 2px solid var(--neutro-200);
     transition: all var(--transition-base);
     box-shadow: var(--shadow-sm);
 }
@@ -450,42 +450,42 @@ h2::after {
 
 /* === MODO ESCURO APRIMORADO === */
 .modo-escuro {
-    background-color: #0f172a;
+    background-color: var(--neutro-900);
 }
 
 .modo-escuro .ticket-card,
 .modo-escuro .dashboard-card,
 .modo-escuro .usuario-card,
 .modo-escuro .modal {
-    background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
+    background: linear-gradient(135deg, var(--neutro-800) 0%, var(--neutro-900) 100%);
     border-color: rgba(255, 255, 255, 0.05);
 }
 
 .modo-escuro .tickets-tabela th {
-    background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
+    background: linear-gradient(135deg, var(--neutro-800) 0%, var(--neutro-900) 100%);
 }
 
 .modo-escuro input,
 .modo-escuro textarea,
 .modo-escuro select {
-    background: #1e293b;
-    border-color: #334155;
-    color: #e2e8f0;
+    background: var(--neutro-800);
+    border-color: var(--neutro-800);
+    color: var(--neutro-200);
 }
 
 .modo-escuro input:focus,
 .modo-escuro textarea:focus,
 .modo-escuro select:focus {
     border-color: var(--laranja);
-    background: #0f172a;
+    background: var(--neutro-900);
 }
 
 .modo-escuro ::-webkit-scrollbar-track {
-    background: #1e293b;
+    background: var(--neutro-800);
 }
 
 .modo-escuro ::-webkit-scrollbar-thumb {
-    border-color: #1e293b;
+    border-color: var(--neutro-800);
 }
 
 /* === RESPONSIVIDADE APRIMORADA === */

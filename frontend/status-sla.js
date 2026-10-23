@@ -4,7 +4,7 @@
 const STATUS_CONFIG = {
     'aberto': {
         nome: 'Aberto',
-        cor: '#f79226',
+        cor: '#f89327',
         icone: '🆕',
         descricao: 'A demanda foi criada, mas ainda não começou a ser tratada',
         congela_sla: false
@@ -32,7 +32,7 @@ const STATUS_CONFIG = {
     },
     'aguardando_terceiros': {
         nome: 'Aguardando terceiros',
-        cor: '#6f42c1',
+        cor: '#8b1d17',
         icone: '🔄',
         descricao: 'Quando depende de outro setor ou fornecedor externo para resolução',
         congela_sla: true
@@ -53,7 +53,7 @@ const STATUS_CONFIG = {
     },
     'encerrado': {
         nome: 'Encerrado',
-        cor: '#6c757d',
+        cor: '#5f5852',
         icone: '🏁',
         descricao: 'O problema foi solucionado, e o atendimento foi oficialmente concluído',
         congela_sla: false
@@ -67,7 +67,7 @@ const STATUS_CONFIG = {
     },
     'reaberto': {
         nome: 'Reaberto',
-        cor: '#e83e8c',
+        cor: '#a7241c',
         icone: '🔄',
         descricao: 'Quando uma demanda já encerrada ou resolvida volta a apresentar problemas e precisa ser tratada novamente',
         congela_sla: false
@@ -96,14 +96,14 @@ const STATUS_CONFIG = {
     },
     'fechado': {
         nome: 'Encerrado',
-        cor: '#6c757d',
+        cor: '#5f5852',
         icone: '🏁',
         descricao: 'O problema foi solucionado, e o atendimento foi oficialmente concluído',
         congela_sla: false
     },
     'novo': {
         nome: 'Novo',
-        cor: '#f79226',
+        cor: '#f89327',
         icone: '🆕',
         descricao: 'A demanda foi criada, mas ainda não começou a ser tratada',
         congela_sla: false

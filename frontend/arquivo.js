@@ -141,7 +141,7 @@ function mostrarTicketsFechadosNaTela(tickets) {
 
     if (tickets.length === 0) {
         listaFechados.innerHTML = `
-            <div style="text-align:center; padding: 3rem 1rem; color: #64748b;">
+            <div style="text-align:center; padding: 3rem 1rem; color: #5f5852;">
                 <span class="material-symbols-outlined" style="font-size:3rem; opacity:0.4;">inbox</span>
                 <p style="margin-top:0.5rem; font-size:0.95rem;">Nenhuma demanda fechada encontrada para este filtro.</p>
             </div>`;
@@ -179,7 +179,7 @@ function mostrarTicketsFechadosNaTela(tickets) {
         const iconeAnexo = ticket.tem_anexos > 0
             ? `<span class="material-symbols-outlined icone-tabela icone-anexo-ms" data-vg-tooltip="Esta demanda possui arquivos anexados." data-vg-title="ANEXOS" aria-label="Tem anexos">attach_file</span>` : '';
         const iconeMesclado = ticket.eh_mesclado > 0
-            ? `<span class="material-symbols-outlined icone-tabela" data-vg-tooltip="Esta demanda foi mesclada com outra demanda." data-vg-title="DEMANDA MESCLADA" aria-label="Mesclado" style="color:#6366f1">call_merge</span>` : '';
+            ? `<span class="material-symbols-outlined icone-tabela" data-vg-tooltip="Esta demanda foi mesclada com outra demanda." data-vg-title="DEMANDA MESCLADA" aria-label="Mesclado" style="color:#a7241c">call_merge</span>` : '';
 
         // Título truncado
         const tituloSeguro = sanitizeHTML(ticket.titulo || '');

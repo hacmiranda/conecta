@@ -27,24 +27,24 @@
     border: none;
     border-radius: 0.375rem;
     background: transparent;
-    color: #4b5563;
+    color: var(--neutro-600);
     cursor: pointer;
     box-shadow: none;
 }
 
 .campo-senha > .senha-olho:hover {
-    background: rgba(0, 67, 115, 0.08);
-    color: #004373;
+    background: rgba(167, 36, 28, 0.08);
+    color: var(--vinho-600);
     transform: translateY(-50%);
 }
 
 .campo-senha > .senha-olho:focus-visible {
-    outline: 2px solid #004373;
+    outline: 2px solid var(--vinho-600);
     outline-offset: 1px;
 }
 
 .modo-escuro .campo-senha > .senha-olho {
-    color: #cbd5e1;
+    color: var(--neutro-200);
 }
 
 .modo-escuro .campo-senha > .senha-olho:hover {
@@ -53,5 +53,5 @@
 }
 
 .modo-escuro .campo-senha > .senha-olho:focus-visible {
-    outline-color: #93c5fd;
+    outline-color: var(--laranja-500);
 }

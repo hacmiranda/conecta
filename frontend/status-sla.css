@@ -2,67 +2,67 @@
 
 /* Status badges - sobrescrever cores de fundo */
 .status.aberto {
-    background-color: #f8f9fa !important;
+    background-color: var(--neutro-50) !important;
     color: #333 !important;
-    border-left-color: #f79226;
+    border-left-color: var(--laranja-500);
 }
 
 .status.em_atendimento,
 .status.em_andamento,
 .status.atendimento {
-    background-color: #f8f9fa !important;
+    background-color: var(--neutro-50) !important;
     color: #333 !important;
     border-left-color: #17a2b8;
 }
 
 .status.aguardando_resposta,
 .status.espera {
-    background-color: #f8f9fa !important;
+    background-color: var(--neutro-50) !important;
     color: #333 !important;
     border-left-color: #ffc107;
 }
 
 .status.aguardando_terceiros {
-    background-color: #f8f9fa !important;
+    background-color: var(--neutro-50) !important;
     color: #333 !important;
-    border-left-color: #6f42c1;
+    border-left-color: var(--vinho-700);
 }
 
 .status.aguardando_aprovacao {
-    background-color: #f8f9fa !important;
+    background-color: var(--neutro-50) !important;
     color: #333 !important;
     border-left-color: #fd7e14;
 }
 
 .status.resolvido {
-    background-color: #f8f9fa !important;
+    background-color: var(--neutro-50) !important;
     color: #333 !important;
     border-left-color: #28a745;
 }
 
 .status.encerrado,
 .status.fechado {
-    background-color: #f8f9fa !important;
+    background-color: var(--neutro-50) !important;
     color: #333 !important;
-    border-left-color: #6c757d;
+    border-left-color: var(--neutro-600);
 }
 
 .status.cancelado {
-    background-color: #f8f9fa !important;
+    background-color: var(--neutro-50) !important;
     color: #333 !important;
     border-left-color: #dc3545;
 }
 
 .status.reaberto {
-    background-color: #f8f9fa !important;
+    background-color: var(--neutro-50) !important;
     color: #333 !important;
-    border-left-color: #e83e8c;
+    border-left-color: var(--vinho-600);
 }
 
 .status.novo {
-    background-color: #f8f9fa !important;
+    background-color: var(--neutro-50) !important;
     color: #333 !important;
-    border-left-color: #f79226;
+    border-left-color: var(--laranja-500);
 }
 
 /* Modal de seleção com descrição */
@@ -77,28 +77,28 @@
 }
 
 .select-option-descricao:hover {
-    background-color: #f8f9fa;
-    border-color: #4299e1;
+    background-color: var(--neutro-50);
+    border-color: var(--vinho-600);
     transform: translateY(-1px);
-    box-shadow: 0 2px 8px rgba(66, 153, 225, 0.15);
+    box-shadow: 0 2px 8px rgba(167, 36, 28, 0.15);
 }
 
 .select-option-descricao.selected {
-    background-color: #e3f2fd;
-    border-color: #4299e1;
-    box-shadow: 0 0 0 2px rgba(66, 153, 225, 0.2);
+    background-color: var(--vinho-50);
+    border-color: var(--vinho-600);
+    box-shadow: 0 0 0 2px rgba(167, 36, 28, 0.2);
 }
 
 .opcao-nome {
     font-weight: 600;
-    color: #2d3748;
+    color: var(--neutro-800);
     margin-bottom: 0.25rem;
     font-size: 1rem;
 }
 
 .opcao-descricao {
     font-size: 0.875rem;
-    color: #718096;
+    color: var(--neutro-400);
     line-height: 1.4;
 }
 
@@ -141,7 +141,7 @@
 .sla-progress {
     width: 100%;
     height: 4px;
-    background-color: #e9ecef;
+    background-color: var(--neutro-100);
     border-radius: 2px;
     overflow: hidden;
     margin-top: 0.25rem;
@@ -221,8 +221,8 @@
 
 /* Histórico de status */
 .historico-status {
-    background: #f8f9fa;
-    border-left: 4px solid #4299e1;
+    background: var(--neutro-50);
+    border-left: 4px solid var(--vinho-600);
     padding: 0.75rem;
     margin: 0.5rem 0;
     border-radius: 0 4px 4px 0;
@@ -237,22 +237,22 @@
 
 .historico-status-usuario {
     font-weight: 600;
-    color: #2d3748;
+    color: var(--neutro-800);
 }
 
 .historico-status-data {
     font-size: 0.875rem;
-    color: #718096;
+    color: var(--neutro-400);
 }
 
 .historico-status-mudanca {
     font-size: 0.9rem;
-    color: #4a5568;
+    color: var(--neutro-600);
 }
 
 .historico-status-observacoes {
     font-size: 0.875rem;
-    color: #718096;
+    color: var(--neutro-400);
     font-style: italic;
     margin-top: 0.25rem;
 }
@@ -334,7 +334,7 @@
 
 .sla-metric-label {
     font-size: 0.875rem;
-    color: #718096;
+    color: var(--neutro-400);
     text-transform: uppercase;
     letter-spacing: 0.5px;
 }
@@ -360,43 +360,43 @@
 
 /* Modo escuro */
 .modo-escuro .select-option-descricao {
-    background: #2d3748;
-    border-color: #4a5568;
-    color: #e2e8f0;
+    background: var(--neutro-800);
+    border-color: var(--neutro-600);
+    color: var(--neutro-200);
 }
 
 .modo-escuro .select-option-descricao:hover {
-    background-color: #4a5568;
-    border-color: #63b3ed;
+    background-color: var(--neutro-600);
+    border-color: var(--laranja-500);
 }
 
 .modo-escuro .select-option-descricao.selected {
-    background-color: #2c5282;
-    border-color: #63b3ed;
+    background-color: var(--vinho-700);
+    border-color: var(--laranja-500);
 }
 
 .modo-escuro .opcao-nome {
-    color: #e2e8f0;
+    color: var(--neutro-200);
 }
 
 .modo-escuro .opcao-descricao {
-    color: #a0aec0;
+    color: var(--neutro-400);
 }
 
 .modo-escuro .historico-status {
-    background: #2d3748;
-    border-left-color: #63b3ed;
+    background: var(--neutro-800);
+    border-left-color: var(--laranja-500);
 }
 
 .modo-escuro .historico-status-usuario {
-    color: #e2e8f0;
+    color: var(--neutro-200);
 }
 
 .modo-escuro .historico-status-mudanca {
-    color: #cbd5e0;
+    color: var(--neutro-200);
 }
 
 .modo-escuro .sla-metric-card {
-    background: #2d3748;
-    color: #e2e8f0;
+    background: var(--neutro-800);
+    color: var(--neutro-200);
 }
