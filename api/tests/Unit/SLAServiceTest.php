@@ -39,10 +39,14 @@ final class SLAServiceTest extends TestCase {
                      ->execute([$dia]);
         }
 
-        // Setor sem nenhum expediente ativo: usado para testar que tempo fora do horário não conta.
+        // Setor com expediente de largura zero (não "sem configuração"): usado para testar que
+        // tempo fora do horário não conta. Precisa ser ativo=1 com janela vazia, não ativo=0 —
+        // um setor com todo dia ativo=0 fica com lerHorarios() vazio e buscarHorariosUteis() cai
+        // no fallback do setor "Geral" (comportamento intencional para setor sem config nenhuma),
+        // o que tornaria este teste dependente do horário real em que ele é executado.
         $this->db->exec("INSERT INTO setores (id, nome) VALUES (4, 'SempreFechado')");
         foreach (range(1, 7) as $dia) {
-            $this->db->prepare('INSERT INTO horarios_uteis (setor_id, dia_semana, hora_inicio, hora_fim, ativo) VALUES (4, ?, "00:00:00", "23:59:59", 0)')
+            $this->db->prepare('INSERT INTO horarios_uteis (setor_id, dia_semana, hora_inicio, hora_fim, ativo) VALUES (4, ?, "00:00:00", "00:00:00", 1)')
                      ->execute([$dia]);
         }
 
