@@ -144,12 +144,7 @@ header h1 {
 }
 
 .tickets-tabela th {
-    background: linear-gradient(135deg, var(--vinho-600) 0%, var(--vinho-900) 100%);
-    font-weight: 600;
-    letter-spacing: 0.02em;
-    text-transform: uppercase;
-    font-size: 11px;
-    padding: 1rem;
+    padding: 0.85rem 1rem;
 }
 
 .tickets-tabela tr {
@@ -462,7 +457,10 @@ h2::after {
 }
 
 .modo-escuro .tickets-tabela th {
-    background: linear-gradient(135deg, var(--neutro-800) 0%, var(--neutro-900) 100%);
+    background: var(--neutro-900);
+    color: var(--neutro-200);
+    border-color: var(--neutro-600);
+    border-bottom: 2px solid var(--vinho-600);
 }
 
 .modo-escuro input,

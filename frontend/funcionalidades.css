@@ -172,9 +172,10 @@ body.modo-escuro {
 }
 
 .modo-escuro .tickets-tabela th {
-    background: linear-gradient(135deg, var(--vinho-600) 0%, var(--vinho-900) 100%);
+    background: var(--neutro-900);
     color: var(--neutro-200);
-    border-color: var(--vinho-700);
+    border-color: var(--neutro-600);
+    border-bottom: 2px solid var(--vinho-600);
 }
 
 .modo-escuro .tickets-tabela td {

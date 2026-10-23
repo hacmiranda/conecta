@@ -12,13 +12,23 @@
 }
 
 .tickets-tabela th.sort-ativo {
-    background: linear-gradient(135deg, var(--vinho-700) 0%, var(--vinho-700) 100%) !important;
+    background: var(--vinho-50) !important;
+    color: var(--vinho-700);
 }
 
 .tickets-tabela th.sort-ativo .sort-arrows {
     opacity: 1;
-    color: var(--laranja-500);
+    color: var(--vinho-600);
     font-size: 0.9rem;
+}
+
+.modo-escuro .tickets-tabela th.sort-ativo {
+    background: var(--neutro-800) !important;
+    color: var(--laranja-500);
+}
+
+.modo-escuro .tickets-tabela th.sort-ativo .sort-arrows {
+    color: var(--laranja-500);
 }
 
 .sort-arrows {

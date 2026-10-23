@@ -1277,14 +1277,16 @@ select {
 }
 
 .tickets-tabela th {
-    background: linear-gradient(135deg, var(--vinho-600) 0%, var(--vinho-900) 100%);
-    color: white;
+    /* Cabeçalho liso (sem degradê por célula), no estilo das tabelas do Sycer */
+    background: var(--neutro-100);
+    color: var(--neutro-900);
     padding: 0.75rem 1rem;
     text-align: left;
-    font-weight: 600;
+    font-weight: 700;
     text-transform: uppercase;
-    font-size: 11px;
-    letter-spacing: 0.7px;
+    font-size: 0.75rem;
+    letter-spacing: 0.05em;
+    border-bottom: 2px solid var(--vinho-600);
 }
 
 .tickets-tabela th:nth-child(1) {
@@ -1367,7 +1369,11 @@ select {
 }
 
 .sortable:hover {
-    background-color: #5a6268;
+    background-color: var(--neutro-200);
+}
+
+.modo-escuro .sortable:hover {
+    background-color: var(--neutro-800);
 }
 
 .sort-arrows {
@@ -2479,8 +2485,10 @@ select {
 }
 
 .modo-escuro .tickets-tabela th {
-    background: linear-gradient(135deg, var(--vinho-600) 0%, var(--vinho-900) 100%);
-    color: #e0e0e0;
+    background: var(--neutro-900);
+    color: var(--neutro-200);
+    border-color: var(--neutro-600);
+    border-bottom: 2px solid var(--vinho-600);
 }
 
 .modo-escuro .tickets-tabela td {
