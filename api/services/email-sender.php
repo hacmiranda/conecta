@@ -67,7 +67,7 @@ class EmailSender {
         $this->mailer->SMTPAuth = true;
         $this->mailer->Username = EmailConfig::get('SMTP_USERNAME');
         $this->mailer->Password = EmailConfig::get('SMTP_PASSWORD');
-        $this->mailer->SMTPSecure = PHPMailer::ENCRYPTION_SMTPS;
+        $this->mailer->SMTPSecure = EmailConfig::segurancaSmtp() === 'tls' ? PHPMailer::ENCRYPTION_STARTTLS : PHPMailer::ENCRYPTION_SMTPS;
         $this->mailer->Port = EmailConfig::get('SMTP_PORT');
         $this->mailer->CharSet = 'UTF-8';
         $this->mailer->Timeout = 30;

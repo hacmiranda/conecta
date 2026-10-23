@@ -139,6 +139,9 @@ CSS follows a per-feature file convention (`tickets-melhorias.css`, `status-sla.
 ### E-mail certificates
 IMAP and SMTP validate the server certificate by default. It is turned off only explicitly: per mailbox (`setor_emails.validar_certificado`, screen Configurar e-mail) or for the global sender with `IMAP_VALIDAR_CERTIFICADO_*`/`SMTP_VALIDAR_CERTIFICADO_*` = 0 in `.env`.
 
+### Global SMTP encryption mode (fixed 23/10/2026)
+The global sender's host/port fall back to `smtp.gmail.com:587` (STARTTLS) if `SMTP_HOST_*`/`SMTP_PORT_*` aren't set in `.env` — but `email-sender.php` and `testar-email.php` used to hardcode `SMTPSecure = ENCRYPTION_SMTPS` (implicit TLS, port 465) regardless of port, so SMTP always failed against a STARTTLS server (IMAP worked fine since it's unaffected). `EmailConfig::segurancaSmtp()` now picks `'tls'`/`'ssl'` from an optional `SMTP_SEGURANCA_*` env var, or infers it from the port (587 → STARTTLS, anything else → implicit SSL) — same convention already used per-sector (`setor_emails.seguranca`). Both files now call it instead of hardcoding `ENCRYPTION_SMTPS`.
+
 ### Demand list (server pagination)
 `GET tickets.php?escopo=abertas|arquivo|...&pagina=N&por_pagina=10|25|50|100&busca=&grupo=novo|em_atendimento|aguardando|nova_resposta|urgente&meus=1&ordem=&direcao=` returns `{itens, total, pagina, por_pagina, total_paginas, contadores}`; without `pagina` it still returns the whole array (Kanban loads everything). Sorting is limited to a column whitelist.
 

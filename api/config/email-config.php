@@ -34,7 +34,23 @@ class EmailConfig {
         if (isset($map[$key])) {
             return Environment::get($map[$key]);
         }
-        
+
         return constant('self::' . $key);
+    }
+
+    /**
+     * Segurança da conexão SMTP global: 'tls' (STARTTLS, porta 587) ou 'ssl' (TLS implícito,
+     * porta 465). Lida de `SMTP_SEGURANCA_LOCAL`/`SMTP_SEGURANCA_PROD` no .env; sem essa chave,
+     * é inferida pela porta — mesma convenção já usada por caixa de setor (`setor_emails.seguranca`).
+     */
+    public static function segurancaSmtp(): string {
+        $valor = strtolower(trim((string) Environment::get('smtp_seguranca', '')));
+        if (in_array($valor, ['tls', 'starttls'], true)) {
+            return 'tls';
+        }
+        if (in_array($valor, ['ssl', 'smtps'], true)) {
+            return 'ssl';
+        }
+        return ((int) self::get('SMTP_PORT')) === 587 ? 'tls' : 'ssl';
     }
 }

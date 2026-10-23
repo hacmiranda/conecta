@@ -71,7 +71,9 @@ try {
     $mail->SMTPAuth = true;
     $mail->Username = $smtp_user;
     $mail->Password = $smtp_pass;
-    $mail->SMTPSecure = PHPMailer\PHPMailer\PHPMailer::ENCRYPTION_SMTPS;
+    $mail->SMTPSecure = EmailConfig::segurancaSmtp() === 'tls'
+        ? PHPMailer\PHPMailer\PHPMailer::ENCRYPTION_STARTTLS
+        : PHPMailer\PHPMailer\PHPMailer::ENCRYPTION_SMTPS;
     $mail->Port = $smtp_port;
     $mail->Timeout = 10;
     $validarSmtp = !in_array(strtolower(trim((string) Environment::get('smtp_validar_certificado', '1'))), ['0', 'false', 'nao', 'não', 'off'], true);

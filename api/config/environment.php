@@ -86,12 +86,12 @@ class Environment {
             'db_charset'     => 'utf8mb4',
 
             // Email
-            'imap_host'      => 'email-ssl.com.br',
+            'imap_host'      => 'imap.gmail.com',
             'imap_port'      => 993,
-            'smtp_host'      => 'email-ssl.com.br',
-            'smtp_port'      => 465,
+            'smtp_host'      => 'smtp.gmail.com',
+            'smtp_port'      => 587,
             'from_name'      => 'Conecta CRPRS [DEV]',
-            'from_email'     => 'suporte@crprs.org.br',
+            'from_email'     => 'administrador@crprs.org.br',
 
             // Caminhos
             // upload_path/log_path usam __DIR__ (igual à produção) para não quebrar
@@ -127,12 +127,12 @@ class Environment {
             'db_charset'     => 'utf8mb4',
 
             // Email
-            'imap_host'      => 'email-ssl.com.br',
+            'imap_host'      => 'imap.gmail.com',
             'imap_port'      => 993,
-            'smtp_host'      => 'email-ssl.com.br',
-            'smtp_port'      => 465,
+            'smtp_host'      => 'smtp.gmail.com',
+            'smtp_port'      => 587,
             'from_name'      => 'Conecta CRPRS',
-            'from_email'     => 'suporte@crprs.org.br',
+            'from_email'     => 'administrador@crprs.org.br',
 
             // Caminhos
             'base_url'       => 'https://crp07.org.br/conecta',
