@@ -151,3 +151,20 @@ dd { margin: 0; }
 @media (max-width: 600px) {
     .cabecalho-email { grid-template-columns: 1fr; }
 }
+
+/* Propostas de cabeçalho (mockups/cabecalhos): pilha com o cabeçalho de cada e-mail */
+.pilha-cabecalhos {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    padding: 1rem;
+    background: var(--cartao);
+    border: 1px solid var(--borda);
+    border-radius: 0.5rem;
+}
+
+.amostra-cabecalho {
+    width: 100%;
+    max-width: 600px;
+    margin: 0 auto;
+}
