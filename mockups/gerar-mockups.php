@@ -18,7 +18,8 @@
 $raiz   = dirname(__DIR__);
 $saida  = __DIR__;
 $esc    = function ($t) { return htmlspecialchars((string) $t, ENT_QUOTES, 'UTF-8'); };
-$modelo = function (string $arquivo) use ($raiz) { return file_get_contents($raiz . '/backend/' . $arquivo); };
+require_once $raiz . '/api/services/email-cabecalho.php';
+$modelo = function (string $arquivo) use ($raiz) { return EmailCabecalho::aplicar(file_get_contents($raiz . '/backend/' . $arquivo)); };
 
 // ---- Dados fictícios -------------------------------------------------------------------------
 $num        = '00123';
