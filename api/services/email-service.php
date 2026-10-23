@@ -1090,8 +1090,10 @@ class EmailService {
     }
 
     private function decodificarTexto($texto) {
-        $decoded = mb_decode_mimeheader($texto);
-        return $decoded;
+        // iconv_mime_decode trata o Q-encoding corretamente ("_" = espaço); mb_decode_mimeheader
+        // deixava o "_" no título (ex.: "Teste_de_criação"). Fallback para o método antigo se falhar.
+        $decoded = @iconv_mime_decode((string) $texto, ICONV_MIME_DECODE_CONTINUE_ON_ERROR, 'UTF-8');
+        return $decoded !== false ? $decoded : mb_decode_mimeheader($texto);
     }
 }
 ?>

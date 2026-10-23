@@ -146,6 +146,8 @@ The global sender's host/port fall back to `smtp.gmail.com:587` (STARTTLS) if `S
 `GET tickets.php?escopo=abertas|arquivo|...&pagina=N&por_pagina=10|25|50|100&busca=&grupo=novo|em_atendimento|aguardando|nova_resposta|urgente&meus=1&ordem=&direcao=` returns `{itens, total, pagina, por_pagina, total_paginas, contadores}`; without `pagina` it still returns the whole array (Kanban loads everything). Sorting is limited to a column whitelist.
 
 ### Incoming e-mail rules
+Demands from e-mail are created **only when the cron `api/cron/verificar-emails.php` runs** (production: cron-job.org every 2 min via HTTP + `X-Cron-Key`). Locally nothing schedules it — run it by hand (`php api/cron/verificar-emails.php`) or a demand "never opens". Subjects/attachment names are decoded with `iconv_mime_decode` (`EmailService::decodificarTexto`); `mb_decode_mimeheader` left `_` instead of spaces in Q-encoded subjects (fixed 23/10/2026).
+
 A reply with `#NNNNN` in the subject becomes a comment only if the sender is the requester, someone who got a copy, or the sector team, and the mailbox's sector is one the demand passed through; otherwise a new demand is opened. Mail from the system's own mailboxes and auto-replies is ignored (`emails_processados.tipo = 'ignorado'`). Failures are retried (`emails_erro`) up to 5 times instead of being lost.
 
 ### Real-time Notifications
