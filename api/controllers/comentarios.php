@@ -147,13 +147,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 
     try {
-        $query = "INSERT INTO comentarios (ticket_id, usuario_id, comentario, interno)
-                 VALUES (:ticket_id, :usuario_id, :comentario, :interno)";
+        // Entra no histórico mostrado ao solicitante só o que foi enviado a ele por e-mail
+        // (nota interna nunca entra; comentário sem e-mail fica só para a equipe)
+        $query = "INSERT INTO comentarios (ticket_id, usuario_id, comentario, interno, visivel_solicitante)
+                 VALUES (:ticket_id, :usuario_id, :comentario, :interno, :visivel)";
         $stmt = $db->prepare($query);
         $stmt->bindParam(':ticket_id', $ticket_id);
         $stmt->bindParam(':usuario_id', $usuario_id);
         $stmt->bindParam(':comentario', $comentario);
         $stmt->bindValue(':interno', $interno ? 1 : 0, PDO::PARAM_INT);
+        $stmt->bindValue(':visivel', (!$interno && $enviar_email) ? 1 : 0, PDO::PARAM_INT);
         $stmt->execute();
         
         $comentario_id = $db->lastInsertId();

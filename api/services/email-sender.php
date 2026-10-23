@@ -5,6 +5,7 @@ require_once __DIR__ . '/../vendor/autoload.php';
 require_once __DIR__ . '/acesso-service.php';
 require_once __DIR__ . '/crypto-service.php';
 require_once __DIR__ . '/email-cabecalho.php';
+require_once __DIR__ . '/email-historico.php';
 
 use PHPMailer\PHPMailer\PHPMailer;
 use PHPMailer\PHPMailer\Exception;
@@ -56,8 +57,22 @@ class EmailSender {
      * Lê um modelo HTML de backend/ e já troca o marcador {{CABECALHO:Título}} pelo cabeçalho
      * padrão (antes de entrar qualquer conteúdo do usuário no texto).
      */
-    private function carregarModelo(string $caminho): string {
-        return EmailCabecalho::aplicar((string) file_get_contents($caminho));
+    private function carregarModelo(string $caminho, ?int $ticketId = null, ?int $excluirComentarioId = null): string {
+        $modelo = EmailCabecalho::aplicar((string) file_get_contents($caminho));
+        if (strpos($modelo, '{{DEMANDA_E_HISTORICO}}') !== false) {
+            // Demanda registrada + histórico da conversa com o solicitante (sem notas internas)
+            $bloco = '';
+            if ($ticketId) {
+                try {
+                    $bloco = EmailHistorico::bloco($this->db, $ticketId, $excluirComentarioId);
+                } catch (Exception $e) {
+                    error_log('[EMAIL-SENDER] Histórico da demanda indisponível: ' . $e->getMessage());
+                }
+            }
+            // strtr (e não str_replace) para o conteúdo do bloco nunca ser reprocessado
+            $modelo = strtr($modelo, ['{{DEMANDA_E_HISTORICO}}' => $bloco]);
+        }
+        return $modelo;
     }
 
     private function esc($texto): string {
@@ -201,7 +216,7 @@ class EmailSender {
             
             $template_path = dirname(__DIR__, 2) . '/backend/email-template.html';
             error_log("[EMAIL-SENDER] Template path: $template_path");
-            $template = $this->carregarModelo($template_path);
+            $template = $this->carregarModelo($template_path, (int) $ticket_id);
             $nome_exibir = $ticket['email_solicitante'] ?: $ticket['usuario_nome'];
             $template = str_replace('{{NOME_USUARIO}}', $this->esc($nome_exibir), $template);
             $template = str_replace('{{NUMERO_TICKET}}', str_pad($ticket_id, 5, '0', STR_PAD_LEFT), $template);
@@ -561,7 +576,7 @@ class EmailSender {
             );
 
             // Template para o solicitante
-            $template_solicitante = $this->carregarModelo(dirname(__DIR__, 2) . '/backend/email-template-resposta.html');
+            $template_solicitante = $this->carregarModelo(dirname(__DIR__, 2) . '/backend/email-template-resposta.html', (int) $ticket_id, (int) $comentario_id);
             // Assinatura do setor que envia (a mesma dos demais e-mails ao solicitante)
             $assinatura = $this->getAssinatura();
 
@@ -587,7 +602,7 @@ class EmailSender {
 
             // Enviar cópia se fornecido
             if ($com_copia) {
-                $template_copia = $this->carregarModelo(dirname(__DIR__, 2) . '/backend/email-template-emcopia.html');
+                $template_copia = $this->carregarModelo(dirname(__DIR__, 2) . '/backend/email-template-emcopia.html', (int) $ticket_id, (int) $comentario_id);
 
                 $html_copia = str_replace(
                     ['{{NUMERO_TICKET}}', '{{TITULO_TICKET}}', '{{NOME_AGENTE}}', '{{DATA_RESPOSTA}}', '{{COMENTARIO_AGENTE}}', '{{ASSINATURA_EMAIL}}'],
@@ -726,7 +741,7 @@ class EmailSender {
             
             // Usar template HTML ao invés de texto
             $template_path = dirname(__DIR__, 2) . '/backend/email-template-comentario.html';
-            $template = $this->carregarModelo($template_path);
+            $template = $this->carregarModelo($template_path, (int) $ticket_id);
             $template = str_replace('{{NOME_USUARIO}}', $this->esc($ticket['usuario_nome']), $template);
             $template = str_replace('{{NUMERO_TICKET}}', str_pad($ticket_id, 5, '0', STR_PAD_LEFT), $template);
             $template = str_replace('{{TITULO_TICKET}}', $this->esc($ticket['titulo']), $template);
@@ -769,7 +784,7 @@ class EmailSender {
             // Enviar para solicitante se tiver email
             if (($ticket['email_solicitante'] ?: $ticket['usuario_email']) && strpos(($ticket['email_solicitante'] ?: $ticket['usuario_email']), '@')) {
                 $template_path = dirname(__DIR__, 2) . '/backend/email-template-fechamento.html';
-                $template = $this->carregarModelo($template_path);
+                $template = $this->carregarModelo($template_path, (int) $ticket_id);
                 
                 // Se foi criado por terceiros (email_solicitante), usar esse nome/email
                 $nome_exibir = $ticket['usuario_nome'];
@@ -875,7 +890,7 @@ class EmailSender {
             
             // Carregar template HTML
             $template_path = dirname(__DIR__, 2) . '/backend/email-template-reabertura.html';
-            $template = $this->carregarModelo($template_path);
+            $template = $this->carregarModelo($template_path, (int) $ticket_id);
             
             // Assinatura do setor que envia
             $assinatura = $this->getAssinatura();
@@ -959,7 +974,7 @@ class EmailSender {
             if (!$ticket || !$ticket['usuario_email']) return false;
             
             $template_path = dirname(__DIR__, 2) . '/backend/email-template-primeira-resposta.html';
-            $template = $this->carregarModelo($template_path);
+            $template = $this->carregarModelo($template_path, (int) $ticket_id);
             $assinatura = $this->getAssinatura();
             
             $template = str_replace('{{NOME_USUARIO}}', $this->esc($ticket['usuario_nome']), $template);

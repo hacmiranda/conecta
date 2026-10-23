@@ -19,7 +19,29 @@ $raiz   = dirname(__DIR__);
 $saida  = __DIR__;
 $esc    = function ($t) { return htmlspecialchars((string) $t, ENT_QUOTES, 'UTF-8'); };
 require_once $raiz . '/api/services/email-cabecalho.php';
-$modelo = function (string $arquivo) use ($raiz) { return EmailCabecalho::aplicar(file_get_contents($raiz . '/backend/' . $arquivo)); };
+require_once $raiz . '/api/services/email-historico.php';
+
+// Conversa de exemplo (mais recente primeiro) — só mensagens visíveis ao solicitante; uma nota interna
+// da equipe existiria na demanda, mas nunca aparece aqui.
+$demandaExemplo = [
+    'id' => 123, 'titulo' => 'Dúvida sobre inscrição de pessoa jurídica',
+    'descricao' => '<p>Boa tarde,</p><p>Gostaria de saber quais documentos são necessários para a inscrição de uma pessoa jurídica no CRPRS.</p><p>Obrigada.</p>',
+    'criado_em' => '2026-10-23 14:35:00', 'usuario_id' => 1,
+    'email_solicitante' => 'maria.souza@exemplo.com.br', 'usuario_email' => 'maria.souza@exemplo.com.br',
+];
+$msgA = ['id' => 3, 'usuario_id' => 2, 'nome' => 'Carlos Pereira', 'tipo' => 'operador', 'criado_em' => '2026-10-24 09:20:00', 'anexos' => [],
+    'comentario' => '<p>Recebi o contrato social. Falta apenas o CNPJ atualizado.</p>'];
+$msgB = ['id' => 2, 'usuario_id' => 1, 'nome' => 'Maria Souza', 'tipo' => 'cliente', 'criado_em' => '2026-10-23 15:42:00', 'anexos' => ['contrato-social.pdf'],
+    'comentario' => '<p>Obrigada! Segue o contrato social em anexo.</p>'];
+$msgC = ['id' => 1, 'usuario_id' => 2, 'nome' => 'Carlos Pereira', 'tipo' => 'operador', 'criado_em' => '2026-10-23 15:10:00', 'anexos' => [],
+    'comentario' => '<p>Olá, Maria! Para a inscrição de pessoa jurídica, envie o contrato social, o CNPJ e o documento do responsável técnico.</p>'];
+
+// Lê o modelo, troca o cabeçalho e o bloco "demanda registrada + histórico" (como EmailSender::carregarModelo)
+$modelo = function (string $arquivo, array $mensagens = []) use ($raiz, $demandaExemplo) {
+    $html = EmailCabecalho::aplicar(file_get_contents($raiz . '/backend/' . $arquivo));
+    $bloco = EmailHistorico::renderizar($demandaExemplo, $mensagens, count($mensagens));
+    return strtr($html, ['{{DEMANDA_E_HISTORICO}}' => $bloco]);
+};
 
 // ---- Dados fictícios -------------------------------------------------------------------------
 $num        = '00123';
@@ -58,7 +80,7 @@ $avisoAnexos = '<div style="background-color:#fff3cd;border-left:4px solid #ffc1
     . '<li><b>planilha.exe:</b> Tipo de arquivo não permitido</li></ul>'
     . '<p><b>Limites:</b> 5 arquivos, 20MB total, tipos: PDF, DOC, DOCX, TXT, CSV, XLS, XLSX, PNG, JPG</p></div>';
 
-$comentarioAgente = '<p>Olá, Maria! Para a inscrição de pessoa jurídica, envie o contrato social, o CNPJ e o documento do responsável técnico.</p><p>Qualquer dúvida, é só responder a este e-mail.</p>';
+$comentarioAgente = '<p>Recebi o contrato social. Falta apenas o CNPJ atualizado.</p><p>Qualquer dúvida, é só responder a este e-mail.</p>';
 
 // ---- Catálogo --------------------------------------------------------------------------------
 $emails = [];
@@ -70,7 +92,7 @@ $emails[] = [
     'assunto' => "🎫 [#{$num}] Demanda criada - {$titulo}",
     'quando' => 'Assim que uma demanda é aberta: por um e-mail recebido na caixa do setor, pelo formulário "Nova Demanda" do sistema ou por um sistema integrado (API).',
     'quem' => 'O solicitante da demanda.',
-    'obs' => 'Sai pela caixa de e-mail do setor da demanda (ou pelo remetente global, se o setor não tiver caixa).',
+    'obs' => 'Sai pela caixa de e-mail do setor da demanda (ou pelo remetente global, se o setor não tiver caixa). Traz a demanda registrada (título e descrição).',
     'corpo' => preencher($modelo('email-template.html'), [
         '{{NOME_USUARIO}}' => $esc($solicitante), '{{NUMERO_TICKET}}' => $num, '{{TITULO_TICKET}}' => $esc($titulo),
         '{{DATA_ABERTURA}}' => $abertura, '{{ASSINATURA_EMAIL}}' => $assinatura,
@@ -99,14 +121,14 @@ $emails[] = [
     'quando' => 'Quando um atendente escreve um comentário na demanda com a opção "Enviar por e-mail" marcada (também no botão "Enviar e Fechar"). Notas internas nunca geram este e-mail.',
     'quem' => 'O solicitante da demanda. Os anexos do comentário seguem junto.',
     'obs' => 'Sai pela caixa de e-mail do setor da demanda e assina como a equipe desse setor.',
-    'corpo' => preencher($modelo('email-template-resposta.html'), [
+    'corpo' => preencher($modelo('email-template-resposta.html', [$msgB, $msgC]), [
         '{{NOME_USUARIO}}' => $esc($solicitante), '{{NUMERO_TICKET}}' => $num, '{{TITULO_TICKET}}' => $esc($titulo),
         '{{NOME_AGENTE}}' => $esc($agente), '{{DATA_RESPOSTA}}' => $resposta, '{{COMENTARIO_AGENTE}}' => $comentarioAgente,
         '{{ASSINATURA_EMAIL}}' => $assinatura,
     ]),
 ];
 
-$htmlCopia = preencher($modelo('email-template-emcopia.html'), [
+$htmlCopia = preencher($modelo('email-template-emcopia.html', [$msgB, $msgC]), [
     '{{NUMERO_TICKET}}' => $num, '{{TITULO_TICKET}}' => $esc($titulo), '{{NOME_AGENTE}}' => $esc($agente),
     '{{DATA_RESPOSTA}}' => $resposta, '{{COMENTARIO_AGENTE}}' => $comentarioAgente, '{{ASSINATURA_EMAIL}}' => $assinatura,
 ]);
@@ -130,7 +152,7 @@ $emails[] = [
     'quando' => 'Quando o solicitante responde por e-mail a uma demanda (assunto com #NNNNN) e a resposta é registrada como comentário.',
     'quem' => 'Quem enviou a resposta (o remetente do e-mail recebido).',
     'obs' => 'Se houver anexos recusados, um aviso amarelo com os motivos é incluído antes do agradecimento.',
-    'corpo' => preencher($modelo('email-template-comentario.html'), [
+    'corpo' => preencher($modelo('email-template-comentario.html', [$msgA, $msgB, $msgC]), [
         '{{NOME_USUARIO}}' => $esc($solicitante), '{{NUMERO_TICKET}}' => $num, '{{TITULO_TICKET}}' => $esc($titulo),
         '{{DATA_COMENTARIO}}' => '23/10/2026, 15:42', '{{ASSINATURA_EMAIL}}' => $assinatura,
     ]),
@@ -158,7 +180,7 @@ $emails[] = [
     'quando' => 'Quando a demanda é encerrada (status encerrado/resolvido que a move para o Arquivo).',
     'quem' => 'O solicitante da demanda.',
     'obs' => 'Cancelar uma demanda não envia este e-mail.',
-    'corpo' => preencher($modelo('email-template-fechamento.html'), [
+    'corpo' => preencher($modelo('email-template-fechamento.html', [$msgA, $msgB, $msgC]), [
         '{{NOME_USUARIO}}' => $esc($solicitante), '{{NUMERO_TICKET}}' => $num, '{{TITULO_TICKET}}' => $esc($titulo),
         '{{NOME_AGENTE}}' => $esc($agente), '{{DATA_FECHAMENTO}}' => '23/10/2026 17:20', '{{ASSINATURA_EMAIL}}' => $assinatura,
     ]),
@@ -172,7 +194,7 @@ $emails[] = [
     'quando' => 'Quando o solicitante responde por e-mail a uma demanda já encerrada e o sistema a reabre automaticamente.',
     'quem' => 'O solicitante da demanda.',
     'obs' => 'Assina como a equipe do setor da demanda.',
-    'corpo' => preencher($modelo('email-template-reabertura.html'), [
+    'corpo' => preencher($modelo('email-template-reabertura.html', [$msgA, $msgB, $msgC]), [
         '{{NOME_USUARIO}}' => $esc($solicitante), '{{NUMERO_TICKET}}' => $num, '{{TITULO_TICKET}}' => $esc($titulo),
         '{{DATA_REABERTURA}}' => '24/10/2026 09:05', '{{ASSINATURA_EMAIL}}' => $assinatura,
     ]),
@@ -427,6 +449,7 @@ foreach ($grupos as $grupo => $lista) {
 $md .= "\n## Como foi feito e como atualizar\n\n";
 $md .= "- `gerar-mockups.php` monta tudo a partir dos modelos reais de `backend/email-template-*.html`. Rode `php mockups/gerar-mockups.php` depois de mudar um modelo ou um texto de e-mail.\n";
 $md .= "- Os e-mails montados direto no código (agente→agente, lembrete, recuperação de senha e os avisos em texto puro) são cópias do texto original; atualize o catálogo do gerador quando o código mudar.\n";
+$md .= "- Todos os e-mails ao solicitante trazem no final a **demanda registrada** (título e descrição) e o **histórico da conversa** com o CRPRS, do mais recente para o mais antigo. Notas internas e comentários da equipe que não foram enviados ao solicitante nunca aparecem. A \"Resposta da equipe\" e a \"Cópia da resposta\" não repetem a mensagem que acabou de ser enviada.\n";
 $md .= "- `emails/` guarda o e-mail puro (HTML ou texto), `paginas/` a moldura com o momento do envio, `imagens/` os PNGs.\n";
 $md .= "- O logotipo dos e-mails vem de `www.crprs.org.br`; sem internet, a imagem não aparece na pré-visualização.\n\n";
 $md .= "- Os e-mails internos (equipe) continuam em texto puro, exceto os avisos montados em HTML (comentário de outro atendente, lembrete e recuperação de senha).

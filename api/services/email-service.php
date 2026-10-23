@@ -845,12 +845,20 @@ class EmailService {
         }
         // --- FIM VERIFICAÇÃO EXTRA DE DUPLICIDADE ---
 
-        $query = "INSERT INTO comentarios (ticket_id, usuario_id, comentario) 
-                 VALUES (:ticket_id, :usuario_id, :comentario)";
+        // Entra no histórico mostrado ao solicitante quando quem escreveu é o próprio solicitante ou um
+        // cliente copiado; resposta de um membro da equipe por e-mail continua só interna
+        $visivel_stmt = $this->db->prepare("SELECT (u.tipo = 'cliente' OR u.id = t.usuario_id)
+                                            FROM usuarios u JOIN tickets t ON t.id = ? WHERE u.id = ?");
+        $visivel_stmt->execute([(int) $ticket_id, (int) $usuario_id]);
+        $visivel_solicitante = (int) $visivel_stmt->fetchColumn();
+
+        $query = "INSERT INTO comentarios (ticket_id, usuario_id, comentario, visivel_solicitante)
+                 VALUES (:ticket_id, :usuario_id, :comentario, :visivel)";
         $stmt = $this->db->prepare($query);
         $stmt->bindParam(':ticket_id', $ticket_id);
         $stmt->bindParam(':usuario_id', $usuario_id);
         $stmt->bindParam(':comentario', $comentario);
+        $stmt->bindValue(':visivel', $visivel_solicitante, PDO::PARAM_INT);
         $stmt->execute();
         
         $comentario_id = $this->db->lastInsertId();
