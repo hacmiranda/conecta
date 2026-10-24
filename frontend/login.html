@@ -212,15 +212,16 @@
 
         .brand-logo-wrap {
             position: relative;
-            min-height: 180px;
+            min-height: 110px;
             display: flex;
             align-items: center;
             justify-content: center;
-            margin-bottom: 1.75rem;
+            margin-bottom: 1rem;
         }
 
         .brand-logo-wrap img {
-            width: 160px;
+            width: 320px;
+            max-width: 100%;
             height: auto;
             filter: drop-shadow(0 4px 20px rgba(0, 0, 0, 0.3));
             transition: transform var(--transition);
@@ -235,8 +236,8 @@
         .brand-logo-wrap.bloqueado::after {
             content: '';
             display: block;
-            width: 160px;
-            height: 160px;
+            width: 110px;
+            height: 110px;
             background: url('images/blocked.png') no-repeat center;
             background-size: contain;
             position: absolute;
@@ -253,6 +254,19 @@
 
         .brand-logo-wrap.desbloqueando img {
             animation: restaurar 0.8s ease-out forwards;
+        }
+
+        /* Texto só para leitor de tela (o nome visível está no logotipo) */
+        .sr-only {
+            position: absolute;
+            width: 1px;
+            height: 1px;
+            padding: 0;
+            margin: -1px;
+            overflow: hidden;
+            clip: rect(0, 0, 0, 0);
+            white-space: nowrap;
+            border: 0;
         }
 
         .brand-name {
@@ -955,11 +969,11 @@
             <div class="brand-content">
                 <!-- Logo com suporte à animação de bloqueio -->
                 <div class="brand-logo-wrap" id="logo-brand">
-                    <img src="images/logo_vazado.png"
-                        alt="Logo CRPRS - Conselho Regional de Psicologia do Rio Grande do Sul">
+                    <!-- Logotipo Conecta: o símbolo do CRPRS é o "C" (versão para fundo escuro) -->
+                    <img src="images/logo-conecta-negativo.svg" alt="">
                 </div>
 
-                <h2 class="brand-name">Conecta <span>CRPRS</span></h2>
+                <h2 class="brand-name sr-only">Conecta CRPRS — gestão de demandas por setor</h2>
                 <p class="brand-subtitle">Conselho Regional de Psicologia RS</p>
 
                 <div class="brand-divider" aria-hidden="true"></div>

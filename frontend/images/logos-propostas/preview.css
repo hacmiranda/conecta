@@ -1,0 +1,11 @@
+:root{--fundo:#FBF9F7;--cartao:#fff;--texto:#2B2523;--borda:#EBE4DD;--vinho:#A7241C}
+@media (prefers-color-scheme:dark){:root{--fundo:#1E1210;--cartao:#fff}}
+body{font-family:Inter,'Segoe UI',Arial,sans-serif;background:var(--fundo);color:var(--texto);margin:0;padding:2rem 1rem}
+main{max-width:1000px;margin:0 auto}
+h1{color:var(--vinho);margin:0 0 .25rem}
+.grade{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:1.25rem;margin-top:1.5rem}
+figure{margin:0;background:var(--cartao);border:1px solid var(--borda);border-radius:12px;padding:1.5rem;color:var(--texto)}
+figure img{display:block;width:100%;max-height:170px;object-fit:contain}
+figcaption{margin-top:1rem;font-size:.9rem}
+.mini{display:flex;gap:1rem;align-items:center;margin-top:1rem;padding-top:1rem;border-top:1px solid var(--borda)}
+.mini img{width:auto;height:36px}

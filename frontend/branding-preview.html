@@ -1,0 +1,357 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Identidade Visual - Conecta CRPRS</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --crprs-laranja: #F89327;
+      --crprs-verde: #70AB2A;
+      --crprs-vermelho: #A7241C;
+      --crprs-vinho: #5E130E;
+      --bg-dark: #1E1210;
+      --bg-light: #FBF9F7;
+      --card-light: #FFFFFF;
+      --card-dark: #2A1C19;
+      --text-dark: #2B2523;
+      --text-light: #FFFFFF;
+      --border-light: #EBE4DD;
+      --border-dark: #3F2C27;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+      background: var(--bg-light);
+      color: var(--text-dark);
+      padding: 2.5rem 1.5rem;
+      line-height: 1.5;
+    }
+
+    .container {
+      max-width: 1100px;
+      margin: 0 auto;
+    }
+
+    header.brand-header {
+      text-align: center;
+      margin-bottom: 3rem;
+      padding-bottom: 2rem;
+      border-bottom: 2px solid var(--border-light);
+    }
+
+    .badge {
+      display: inline-block;
+      padding: 0.35rem 0.9rem;
+      background: rgba(248, 147, 39, 0.15);
+      color: #D97610;
+      font-weight: 700;
+      font-size: 0.8rem;
+      border-radius: 999px;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+      margin-bottom: 0.75rem;
+    }
+
+    h1 {
+      font-size: 2.25rem;
+      font-weight: 800;
+      color: var(--crprs-vermelho);
+      margin-bottom: 0.5rem;
+    }
+
+    p.subtitle {
+      font-size: 1.05rem;
+      color: #6A5F5B;
+    }
+
+    /* Cores Institucionais */
+    .color-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+      gap: 1.25rem;
+      margin-bottom: 3rem;
+    }
+
+    .color-card {
+      background: var(--card-light);
+      border-radius: 14px;
+      overflow: hidden;
+      box-shadow: 0 4px 16px rgba(0,0,0,0.06);
+      border: 1px solid var(--border-light);
+    }
+
+    .color-swatch {
+      height: 110px;
+      width: 100%;
+    }
+
+    .color-info {
+      padding: 1.25rem;
+    }
+
+    .color-title {
+      font-size: 1rem;
+      font-weight: 700;
+      margin-bottom: 0.25rem;
+    }
+
+    .color-hex {
+      font-family: monospace;
+      font-size: 0.95rem;
+      color: #887C77;
+    }
+
+    .color-desc {
+      font-size: 0.82rem;
+      margin-top: 0.5rem;
+      color: #665D59;
+    }
+
+    /* Sessão de Exibição dos Logos */
+    h2.section-title {
+      font-size: 1.4rem;
+      font-weight: 700;
+      color: var(--text-dark);
+      margin-bottom: 1.25rem;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .showcase-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(480px, 1fr));
+      gap: 1.5rem;
+      margin-bottom: 2.5rem;
+    }
+
+    @media (max-width: 600px) {
+      .showcase-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    .showcase-card {
+      border-radius: 16px;
+      overflow: hidden;
+      box-shadow: 0 6px 20px rgba(0,0,0,0.06);
+      border: 1px solid var(--border-light);
+      display: flex;
+      flex-direction: column;
+    }
+
+    .showcase-card.dark {
+      background: var(--bg-dark);
+      border-color: var(--border-dark);
+      box-shadow: 0 8px 30px rgba(0,0,0,0.3);
+    }
+
+    .showcase-card.light {
+      background: #FFFFFF;
+    }
+
+    .showcase-preview {
+      padding: 3rem 2rem;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 200px;
+    }
+
+    .showcase-card.dark .showcase-preview {
+      background: radial-gradient(circle at center, #351C17 0%, #1A0D0B 100%);
+    }
+
+    .showcase-preview img {
+      max-width: 100%;
+      height: auto;
+      object-fit: contain;
+    }
+
+    .showcase-footer {
+      padding: 1rem 1.5rem;
+      background: rgba(0,0,0,0.03);
+      border-top: 1px solid var(--border-light);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .showcase-card.dark .showcase-footer {
+      background: rgba(255,255,255,0.04);
+      border-top-color: var(--border-dark);
+      color: #D3C8C5;
+    }
+
+    .showcase-name {
+      font-weight: 600;
+      font-size: 0.9rem;
+    }
+
+    .btn-download {
+      display: inline-flex;
+      align-items: center;
+      padding: 0.45rem 0.9rem;
+      background: var(--crprs-laranja);
+      color: #FFFFFF;
+      text-decoration: none;
+      font-size: 0.82rem;
+      font-weight: 600;
+      border-radius: 8px;
+      transition: background 0.2s;
+    }
+
+    .btn-download:hover {
+      background: #D97610;
+    }
+
+    /* Ícones e Favicon */
+    .icon-showcase {
+      display: flex;
+      gap: 2rem;
+      align-items: center;
+      justify-content: center;
+      flex-wrap: wrap;
+      padding: 2.5rem;
+      background: white;
+      border-radius: 16px;
+      border: 1px solid var(--border-light);
+      margin-bottom: 3rem;
+    }
+
+    .icon-box {
+      text-align: center;
+    }
+
+    .icon-label {
+      font-size: 0.8rem;
+      color: #7A6F6A;
+      margin-top: 0.5rem;
+      font-family: monospace;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header class="brand-header">
+      <span class="badge">Identidade Visual &amp; Design System</span>
+      <h1>Conecta CRPRS</h1>
+      <p class="subtitle">Logotipo oficial desenvolvido para a interface web do Sistema de Gestão de Demandas do Conselho Regional de Psicologia do Rio Grande do Sul</p>
+    </header>
+
+    <!-- PALETA DE CORES INSTITUCIONAIS -->
+    <h2 class="section-title">🎨 Paleta Oficial do CRPRS</h2>
+    <div class="color-grid">
+      <div class="color-card">
+        <div class="color-swatch" style="background: var(--crprs-laranja);"></div>
+        <div class="color-info">
+          <div class="color-title">Laranja Institucional</div>
+          <div class="color-hex">#F89327</div>
+          <div class="color-desc">Representa acolhimento, energia, dinamismo e abertura de chamados.</div>
+        </div>
+      </div>
+
+      <div class="color-card">
+        <div class="color-swatch" style="background: var(--crprs-verde);"></div>
+        <div class="color-info">
+          <div class="color-title">Verde Institucional</div>
+          <div class="color-hex">#70AB2A</div>
+          <div class="color-desc">Representa fluxo de resolução, assertividade, cumprimento de SLA e sucesso.</div>
+        </div>
+      </div>
+
+      <div class="color-card">
+        <div class="color-swatch" style="background: var(--crprs-vermelho);"></div>
+        <div class="color-info">
+          <div class="color-title">Vermelho Institucional</div>
+          <div class="color-hex">#A7241C</div>
+          <div class="color-desc">Cor principal de autoridade do CRPRS, segurança institucional e estabilidade.</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- VARIAÇÕES HORIZONTAIS -->
+    <h2 class="section-title">📐 Aplicação Horizontal (Navbar, Sidebar &amp; Header)</h2>
+    <div class="showcase-grid">
+      <div class="showcase-card light">
+        <div class="showcase-preview">
+          <img src="images/logo_conecta_horizontal.svg" alt="Logotipo Horizontal Fundo Claro" style="max-height: 65px;">
+        </div>
+        <div class="showcase-footer">
+          <span class="showcase-name">Fundo Claro / Aplicação Web Padrão</span>
+          <a href="images/logo_conecta_horizontal.svg" download class="btn-download">Baixar SVG</a>
+        </div>
+      </div>
+
+      <div class="showcase-card dark">
+        <div class="showcase-preview">
+          <img src="images/logo_conecta_horizontal.svg" alt="Logotipo Horizontal Fundo Escuro" style="max-height: 65px; filter: drop-shadow(0 2px 8px rgba(0,0,0,0.5));">
+        </div>
+        <div class="showcase-footer">
+          <span class="showcase-name">Fundo Escuro / Barra de Navegação Dark</span>
+          <a href="images/logo_conecta_horizontal.svg" download class="btn-download">Baixar SVG</a>
+        </div>
+      </div>
+    </div>
+
+    <!-- VARIAÇÕES VERTICAIS / LOGIN -->
+    <h2 class="section-title">📱 Aplicação Vertical &amp; Central (Tela de Login &amp; Cartões)</h2>
+    <div class="showcase-grid">
+      <div class="showcase-card light">
+        <div class="showcase-preview">
+          <img src="images/logo_conecta_vertical.svg" alt="Logotipo Vertical Fundo Claro" style="max-height: 180px;">
+        </div>
+        <div class="showcase-footer">
+          <span class="showcase-name">Versão Centralizada (Fundo Claro)</span>
+          <a href="images/logo_conecta_vertical.svg" download class="btn-download">Baixar SVG</a>
+        </div>
+      </div>
+
+      <div class="showcase-card dark">
+        <div class="showcase-preview">
+          <img src="images/logo_conecta_dark.svg" alt="Logotipo Vertical Fundo Escuro" style="max-height: 180px;">
+        </div>
+        <div class="showcase-footer">
+          <span class="showcase-name">Versão Centralizada (Painel de Login Escuro)</span>
+          <a href="images/logo_conecta_dark.svg" download class="btn-download">Baixar SVG</a>
+        </div>
+      </div>
+    </div>
+
+    <!-- ÍCONE & FAVICON -->
+    <h2 class="section-title">⚡ Símbolo Isolado (Favicon, App Icon &amp; PWA)</h2>
+    <div class="icon-showcase">
+      <div class="icon-box">
+        <img src="images/logo_conecta_icon.svg" alt="Ícone 128px" style="width: 128px; height: 128px;">
+        <div class="icon-label">128 × 128 px</div>
+      </div>
+      <div class="icon-box">
+        <img src="images/logo_conecta_icon.svg" alt="Ícone 64px" style="width: 64px; height: 64px;">
+        <div class="icon-label">64 × 64 px</div>
+      </div>
+      <div class="icon-box">
+        <img src="images/logo_conecta_icon.svg" alt="Ícone 48px" style="width: 48px; height: 48px;">
+        <div class="icon-label">48 × 48 px</div>
+      </div>
+      <div class="icon-box">
+        <img src="images/logo_conecta_icon.svg" alt="Ícone 32px" style="width: 32px; height: 32px;">
+        <div class="icon-label">32 × 32 px (Favicon)</div>
+      </div>
+      <div class="icon-box">
+        <img src="images/logo_conecta_icon.svg" alt="Ícone 24px" style="width: 24px; height: 24px;">
+        <div class="icon-label">24 × 24 px</div>
+      </div>
+    </div>
+  </div>
+</body>
+</html>

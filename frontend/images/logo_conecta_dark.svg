@@ -1,0 +1,89 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 240" width="100%" height="100%" role="img" aria-label="Logotipo Conecta CRPRS para Fundo Escuro">
+  <defs>
+    <!-- Gradientes Vibrantes Otimizados para Fundos Escuros -->
+    <linearGradient id="gradOrangeDarkBg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#FFAC4D"/>
+      <stop offset="100%" stop-color="#F89327"/>
+    </linearGradient>
+
+    <linearGradient id="gradRedDarkBg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#E83D33"/>
+      <stop offset="100%" stop-color="#A7241C"/>
+    </linearGradient>
+
+    <linearGradient id="gradGreenDarkBg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#9DE647"/>
+      <stop offset="100%" stop-color="#70AB2A"/>
+    </linearGradient>
+
+    <filter id="glowDark" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="4" stdDeviation="5" flood-color="#000000" flood-opacity="0.45"/>
+    </filter>
+  </defs>
+
+  <!-- SÍMBOLO CENTRALIZADO -->
+  <g transform="translate(60, 15) scale(1.2)" filter="url(#glowDark)">
+    <!-- Balão Laranja Suporte -->
+    <path d="M 18,24 C 18,17.4 23.4,12 30,12 L 52,12 C 58.6,12 64,17.4 64,24 L 64,40 C 64,46.6 58.6,52 52,52 L 32,52 L 20,62 L 20,48 C 18.7,46.5 18,44.4 18,42 Z" 
+          fill="url(#gradOrangeDarkBg)"/>
+    <circle cx="36" cy="32" r="5.5" fill="#FFFFFF"/>
+    <circle cx="36" cy="32" r="2.8" fill="#F89327"/>
+
+    <!-- Balão Vermelho CRPRS -->
+    <path d="M 82,76 C 82,82.6 76.6,88 70,88 L 48,88 C 41.4,88 36,82.6 36,76 L 36,60 C 36,53.4 41.4,48 48,48 L 68,48 L 80,38 L 80,52 C 81.3,53.5 82,55.6 82,58 Z" 
+          fill="url(#gradRedDarkBg)"/>
+    <circle cx="64" cy="68" r="5.5" fill="#FFFFFF"/>
+    <circle cx="64" cy="68" r="2.8" fill="#A7241C"/>
+
+    <!-- Ponte Conexão e nós -->
+    <path d="M 39,32 C 54,32 46,68 61,68" stroke="#FFFFFF" stroke-width="5" stroke-linecap="round" fill="none"/>
+    <path d="M 39,32 C 54,32 46,68 61,68" stroke="url(#gradGreenDarkBg)" stroke-width="3" stroke-linecap="round" fill="none"/>
+    <circle cx="50" cy="50" r="5.5" fill="#FFFFFF"/>
+    <circle cx="50" cy="50" r="3.8" fill="url(#gradGreenDarkBg)"/>
+
+    <!-- Flechas dinâmicas de fluxo -->
+    <path d="M 60,20 C 72,20 78,24 81,30" stroke="url(#gradGreenDarkBg)" stroke-width="3.5" stroke-linecap="round" fill="none"/>
+    <polygon points="84,33 77,29 83,25" fill="#9DE647"/>
+
+    <path d="M 40,80 C 28,80 22,76 19,70" stroke="url(#gradGreenDarkBg)" stroke-width="3.5" stroke-linecap="round" fill="none"/>
+    <polygon points="16,67 23,71 17,75" fill="#9DE647"/>
+  </g>
+
+  <!-- TIPOGRAFIA PARA FUNDO ESCURO -->
+  <text x="120" y="166" 
+        text-anchor="middle"
+        font-family="'Inter', 'Segoe UI', system-ui, -apple-system, sans-serif" 
+        font-size="28" 
+        font-weight="800" 
+        letter-spacing="-0.5">
+    <tspan fill="#FFA845">CONECTA </tspan>
+    <tspan fill="#FFFFFF">CRPRS</tspan>
+  </text>
+
+  <!-- Linha divisória com acento verde -->
+  <line x1="50" y1="180" x2="190" y2="180" stroke="rgba(255, 255, 255, 0.25)" stroke-width="1.5"/>
+  <rect x="105" y="178.5" width="30" height="3" rx="1.5" fill="#9DE647"/>
+
+  <!-- Subtítulo Institucional em Branco Suave -->
+  <text x="120" y="202" 
+        text-anchor="middle"
+        font-family="'Inter', 'Segoe UI', system-ui, -apple-system, sans-serif" 
+        font-size="10" 
+        font-weight="600" 
+        letter-spacing="2.2" 
+        fill="#FFFFFF" 
+        fill-opacity="0.92">
+    GESTÃO DE DEMANDAS &amp; SUPORTE
+  </text>
+
+  <text x="120" y="218" 
+        text-anchor="middle"
+        font-family="'Inter', 'Segoe UI', system-ui, -apple-system, sans-serif" 
+        font-size="9" 
+        font-weight="500" 
+        letter-spacing="0.5" 
+        fill="#FFFFFF" 
+        fill-opacity="0.65">
+    Conselho Regional de Psicologia RS
+  </text>
+</svg>

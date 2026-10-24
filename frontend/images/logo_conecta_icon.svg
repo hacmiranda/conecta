@@ -1,0 +1,100 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="100%" height="100%" role="img" aria-label="Símbolo Conecta CRPRS">
+  <defs>
+    <!-- Gradiente Laranja Suporte -->
+    <linearGradient id="gradOrange" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#FFA845"/>
+      <stop offset="100%" stop-color="#F89327"/>
+    </linearGradient>
+
+    <!-- Gradiente Vermelho Institucional -->
+    <linearGradient id="gradRed" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#C72D24"/>
+      <stop offset="100%" stop-color="#A7241C"/>
+    </linearGradient>
+
+    <!-- Gradiente Verde Resolução/SLA -->
+    <linearGradient id="gradGreen" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#84C732"/>
+      <stop offset="100%" stop-color="#70AB2A"/>
+    </linearGradient>
+
+    <!-- Sombra suave para profundidade -->
+    <filter id="softGlow" x="-15%" y="-15%" width="130%" height="130%">
+      <feDropShadow dx="0" dy="2" stdDeviation="2.5" flood-color="#5E130E" flood-opacity="0.2"/>
+    </filter>
+  </defs>
+
+  <g filter="url(#softGlow)">
+    <!-- Balão / Ticket Esquerdo: Suporte & Abertura de Demanda (Laranja #F89327) -->
+    <path d="M 18,24 
+             C 18,17.4 23.4,12 30,12 
+             L 52,12 
+             C 58.6,12 64,17.4 64,24 
+             L 64,40 
+             C 64,46.6 58.6,52 52,52 
+             L 32,52 
+             L 20,62 
+             L 20,48 
+             C 18.7,46.5 18,44.4 18,42 
+             Z" 
+          fill="url(#gradOrange)"/>
+
+    <!-- Ponto de Conexão interno Esquerdo -->
+    <circle cx="36" cy="32" r="5.5" fill="#FFFFFF"/>
+    <circle cx="36" cy="32" r="2.8" fill="#F89327"/>
+
+    <!-- Balão / Ticket Direito: Atendimento & Resolução (Vermelho #A7241C) -->
+    <path d="M 82,76 
+             C 82,82.6 76.6,88 70,88 
+             L 48,88 
+             C 41.4,88 36,82.6 36,76 
+             L 36,60 
+             C 36,53.4 41.4,48 48,48 
+             L 68,48 
+             L 80,38 
+             L 80,52 
+             C 81.3,53.5 82,55.6 82,58 
+             Z" 
+          fill="url(#gradRed)"/>
+
+    <!-- Ponto de Conexão interno Direito -->
+    <circle cx="64" cy="68" r="5.5" fill="#FFFFFF"/>
+    <circle cx="64" cy="68" r="2.8" fill="#A7241C"/>
+
+    <!-- Ponte de Ligação / Fluxo Dinâmico (Verde #70AB2A) -->
+    <!-- Link de Conexão Central -->
+    <path d="M 39,32 
+             C 54,32 46,68 61,68" 
+          stroke="#FFFFFF" 
+          stroke-width="5" 
+          stroke-linecap="round" 
+          fill="none"/>
+
+    <path d="M 39,32 
+             C 54,32 46,68 61,68" 
+          stroke="url(#gradGreen)" 
+          stroke-width="3" 
+          stroke-linecap="round" 
+          fill="none"/>
+
+    <!-- Nó central de intercomunicação verde -->
+    <circle cx="50" cy="50" r="5.5" fill="#FFFFFF"/>
+    <circle cx="50" cy="50" r="3.8" fill="url(#gradGreen)"/>
+
+    <!-- Flecha de fluxo ágil superior (indicando dinamismo/resolução) -->
+    <path d="M 60,20 C 72,20 78,24 81,30" 
+          stroke="url(#gradGreen)" 
+          stroke-width="3.5" 
+          stroke-linecap="round" 
+          fill="none"/>
+    <polygon points="84,33 77,29 83,25" fill="#70AB2A"/>
+
+    <!-- Flecha de retorno dinâmico inferior -->
+    <path d="M 40,80 C 28,80 22,76 19,70" 
+          stroke="url(#gradGreen)" 
+          stroke-width="3.5" 
+          stroke-linecap="round" 
+          fill="none"/>
+    <polygon points="16,67 23,71 17,75" fill="#70AB2A"/>
+  </g>
+</svg>

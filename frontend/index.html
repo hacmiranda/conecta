@@ -23,7 +23,7 @@
     <link rel="stylesheet" href="nova_resposta.css?v=c1">
     <link rel="stylesheet" href="email-alert.css?v=c1">
     <link rel="stylesheet" href="nav-dropdown.css?v=2.c1">
-    <link rel="stylesheet" href="sidebar.css?v=5.c3">
+    <link rel="stylesheet" href="sidebar.css?v=5.c4">
     <link rel="stylesheet" href="senha-visivel.css?v=1.c1">
     <link rel="stylesheet" href="tickets-melhorias.css?v=7.c7">
     <link rel="stylesheet" href="vanguard-tooltip.css?v=c1">
@@ -49,9 +49,10 @@
     <div class="app-shell">
     <aside class="sidebar" id="app-sidebar" aria-label="Menu de navegação">
         <div class="sidebar-logo" role="banner" aria-label="Identificação do sistema">
-            <img src="images/logo_vazado.png" alt="CRPRS" class="logo-img">
+            <!-- Marca: o símbolo do CRPRS faz o papel do "C" de Conecta -->
+            <img src="images/logo_vazado.png" alt="" class="marca-conecta-c">
             <div class="sidebar-logo-texto">
-                <h1 id="titulo-header">Conecta CRPRS</h1>
+                <h1 id="titulo-header"><span class="sr-only">Conecta CRPRS</span><span class="marca-conecta" aria-hidden="true">onecta <span class="marca-conecta-crprs">CRPRS</span></span></h1>
                 <!-- Gestor/operador: nome do próprio setor -->
                 <p id="cabecalho-setor" class="cabecalho-setor" hidden></p>
                 <!-- Administrador: seletor do setor exibido nas telas -->

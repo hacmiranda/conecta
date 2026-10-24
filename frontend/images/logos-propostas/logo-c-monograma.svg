@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 72" role="img" aria-labelledby="tc">
+  <title id="tc">Conecta CRPRS</title>
+  <!-- Símbolo: "C" aberto cujas pontas se conectam (laranja e verde) -->
+  <g transform="translate(2,2)">
+    <path d="M48.85,17.86 A22,22 0 1 0 48.85,46.14" fill="none" stroke="#A7241C" stroke-width="9" stroke-linecap="round"/>
+    <circle cx="51" cy="17" r="6.5" fill="#F89327"/>
+    <circle cx="51" cy="47" r="6.5" fill="#70AB2A"/>
+  </g>
+  <!-- Texto -->
+  <text x="82" y="43" font-family="Inter, 'Segoe UI', Arial, sans-serif" font-size="34" font-weight="700" letter-spacing="-0.5"><tspan fill="#5E130E">Conecta</tspan><tspan fill="#F89327" dx="9">CRPRS</tspan></text>
+  <rect x="83" y="53" width="40" height="4" rx="2" fill="#70AB2A"/>
+</svg>

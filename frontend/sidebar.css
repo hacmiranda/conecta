@@ -50,29 +50,39 @@
 /* --- Logo --- */
 .sidebar .sidebar-logo {
     display: flex;
-    align-items: center;
-    gap: 0.75rem;
+    align-items: flex-start;
+    gap: 0.0625rem;
     padding: 0.75rem 1rem;
     background: rgba(255, 255, 255, 0.1);
     border-radius: 0.75rem;
     border: 1px solid rgba(255, 255, 255, 0.15);
 }
 
-.sidebar .sidebar-logo .logo-img {
-    height: 36px;
-    width: 36px;
-    object-fit: contain;
-    margin-right: 0;
+/* Símbolo do CRPRS no lugar do "C": alinhado à primeira linha do nome, colado ao "onecta" */
+.sidebar .sidebar-logo .marca-conecta-c {
+    height: 1.3rem;
+    width: auto;
+    margin-top: 0.125rem;
     flex-shrink: 0;
+    /* Contorno branco fino: o traço vinho do símbolo não some sobre o fundo vinho */
+    filter: drop-shadow(0 0 0.5px #ffffff) drop-shadow(0 0 0.5px #ffffff);
 }
 
 .sidebar .sidebar-logo h1 {
     color: #ffffff;
     margin: 0;
     font-family: 'Inter', sans-serif;
-    font-size: 0.9375rem;
-    font-weight: 700;
+    font-size: 1.25rem;
+    font-weight: 800;
+    letter-spacing: -0.02em;
     line-height: 1.2;
+    white-space: nowrap;
+}
+
+/* Laranja claro: o laranja puro não tem contraste suficiente sobre o vinho */
+.sidebar .sidebar-logo .marca-conecta-crprs {
+    color: var(--laranja-100);
+    margin-left: 0.2rem;
 }
 
 .sidebar .sidebar-logo .sidebar-logo-texto {
@@ -399,7 +409,13 @@
 
     .sidebar.recolhida .sidebar-logo {
         justify-content: center;
+        align-items: center;
         padding: 0.5rem;
+    }
+
+    .sidebar.recolhida .sidebar-logo .marca-conecta-c {
+        height: 36px;
+        margin-top: 0;
     }
 
     .sidebar.recolhida .header-avatar-btn {

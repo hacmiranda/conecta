@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 220 150" role="img" aria-labelledby="tb">
+  <title id="tb">Conecta CRPRS</title>
+  <defs>
+    <clipPath id="baloeVinho"><rect x="4" y="4" width="40" height="30" rx="9"/></clipPath>
+  </defs>
+  <!-- Símbolo: dois balões de conversa que se encontram (demanda + resposta) -->
+  <g transform="translate(76,0)">
+    <rect x="4" y="4" width="40" height="30" rx="9" fill="#A7241C"/>
+    <path d="M12,32 L9,45 L23,34 Z" fill="#A7241C"/>
+    <rect x="24" y="22" width="40" height="30" rx="9" fill="#F89327"/>
+    <path d="M56,50 L61,63 L46,52 Z" fill="#F89327"/>
+    <!-- Encontro dos dois balões -->
+    <rect x="24" y="22" width="40" height="30" rx="9" fill="#70AB2A" clip-path="url(#baloeVinho)"/>
+  </g>
+  <!-- Texto -->
+  <text x="110" y="108" text-anchor="middle" font-family="Inter, 'Segoe UI', Arial, sans-serif" font-size="34" font-weight="800" letter-spacing="-0.5" fill="#A7241C">Conecta</text>
+  <text x="113" y="132" text-anchor="middle" font-family="Inter, 'Segoe UI', Arial, sans-serif" font-size="14" font-weight="700" letter-spacing="7" fill="#F89327">CRPRS</text>
+</svg>
