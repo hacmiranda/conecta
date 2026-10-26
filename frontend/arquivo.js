@@ -196,7 +196,7 @@ function mostrarTicketsFechadosNaTela(tickets) {
                 </td>
                 <td data-label="Solicitante">
                     <strong>${sanitizeHTML(ticket.usuario_nome)}</strong>
-                    ${ticket.usuario_email ? `<span class="ticket-data-hora" style="font-size: 0.85em;">${ofuscarEmail(ticket.usuario_email)}</span>` : ''}
+                    ${ticket.usuario_email ? `<span class="ticket-data-hora" style="font-size: 0.85em;">${sanitizeHTML(ofuscarEmail(ticket.usuario_email))}</span>` : ''}
                 </td>
                 ${exibirColunaSetor(true) ? `<td data-label="Setor">${sanitizeHTML(ticket.setor_nome || '-')}</td>` : ''}
                 <td data-label="Responsável">${sanitizeHTML(ticket.agente_nome || 'Não atribuído')}</td>

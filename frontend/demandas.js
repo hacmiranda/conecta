@@ -34,7 +34,7 @@ function adicionarArquivos(novosArquivos) {
     });
 
     if (arquivosInvalidos.length > 0) {
-        mostrarAlert('Tipo Inválido', `Tipos não permitidos: ${arquivosInvalidos.map(a => a.name).join(', ')}`);
+        mostrarAlert('Tipo Inválido', `Tipos não permitidos: ${sanitizeHTML(arquivosInvalidos.map(a => a.name).join(', '))}`);
         return;
     }
 
@@ -791,7 +791,7 @@ function popularPrioridadesFormNovo() {
         const valorAtual = select.value || 'normal';
         select.innerHTML = prioridadesList.map(p => {
             const nome = typeof formatarNomePrioridade === 'function' ? formatarNomePrioridade(p.nome) : p.nome;
-            return `<option value="${p.nome}">${nome}</option>`;
+            return `<option value="${sanitizeHTML(p.nome)}">${sanitizeHTML(nome)}</option>`;
         }).join('');
 
         // Mantém a seleção atual se ainda existir na lista; senão cai em "normal" (ou o primeiro item)

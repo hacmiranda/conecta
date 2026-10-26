@@ -11,6 +11,13 @@
  * (Outlook, Gmail) interpretam de forma confiável.
  */
 
+// Só pela linha de comando: grava arquivos e não deve rodar pela web
+if (PHP_SAPI !== 'cli') {
+    http_response_code(404);
+    exit;
+}
+
+
 $saida = __DIR__;
 $esc   = function ($t) { return htmlspecialchars((string) $t, ENT_QUOTES, 'UTF-8'); };
 

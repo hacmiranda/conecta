@@ -110,7 +110,7 @@ function editarSetor(setorId, nomeAtual) {
     document.getElementById('modal-prompt-message').innerHTML = `
         <div class="form-group">
             <label for="edit-nome-setor">Nome do setor:</label>
-            <input type="text" id="edit-nome-setor" value="${nomeAtual}" required>
+            <input type="text" id="edit-nome-setor" value="${sanitizeHTML(nomeAtual)}" required>
         </div>
     `;
     document.getElementById('modal-prompt-title').textContent = 'Editar Setor';

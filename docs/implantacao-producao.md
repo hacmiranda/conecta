@@ -73,7 +73,7 @@ minúscula, número e caractere especial).
 
 Os 4 crons (`verificar-emails.php`, `verificar-lembretes.php`, `enviar-fila.php`,
 `verificar-emails-perdidos.php`) são chamados por HTTP e exigem a chave `CRON_KEY_PROD`:
-cabeçalho `X-Cron-Key: <valor>` (preferível) ou `?key=<valor>`.
+cabeçalho `X-Cron-Key: <valor>` (o parâmetro `?key=` na URL não é mais aceito, para a chave não ficar em logs).
 
 - `verificar-emails.php` — a cada 2 minutos (cron-job.org ou equivalente). Já dispara, na mesma
   execução, os lembretes vencidos e o envio da fila de e-mail — **não precisa agendar os outros

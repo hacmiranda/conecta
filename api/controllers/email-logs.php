@@ -2,7 +2,8 @@
 
 header('Content-Type: application/json');
 
-// Apenas agentes e admins podem consultar logs de e-mail
+// Log de e-mails enviados: exclusivo do administrador, como as demais telas de auditoria
+// (destinatário, assunto e título da demanda de todos os setores).
 require_once __DIR__ . '/../middleware/auth.php';
 
 AuthMiddleware::configurarCORS(['GET']);
@@ -10,11 +11,7 @@ AuthMiddleware::configurarCORS(['GET']);
 if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') { exit(0); }
 
 $user = AuthMiddleware::verificarAuth();
-if (!in_array($user['tipo'] ?? '', ['operador', 'gestor', 'admin'])) {
-    http_response_code(403);
-    echo json_encode(['error' => 'Acesso negado']);
-    exit;
-}
+AuthMiddleware::verificarAdmin($user);
 
 require_once __DIR__ . '/../config/database.php';
 $db = (new Database())->getConnection();
@@ -28,7 +25,7 @@ $status    = $_GET['status']    ?? null;   // sucesso | falha
 $tipo      = $_GET['tipo']      ?? null;   // novo_ticket | comentario | ...
 $ticket_id = isset($_GET['ticket_id']) ? (int)$_GET['ticket_id'] : null;
 $busca     = trim($_GET['busca'] ?? '');   // destinatario ou assunto
-$periodo   = (int)($_GET['periodo'] ?? 7); // dias para trás
+$periodo   = min(365, max(1, (int)($_GET['periodo'] ?? 7))); // dias para trás (1 a 365)
 
 // --- Monta WHERE ---
 $where  = ['el.enviado_em >= DATE_SUB(NOW(), INTERVAL :periodo DAY)'];

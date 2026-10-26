@@ -6,6 +6,7 @@ require_once __DIR__ . '/../middleware/auth.php';
 require_once __DIR__ . '/../services/senha-service.php';
 require_once __DIR__ . '/../services/auditoria-service.php';
 require_once __DIR__ . '/../services/acesso-service.php';
+require_once __DIR__ . '/../services/html-sanitizer.php';
 
 AuthMiddleware::configurarCORS(['GET', 'POST', 'PUT', 'DELETE']);
 
@@ -210,11 +211,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     AuthMiddleware::verificarCSRF();
 
     $input = json_decode(file_get_contents('php://input'), true) ?? [];
-    $nome = trim($input['nome'] ?? '');
+    $nome = HtmlSanitizer::texto($input['nome'] ?? '', 100); // texto puro (é exibido em várias telas)
     $email = strtolower(trim($input['email'] ?? ''));
     $tipo = $input['tipo'] ?? 'operador';
-    $cargo = trim($input['cargo'] ?? '') ?: null;
-    $username = trim($input['username'] ?? '');
+    $cargo = HtmlSanitizer::texto($input['cargo'] ?? '', 100) ?: null;
+    $username = HtmlSanitizer::texto($input['username'] ?? '', 100);
     $setor_id = !empty($input['setor_id']) ? (int) $input['setor_id'] : null;
     $senha = (string) ($input['senha'] ?? '');
 
@@ -405,11 +406,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'PUT') {
         exit;
     }
 
-    $nome = trim($input['nome'] ?? '');
+    $nome = HtmlSanitizer::texto($input['nome'] ?? '', 100); // texto puro (é exibido em várias telas)
     $email = strtolower(trim($input['email'] ?? ''));
     $tipo = $input['tipo'] ?? '';
-    $cargo = trim($input['cargo'] ?? '') ?: null;
-    $username = trim($input['username'] ?? '');
+    $cargo = HtmlSanitizer::texto($input['cargo'] ?? '', 100) ?: null;
+    $username = HtmlSanitizer::texto($input['username'] ?? '', 100);
     if (!array_key_exists('setor_id', $input)) {
         $setor_id = $alvo['setor_id'];
     } else {

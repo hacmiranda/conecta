@@ -3,7 +3,8 @@
  * Acesso aos crons de api/cron/.
  * - Linha de comando (agendador do servidor): liberado.
  * - HTTP (cron externo, ex.: cron-job.org): exige a chave CRON_KEY_LOCAL/CRON_KEY_PROD do .env,
- *   enviada no header "X-Cron-Key" (preferível) ou no parâmetro ?key=. Sem chave configurada,
+ *   enviada no header "X-Cron-Key" (só o cabeçalho: na URL, ?key=, a chave ficaria nos logs do servidor
+ *   e do proxy). Sem chave configurada,
  *   o acesso por HTTP fica bloqueado.
  */
 require_once __DIR__ . '/../config/environment.php';
@@ -18,7 +19,7 @@ function cronExigirAcesso(): void {
     header('Cache-Control: no-store');
 
     $esperada = (string) Environment::get('cron_key', '');
-    $recebida = $_SERVER['HTTP_X_CRON_KEY'] ?? ($_GET['key'] ?? '');
+    $recebida = $_SERVER['HTTP_X_CRON_KEY'] ?? '';
 
     if (strlen($esperada) < 16 || !is_string($recebida) || !hash_equals($esperada, $recebida)) {
         http_response_code(403);

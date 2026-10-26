@@ -669,7 +669,7 @@ function validarAnexosComentario() {
     });
 
     if (arquivosInvalidos.length > 0) {
-        mostrarAlert('Tipo Inválido', `Tipos não permitidos: ${arquivosInvalidos.map(a => a.name).join(', ')}`);
+        mostrarAlert('Tipo Inválido', `Tipos não permitidos: ${sanitizeHTML(arquivosInvalidos.map(a => a.name).join(', '))}`);
         input.value = '';
         return;
     }

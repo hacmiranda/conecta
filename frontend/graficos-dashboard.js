@@ -129,7 +129,7 @@ function criarGraficoAgente(dados) {
 
                     const pct = Math.round((parseInt(fatia.agente.total) / total) * 100);
                     CanvasTooltip.show(e,
-                        `<strong style="color:${fatia.cor}">${fatia.agente.nome}</strong><br>` +
+                        `<strong style="color:${fatia.cor}">${sanitizeHTML(fatia.agente.nome)}</strong><br>` +
                         `Demandas: <strong>${fatia.agente.total}</strong><br>` +
                         `Percentual: <strong>${pct}%</strong>`
                     );
@@ -214,7 +214,7 @@ function criarGraficoResolucao(dados) {
 
                     const pct = Math.round((barra.valor / totalResolucao) * 100);
                     CanvasTooltip.show(e,
-                        `<strong style="color:${barra.cor}">${barra.label}</strong><br>` +
+                        `<strong style="color:${barra.cor}">${sanitizeHTML(barra.label)}</strong><br>` +
                         `Demandas: <strong>${barra.valor}</strong><br>` +
                         `Percentual: <strong>${pct}%</strong>`
                     );
@@ -507,8 +507,8 @@ function criarGraficoStatusAgente(dados) {
 
                     const pct = Math.round((seg.valor / seg.totalAgente) * 100);
                     CanvasTooltip.show(e,
-                        `<strong style="color:#ddd6cd">${seg.agente}</strong><br>` +
-                        `<span style="color:${seg.cor}">● ${seg.label}</span><br>` +
+                        `<strong style="color:#ddd6cd">${sanitizeHTML(seg.agente)}</strong><br>` +
+                        `<span style="color:${seg.cor}">● ${sanitizeHTML(seg.label)}</span><br>` +
                         `Demandas: <strong>${seg.valor}</strong><br>` +
                         `Percentual: <strong>${pct}%</strong>`
                     );
@@ -609,7 +609,7 @@ function criarGraficoFunil(dados) {
 
                     const pct = Math.round((etapa.valor / totalFunil) * 100);
                     CanvasTooltip.show(e,
-                        `<strong style="color:${etapa.cor}">${etapa.nome}</strong><br>` +
+                        `<strong style="color:${etapa.cor}">${sanitizeHTML(etapa.nome)}</strong><br>` +
                         `Demandas: <strong>${etapa.valor}</strong><br>` +
                         `Percentual: <strong>${pct}%</strong>`
                     );
@@ -796,7 +796,7 @@ function criarGraficoDiarios30d(dados) {
                 const pct = Math.round((closest.valor / totalDiarios) * 100);
                 const isPico = closest.valor === Math.max(...valores);
                 CanvasTooltip.show(e,
-                    `<strong style="color:#70ab2a">${closest.label}</strong>` +
+                    `<strong style="color:#70ab2a">${sanitizeHTML(closest.label)}</strong>` +
                     (isPico ? ' <span style="color:#70ab2a">▲ Pico</span>' : '') + `<br>` +
                     `Demandas: <strong>${closest.valor}</strong><br>` +
                     `Percentual: <strong>${pct}%</strong>`
@@ -993,7 +993,7 @@ function criarGraficoStatusMensal(dados) {
                 const pct = Math.round((seg.valor / seg.totalMes) * 100);
                 CanvasTooltip.show(e,
                     `<strong style="color:#ddd6cd">${seg.mes}</strong><br>` +
-                    `<span style="color:${seg.cor}">● ${seg.label}</span><br>` +
+                    `<span style="color:${seg.cor}">● ${sanitizeHTML(seg.label)}</span><br>` +
                     `Demandas: <strong>${seg.valor}</strong><br>` +
                     `Percentual: <strong>${pct}%</strong>`
                 );
@@ -1377,7 +1377,7 @@ function criarGraficoStatus(dados) {
 
         const pct = Math.round((fatia.valor / total) * 100);
         CanvasTooltip.show(e,
-            `<strong style="color:${fatia.cor}">${fatia.label}</strong><br>` +
+            `<strong style="color:${fatia.cor}">${sanitizeHTML(fatia.label)}</strong><br>` +
             `Demandas: <strong>${fatia.valor}</strong><br>` +
             `Percentual: <strong>${pct}%</strong>`
         );
@@ -1467,7 +1467,7 @@ function criarGraficoPrioridade(dados) {
 
         const pct = Math.round((barra.valor / totalPrioridade) * 100);
         CanvasTooltip.show(e,
-            `<strong style="color:${barra.cor}">${barra.label}</strong><br>` +
+            `<strong style="color:${barra.cor}">${sanitizeHTML(barra.label)}</strong><br>` +
             `Demandas: <strong>${barra.valor}</strong><br>` +
             `Percentual: <strong>${pct}%</strong>`
         );

@@ -185,6 +185,10 @@ Quando a demanda de um **solicitante externo** (e-mail fora de `PESQUISA_DOMINIO
 - **Liga/desliga:** código `sol_pesquisa_satisfacao` na aba "Envio de E-mails" (ligado por padrão).
 - **Configuração:** `METRICA360_URL_*`, `METRICA360_API_KEY_*` (= `INTEGRACAO_CONECTA_API_KEY` do METRICA360) e `PESQUISA_DOMINIOS_INTERNOS` no `.env`. Sem URL/chave, os pedidos ficam `pendente` e só sai um aviso no log `pesquisa-satisfacao`.
 
+### Auditoria de 26/10/2026 (correções em fases)
+Auditoria completa (segurança, backend, frontend) com relatório e plano em 9 fases (0 a 8): segurança → sessão → endurecimento → fluxo/SLA → e-mail → desempenho → acessibilidade → manutenção.
+- **Fase 1 (XSS, acesso e configuração):** `usuarios.php` grava nome/usuário/cargo com `HtmlSanitizer::texto()` e `usuarios.js` escapa `username`/`cargo` no formulário de edição (antes um gestor podia injetar script que rodava quando o admin abria o usuário); `sanitizeHTML()` nos rótulos dos tooltips do dashboard (`graficos-dashboard.js`), no e-mail do Arquivo, no nome do setor em edição e nas mensagens de arquivo recusado; erro de subcategoria mostra só `error`, não o JSON cru. `email-logs.php` só para admin e período limitado a 365 dias (antes qualquer operador via e-mails de todos os setores). "Testar caixa" (`setor-emails.php`) sem senha digitada usa SÓ os dados gravados (servidor, porta, usuário, SMTP, certificado): a senha decifrada nunca vai a um servidor vindo da requisição. Turnstile: segredo em `TURNSTILE_SECRET_KEY_*` no `.env` (sem ele, login de produção segue sem CAPTCHA e loga erro) e TLS verificado. Crons por HTTP aceitam a chave só no cabeçalho `X-Cron-Key` (`?key=` recusado). `environment.php`: `display_errors` desligado em produção + exceção não tratada vira JSON 500 genérico. `notificacoes.php`: CORS, CSRF no PUT/DELETE, id inteiro, try/catch. `.htaccess`: HSTS (só em HTTPS), `frame-ancestors 'self'` em produção (origens locais só quando o host é localhost/127.0.0.1, via `<If>`), sem `cdn.quilljs.com`; 404 para `api/tests`, `.superpowers`, `.playwright-mcp`, `frontend/node_modules` e para qualquer `mockups/*.php` (geradores também exigem `PHP_SAPI === 'cli'`). Testes: `HtmlSanitizerTest`; matriz de acesso com email-logs e notificações (24 casos).
+
 ### File Uploads
 Attachments stored in `backend/anexos/`. Max 5 files, 20MB each. Allowed: pdf, doc, docx, txt, csv, xls, xlsx, png, jpg, jpeg.
 
@@ -197,6 +201,7 @@ Attachments stored in `backend/anexos/`. Max 5 files, 20MB each. Allowed: pdf, d
 ### Pendências conhecidas (atualizado em 22/10/2026)
 
 **Antes do primeiro deploy em produção** (roteiro completo em `docs/implantacao-producao.md`):
+- **Segredos no histórico do Git (auditoria 26/10/2026):** o commit `0fecd85` tem a senha da caixa IMAP/SMTP institucional e a do banco de então, e `database/crpdesk.sql` (rastreado) tem demandas reais e hashes de usuários. Trocar essas senhas se ainda valerem e trocar a chave do Turnstile (estava no código); limpar o histórico (`git filter-repo` + push forçado) só com confirmação explícita. Definir `TURNSTILE_SECRET_KEY_PROD` no `.env`.
 - Definir no `.env` do servidor todas as chaves `*_PROD` (`SETOR_EMAIL_ENCRYPTION_KEY_PROD`, `INTEGRATION_API_KEY_PROD`, `CRON_KEY_PROD`, JWT/CSRF etc. — lista e comandos de geração em `.env.example`).
 - Confirmar `db_host`/`db_user` de produção (hoje herdados do CRPDESK). Banco `db_conecta`, `base_url` `https://crp07.org.br/conecta` já definidos.
 - Aplicar as migrações 9–22 com backup (`php database/migrar.php`), ou confirmar que a réplica do banco local já vem com elas.

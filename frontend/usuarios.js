@@ -399,11 +399,11 @@ function mostrarFormularioEdicaoUsuario(usuario, setores) {
         </div>
         <div class="form-group">
             <label for="edit-username">Nome de usuário:</label>
-            <input type="text" id="edit-username" value="${usuario.username || ''}">
+            <input type="text" id="edit-username" value="${sanitizeHTML(usuario.username || '')}">
         </div>
         <div class="form-group">
             <label for="edit-cargo">Cargo/Função:</label>
-            <input type="text" id="edit-cargo" value="${usuario.cargo || ''}">
+            <input type="text" id="edit-cargo" value="${sanitizeHTML(usuario.cargo || '')}">
         </div>
         <div class="form-group">
             <label for="edit-tipo">Perfil:</label>

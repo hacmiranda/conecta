@@ -16,7 +16,10 @@ AddDefaultCharset UTF-8
 
 # Pastas que nunca são servidas pela web: código interno, dependências, testes e documentação.
 # (api/cron/ continua acessível: o cron externo chama por HTTP com a chave CRON_KEY_*.)
-RedirectMatch 404 (?i)/(\.git|\.agent|\.claude|docs|database|api/vendor|api/test|api/services|api/middleware|api/config)(/|$)
+RedirectMatch 404 (?i)/(\.git|\.agent|\.claude|\.superpowers|\.playwright-mcp|docs|database|api/vendor|api/test|api/tests|api/services|api/middleware|api/config|frontend/node_modules)(/|$)
+# Mockups: as páginas HTML podem ser vistas (só em desenvolvimento; a pasta não vai para produção),
+# mas os geradores PHP nunca rodam pela web
+RedirectMatch 404 (?i)/mockups/.*\.php$
 
 
 # Permitir header Authorization e redirecionar
@@ -40,9 +43,16 @@ RewriteRule ^(.*)$ /conecta/frontend/login.html [L,R=301]
     # Permite: próprio domínio, Google Fonts, CDN do Chart.js/Alpine/Quill,
     # Cloudflare Turnstile, imagens inline (data:) para Quill editor
     # frame-ancestors: origens autorizadas a incorporar este módulo em <iframe>.
-    # 'self' + origens de dev local por padrão. Ao integrar com o painel agregador real,
-    # adicionar o domínio de produção aqui E em CORS_ALLOWED_ORIGINS_* no api/config/.env.
-    Header always set Content-Security-Policy "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' cdn.jsdelivr.net cdn.quilljs.com cdnjs.cloudflare.com challenges.cloudflare.com static.cloudflareinsights.com; style-src 'self' 'unsafe-inline' fonts.googleapis.com cdn.jsdelivr.net cdn.quilljs.com cdnjs.cloudflare.com; font-src 'self' fonts.gstatic.com; img-src 'self' data: blob:; connect-src 'self' challenges.cloudflare.com cdn.quilljs.com cdnjs.cloudflare.com cloudflareinsights.com; frame-src challenges.cloudflare.com blob:; frame-ancestors 'self' http://localhost:* http://127.0.0.1:*; object-src 'none'; base-uri 'self'; form-action 'self';"
+    # Produção: só 'self'. Acesso por localhost/127.0.0.1 (desenvolvimento): também as origens locais,
+    # para o painel agregador de teste. Ao integrar com o painel agregador real, adicionar o domínio
+    # de produção nas duas linhas E em CORS_ALLOWED_ORIGINS_* no api/config/.env.
+    Header always set Content-Security-Policy "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' cdn.jsdelivr.net cdnjs.cloudflare.com challenges.cloudflare.com static.cloudflareinsights.com; style-src 'self' 'unsafe-inline' fonts.googleapis.com cdn.jsdelivr.net cdnjs.cloudflare.com; font-src 'self' fonts.gstatic.com; img-src 'self' data: blob:; connect-src 'self' challenges.cloudflare.com cdnjs.cloudflare.com cloudflareinsights.com; frame-src challenges.cloudflare.com blob:; frame-ancestors 'self'; object-src 'none'; base-uri 'self'; form-action 'self';"
+    <If "%{HTTP_HOST} =~ /^(localhost|127\.0\.0\.1)(:\d+)?$/">
+        Header always set Content-Security-Policy "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' cdn.jsdelivr.net cdnjs.cloudflare.com challenges.cloudflare.com static.cloudflareinsights.com; style-src 'self' 'unsafe-inline' fonts.googleapis.com cdn.jsdelivr.net cdnjs.cloudflare.com; font-src 'self' fonts.gstatic.com; img-src 'self' data: blob:; connect-src 'self' challenges.cloudflare.com cdnjs.cloudflare.com cloudflareinsights.com; frame-src challenges.cloudflare.com blob:; frame-ancestors 'self' http://localhost:* http://127.0.0.1:*; object-src 'none'; base-uri 'self'; form-action 'self';"
+    </If>
+
+    # HTTPS obrigatório no navegador por 1 ano (só quando a requisição já veio por HTTPS)
+    Header always set Strict-Transport-Security "max-age=31536000" "expr=%{HTTPS} == 'on'"
 
     # Restringe acesso a APIs do navegador desnecessárias
     Header always set Permissions-Policy "camera=(), microphone=(), geolocation=(), payment=()"

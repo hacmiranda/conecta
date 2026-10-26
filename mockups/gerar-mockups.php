@@ -15,6 +15,13 @@
  * Os PNGs de imagens/ são tirados das páginas (ver README.md).
  */
 
+// Só pela linha de comando: grava arquivos e não deve rodar pela web
+if (PHP_SAPI !== 'cli') {
+    http_response_code(404);
+    exit;
+}
+
+
 $raiz   = dirname(__DIR__);
 $saida  = __DIR__;
 $esc    = function ($t) { return htmlspecialchars((string) $t, ENT_QUOTES, 'UTF-8'); };

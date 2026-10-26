@@ -150,3 +150,21 @@ class Environment {
         ];
     }
 }
+
+// Erros do PHP nunca aparecem para o usuário em produção, qualquer que seja o php.ini do provedor
+// (um erro de banco mostraria SQLSTATE, usuário e caminhos). Exceção não tratada numa requisição
+// web vira JSON 500 genérico; o detalhe fica só no log.
+if (Environment::isProduction()) {
+    ini_set('display_errors', '0');
+    ini_set('log_errors', '1');
+}
+if (PHP_SAPI !== 'cli') {
+    set_exception_handler(function (Throwable $e) {
+        error_log('[ERRO NAO TRATADO] ' . get_class($e) . ': ' . $e->getMessage() . ' em ' . $e->getFile() . ':' . $e->getLine());
+        if (!headers_sent()) {
+            http_response_code(500);
+            header('Content-Type: application/json; charset=utf-8');
+        }
+        echo json_encode(['error' => 'Erro interno do servidor']);
+    });
+}

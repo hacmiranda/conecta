@@ -711,7 +711,10 @@ function executarAlteracaoCategoria(ticketId, categoriaId) {
             mostrarToast('Sucesso', 'Subcategoria alterada com sucesso!', 'success');
         } else {
             ocultarLoader();
-            mostrarAlert('Erro', 'Erro ao alterar subcategoria: ' + xhr.responseText);
+            // Mensagem do servidor, nunca o JSON cru
+            let erroServidor = '';
+            try { erroServidor = (JSON.parse(xhr.responseText) || {}).error || ''; } catch (e) { /* resposta não é JSON */ }
+            mostrarAlert('Erro', sanitizeHTML(erroServidor || 'Erro ao alterar subcategoria.'));
         }
     };
 

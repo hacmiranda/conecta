@@ -183,6 +183,20 @@ try {
     verifica('usuário desativado: 401 mesmo com token válido', $c === 401, (string) $c);
     [$c] = req('PUT', $baseUrl . "tickets.php?id=$demandaA", [$T['operadorA'][0], 'token-csrf-errado'], ['prioridade' => 'normal']);
     verifica('CSRF incorreto é recusado (403)', $c === 403, (string) $c);
+
+    echo "\n[6] Log de e-mails enviados (só o administrador; tem dados de todos os setores)\n";
+    [$c] = req('GET', $baseUrl . 'email-logs.php?periodo=36500', $T['operadorA']);
+    verifica('operador não lê o log de e-mails (403)', $c === 403, (string) $c);
+    [$c] = req('GET', $baseUrl . 'email-logs.php', $T['gestorA']);
+    verifica('gestor não lê o log de e-mails (403)', $c === 403, (string) $c);
+    [$c] = req('GET', $baseUrl . 'email-logs.php?periodo=36500', $T['admin']);
+    verifica('admin lê o log de e-mails (200)', $c === 200, (string) $c);
+
+    echo "\n[7] Notificações (alterar exige CSRF)\n";
+    [$c] = req('PUT', $baseUrl . 'notificacoes.php', [$T['operadorA'][0], 'token-csrf-errado'], []);
+    verifica('marcar como lidas com CSRF incorreto é recusado (403)', $c === 403, (string) $c);
+    [$c] = req('PUT', $baseUrl . 'notificacoes.php', $T['operadorA'], []);
+    verifica('marcar como lidas com CSRF correto (200)', $c === 200, (string) $c);
 } finally {
     echo "\n[limpeza]\n";
     $idsTickets = implode(',', array_filter($ticketsCriados)) ?: '0';

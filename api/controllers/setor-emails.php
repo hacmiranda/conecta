@@ -108,21 +108,32 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $imap_user = trim($input['imap_user'] ?? '');
         $senha = (string) ($input['imap_pass'] ?? '');
 
-        // Teste de uma caixa já salva: usa a senha armazenada quando não for informada
+        // Teste de uma caixa já salva. Sem senha informada, usa a senha armazenada e, com ela, SÓ os dados
+        // gravados (servidor, porta, usuário, SMTP, certificado): a senha decifrada nunca vai para um
+        // servidor vindo da requisição. Com senha informada, testa os dados digitados, como antes.
+        $caixa = null;
+        $usaSenhaSalva = false;
+        $smtp_senha_salva = '';
         if (!empty($input['setor_email_id'])) {
             $salva = $db->prepare("SELECT * FROM setor_emails WHERE id = ?");
             $salva->execute([(int) $input['setor_email_id']]);
-            $caixa = $salva->fetch(PDO::FETCH_ASSOC);
-            if ($caixa) {
-                $host = $host ?: $caixa['imap_host'];
-                $imap_user = $imap_user ?: $caixa['imap_user'];
+            $caixa = $salva->fetch(PDO::FETCH_ASSOC) ?: null;
+            if ($caixa && $senha === '') {
+                $usaSenhaSalva = true;
+                $host = $caixa['imap_host'];
+                $port = (int) $caixa['imap_port'];
+                $imap_user = $caixa['imap_user'];
                 try {
-                    $senha = $senha !== '' ? $senha : CryptoService::decrypt($caixa['imap_pass_cifrada']);
+                    $senha = CryptoService::decrypt($caixa['imap_pass_cifrada']);
+                    $smtp_senha_salva = !empty($caixa['smtp_pass_cifrada']) ? CryptoService::decrypt($caixa['smtp_pass_cifrada']) : '';
                 } catch (Exception $e) {
                     http_response_code(400);
                     echo json_encode(['error' => 'Não foi possível ler a senha salva. Informe a senha novamente.']);
                     exit;
                 }
+            } elseif ($caixa) {
+                $host = $host ?: $caixa['imap_host'];
+                $imap_user = $imap_user ?: $caixa['imap_user'];
             }
         }
 
@@ -133,9 +144,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
 
         $resultado = ['imap' => null, 'smtp' => null];
-        $validar_cert = isset($input['validar_certificado'])
-            ? (bool) $input['validar_certificado']
-            : (!isset($caixa) || !$caixa || (int) ($caixa['validar_certificado'] ?? 1) === 1);
+        if ($usaSenhaSalva) {
+            $validar_cert = (int) ($caixa['validar_certificado'] ?? 1) === 1;
+        } else {
+            $validar_cert = isset($input['validar_certificado'])
+                ? (bool) $input['validar_certificado']
+                : (!$caixa || (int) ($caixa['validar_certificado'] ?? 1) === 1);
+        }
 
         // IMAP
         if (!function_exists('imap_open')) {
@@ -157,10 +172,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
 
         // SMTP (credenciais próprias, ou as do IMAP quando em branco)
-        $smtp = camposSmtp($input);
+        $smtp = $usaSenhaSalva ? camposSmtp([], $caixa) : camposSmtp($input);
         $smtp_host = $smtp['smtp_host'] !== '' ? $smtp['smtp_host'] : (string) Environment::get('smtp_host');
         $smtp_user = $smtp['smtp_user'] !== '' ? $smtp['smtp_user'] : $imap_user;
-        $smtp_senha = (string) ($input['smtp_pass'] ?? '');
+        $smtp_senha = $usaSenhaSalva ? $smtp_senha_salva : (string) ($input['smtp_pass'] ?? '');
         if ($smtp_senha === '') {
             $smtp_senha = $senha;
         }
