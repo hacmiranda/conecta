@@ -31,40 +31,18 @@ function argJs(valor) {
     return encodeURIComponent(String(valor ?? '')).replace(/'/g, '%27');
 }
 
-// Retorna headers de autenticação para uso com fetch()
+// Cabeçalhos de segurança para fetch(): só o X-CSRF-Token. A sessão (JWT) vai sozinha no cookie
+// HttpOnly "conecta_sessao" (mesma origem), que o JavaScript não lê.
 function getAuthHeaders() {
-    const token = localStorage.getItem('cd_token');
     const headers = {};
-    if (token) {
-        headers['Authorization'] = `Bearer ${token}`;
-        let csrfToken = localStorage.getItem('cd_csrf_token');
-        if (!csrfToken) {
-            try {
-                const partes = token.split('.');
-                const payload = JSON.parse(atob(partes[1].replace(/-/g, '+').replace(/_/g, '/')));
-                csrfToken = payload.csrf || null;
-            } catch (e) {}
-        }
-        if (csrfToken) headers['X-CSRF-Token'] = csrfToken;
-    }
+    const csrfToken = localStorage.getItem('cd_csrf_token');
+    if (csrfToken) headers['X-CSRF-Token'] = csrfToken;
     return headers;
 }
 
-// Global Injector de Header (JWT Auth + CSRF) para XMLHttpRequests
+// O mesmo para XMLHttpRequest (o cookie de sessão também vai sozinho)
 window.setSecurityHeaders = function (xhr) {
-    const token = localStorage.getItem('cd_token');
-    if (token) {
-        xhr.setRequestHeader('Authorization', `Bearer ${token}`);
-    }
-    // CSRF: usa valor salvo no login ou extrai diretamente do JWT
-    let csrfToken = localStorage.getItem('cd_csrf_token');
-    if (!csrfToken && token) {
-        try {
-            const partes = token.split('.');
-            const payload = JSON.parse(atob(partes[1].replace(/-/g, '+').replace(/_/g, '/')));
-            csrfToken = payload.csrf || null;
-        } catch (e) {}
-    }
+    const csrfToken = localStorage.getItem('cd_csrf_token');
     if (csrfToken) {
         xhr.setRequestHeader('X-CSRF-Token', csrfToken);
     }
@@ -72,22 +50,44 @@ window.setSecurityHeaders = function (xhr) {
 
 // Limpa os dados da sessão no navegador e volta ao login (motivo opcional exibido lá)
 function encerrarSessaoLocal(motivo) {
-    ['cd_usuario', 'cd_token', 'cd_token_exp', 'cd_csrf_token'].forEach(chave => localStorage.removeItem(chave));
+    limparDadosDaSessao();
     window.location.href = './login.html' + (motivo ? '?sessao=' + encodeURIComponent(motivo) : '');
 }
 
-// Função de logout: encerra a sessão no servidor (o token deixa de valer) e no navegador
-function fazerLogout() {
-    const token = localStorage.getItem('cd_token');
-    if (!token) {
+// Dados da sessão guardados no navegador (apagados ao sair). Preferências (modo escuro, tutorial,
+// sidebar recolhida) ficam. cd_token/cd_token_exp: restos de versões antigas, quando o token ficava aqui.
+function limparDadosDaSessao() {
+    ['cd_usuario', 'cd_csrf_token', 'cd_token', 'cd_token_exp',
+        'cd_ticketAtual', 'cd_ticketAtivo', 'cd_secaoAtiva', 'cd_secaoOrigem', 'cd_subSecaoAtiva']
+        .forEach(chave => localStorage.removeItem(chave));
+    try { sessionStorage.clear(); } catch (e) { /* sem sessionStorage */ }
+}
+
+// Função de logout: encerra a sessão no servidor (o token deixa de valer e o cookie é apagado) e no
+// navegador. todas = true: encerra também as sessões dos outros dispositivos.
+function fazerLogout(todas = false) {
+    if (!localStorage.getItem('cd_usuario')) {
         encerrarSessaoLocal();
         return;
     }
     const controle = new AbortController();
     setTimeout(() => controle.abort(), 3000);
-    fetch(window.APP_CONFIG.apiBase + 'logout.php', { method: 'POST', headers: getAuthHeaders(), signal: controle.signal, keepalive: true })
+    fetch(window.APP_CONFIG.apiBase + 'logout.php', {
+        method: 'POST',
+        headers: Object.assign({ 'Content-Type': 'application/json' }, getAuthHeaders()),
+        body: JSON.stringify({ todas: !!todas }),
+        signal: controle.signal,
+        keepalive: true
+    })
         .catch(() => { })
         .finally(() => encerrarSessaoLocal());
+}
+
+// Avatar → "Sair de todos os dispositivos"
+function sairDeTodosOsDispositivos() {
+    mostrarConfirm('Sair de todos os dispositivos',
+        'Encerra sua sessão neste e em todos os outros navegadores e computadores. Você precisará entrar de novo em cada um.',
+        () => fazerLogout(true), true);
 }
 
 // Respostas da API que mudam o estado da sessão, vindas de qualquer chamada (XHR ou fetch)
@@ -370,25 +370,7 @@ const MAX_ARQUIVOS = 5;
 const MAX_TAMANHO = 20 * 1024 * 1024; // 20MB
 const TIPOS_PERMITIDOS = ['.pdf', '.doc', '.docx', '.txt', '.csv', '.xls', '.xlsx', '.png', '.jpg', '.jpeg'];
 
-// Função para configurar headers de segurança
-function setSecurityHeaders(xhr) {
-    const token = localStorage.getItem('cd_token');
-    if (token) {
-        xhr.setRequestHeader('Authorization', `Bearer ${token}`);
-    }
-    // CSRF: usa valor salvo no login ou extrai diretamente do JWT
-    let csrfToken = localStorage.getItem('cd_csrf_token');
-    if (!csrfToken && token) {
-        try {
-            const partes = token.split('.');
-            const payload = JSON.parse(atob(partes[1].replace(/-/g, '+').replace(/_/g, '/')));
-            csrfToken = payload.csrf || null;
-        } catch (e) {}
-    }
-    if (csrfToken) {
-        xhr.setRequestHeader('X-CSRF-Token', csrfToken);
-    }
-}
+// setSecurityHeaders(xhr): definido no topo do arquivo (window.setSecurityHeaders), só o X-CSRF-Token
 
 // Carregar tickets do banco de dados (apenas não fechados e não cancelados)
 // Acrescenta o setor escolhido pelo admin no cabeçalho (cabecalho-setor.js) à URL da API
@@ -600,7 +582,7 @@ function obterSetorIdDoTicket(ticketId) {
     if (emLista) return emLista.setor_id || null;
 
     try {
-        const ticketAtual = JSON.parse(localStorage.getItem('cd_ticketAtual') || 'null');
+        const ticketAtual = JSON.parse(sessionStorage.getItem('cd_ticketAtual') || 'null');
         if (ticketAtual && ticketAtual.id === ticketId) return ticketAtual.setor_id || null;
     } catch (e) { }
 
@@ -1162,7 +1144,7 @@ function aplicarVisibilidadePorPapel(tipo) {
 // Executar exclusão do ticket
 function executarExclusaoTicket(ticketId, callback) {
     // Verificar se ticket está fechado antes de excluir
-    const ticketAtual = JSON.parse(localStorage.getItem('cd_ticketAtual') || '{}');
+    const ticketAtual = JSON.parse(sessionStorage.getItem('cd_ticketAtual') || '{}');
     const isTicketFechado = ticketAtual.status === 'encerrado' || ticketAtual.status === 'cancelado';
 
     // Validar se ticket tem responsável (REMOVIDO: permitir exclusão sem responsável)
@@ -1203,7 +1185,7 @@ function executarExclusaoTicket(ticketId, callback) {
                 } else {
                     // Limpar dados e ir para lista apropriada
                     localStorage.removeItem('cd_ticketAtivo');
-                    localStorage.removeItem('cd_ticketAtual');
+                    sessionStorage.removeItem('cd_ticketAtual');
 
                     if (isTicketFechado) {
                         mostrarTicketsFechados();
@@ -1412,11 +1394,11 @@ document.addEventListener('keydown', function (e) {
 
 // Inicializar aplicação
 document.addEventListener('DOMContentLoaded', function () {
-    // Verificar se há usuário logado e token válido
+    // Verificar se há usuário logado (o token fica no cookie HttpOnly; se tiver expirado, a primeira
+    // chamada à API responde 401 e tratarRespostaDeSessao leva ao login)
     const usuario = localStorage.getItem('cd_usuario');
-    const token = localStorage.getItem('cd_token');
-    if (!usuario || !token) {
-        localStorage.clear();
+    if (!usuario) {
+        limparDadosDaSessao();
         window.location.href = './login.html';
         return;
     }

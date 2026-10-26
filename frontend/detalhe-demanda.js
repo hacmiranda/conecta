@@ -121,7 +121,8 @@ async function verDetalhes(ticketId) {
         const ticket = await Api.get(`tickets.php?id=${ticketId}`);
         ocultarLoader();
         // Salvar dados do ticket para saber se é fechado
-        localStorage.setItem('cd_ticketAtual', JSON.stringify(ticket));
+        // Só o que as ações da tela precisam (não a demanda inteira, com descrição e imagens): sessionStorage, some ao fechar a aba
+        sessionStorage.setItem('cd_ticketAtual', JSON.stringify({ id: ticket.id, setor_id: ticket.setor_id, status: ticket.status, agente_id: ticket.agente_id, usuario_email: ticket.usuario_email }));
         mostrarSecao('detalhes');
 
         setTimeout(() => {
@@ -781,7 +782,6 @@ function adicionarComentario(event, ticketId) {
     const enviarEmail = !interno && document.getElementById('enviar-email').checked;
     const comCopia = document.getElementById('com-copia').value;
     const usuario = JSON.parse(localStorage.getItem('cd_usuario'));
-    const token = localStorage.getItem('cd_token');
 
     // Usar FormData para suportar anexos
     const formData = new FormData();
@@ -803,20 +803,9 @@ function adicionarComentario(event, ticketId) {
 
     mostrarLoader();
 
-    let csrfToken = localStorage.getItem('cd_csrf_token') || '';
-    if (!csrfToken) {
-        try {
-            const t = localStorage.getItem('cd_token');
-            const payload = JSON.parse(atob(t.split('.')[1].replace(/-/g, '+').replace(/_/g, '/')));
-            csrfToken = payload.csrf || '';
-        } catch (e) {}
-    }
     fetch(window.APP_CONFIG.apiBase + 'comentarios.php', {
         method: 'POST',
-        headers: {
-            'Authorization': `Bearer ${token}`,
-            'X-CSRF-Token': csrfToken
-        },
+        headers: getAuthHeaders(), // X-CSRF-Token (a sessão vai no cookie)
         body: formData
     })
         .then(response => response.json().then(corpo => ({ ok: response.ok, corpo })))
@@ -936,7 +925,7 @@ function adicionarComentario(event, ticketId) {
                     if (enviarEmail) {
                         const usuario = JSON.parse(localStorage.getItem('cd_usuario') || '{}');
                         const agora = new Date().toLocaleString('pt-BR');
-                        const ticketAtual = JSON.parse(localStorage.getItem('cd_ticketAtual') || '{}');
+                        const ticketAtual = JSON.parse(sessionStorage.getItem('cd_ticketAtual') || '{}');
 
                         if (ticketAtual && ticketAtual.usuario_email) {
                             const histDiv = document.createElement('div');
@@ -1019,7 +1008,7 @@ let anexosComentarioSelecionados = [];
 
 // Validações antes de adicionar comentário
 function validarAntesComentario(ticketId) {
-    const ticketAtual = JSON.parse(localStorage.getItem('cd_ticketAtual') || '{}');
+    const ticketAtual = JSON.parse(sessionStorage.getItem('cd_ticketAtual') || '{}');
     const usuario = JSON.parse(localStorage.getItem('cd_usuario'));
 
     // Se for funcionário interno (operador/gestor/admin)
@@ -1042,7 +1031,7 @@ function validarAntesComentario(ticketId) {
 
 // Validações antes de fechar ticket
 function validarAntesFechamento(ticketId) {
-    const ticketAtual = JSON.parse(localStorage.getItem('cd_ticketAtual') || '{}');
+    const ticketAtual = JSON.parse(sessionStorage.getItem('cd_ticketAtual') || '{}');
 
     // Verificar se ticket tem responsável
     if (!ticketAtual.agente_id) {

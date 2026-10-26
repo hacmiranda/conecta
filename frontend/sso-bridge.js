@@ -4,7 +4,7 @@
     'use strict';
 
     if (window.self === window.top) return; // não está incorporado — nada a fazer
-    if (localStorage.getItem('cd_token')) return; // já autenticado nesta origem
+    if (localStorage.getItem('cd_usuario')) return; // já autenticado nesta origem (sessão no cookie)
 
     const origensConfiaveis = (window.APP_CONFIG && window.APP_CONFIG.trustedParentOrigins) || [];
 
@@ -59,7 +59,6 @@
                 try {
                     const response = JSON.parse(xhr.responseText);
                     localStorage.setItem('cd_usuario', JSON.stringify(response.usuario));
-                    localStorage.setItem('cd_token', response.token);
                     if (response.csrf_token) {
                         localStorage.setItem('cd_csrf_token', response.csrf_token);
                     }

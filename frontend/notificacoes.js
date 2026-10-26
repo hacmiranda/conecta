@@ -4,8 +4,7 @@
 let _notificacoesInterval = null;
 
 function inciarNotificacoes() {
-    const token = localStorage.getItem('cd_token');
-    if (!token) return;
+    if (!localStorage.getItem('cd_usuario')) return;
 
     // Cancela polling anterior se existir
     if (_notificacoesInterval) {
@@ -20,8 +19,7 @@ function inciarNotificacoes() {
 }
 
 function _buscarNotificacoes() {
-    const token = localStorage.getItem('cd_token');
-    if (!token) return;
+    if (!localStorage.getItem('cd_usuario')) return;
 
     const xhr = new XMLHttpRequest();
     xhr.open('GET', window.APP_CONFIG.apiBase + 'notificacoes.php', true);
@@ -274,9 +272,9 @@ function excluirTodasNotificacoes() {
 
 // Interceptar o carregamento do usuário para inicar as notificações
 document.addEventListener('DOMContentLoaded', () => {
-    // Espera 2 segundos para dar tempo do login carregar o token
+    // Espera 2 segundos para dar tempo do login carregar o usuário
     setTimeout(() => {
-        if (localStorage.getItem('cd_token')) {
+        if (localStorage.getItem('cd_usuario')) {
             inciarNotificacoes();
         }
     }, 2000);

@@ -1,7 +1,8 @@
 <?php
 /**
- * Encerra a sessão atual: o token deixa de ser aceito (sessoes_revogadas).
- * As demais sessões do usuário (outros dispositivos) continuam válidas.
+ * Encerra a sessão atual: o token deixa de ser aceito (sessoes_revogadas) e o cookie é apagado.
+ * Com {"todas": true}, encerra também as sessões dos outros dispositivos (token_versao).
+ * Sem "todas", as demais sessões do usuário (outros dispositivos) continuam válidas.
  */
 header('Content-Type: application/json');
 
@@ -24,10 +25,20 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
 $user = AuthMiddleware::verificarAuth();
 AuthMiddleware::verificarCSRF();
 
+// {"todas": true}: encerra também as sessões de outros navegadores/dispositivos
+$input = json_decode(file_get_contents('php://input'), true) ?? [];
+$todas = !empty($input['todas']);
+
 try {
     $db = (new Database())->getConnection();
     AuthMiddleware::revogarSessao($db, $user);
-    (new AuditoriaService($db))->registrarLogin($user['id'], $user['email'] ?? null, 'logout');
+    $auditoria = new AuditoriaService($db);
+    if ($todas) {
+        AuthMiddleware::encerrarTodasAsSessoes($db, (int) $user['id']);
+        $auditoria->registrar((int) $user['id'], 'encerrar_todas_sessoes', 'usuarios', (int) $user['id'], null, null);
+    }
+    AuthMiddleware::apagarCookieSessao();
+    $auditoria->registrarLogin($user['id'], $user['email'] ?? null, 'logout');
     echo json_encode(['success' => true, 'message' => 'Logout realizado com sucesso']);
 } catch (Exception $e) {
     error_log('[LOGOUT] Erro: ' . $e->getMessage());

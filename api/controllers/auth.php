@@ -97,16 +97,16 @@ try {
     RateLimitService::limpar($ip, 'login');
     RateLimitService::limpar($chaveConta, 'login');
 
-    // Gera token JWT (já inclui os claims csrf, tv e jti)
+    // Gera o token (claims csrf, tv, jti e exp) e grava no cookie de sessão HttpOnly:
+    // o navegador guarda só o csrf (cabeçalho X-CSRF-Token), nunca o token
     $token = AuthMiddleware::gerarToken($usuario);
-    $jwtPayload = json_decode(base64_decode(strtr(explode('.', $token)[1], '-_', '+/')), true);
+    AuthMiddleware::definirCookieSessao($token);
 
     $auditoriaService->registrarLogin($usuario['id'], $email, 'login_sucesso');
 
     echo json_encode([
         'success'    => true,
-        'token'      => $token,
-        'csrf_token' => $jwtPayload['csrf'] ?? '',
+        'csrf_token' => AuthMiddleware::csrfDoToken($token),
         'usuario'    => [
             'id'           => $usuario['id'],
             'nome'         => $usuario['nome'],

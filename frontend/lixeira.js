@@ -53,7 +53,7 @@ function restaurarDemanda(ticketId) {
         try {
             await Api.put(`tickets.php?id=${Number(ticketId)}&acao=restaurar`, {});
             mostrarToast('Sucesso', 'Demanda restaurada.', 'success');
-            localStorage.removeItem('cd_ticketAtual');
+            sessionStorage.removeItem('cd_ticketAtual');
             mostrarLixeira();
         } catch (e) {
             mostrarAlert('Erro', (e.dados && e.dados.error) || 'Erro ao restaurar a demanda');
@@ -69,7 +69,7 @@ function excluirDefinitivo(ticketId) {
             try {
                 await Api.delete(`tickets.php?id=${Number(ticketId)}&definitivo=1`);
                 mostrarToast('Sucesso', 'Demanda excluída definitivamente.', 'success');
-                localStorage.removeItem('cd_ticketAtual');
+                sessionStorage.removeItem('cd_ticketAtual');
                 mostrarLixeira();
             } catch (e) {
                 mostrarAlert('Erro', (e.dados && e.dados.error) || 'Erro ao excluir a demanda');

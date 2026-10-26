@@ -79,6 +79,22 @@ try {
     exit;
 }
 
+// Token de SSO é de uso imediato: precisa de "exp" no máximo 5 min depois de "iat" e de "jti" (uso único).
+// "iss"/"aud" são conferidos quando SSO_ISSUER_*/SSO_AUDIENCE_* estão no .env.
+$exp = (int) ($payload['exp'] ?? 0);
+$iat = (int) ($payload['iat'] ?? 0);
+$jti = (string) ($payload['jti'] ?? '');
+$emissorEsperado = (string) Environment::get('sso_issuer', '');
+$publicoEsperado = (string) Environment::get('sso_audience', '');
+$publicos = isset($payload['aud']) ? (array) $payload['aud'] : [];
+if ($exp === 0 || $iat === 0 || $exp - $iat > 300 || $jti === ''
+    || ($emissorEsperado !== '' && ($payload['iss'] ?? '') !== $emissorEsperado)
+    || ($publicoEsperado !== '' && !in_array($publicoEsperado, $publicos, true))) {
+    http_response_code(401);
+    echo json_encode(['error' => 'Token SSO inválido ou expirado']);
+    exit;
+}
+
 $email = trim($payload['email'] ?? '');
 $nome = trim($payload['nome'] ?? '');
 $tipo = mapearTipo($payload['role'] ?? null);
@@ -115,20 +131,26 @@ try {
         echo json_encode(['error' => 'Usuário desativado. Entre em contato com o administrador.']);
         exit;
     }
+    // Uso único do token de SSO: o hash do jti fica em sessoes_revogadas (some na faxina de 2 dias,
+    // muito depois do "exp" de 5 min); se já estiver lá, o token foi reaproveitado
+    $marca = $db->prepare("INSERT IGNORE INTO sessoes_revogadas (jti, usuario_id) VALUES (?, ?)");
+    $marca->execute([md5('sso:' . $jti), (int) $usuario['id']]);
+    if ($marca->rowCount() === 0) {
+        $auditoriaService->registrarLogin($usuario['id'], $email, 'login_falha');
+        http_response_code(401);
+        echo json_encode(['error' => 'Token SSO já utilizado']);
+        exit;
+    }
+
     $auditoriaService->registrarLogin($usuario['id'], $email, 'login_sucesso');
 
-    // Reaproveita o mesmo emissor de token do login tradicional — a partir daqui,
-    // o restante do app (verificarAuth, CSRF, etc.) funciona sem nenhuma alteração.
+    // Mesma sessão do login tradicional: token no cookie HttpOnly, o navegador guarda só o csrf
     $token = AuthMiddleware::gerarToken($usuario);
-
-    $jwtParts = explode('.', $token);
-    $jwtPayload = json_decode(base64_decode(str_replace(['-', '_'], ['+', '/'], $jwtParts[1])), true);
-    $csrfToken = $jwtPayload['csrf'] ?? bin2hex(random_bytes(16));
+    AuthMiddleware::definirCookieSessao($token);
 
     echo json_encode([
         'success'    => true,
-        'token'      => $token,
-        'csrf_token' => $csrfToken,
+        'csrf_token' => AuthMiddleware::csrfDoToken($token),
         'usuario'    => [
             'id'         => $usuario['id'],
             'nome'       => $usuario['nome'],

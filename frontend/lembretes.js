@@ -59,7 +59,7 @@ function mostrarLembretes(lembretes) {
 // Setor da demanda aberta (para listar só a equipe daquele setor)
 function setorDaDemandaAtual() {
     try {
-        const ticket = JSON.parse(localStorage.getItem('cd_ticketAtual') || '{}');
+        const ticket = JSON.parse(sessionStorage.getItem('cd_ticketAtual') || '{}');
         return ticket.setor_id ? Number(ticket.setor_id) : null;
     } catch (e) {
         return null;
@@ -206,7 +206,7 @@ function excluirLembrete(lembreteId) {
             xhr.onload = function () {
                 if (xhr.status === 200) {
                     mostrarToast('Sucesso', 'Lembrete excluído!', 'success');
-                    const ticketId = JSON.parse(localStorage.getItem('cd_ticketAtual')).id;
+                    const ticketId = JSON.parse(sessionStorage.getItem('cd_ticketAtual')).id;
                     carregarLembretes(ticketId);
                 } else {
                     let mensagem = 'Erro ao excluir lembrete';

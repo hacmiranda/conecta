@@ -66,6 +66,52 @@ function req(string $metodo, string $url, ?array $tokenCsrf = null, ?array $corp
     return [$codigo, json_decode((string) $resposta, true)];
 }
 
+/**
+ * Requisição como o navegador faz: sessão no cookie conecta_sessao (sem Bearer) e X-CSRF-Token.
+ * Devolve [código, json, valor do cookie conecta_sessao gravado na resposta (ou null)].
+ */
+function reqCookie(string $metodo, string $url, ?string $cookie, ?string $csrf = null, ?array $corpo = null): array {
+    $ch = curl_init($url);
+    $headers = ['Content-Type: application/json'];
+    if ($csrf !== null) {
+        $headers[] = 'X-CSRF-Token: ' . $csrf;
+    }
+    curl_setopt_array($ch, [
+        CURLOPT_CUSTOMREQUEST  => $metodo,
+        CURLOPT_RETURNTRANSFER => true,
+        CURLOPT_HTTPHEADER     => $headers,
+        CURLOPT_HEADER         => true,
+        CURLOPT_TIMEOUT        => 30,
+    ]);
+    if ($cookie !== null) {
+        curl_setopt($ch, CURLOPT_COOKIE, AuthMiddleware::COOKIE_SESSAO . '=' . $cookie);
+    }
+    if ($corpo !== null) {
+        curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($corpo));
+    }
+    $resposta = (string) curl_exec($ch);
+    $codigo = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+    $tamanhoCabecalho = curl_getinfo($ch, CURLINFO_HEADER_SIZE);
+    curl_close($ch);
+    $cabecalhos = substr($resposta, 0, $tamanhoCabecalho);
+    $novoCookie = null;
+    if (preg_match('/^Set-Cookie:\s*' . AuthMiddleware::COOKIE_SESSAO . '=([^;\r\n]*)([^\r\n]*)/mi', $cabecalhos, $m)) {
+        $novoCookie = ['valor' => $m[1], 'atributos' => $m[2]];
+    }
+    return [$codigo, json_decode(substr($resposta, $tamanhoCabecalho), true), $novoCookie];
+}
+
+/** Token assinado com a chave real, com o "exp" que o teste quiser (null = sem exp, como os tokens antigos). */
+function tokenComValidade(PDO $db, int $id, ?int $exp): string {
+    $u = $db->query('SELECT * FROM usuarios WHERE id = ' . $id)->fetch(PDO::FETCH_ASSOC);
+    $payload = ['id' => $u['id'], 'email' => $u['email'], 'tipo' => $u['tipo'], 'setor_id' => $u['setor_id'],
+                'tv' => (int) $u['token_versao'], 'jti' => bin2hex(random_bytes(16)), 'csrf' => bin2hex(random_bytes(16)), 'iat' => time()];
+    if ($exp !== null) {
+        $payload['exp'] = $exp;
+    }
+    return \Firebase\JWT\JWT::encode($payload, (string) Environment::get('jwt_secret'), 'HS256');
+}
+
 /** Token + CSRF para um usuário, sem passar pelo login.php (mais rápido e não depende do CAPTCHA). */
 function tokenDe(PDO $db, int $id): array {
     $usuario = $db->query('SELECT * FROM usuarios WHERE id = ' . $id)->fetch(PDO::FETCH_ASSOC);
@@ -197,11 +243,50 @@ try {
     verifica('marcar como lidas com CSRF incorreto é recusado (403)', $c === 403, (string) $c);
     [$c] = req('PUT', $baseUrl . 'notificacoes.php', $T['operadorA'], []);
     verifica('marcar como lidas com CSRF correto (200)', $c === 200, (string) $c);
+
+    echo "\n[8] Sessão no cookie HttpOnly, com validade\n";
+    $emailOperadorA = (string) $db->query("SELECT email FROM usuarios WHERE id = $operadorA")->fetchColumn();
+    [$c, $j, $ck] = reqCookie('POST', $baseUrl . 'auth.php', null, null, ['email' => $emailOperadorA, 'senha' => 'Zz@Teste12345']);
+    verifica('login grava o cookie de sessão (200)', $c === 200 && $ck !== null && $ck['valor'] !== '', (string) $c);
+    verifica('cookie é HttpOnly e SameSite=Strict', $ck !== null && stripos($ck['atributos'], 'httponly') !== false && stripos($ck['atributos'], 'samesite=strict') !== false, $ck['atributos'] ?? '');
+    verifica('login não devolve o token no corpo (só o csrf)', is_array($j) && !isset($j['token']) && !empty($j['csrf_token']));
+    $cookieA = $ck['valor'] ?? '';
+    $csrfA = $j['csrf_token'] ?? '';
+    [$c] = reqCookie('GET', $baseUrl . "tickets.php?id=$demandaA", $cookieA);
+    verifica('só com o cookie (sem Bearer) a API responde (200)', $c === 200, (string) $c);
+    [$c] = reqCookie('PUT', $baseUrl . "tickets.php?id=$demandaA", $cookieA, null, ['prioridade' => 'alta']);
+    verifica('com cookie mas sem X-CSRF-Token a alteração é recusada (403)', $c === 403, (string) $c);
+    [$c] = reqCookie('PUT', $baseUrl . "tickets.php?id=$demandaA", $cookieA, $csrfA, ['prioridade' => 'alta']);
+    verifica('com cookie e X-CSRF-Token a alteração passa (200)', $c === 200, (string) $c);
+
+    [$c] = req('GET', $baseUrl . "tickets.php?id=$demandaA", [tokenComValidade($db, $operadorA, time() - 60), 'x']);
+    verifica('token vencido é recusado (401)', $c === 401, (string) $c);
+    [$c] = req('GET', $baseUrl . "tickets.php?id=$demandaA", [tokenComValidade($db, $operadorA, null), 'x']);
+    verifica('token sem validade (versões antigas) é recusado (401)', $c === 401, (string) $c);
+    [$c, , $ck] = reqCookie('GET', $baseUrl . "tickets.php?id=$demandaA", tokenComValidade($db, $operadorA, time() + 3600));
+    verifica('sessão a menos de 2 h do fim é renovada (cookie novo)', $c === 200 && $ck !== null && $ck['valor'] !== '', (string) $c);
+    [$c, , $ck] = reqCookie('GET', $baseUrl . "tickets.php?id=$demandaA", tokenComValidade($db, $operadorA, time() + 11 * 3600));
+    verifica('sessão com folga não é renovada a cada requisição', $c === 200 && $ck === null, (string) $c);
+
+    [$c, , $ck] = reqCookie('POST', $baseUrl . 'logout.php', $cookieA, $csrfA, []);
+    // O PHP grava "deleted" com data no passado (Max-Age=0) quando o valor é vazio: o navegador apaga o cookie
+    verifica('Sair apaga o cookie (200)', $c === 200 && $ck !== null && in_array($ck['valor'], ['', 'deleted'], true) && stripos($ck['atributos'], 'Max-Age=0') !== false, (string) $c . ' ' . ($ck['atributos'] ?? ''));
+    [$c] = reqCookie('GET', $baseUrl . "tickets.php?id=$demandaA", $cookieA);
+    verifica('depois de Sair o cookie antigo não vale mais (401)', $c === 401, (string) $c);
+
+    $emailOperadorA2 = (string) $db->query("SELECT email FROM usuarios WHERE id = $operadorA2")->fetchColumn();
+    [, $j1, $ck1] = reqCookie('POST', $baseUrl . 'auth.php', null, null, ['email' => $emailOperadorA2, 'senha' => 'Zz@Teste12345']);
+    [, , $ck2] = reqCookie('POST', $baseUrl . 'auth.php', null, null, ['email' => $emailOperadorA2, 'senha' => 'Zz@Teste12345']);
+    [$c] = reqCookie('POST', $baseUrl . 'logout.php', $ck1['valor'] ?? '', $j1['csrf_token'] ?? '', ['todas' => true]);
+    verifica('Sair de todos os dispositivos (200)', $c === 200, (string) $c);
+    [$c] = reqCookie('GET', $baseUrl . 'notificacoes.php', $ck2['valor'] ?? '');
+    verifica('a outra sessão também foi encerrada (401)', $c === 401, (string) $c);
 } finally {
     echo "\n[limpeza]\n";
     $idsTickets = implode(',', array_filter($ticketsCriados)) ?: '0';
     $db->exec("DELETE FROM notificacoes WHERE ticket_id IN ($idsTickets)");
     $db->exec("DELETE FROM tickets WHERE id IN ($idsTickets)"); // cascata cuida do resto
+    $db->exec("DELETE FROM auditoria_login WHERE email LIKE 'zz_matriz_%'"); // logins de teste da seção [8]
     if ($usuariosCriados) {
         $idsUsuarios = implode(',', array_filter($usuariosCriados));
         $db->exec("DELETE FROM usuarios WHERE id IN ($idsUsuarios)");

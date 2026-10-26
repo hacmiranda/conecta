@@ -53,9 +53,9 @@ async function alterarSenha(event) {
             nova_senha: novaSenha
         });
 
-        if (resposta && resposta.token) {
-            localStorage.setItem('cd_token', resposta.token);
-            localStorage.setItem('cd_csrf_token', resposta.csrf_token || '');
+        // Sessão nova (cookie gravado pelo servidor): só o csrf novo fica no navegador
+        if (resposta && resposta.csrf_token) {
+            localStorage.setItem('cd_csrf_token', resposta.csrf_token);
         }
         if (usuario && usuario.trocar_senha) {
             usuario.trocar_senha = false;

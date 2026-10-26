@@ -6,6 +6,16 @@ require_once __DIR__ . '/../config/environment.php';
 
 class AuthMiddleware {
 
+    /**
+     * Sessão: JWT num cookie HttpOnly (o JavaScript não lê; um XSS em outro sistema do mesmo
+     * domínio não consegue roubá-lo), com validade de 12 h renovada a cada uso quando faltam
+     * menos de 2 h. O cabeçalho "Authorization: Bearer" continua aceito (testes e integrações).
+     * O CSRF continua: claim csrf do JWT conferido com o cabeçalho X-CSRF-Token.
+     */
+    const COOKIE_SESSAO = 'conecta_sessao';
+    const VALIDADE_SEGUNDOS = 12 * 3600;
+    const RENOVAR_ABAIXO_DE = 2 * 3600;
+
     private static $origensPermitidasCache = null;
 
     /**
@@ -73,56 +83,117 @@ class AuthMiddleware {
     }
 
     /**
-     * Verifica o token JWT no header Authorization.
-     * Retorna o payload decodificado ou encerra com 401.
+     * Token da requisição: o cookie de sessão (navegador) ou, se não houver, "Authorization: Bearer".
      */
-    public static function verificarAuth(): array {
-        $headers = self::getAllHeaders();
-        $auth_header = null;
+    private static function tokenDaRequisicao(): ?string {
+        $cookie = $_COOKIE[self::COOKIE_SESSAO] ?? '';
+        if (is_string($cookie) && $cookie !== '') {
+            return $cookie;
+        }
 
-        foreach ($headers as $key => $value) {
+        $auth_header = null;
+        foreach (self::getAllHeaders() as $key => $value) {
             if (strtolower($key) === 'authorization') {
                 $auth_header = $value;
                 break;
             }
         }
-
         if (!$auth_header) {
             $auth_header = $_SERVER['HTTP_AUTHORIZATION'] ?? null;
         }
+        if ($auth_header && preg_match('/Bearer\s(\S+)/', $auth_header, $matches)) {
+            return $matches[1];
+        }
+        return null;
+    }
 
-        if (!$auth_header) {
+    /**
+     * Decodifica e valida o token (assinatura e validade). Token sem "exp" (emitido antes da
+     * sessão com validade) é recusado. Devolve null se inválido.
+     */
+    private static function decodificar(string $token): ?array {
+        try {
+            $payload = (array) JWT::decode($token, new Key(self::getSecretKey(), 'HS256'));
+        } catch (Exception $e) {
+            return null;
+        }
+        return empty($payload['exp']) ? null : $payload;
+    }
+
+    /** Caminho do cookie: o do sistema (ex.: /conecta), para não ir a outros sistemas do mesmo domínio. */
+    private static function caminhoCookie(): string {
+        $caminho = (string) (parse_url((string) Environment::get('base_url', ''), PHP_URL_PATH) ?? '');
+        $caminho = rtrim($caminho, '/');
+        return $caminho !== '' ? $caminho : '/';
+    }
+
+    private static function requisicaoHttps(): bool {
+        return (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') || (($_SERVER['SERVER_PORT'] ?? 80) == 443);
+    }
+
+    /** Grava o token no cookie de sessão (HttpOnly, SameSite=Strict, Secure em HTTPS). */
+    public static function definirCookieSessao(string $token): void {
+        setcookie(self::COOKIE_SESSAO, $token, [
+            'expires'  => time() + self::VALIDADE_SEGUNDOS,
+            'path'     => self::caminhoCookie(),
+            'secure'   => self::requisicaoHttps(),
+            'httponly' => true,
+            'samesite' => 'Strict',
+        ]);
+    }
+
+    /** Apaga o cookie de sessão (Sair, sessão encerrada). */
+    public static function apagarCookieSessao(): void {
+        setcookie(self::COOKIE_SESSAO, '', [
+            'expires'  => time() - 3600,
+            'path'     => self::caminhoCookie(),
+            'secure'   => self::requisicaoHttps(),
+            'httponly' => true,
+            'samesite' => 'Strict',
+        ]);
+    }
+
+    /**
+     * Verifica o token (cookie de sessão ou Authorization: Bearer).
+     * Retorna o payload decodificado ou encerra com 401.
+     */
+    public static function verificarAuth(): array {
+        $token = self::tokenDaRequisicao();
+        if ($token === null) {
             http_response_code(401);
             echo json_encode(['error' => 'Token de autenticação requerido']);
             exit;
         }
 
-        if (!preg_match('/Bearer\s(\S+)/', $auth_header, $matches)) {
+        $payload = self::decodificar($token);
+        if ($payload === null) {
+            self::apagarCookieSessao();
             http_response_code(401);
-            echo json_encode(['error' => 'Formato de token inválido']);
+            echo json_encode(['error' => 'Sua sessão expirou. Entre novamente.', 'sessao_encerrada' => true]);
             exit;
         }
 
-        $token = $matches[1];
+        $payload = self::sincronizarComBanco($payload);
 
-        try {
-            $secret = self::getSecretKey();
-            $decoded = JWT::decode($token, new Key($secret, 'HS256'));
-            $payload = (array) $decoded;
-        } catch (Exception $e) {
-            http_response_code(401);
-            echo json_encode(['error' => 'Token inválido ou expirado']);
-            exit;
+        // Renova a sessão em uso: mesmo jti (o "Sair" continua valendo) e mesmo csrf (o cabeçalho
+        // X-CSRF-Token guardado no navegador continua certo), validade de novo em 12 h
+        if ((int) $payload['exp'] - time() < self::RENOVAR_ABAIXO_DE) {
+            self::definirCookieSessao(self::gerarToken([
+                'id'           => $payload['id'],
+                'email'        => $payload['email'] ?? '',
+                'tipo'         => $payload['tipo'],
+                'setor_id'     => $payload['setor_id'],
+                'token_versao' => $payload['tv'] ?? 0,
+            ], (string) ($payload['jti'] ?? ''), (string) ($payload['csrf'] ?? '')));
         }
-
-        return self::sincronizarComBanco($payload);
+        return $payload;
     }
 
     /** Endpoints liberados enquanto o usuário precisa trocar a senha */
     const LIBERADOS_TROCA_SENHA = ['alterar-senha.php', 'logout.php'];
 
     /**
-     * O JWT não expira e guarda papel/setor no momento do login. Para que mudança de setor,
+     * O JWT (válido por até 12 h) guarda papel/setor no momento do login. Para que mudança de setor,
      * de papel ou desativação do usuário valham imediatamente, o estado atual é relido do
      * banco a cada requisição. Também encerra a sessão quando:
      * - a versão de sessões do usuário mudou (troca/redefinição de senha, desativação);
@@ -153,12 +224,14 @@ class AuthMiddleware {
         }
 
         if (!$atual || (int) $atual['ativo'] !== 1 || $atual['tipo'] === 'cliente') {
+            self::apagarCookieSessao();
             http_response_code(401);
             echo json_encode(['error' => 'Usuário inativo ou inexistente', 'sessao_encerrada' => true]);
             exit;
         }
 
         if ($revogada || (int) ($payload['tv'] ?? 0) !== (int) $atual['token_versao']) {
+            self::apagarCookieSessao();
             http_response_code(401);
             echo json_encode(['error' => 'Sua sessão foi encerrada. Entre novamente.', 'sessao_encerrada' => true]);
             exit;
@@ -186,6 +259,8 @@ class AuthMiddleware {
             $db->prepare("INSERT IGNORE INTO sessoes_revogadas (jti, usuario_id) VALUES (?, ?)")
                ->execute([(string) $user['jti'], (int) $user['id']]);
         }
+        // Faxina: um token tem no máximo 12 h, então revogações com mais de 2 dias não servem mais
+        $db->exec("DELETE FROM sessoes_revogadas WHERE revogado_em < DATE_SUB(NOW(), INTERVAL 2 DAY)");
     }
 
     /**
@@ -265,28 +340,11 @@ class AuthMiddleware {
             exit;
         }
 
-        // Obter Authorization header para extrair o claim csrf do JWT
-        $auth_header = null;
-        foreach ($headers as $key => $value) {
-            if (strtolower($key) === 'authorization') {
-                $auth_header = $value;
-                break;
-            }
-        }
-        if (!$auth_header) {
-            $auth_header = $_SERVER['HTTP_AUTHORIZATION'] ?? null;
-        }
-
-        if (!$auth_header || !preg_match('/Bearer\s(\S+)/', $auth_header, $matches)) {
-            http_response_code(403);
-            echo json_encode(['error' => 'Token CSRF inválido']);
-            exit;
-        }
-
-        try {
-            $decoded = JWT::decode($matches[1], new Key(self::getSecretKey(), 'HS256'));
-            $csrf_esperado = $decoded->csrf ?? null;
-        } catch (Exception $e) {
+        // Claim csrf do JWT da requisição (cookie de sessão ou Authorization: Bearer)
+        $token = self::tokenDaRequisicao();
+        $payload = $token !== null ? self::decodificar($token) : null;
+        $csrf_esperado = $payload['csrf'] ?? null;
+        if (!$csrf_esperado) {
             http_response_code(403);
             echo json_encode(['error' => 'Token CSRF inválido']);
             exit;
@@ -304,18 +362,15 @@ class AuthMiddleware {
      * Usado em auth.php após gerar o token para retornar o csrf ao cliente.
      */
     public static function gerarCSRFToken(): string {
-        $headers = self::getAllHeaders();
-        foreach ($headers as $key => $value) {
-            if (strtolower($key) === 'authorization') {
-                if (preg_match('/Bearer\s(\S+)/', $value, $m)) {
-                    try {
-                        $decoded = JWT::decode($m[1], new Key(self::getSecretKey(), 'HS256'));
-                        return $decoded->csrf ?? '';
-                    } catch (Exception $e) {}
-                }
-            }
-        }
-        return bin2hex(random_bytes(16));
+        $token = self::tokenDaRequisicao();
+        $payload = $token !== null ? self::decodificar($token) : null;
+        return $payload['csrf'] ?? bin2hex(random_bytes(16));
+    }
+
+    /** Claim csrf de um token recém-gerado (devolvido ao navegador no login). */
+    public static function csrfDoToken(string $token): string {
+        $payload = json_decode(base64_decode(strtr(explode('.', $token)[1] ?? '', '-_', '+/')), true);
+        return (string) ($payload['csrf'] ?? '');
     }
 
     /**
@@ -342,19 +397,21 @@ class AuthMiddleware {
     /**
      * Gera um token JWT para o usuário autenticado.
      * Inclui claim 'csrf' para validação stateless (sem sessão PHP).
-     * Sem 'exp': a sessão não expira (firebase/php-jwt só valida expiração quando o claim existe).
-     * 'tv' = versão de sessões do usuário; 'jti' = identificador desta sessão (para o "Sair").
+     * 'exp' = 12 h (verificarAuth renova a sessão em uso); 'tv' = versão de sessões do usuário;
+     * 'jti' = identificador desta sessão (para o "Sair"). Na renovação, jti e csrf são mantidos.
      */
-    public static function gerarToken(array $user_data): string {
+    public static function gerarToken(array $user_data, string $jti = '', string $csrf = ''): string {
+        $agora = time();
         $payload = [
             'id'       => $user_data['id'],
             'email'    => $user_data['email'],
             'tipo'     => $user_data['tipo'],
             'setor_id' => $user_data['setor_id'] ?? null,
             'tv'       => (int) ($user_data['token_versao'] ?? 0),
-            'jti'      => bin2hex(random_bytes(16)),
-            'csrf'     => bin2hex(random_bytes(16)),
-            'iat'      => time(),
+            'jti'      => $jti !== '' ? $jti : bin2hex(random_bytes(16)),
+            'csrf'     => $csrf !== '' ? $csrf : bin2hex(random_bytes(16)),
+            'iat'      => $agora,
+            'exp'      => $agora + self::VALIDADE_SEGUNDOS,
         ];
         return JWT::encode($payload, self::getSecretKey(), 'HS256');
     }

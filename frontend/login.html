@@ -16,7 +16,7 @@
     <script src="app-config.js?v=c1"></script>
     <!-- Ponte de SSO (ativa somente quando incorporado em <iframe>) -->
     <link rel="stylesheet" href="sso-bridge.css?v=c1">
-    <script src="sso-bridge.js?v=c1"></script>
+    <script src="sso-bridge.js?v=c2"></script>
     <!-- Google Fonts: Inter -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -1340,8 +1340,7 @@
                     tentativasLogin = 0;
                     localStorage.removeItem('cd_loginBloqueado');
                     localStorage.setItem('cd_usuario', JSON.stringify(response.usuario));
-                    localStorage.setItem('cd_token', response.token);
-                    // Salva o token CSRF dinâmico retornado pelo servidor
+                    // A sessão fica no cookie HttpOnly gravado pelo servidor; aqui só o token CSRF
                     if (response.csrf_token) {
                         localStorage.setItem('cd_csrf_token', response.csrf_token);
                     }

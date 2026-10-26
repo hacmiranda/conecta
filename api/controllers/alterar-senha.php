@@ -84,10 +84,10 @@ try {
 
     (new AuditoriaService($db))->registrar($usuario_id, 'alterar_senha', 'usuarios', $usuario_id, null, null);
 
-    // Token novo para esta sessão (as outras foram encerradas)
+    // Sessão nova para este navegador (as outras foram encerradas): cookie novo e csrf novo
     $token = AuthMiddleware::gerarToken($usuario);
-    $payload = json_decode(base64_decode(strtr(explode('.', $token)[1], '-_', '+/')), true);
-    echo json_encode(['success' => true, 'token' => $token, 'csrf_token' => $payload['csrf'] ?? '']);
+    AuthMiddleware::definirCookieSessao($token);
+    echo json_encode(['success' => true, 'csrf_token' => AuthMiddleware::csrfDoToken($token)]);
 } catch (Exception $e) {
     if (isset($db) && $db->inTransaction()) {
         $db->rollBack();
