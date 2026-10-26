@@ -19,24 +19,6 @@
             border-radius: 0 0 8px 8px;
             border: 1px solid #ddd; border-top: none;
         }
-        .ticket-info {
-            background-color: white;
-            padding: 15px;
-            border-radius: 6px;
-            margin: 20px 0;
-            border-left: 4px solid #a7241c;
-        }
-        .resposta-box {
-            background-color: white;
-            padding: 20px;
-            border-radius: 6px;
-            margin: 20px 0;
-            border: 1px solid #ddd;
-            font-family: 'Segoe UI', Verdana, Arial, sans-serif;
-            font-size: 15px;
-            line-height: 1.6;
-            color: #2b2523;
-        }
         .footer {
             margin-top: 30px;
             padding-top: 20px;
@@ -53,10 +35,48 @@
             border-radius: 4px;
             margin: 10px 0;
         }
+        /* Cartões compactos: informações da demanda (branco, borda verde) e resposta atual da equipe (amarelado, borda laranja) */
+        .ticket-info {
+            background-color: #ffffff;
+            border: 1px solid #70ab2a;
+            border-left: 4px solid #70ab2a;
+            border-radius: 0 6px 6px 0;
+            padding: 10px 16px;
+            margin: 14px 0;
+            line-height: 1.4;
+        }
+        .ticket-info h3, .cartao-titulo {
+            margin: 0 0 6px 0;
+            color: #a7241c;
+            font-size: 14px;
+            font-weight: bold;
+            letter-spacing: 0.3px;
+            text-transform: uppercase;
+        }
+        .ticket-info p { margin: 2px 0; }
+        .ticket-info .status-badge { padding: 1px 8px; font-size: 12px; }
+        .ticket-info .status-verde { background-color: #2f6b12; }
+        .resposta-box {
+            background-color: #fff3e3;
+            border-left: 4px solid #f89327;
+            border-radius: 0 6px 6px 0;
+            padding: 10px 16px;
+            margin: 14px 0;
+            font-family: 'Segoe UI', Verdana, Arial, sans-serif;
+            font-size: 15px;
+            line-height: 1.4;
+            color: #2b2523;
+        }
+        .resposta-box p { margin: 0 0 6px 0; }
+        .resposta-box p:last-child { margin-bottom: 0; }
+        .resposta-box > div { line-height: 1.4 !important; }
+        .interacao-corpo p { margin: 0 0 6px 0; }
+        .interacao-corpo p:last-child { margin-bottom: 0; }
+        .interacao-corpo > div { line-height: 1.4 !important; }
     </style>
 </head>
 <body>
-    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="border-collapse:collapse;"><tr><td bgcolor="#ffffff" style="font-family:Arial,Helvetica,sans-serif;padding:14px 24px;border:1px solid #ddd6cd;border-top:none;border-bottom:3px solid #a7241c;"><table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="border-collapse:collapse;"><tr><td valign="middle" width="40%" style="padding:0;"><img src="http://www.crprs.org.br/assets/frontend/img/logo.png" alt="CRPRS" width="110" style="display:block;border:0;height:auto;"></td><td valign="middle" align="right" style="font-family:Arial,Helvetica,sans-serif;padding:0;"><div style="font-family:Arial,Helvetica,sans-serif;font-size:11px;line-height:14px;font-weight:bold;letter-spacing:1px;text-transform:uppercase;color:#5f5852;">Conselho Regional de Psicologia do RS</div><div style="font-family:Arial,Helvetica,sans-serif;font-size:20px;line-height:26px;font-weight:bold;color:#8b1d17;padding-top:4px;">Resposta da equipe</div></td></tr></table></td></tr></table>
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="border-collapse:collapse;"><tr><td bgcolor="#ffffff" style="font-family:Arial,Helvetica,sans-serif;padding:14px 24px;border:1px solid #ddd6cd;border-top:none;border-bottom:none;"><table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="border-collapse:collapse;"><tr><td valign="middle" width="40%" style="padding:0;"><img src="http://www.crprs.org.br/assets/frontend/img/logo.png" alt="CRPRS" width="110" style="display:block;border:0;height:auto;"></td><td valign="middle" align="right" style="font-family:Arial,Helvetica,sans-serif;padding:0;"><div style="font-family:Arial,Helvetica,sans-serif;font-size:11px;line-height:14px;font-weight:bold;letter-spacing:1px;text-transform:uppercase;color:#5f5852;">Conselho Regional de Psicologia do RS</div><div style="font-family:Arial,Helvetica,sans-serif;font-size:20px;line-height:26px;font-weight:bold;color:#8b1d17;padding-top:4px;">Resposta da equipe</div></td></tr></table></td></tr><tr><td style="padding:0;"><table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="border-collapse:collapse;"><tr><td width="34%" height="5" bgcolor="#f89327" style="height:5px;font-size:0;line-height:0;background:#f89327;">&nbsp;</td><td width="33%" height="5" bgcolor="#70ab2a" style="height:5px;font-size:0;line-height:0;background:#70ab2a;">&nbsp;</td><td width="33%" height="5" bgcolor="#a7241c" style="height:5px;font-size:0;line-height:0;background:#a7241c;">&nbsp;</td></tr></table></td></tr></table>
     
     <div class="content">
         <p>Olá <strong>Maria Souza</strong>,</p>
@@ -70,16 +90,12 @@
             <strong>Data da Resposta:</strong> 23/10/2026 15:10
         </div>
         
-        <h3>📝 Resposta da Equipe:</h3>
-        <div class="resposta-box"><div style="font-family:'Segoe UI',Verdana,Arial,sans-serif;font-size:15px;line-height:1.6;color:#2b2523;"><p style="margin:0 0 8px 0;font-weight:bold;">Documentos recebidos</p><p>Recebi o <span>contrato social</span>. <span>Falta apenas o CNPJ atualizado.</span></p><p><strong>Qualquer dúvida</strong>, é só responder a este e-mail.</p></div></div>
+        <div class="resposta-box"><h3 class="cartao-titulo">Resposta da equipe</h3><div style="font-family:'Segoe UI',Verdana,Arial,sans-serif;font-size:15px;line-height:1.6;color:#2b2523;"><p style="margin:0 0 8px 0;font-weight:bold;">Documentos recebidos</p><p>Recebi o <span>contrato social</span>. <span>Falta apenas o CNPJ atualizado.</span></p><p><strong>Qualquer dúvida</strong>, é só responder a este e-mail.</p></div><div class="assinatura-resposta" style="margin-top:14px;"><p style="margin:0 0 10px 0;">Atenciosamente,</p><p style="margin:0;font-weight:bold;">Carlos Pereira</p><p style="margin:0;">Cadastro</p></div></div>
         
-            <div style="font-family:Arial,Helvetica,sans-serif;margin-top:20px;border:1px solid #ddd6cd;border-radius:8px;background:#ffffff;color:#2b2523;font-size:14px;line-height:21px;"><div style="padding:12px 20px;border-bottom:1px solid #efeae4;font-size:15px;font-weight:bold;color:#8b1d17;">Demanda registrada</div><div style="padding:16px 20px;"><div style="font-size:12px;line-height:18px;color:#5f5852;">Demanda #CRPRS2026-0001 &middot; aberta em 23/10/2026 14:35 &middot; solicitante: maria.souza@exemplo.com.br</div><div style="font-size:16px;font-weight:bold;color:#2b2523;padding:6px 0 8px;">Dúvida sobre inscrição de pessoa jurídica</div><div style="border-left:4px solid #a7241c;background:#f7f4f0;padding:10px 14px;"><div style="font-family:'Segoe UI',Verdana,Arial,sans-serif;font-size:15px;line-height:1.6;color:#2b2523;"><p>Boa tarde,</p><p>Gostaria de saber quais documentos são necessários para a inscrição de uma pessoa jurídica no CRPRS.</p><p>Obrigada.</p></div></div></div><div style="padding:12px 20px;border-top:1px solid #efeae4;border-bottom:1px solid #efeae4;font-size:15px;font-weight:bold;color:#8b1d17;">Histórico da conversa</div><div style="padding:2px 20px 16px;"><div style="margin-top:10px;border:1px solid #ddd6cd;border-left:4px solid #5f5852;border-radius:4px;background:#ffffff;"><div style="padding:8px 14px;background:#f7f4f0;font-size:12px;line-height:18px;color:#5f5852;"><strong style="color:#2b2523;">Maria Souza</strong> &middot; <span style="font-weight:bold;color:#5f5852;">Solicitante</span> &middot; 23/10/2026 15:42</div><div style="padding:10px 14px;"><div style="font-family:'Segoe UI',Verdana,Arial,sans-serif;font-size:15px;line-height:1.6;color:#2b2523;"><p>Obrigada! Segue o contrato social em anexo.</p></div><div style="padding-top:6px;font-size:12px;color:#5f5852;">Anexos: contrato-social.pdf</div></div></div><div style="margin-top:10px;border:1px solid #ddd6cd;border-left:4px solid #a7241c;border-radius:4px;background:#ffffff;"><div style="padding:8px 14px;background:#f7f4f0;font-size:12px;line-height:18px;color:#5f5852;"><strong style="color:#2b2523;">Carlos Pereira</strong> &middot; <span style="font-weight:bold;color:#a7241c;">CRPRS</span> &middot; 23/10/2026 15:10</div><div style="padding:10px 14px;"><div style="font-family:'Segoe UI',Verdana,Arial,sans-serif;font-size:15px;line-height:1.6;color:#2b2523;"><p>Olá, Maria! Para a inscrição de pessoa jurídica, envie o contrato social, o CNPJ e o documento do responsável técnico.</p></div></div></div></div></div>
+            <div style="font-family:Arial,Helvetica,sans-serif;margin-top:20px;border:1px solid #ddd6cd;border-radius:8px;background:#ffffff;color:#2b2523;font-size:14px;line-height:20px;"><div style="padding:10px 16px;border-bottom:1px solid #efeae4;"><div style="font-size:15px;font-weight:bold;color:#8b1d17;">Histórico das Interações</div><div style="font-size:12px;line-height:17px;color:#5f5852;">Demanda #CRPRS2026-0001 &middot; da mais recente para a mais antiga</div></div><div style="padding:2px 16px 12px;"><div style="margin-top:8px;border:1px solid #ddd6cd;border-left:4px solid #5f5852;border-radius:0 4px 4px 0;background:#ffffff;"><div style="padding:6px 12px;background:#f7f4f0;border-bottom:1px solid #ddd6cd;font-size:12px;line-height:17px;color:#5f5852;"><strong style="color:#2b2523;">Maria Souza</strong> &middot; <span style="font-weight:bold;color:#5f5852;">Solicitante</span> &middot; 23/10/2026 15:42</div><div class="interacao-corpo" style="padding:8px 12px;line-height:1.4;"><div style="font-family:'Segoe UI',Verdana,Arial,sans-serif;font-size:15px;line-height:1.6;color:#2b2523;"><p>Obrigada! Segue o contrato social em anexo.</p></div><div style="padding-top:4px;font-size:12px;color:#5f5852;">Anexos: contrato-social.pdf</div></div></div><div style="margin-top:8px;border:1px solid #fbdcb6;border-left:4px solid #f89327;border-radius:0 4px 4px 0;background:#ffffff;"><div style="padding:6px 12px;background:#ffffff;border-bottom:1px solid #fbdcb6;font-size:12px;line-height:17px;color:#5f5852;"><strong style="color:#2b2523;">Carlos Pereira</strong> &middot; <span style="font-weight:bold;color:#a7241c;">CRPRS</span> &middot; 23/10/2026 15:10</div><div class="interacao-corpo" style="padding:8px 12px;line-height:1.4;"><div style="font-family:'Segoe UI',Verdana,Arial,sans-serif;font-size:15px;line-height:1.6;color:#2b2523;"><p>Olá, Maria! Para a inscrição de pessoa jurídica, envie o contrato social, o CNPJ e o documento do responsável técnico.</p></div></div></div><div style="margin-top:8px;border:1px solid #ddd6cd;border-left:4px solid #5f5852;border-radius:0 4px 4px 0;background:#ffffff;"><div style="padding:6px 12px;background:#f7f4f0;border-bottom:1px solid #ddd6cd;font-size:12px;line-height:17px;color:#5f5852;"><strong style="color:#2b2523;">Maria Souza</strong> &middot; <span style="font-weight:bold;color:#5f5852;">Solicitante</span> &middot; 23/10/2026 14:35</div><div class="interacao-corpo" style="padding:8px 12px;line-height:1.4;"><div style="font-size:12px;font-weight:bold;letter-spacing:0.3px;text-transform:uppercase;color:#8b1d17;">Demanda registrada</div><div style="font-size:15px;font-weight:bold;color:#2b2523;padding:2px 0 4px;">Dúvida sobre inscrição de pessoa jurídica</div><div style="font-family:'Segoe UI',Verdana,Arial,sans-serif;font-size:15px;line-height:1.6;color:#2b2523;"><p>Boa tarde,</p><p>Gostaria de saber quais documentos são necessários para a inscrição de uma pessoa jurídica no CRPRS.</p><p>Obrigada.</p></div></div></div></div></div>
     <div class="footer">
             <p><strong>💡 Como responder:</strong></p>
             <p>Para continuar a conversa, basta responder (reply) a este e-mail. Sua resposta será automaticamente adicionada à demanda.</p>
-            
-            <p>Atenciosamente,<br>
-            </p>
         </div>
     </div>
     

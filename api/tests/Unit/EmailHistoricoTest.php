@@ -23,10 +23,31 @@ final class EmailHistoricoTest extends TestCase {
 
     public function test_mostra_a_demanda_registrada_mesmo_sem_conversa(): void {
         $html = EmailHistorico::renderizar($this->demanda(), [], 0);
+        $this->assertStringContainsString('Histórico das Interações', $html);
         $this->assertStringContainsString('Demanda registrada', $html);
         $this->assertStringContainsString('#00007', $html);
         $this->assertStringContainsString('Descrição original', $html);
+    }
+
+    public function test_secao_unica_com_a_abertura_por_ultimo(): void {
+        $msgs = [
+            $this->mensagem(2, 'operador', 'Carlos', '<p>Resposta mais recente</p>'),
+            $this->mensagem(1, 'cliente', 'Maria', '<p>Mensagem anterior</p>'),
+        ];
+        $html = EmailHistorico::renderizar($this->demanda(), $msgs, 2);
+        $this->assertSame(1, substr_count($html, 'Histórico das Interações'));
         $this->assertStringNotContainsString('Histórico da conversa', $html);
+        $recente = strpos($html, 'Resposta mais recente');
+        $anterior = strpos($html, 'Mensagem anterior');
+        $abertura = strpos($html, 'Descrição original');
+        $this->assertTrue($recente < $anterior && $anterior < $abertura, 'ordem: mais recente no topo, abertura no fim');
+    }
+
+    public function test_resposta_da_equipe_no_historico_tem_fundo_branco_e_borda_laranja(): void {
+        $html = EmailHistorico::renderizar($this->demanda(), [$this->mensagem(2, 'operador', 'Carlos', 'oi')], 1);
+        $this->assertStringContainsString('border-left:4px solid #f89327', $html);
+        // O fundo amarelado é só da resposta atual, no corpo do e-mail
+        $this->assertStringNotContainsString('#fff3e3', $html);
     }
 
     public function test_usa_o_protocolo_quando_a_demanda_tem_um(): void {
@@ -48,7 +69,6 @@ final class EmailHistoricoTest extends TestCase {
             $this->mensagem(1, 'cliente', 'Maria', '<p>Resposta da Maria</p>', ['contrato.pdf']),
         ];
         $html = EmailHistorico::renderizar($this->demanda(), $msgs, 2);
-        $this->assertStringContainsString('Histórico da conversa', $html);
         $this->assertStringContainsString('>CRPRS<', $html);
         $this->assertStringContainsString('>Solicitante<', $html);
         $this->assertStringContainsString('Anexos: contrato.pdf', $html);
@@ -79,7 +99,9 @@ final class EmailHistoricoTest extends TestCase {
     public function test_avisa_quando_ha_mais_mensagens_do_que_o_limite(): void {
         $msgs = [$this->mensagem(1, 'cliente', 'Maria', 'oi')];
         $html = EmailHistorico::renderizar($this->demanda(), $msgs, 45);
-        $this->assertStringContainsString('1 mensagens mais recentes de 45', $html);
+        $this->assertStringContainsString('44 interações anteriores não exibidas', $html);
+        // A demanda original continua visível mesmo com a conversa cortada
+        $this->assertStringContainsString('Descrição original', $html);
     }
 
     public function test_todos_os_modelos_ao_solicitante_tem_o_marcador(): void {

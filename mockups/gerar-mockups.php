@@ -21,6 +21,7 @@ $esc    = function ($t) { return htmlspecialchars((string) $t, ENT_QUOTES, 'UTF-
 require_once $raiz . '/api/services/email-cabecalho.php';
 require_once $raiz . '/api/services/email-historico.php';
 require_once $raiz . '/api/services/email-tipografia.php';
+require_once $raiz . '/api/services/email-assinatura-resposta.php';
 
 // Conversa de exemplo (mais recente primeiro) — só mensagens visíveis ao solicitante; uma nota interna
 // da equipe existiria na demanda, mas nunca aparece aqui.
@@ -28,7 +29,7 @@ $demandaExemplo = [
     'id' => 123, 'protocolo' => 'CRPRS2026-0001', 'titulo' => 'Dúvida sobre inscrição de pessoa jurídica',
     'descricao' => '<p>Boa tarde,</p><p>Gostaria de saber quais documentos são necessários para a inscrição de uma pessoa jurídica no CRPRS.</p><p>Obrigada.</p>',
     'criado_em' => '2026-10-23 14:35:00', 'usuario_id' => 1,
-    'email_solicitante' => 'maria.souza@exemplo.com.br', 'usuario_email' => 'maria.souza@exemplo.com.br',
+    'email_solicitante' => 'maria.souza@exemplo.com.br', 'usuario_email' => 'maria.souza@exemplo.com.br', 'usuario_nome' => 'Maria Souza',
 ];
 $msgA = ['id' => 3, 'usuario_id' => 2, 'nome' => 'Carlos Pereira', 'tipo' => 'operador', 'criado_em' => '2026-10-24 09:20:00', 'anexos' => [],
     'comentario' => '<p>Recebi o contrato social. Falta apenas o CNPJ atualizado.</p>'];
@@ -77,12 +78,15 @@ function preencher(string $html, array $mapa): string {
     return str_replace(array_keys($mapa), array_values($mapa), $html);
 }
 
-$avisoAnexos = '<div style="background-color:#fff3cd;border-left:4px solid #ffc107;padding:15px;margin:20px 0"><h3 style="color:#856404;margin-top:0">⚠️ Anexos rejeitados</h3><ul>'
-    . '<li><b>planilha.exe:</b> Tipo de arquivo não permitido</li></ul>'
-    . '<p><b>Limites:</b> 5 arquivos, 20MB total, tipos: PDF, DOC, DOCX, TXT, CSV, XLS, XLSX, PNG, JPG</p></div>';
+// Cópia de EmailSender::inserirAvisoAnexosRejeitados() (método privado)
+$avisoAnexos = '<div style="background-color:#fff3cd;border-left:4px solid #ffc107;border-radius:0 6px 6px 0;padding:10px 16px;margin:14px 0;line-height:1.4">'
+    . '<h3 style="color:#856404;margin:0 0 6px 0;font-size:14px;text-transform:uppercase;letter-spacing:0.3px">⚠️ Anexos rejeitados</h3>'
+    . '<ul style="margin:0 0 6px 0;padding-left:20px"><li><b>planilha.exe:</b> Tipo de arquivo não permitido</li></ul>'
+    . '<p style="margin:0"><b>Limites:</b> 5 arquivos, 20MB total, tipos: PDF, DOC, DOCX, TXT, CSV, XLS, XLSX, PNG, JPG</p></div>';
 
 // O texto de exemplo traz tamanhos e fontes diferentes de propósito; EmailTipografia os uniformiza, como no envio real
-$comentarioAgente = EmailTipografia::padronizar('<h2>Documentos recebidos</h2><p>Recebi o <span style="font-size:26px;font-family:Georgia">contrato social</span>. <span style="font-family:Courier New;font-size:11px">Falta apenas o CNPJ atualizado.</span></p><p><strong>Qualquer dúvida</strong>, é só responder a este e-mail.</p>');
+$comentarioAgente = EmailTipografia::padronizar('<h2>Documentos recebidos</h2><p>Recebi o <span style="font-size:26px;font-family:Georgia">contrato social</span>. <span style="font-family:Courier New;font-size:11px">Falta apenas o CNPJ atualizado.</span></p><p><strong>Qualquer dúvida</strong>, é só responder a este e-mail.</p>')
+    . EmailAssinaturaResposta::html($agente, $setorNome); // como no envio real: assinatura de quem respondeu
 
 // ---- Catálogo --------------------------------------------------------------------------------
 $emails = [];
@@ -108,11 +112,12 @@ $emails[] = [
     'assunto' => "🎫 [#{$num}] Demanda criada - {$titulo}",
     'quando' => 'Mesmo momento do e-mail anterior, mas só quando a demanda nasce de um e-mail com anexos que o sistema recusou (tipo não permitido, mais de 5 arquivos ou mais de 20MB).',
     'quem' => 'O solicitante da demanda.',
-    'obs' => 'É o e-mail anterior com um aviso amarelo no final listando cada anexo recusado e o motivo.',
-    'corpo' => str_replace('</body>', $avisoAnexos . '</body>', preencher($modelo('email-template.html'), [
+    'obs' => 'É o e-mail anterior com um aviso amarelo, logo abaixo das informações da demanda, listando cada anexo recusado e o motivo.',
+    // O aviso entra logo depois do cartão "Informações da Demanda", como no envio real
+    'corpo' => preg_replace('#(<div class="ticket-info">.*?</div>)#s', '$1' . str_replace(['\\', '$'], ['\\\\', '\\$'], $avisoAnexos), preencher($modelo('email-template.html'), [
         '{{NOME_USUARIO}}' => $esc($solicitante), '{{NUMERO_TICKET}}' => $num, '{{TITULO_TICKET}}' => $esc($titulo),
         '{{DATA_ABERTURA}}' => $abertura, '{{ASSINATURA_EMAIL}}' => $assinatura,
-    ])),
+    ]), 1),
 ];
 
 $emails[] = [

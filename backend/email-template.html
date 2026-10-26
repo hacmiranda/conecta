@@ -19,12 +19,6 @@
             border: 1px solid #ddd;
             border-top: none;
         }
-        .ticket-info {
-            background-color: #f9f9f9;
-            padding: 15px;
-            border-left: 4px solid #a7241c;
-            margin: 20px 0;
-        }
         .footer {
             background-color: #f5f5f5;
             padding: 20px;
@@ -44,6 +38,30 @@
             font-weight: bold;
             display: inline-block;
         }
+        /* Cartões compactos: informações da demanda (branco, borda verde) e resposta atual da equipe (amarelado, borda laranja) */
+        .ticket-info {
+            background-color: #ffffff;
+            border: 1px solid #70ab2a;
+            border-left: 4px solid #70ab2a;
+            border-radius: 0 6px 6px 0;
+            padding: 10px 16px;
+            margin: 14px 0;
+            line-height: 1.4;
+        }
+        .ticket-info h3, .cartao-titulo {
+            margin: 0 0 6px 0;
+            color: #a7241c;
+            font-size: 14px;
+            font-weight: bold;
+            letter-spacing: 0.3px;
+            text-transform: uppercase;
+        }
+        .ticket-info p { margin: 2px 0; }
+        .ticket-info .status-badge { padding: 1px 8px; font-size: 12px; }
+        .ticket-info .status-verde { background-color: #2f6b12; }
+        .interacao-corpo p { margin: 0 0 6px 0; }
+        .interacao-corpo p:last-child { margin-bottom: 0; }
+        .interacao-corpo > div { line-height: 1.4 !important; }
     </style>
 </head>
 <body>
@@ -58,16 +76,16 @@
             <h3>📋 Informações da Demanda</h3>
             <p><strong>Número:</strong> #{{NUMERO_TICKET}}</p>
             <p><strong>Título:</strong> {{TITULO_TICKET}}</p>
-            <p><strong>Status:</strong> <span class="status-badge">ABERTO</span></p>
+            <p><strong>Status:</strong> <span class="status-badge status-verde">ABERTO</span></p>
             <p><strong>Data de Abertura:</strong> {{DATA_ABERTURA}}</p>
         </div>
         
-        <h3>📞 O que acontece agora?</h3>
+        <h3>O que acontece agora?</h3>
         <ul>
-            <li>✅ Sua demanda foi registrada em nosso sistema</li>
-            <li>🔄 Nossa equipe técnica analisará sua solicitação</li>
-            <li>📧 Você receberá atualizações por e-mail</li>
-            <li>⏱️ Responderemos em breve</li>
+            <li>Sua demanda foi registrada em nosso sistema</li>
+            <li>Nossa equipe técnica analisará sua solicitação</li>
+            <li>Você receberá atualizações por e-mail</li>
+            <li>Responderemos em breve</li>
         </ul>
         
         <p><strong>💡 Dica:</strong> Para agilizar o atendimento, mantenha este e-mail para referência do número da demanda.</p>

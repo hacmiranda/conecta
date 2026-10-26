@@ -19,25 +19,6 @@
             border-radius: 0 0 8px 8px;
             border: 1px solid #ddd; border-top: none;
         }
-        .ticket-info {
-            background-color: white;
-            padding: 15px;
-            border-radius: 6px;
-            margin: 20px 0;
-            border-left: 4px solid #a7241c;
-        }
-        .resposta-box {
-            background-color: white;
-            padding: 20px;
-            border-radius: 6px;
-            margin: 20px 0;
-            border: 1px solid #ddd;
-            font-family: 'Segoe UI', Verdana, Arial, sans-serif;
-            font-size: 15px;
-            line-height: 1.6;
-            color: #2b2523;
-            white-space: pre-wrap;
-        }
         .footer {
             margin-top: 30px;
             padding-top: 20px;
@@ -54,6 +35,44 @@
             border-radius: 4px;
             margin: 10px 0;
         }
+        /* Cartões compactos: informações da demanda (branco, borda verde) e resposta atual da equipe (amarelado, borda laranja) */
+        .ticket-info {
+            background-color: #ffffff;
+            border: 1px solid #70ab2a;
+            border-left: 4px solid #70ab2a;
+            border-radius: 0 6px 6px 0;
+            padding: 10px 16px;
+            margin: 14px 0;
+            line-height: 1.4;
+        }
+        .ticket-info h3, .cartao-titulo {
+            margin: 0 0 6px 0;
+            color: #a7241c;
+            font-size: 14px;
+            font-weight: bold;
+            letter-spacing: 0.3px;
+            text-transform: uppercase;
+        }
+        .ticket-info p { margin: 2px 0; }
+        .ticket-info .status-badge { padding: 1px 8px; font-size: 12px; }
+        .ticket-info .status-verde { background-color: #2f6b12; }
+        .resposta-box {
+            background-color: #fff3e3;
+            border-left: 4px solid #f89327;
+            border-radius: 0 6px 6px 0;
+            padding: 10px 16px;
+            margin: 14px 0;
+            font-family: 'Segoe UI', Verdana, Arial, sans-serif;
+            font-size: 15px;
+            line-height: 1.4;
+            color: #2b2523;
+        }
+        .resposta-box p { margin: 0 0 6px 0; }
+        .resposta-box p:last-child { margin-bottom: 0; }
+        .resposta-box > div { line-height: 1.4 !important; }
+        .interacao-corpo p { margin: 0 0 6px 0; }
+        .interacao-corpo p:last-child { margin-bottom: 0; }
+        .interacao-corpo > div { line-height: 1.4 !important; }
     </style>
 </head>
 <body>
@@ -70,8 +89,7 @@
             <strong>Data da Resposta:</strong> {{DATA_RESPOSTA}}
         </div>
         
-        <h3>📝 Resposta da Equipe:</h3>
-        <div class="resposta-box"> Olá! Sua demanda foi atribuída ao técnico {{NOME_AGENTE}}, que analisará seu pedido e em breve lhe responderá.</div>
+        <div class="resposta-box"><h3 class="cartao-titulo">Resposta da equipe</h3> Olá! Sua demanda foi atribuída ao técnico {{NOME_AGENTE}}, que analisará seu pedido e em breve lhe responderá.</div>
 
             {{DEMANDA_E_HISTORICO}}
     <div class="footer">

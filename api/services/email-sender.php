@@ -8,6 +8,7 @@ require_once __DIR__ . '/email-cabecalho.php';
 require_once __DIR__ . '/email-historico.php';
 require_once __DIR__ . '/email-tipografia.php';
 require_once __DIR__ . '/email-imagens.php';
+require_once __DIR__ . '/email-assinatura-resposta.php';
 require_once __DIR__ . '/protocolo-service.php';
 require_once __DIR__ . '/notificacao-email-service.php';
 require_once __DIR__ . '/log-service.php';
@@ -82,6 +83,27 @@ class EmailSender {
 
     private function esc($texto): string {
         return htmlspecialchars((string) $texto, ENT_QUOTES, 'UTF-8');
+    }
+
+    /**
+     * Aviso amarelo de anexos rejeitados, logo depois do cartão "Informações da Demanda"
+     * (modelo sem esse cartão: antes de </body>). Compacto como os demais cartões.
+     */
+    private function inserirAvisoAnexosRejeitados(string $template, array $anexos_rejeitados): string {
+        $aviso = '<div style="background-color:#fff3cd;border-left:4px solid #ffc107;border-radius:0 6px 6px 0;padding:10px 16px;margin:14px 0;line-height:1.4">'
+            . '<h3 style="color:#856404;margin:0 0 6px 0;font-size:14px;text-transform:uppercase;letter-spacing:0.3px">⚠️ Anexos rejeitados</h3>'
+            . '<ul style="margin:0 0 6px 0;padding-left:20px">';
+        foreach ($anexos_rejeitados as $anexo) {
+            $aviso .= '<li><b>' . $this->esc($anexo['nome']) . ':</b> ' . $this->esc($anexo['motivo']) . '</li>';
+        }
+        $aviso .= '</ul><p style="margin:0"><b>Limites:</b> 5 arquivos, 20MB total, tipos: PDF, DOC, DOCX, TXT, CSV, XLS, XLSX, PNG, JPG</p></div>';
+
+        $pos = strpos($template, '<div class="ticket-info">');
+        $fim = $pos === false ? false : strpos($template, '</div>', $pos);
+        if ($fim !== false) {
+            return substr_replace($template, $aviso, $fim + strlen('</div>'), 0);
+        }
+        return str_replace('</body>', $aviso . '</body>', $template);
     }
 
     private function configurarMailer() {
@@ -254,12 +276,7 @@ class EmailSender {
 
             // Adicionar aviso de anexos rejeitados se houver
             if (!empty($anexos_rejeitados)) {
-                $aviso = '<div style="background-color:#fff3cd;border-left:4px solid #ffc107;padding:15px;margin:20px 0"><h3 style="color:#856404;margin-top:0">⚠️ Anexos rejeitados</h3><ul>';
-                foreach ($anexos_rejeitados as $anexo) {
-                    $aviso .= '<li><b>' . $this->esc($anexo['nome']) . ':</b> ' . $this->esc($anexo['motivo']) . '</li>';
-                }
-                $aviso .= '</ul><p><b>Limites:</b> 5 arquivos, 20MB total, tipos: PDF, DOC, DOCX, TXT, CSV, XLS, XLSX, PNG, JPG</p></div>';
-                $template = str_replace('</body>', $aviso . '</body>', $template);
+                $template = $this->inserirAvisoAnexosRejeitados($template, $anexos_rejeitados);
             }
             
             $assunto = "🎫 [" . $rotulo . "] Demanda criada - " . $ticket['titulo'];
@@ -583,11 +600,14 @@ class EmailSender {
         $this->prepararRemetenteDoTicket($ticket_id);
         try {
             $query = "SELECT t.*, u.nome as usuario_nome, u.email as usuario_email,
-                             c.comentario, uc.nome as comentario_autor, a.nome as agente_nome
-                      FROM tickets t 
-                      LEFT JOIN usuarios u ON t.usuario_id = u.id 
+                             c.comentario, uc.nome as comentario_autor, a.nome as agente_nome,
+                             uc.tipo as autor_tipo, su.nome as autor_setor, st.nome as demanda_setor
+                      FROM tickets t
+                      LEFT JOIN usuarios u ON t.usuario_id = u.id
                       LEFT JOIN comentarios c ON c.id = ?
                       LEFT JOIN usuarios uc ON c.usuario_id = uc.id
+                      LEFT JOIN setores su ON su.id = uc.setor_id
+                      LEFT JOIN setores st ON st.id = t.setor_id
                       LEFT JOIN usuarios a ON t.agente_id = a.id
                       WHERE t.id = ?";
             
@@ -611,6 +631,15 @@ class EmailSender {
             $comentario_email = (string) $dados['comentario'];
             // Mesma fonte, tamanho e entrelinha em toda resposta da equipe, qualquer que seja o texto colado
             $comentario_email = EmailTipografia::padronizar($comentario_email);
+
+            // Assinatura de quem respondeu, dentro do card (só no e-mail; não fica gravada no comentário).
+            // Gestor/operador: o próprio setor (ou o da demanda, se vazio); admin, que não tem setor: o da demanda.
+            if (in_array($dados['autor_tipo'] ?? '', ['admin', 'gestor', 'operador'], true)) {
+                $setor_assinatura = $dados['autor_tipo'] === 'admin'
+                    ? (string) ($dados['demanda_setor'] ?? '')
+                    : ((string) ($dados['autor_setor'] ?? '') ?: (string) ($dados['demanda_setor'] ?? ''));
+                $comentario_email .= EmailAssinaturaResposta::html((string) $dados['comentario_autor'], $setor_assinatura);
+            }
 
             // Template para o solicitante
             $template_solicitante = $this->carregarModelo(dirname(__DIR__, 2) . '/backend/email-template-resposta.html', (int) $ticket_id, (int) $comentario_id);
@@ -795,12 +824,7 @@ class EmailSender {
             $template = str_replace('{{ASSINATURA_EMAIL}}', $this->getAssinatura(), $template);
             
             if (!empty($anexos_rejeitados)) {
-                $aviso = '<div style="background-color:#fff3cd;border-left:4px solid #ffc107;padding:15px;margin:20px 0"><h3 style="color:#856404;margin-top:0">⚠️ Anexos rejeitados</h3><ul>';
-                foreach ($anexos_rejeitados as $anexo) {
-                    $aviso .= '<li><b>' . $this->esc($anexo['nome']) . ':</b> ' . $this->esc($anexo['motivo']) . '</li>';
-                }
-                $aviso .= '</ul><p><b>Limites:</b> 5 arquivos, 20MB, PDF/DOC/DOCX/TXT/CSV/XLS/XLSX/PNG/JPG</p></div>';
-                $template = str_replace('<p>Agradecemos', $aviso . '<p>Agradecemos', $template);
+                $template = $this->inserirAvisoAnexosRejeitados($template, $anexos_rejeitados);
             }
             
             return $this->enviarEmail($email_remetente, $assunto, $template);

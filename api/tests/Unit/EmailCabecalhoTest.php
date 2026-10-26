@@ -13,6 +13,16 @@ final class EmailCabecalhoTest extends TestCase {
         $this->assertStringContainsString('Conselho Regional de Psicologia do RS', $html);
     }
 
+    public function test_faixa_tricolor_embaixo_do_cabecalho(): void {
+        $html = EmailCabecalho::html('Demanda criada');
+        $laranja = strpos($html, 'bgcolor="#f89327"');
+        $verde = strpos($html, 'bgcolor="#70ab2a"');
+        $vinho = strpos($html, 'bgcolor="#a7241c"');
+        $this->assertNotFalse($laranja);
+        $this->assertTrue($laranja < $verde && $verde < $vinho, 'ordem: laranja, verde, vinho');
+        $this->assertStringNotContainsString('border-bottom:3px solid', $html);
+    }
+
     public function test_titulo_e_escapado(): void {
         $html = EmailCabecalho::html('<script>alert(1)</script>');
         $this->assertStringNotContainsString('<script>', $html);

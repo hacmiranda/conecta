@@ -45,7 +45,7 @@ Todos os e-mails que o sistema envia, com dados fictícios (solicitante *Maria S
 - **Assunto:** 🎫 [#CRPRS2026-0001] Demanda criada - Dúvida sobre inscrição de pessoa jurídica
 - **Quando:** Mesmo momento do e-mail anterior, mas só quando a demanda nasce de um e-mail com anexos que o sistema recusou (tipo não permitido, mais de 5 arquivos ou mais de 20MB).
 - **Quem recebe:** O solicitante da demanda.
-- **Observação:** É o e-mail anterior com um aviso amarelo no final listando cada anexo recusado e o motivo.
+- **Observação:** É o e-mail anterior com um aviso amarelo, logo abaixo das informações da demanda, listando cada anexo recusado e o motivo.
 
 ![Confirmação de demanda criada (com anexos rejeitados)](imagens/02-demanda-criada-anexos-rejeitados.png)
 

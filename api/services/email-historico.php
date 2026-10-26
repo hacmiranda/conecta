@@ -1,6 +1,6 @@
 <?php
 /**
- * Bloco "Demanda registrada" + "Histórico da conversa" dos e-mails ao solicitante.
+ * Seção "Histórico das Interações" dos e-mails ao solicitante (a demanda registrada + a conversa, numa lista só).
  *
  * O histórico mostra só a conversa entre o CRPRS e o solicitante: comentários com
  * `visivel_solicitante = 1` e `interno = 0`. Notas internas, comentários da equipe que não foram
@@ -80,62 +80,60 @@ class EmailHistorico {
 
     /**
      * Monta o HTML (sem acesso a banco, para poder testar). `$mensagens` vem mais recente primeiro.
+     *
+     * Uma seção só, "Histórico das Interações": da mais recente para a mais antiga, com a abertura
+     * da demanda (título + descrição) como o último cartão. Respostas do CRPRS em branco com borda
+     * laranja (o fundo amarelado fica só para a resposta atual, no corpo do e-mail); solicitante e
+     * participantes em cinza neutro. O corpo de cada cartão tem a classe `interacao-corpo`, que os
+     * modelos usam para deixar os parágrafos compactos.
      */
     public static function renderizar(array $demanda, array $mensagens, int $total): string {
         $e = function ($t) { return htmlspecialchars((string) $t, ENT_QUOTES, 'UTF-8'); };
+        $data = function ($d) use ($e) { return $e(date('d/m/Y H:i', strtotime((string) $d))); };
         $fonte = 'font-family:Arial,Helvetica,sans-serif;';
         $idSolicitante = (int) ($demanda['usuario_id'] ?? 0);
-        $solicitante = trim((string) ($demanda['email_solicitante'] ?? '')) ?: (string) ($demanda['usuario_email'] ?? '');
+        $emailSolicitante = trim((string) ($demanda['email_solicitante'] ?? '')) ?: (string) ($demanda['usuario_email'] ?? '');
+        $nomeSolicitante = trim((string) ($demanda['usuario_nome'] ?? '')) ?: $emailSolicitante;
 
-        $html = '<div style="' . $fonte . 'margin-top:20px;border:1px solid #ddd6cd;border-radius:8px;background:#ffffff;color:#2b2523;font-size:14px;line-height:21px;">';
+        $cartao = function (bool $equipe, string $nome, string $papel, string $quando, string $corpo) use ($e) {
+            [$borda, $bordaLado, $fundoTopo, $corPapel] = $equipe
+                ? ['#fbdcb6', '#f89327', '#ffffff', '#a7241c']
+                : ['#ddd6cd', '#5f5852', '#f7f4f0', '#5f5852'];
+            return '<div style="margin-top:8px;border:1px solid ' . $borda . ';border-left:4px solid ' . $bordaLado . ';border-radius:0 4px 4px 0;background:#ffffff;">'
+                . '<div style="padding:6px 12px;background:' . $fundoTopo . ';border-bottom:1px solid ' . $borda . ';font-size:12px;line-height:17px;color:#5f5852;">'
+                . '<strong style="color:#2b2523;">' . $e($nome) . '</strong> &middot; '
+                . '<span style="font-weight:bold;color:' . $corPapel . ';">' . $papel . '</span> &middot; ' . $quando . '</div>'
+                . '<div class="interacao-corpo" style="padding:8px 12px;line-height:1.4;">' . $corpo . '</div>'
+                . '</div>';
+        };
 
-        // --- Demanda registrada ---
-        $html .= '<div style="padding:12px 20px;border-bottom:1px solid #efeae4;font-size:15px;font-weight:bold;color:#8b1d17;">Demanda registrada</div>';
-        $html .= '<div style="padding:16px 20px;">';
+        $html = '<div style="' . $fonte . 'margin-top:20px;border:1px solid #ddd6cd;border-radius:8px;background:#ffffff;color:#2b2523;font-size:14px;line-height:20px;">';
         $rotulo = ProtocoloService::rotulo($demanda['protocolo'] ?? null, (int) $demanda['id']);
-        $html .= '<div style="font-size:12px;line-height:18px;color:#5f5852;">Demanda ' . $e($rotulo)
-            . ' &middot; aberta em ' . $e(date('d/m/Y H:i', strtotime((string) $demanda['criado_em'])))
-            . ($solicitante !== '' ? ' &middot; solicitante: ' . $e($solicitante) : '') . '</div>';
-        $html .= '<div style="font-size:16px;font-weight:bold;color:#2b2523;padding:6px 0 8px;">' . $e($demanda['titulo']) . '</div>';
-        $html .= '<div style="border-left:4px solid #a7241c;background:#f7f4f0;padding:10px 14px;">' . self::texto((string) ($demanda['descricao'] ?? '')) . '</div>';
-        $html .= '</div>';
+        $html .= '<div style="padding:10px 16px;border-bottom:1px solid #efeae4;">'
+            . '<div style="font-size:15px;font-weight:bold;color:#8b1d17;">Histórico das Interações</div>'
+            . '<div style="font-size:12px;line-height:17px;color:#5f5852;">Demanda ' . $e($rotulo) . ' &middot; da mais recente para a mais antiga</div>'
+            . '</div>';
+        $html .= '<div style="padding:2px 16px 12px;">';
 
-        // --- Histórico da conversa ---
-        if ($mensagens) {
-            $html .= '<div style="padding:12px 20px;border-top:1px solid #efeae4;border-bottom:1px solid #efeae4;font-size:15px;font-weight:bold;color:#8b1d17;">Histórico da conversa</div>';
-            $html .= '<div style="padding:2px 20px 16px;">';
-            foreach ($mensagens as $m) {
-                $equipe = in_array($m['tipo'] ?? '', ['admin', 'gestor', 'operador'], true) && (int) $m['usuario_id'] !== $idSolicitante;
-                if ($equipe) {
-                    [$papel, $cor] = ['CRPRS', '#a7241c'];
-                } elseif ((int) $m['usuario_id'] === $idSolicitante) {
-                    [$papel, $cor] = ['Solicitante', '#5f5852'];
-                } else {
-                    [$papel, $cor] = ['Participante', '#5f5852'];
-                }
-
-                $anexos = '';
-                if (!empty($m['anexos'])) {
-                    $anexos = '<div style="padding-top:6px;font-size:12px;color:#5f5852;">Anexos: '
-                        . implode(', ', array_map($e, $m['anexos'])) . '</div>';
-                }
-
-                $html .= '<div style="margin-top:10px;border:1px solid #ddd6cd;border-left:4px solid ' . $cor . ';border-radius:4px;background:#ffffff;">'
-                    . '<div style="padding:8px 14px;background:#f7f4f0;font-size:12px;line-height:18px;color:#5f5852;">'
-                    . '<strong style="color:#2b2523;">' . $e($m['nome']) . '</strong> &middot; '
-                    . '<span style="font-weight:bold;color:' . $cor . ';">' . $papel . '</span> &middot; '
-                    . $e(date('d/m/Y H:i', strtotime((string) $m['criado_em']))) . '</div>'
-                    . '<div style="padding:10px 14px;">' . self::texto((string) $m['comentario']) . $anexos . '</div>'
-                    . '</div>';
-            }
-            if ($total > count($mensagens)) {
-                $html .= '<div style="padding-top:10px;font-size:12px;color:#5f5852;">Exibindo as ' . count($mensagens)
-                    . ' mensagens mais recentes de ' . $total . '.</div>';
-            }
-            $html .= '</div>';
+        foreach ($mensagens as $m) {
+            $equipe = in_array($m['tipo'] ?? '', ['admin', 'gestor', 'operador'], true) && (int) $m['usuario_id'] !== $idSolicitante;
+            $papel = $equipe ? 'CRPRS' : ((int) $m['usuario_id'] === $idSolicitante ? 'Solicitante' : 'Participante');
+            $anexos = empty($m['anexos']) ? '' : '<div style="padding-top:4px;font-size:12px;color:#5f5852;">Anexos: '
+                . implode(', ', array_map($e, $m['anexos'])) . '</div>';
+            $html .= $cartao($equipe, (string) $m['nome'], $papel, $data($m['criado_em']), self::texto((string) $m['comentario']) . $anexos);
+        }
+        if ($total > count($mensagens)) {
+            $html .= '<div style="padding-top:8px;font-size:12px;color:#5f5852;">&hellip; ' . ($total - count($mensagens))
+                . ' interações anteriores não exibidas.</div>';
         }
 
-        return $html . '</div>';
+        // A abertura da demanda fecha a lista (é a interação mais antiga)
+        $abertura = '<div style="font-size:12px;font-weight:bold;letter-spacing:0.3px;text-transform:uppercase;color:#8b1d17;">Demanda registrada</div>'
+            . '<div style="font-size:15px;font-weight:bold;color:#2b2523;padding:2px 0 4px;">' . $e($demanda['titulo']) . '</div>'
+            . self::texto((string) ($demanda['descricao'] ?? ''));
+        $html .= $cartao(false, $nomeSolicitante, 'Solicitante', $data($demanda['criado_em']), $abertura);
+
+        return $html . '</div></div>';
     }
 
     /**
