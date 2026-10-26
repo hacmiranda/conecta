@@ -17,3 +17,4 @@ require_once __DIR__ . '/../services/email-imagens.php';
 require_once __DIR__ . '/../services/email-assinatura-resposta.php';
 require_once __DIR__ . '/../services/protocolo-service.php';
 require_once __DIR__ . '/../services/notificacao-email-service.php';
+require_once __DIR__ . '/../services/pesquisa-satisfacao-service.php';

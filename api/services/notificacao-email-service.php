@@ -43,6 +43,10 @@ class NotificacaoEmailService {
             self::GRUPO_SOLICITANTE, 'Demanda reaberta',
             'Quando uma demanda encerrada é reaberta automaticamente, por resposta do solicitante.',
         ],
+        'sol_pesquisa_satisfacao' => [
+            self::GRUPO_SOLICITANTE, 'Pesquisa de satisfação',
+            'Na primeira vez que a demanda de um solicitante externo (fora de @crprs.org.br) é resolvida ou encerrada. Enviada pelo METRICA360, que cuida dos prazos, reenvio e notas.',
+        ],
         'int_nova_demanda' => [
             self::GRUPO_INTERNO, 'Aviso de nova demanda',
             'Junto com a confirmação ao solicitante, para os gestores do setor da demanda.',

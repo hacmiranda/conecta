@@ -13,6 +13,7 @@ require_once __DIR__ . '/../services/catalogo-service.php';
 require_once __DIR__ . '/../services/demanda-service.php';
 require_once __DIR__ . '/../services/protocolo-service.php';
 require_once __DIR__ . '/../services/notificacao-email-service.php';
+require_once __DIR__ . '/../services/pesquisa-satisfacao-service.php';
 
 AuthMiddleware::configurarCORS(['GET', 'POST', 'PUT', 'DELETE']);
 
@@ -654,7 +655,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'PUT') {
     $input = json_decode(file_get_contents('php://input'), true) ?? [];
 
     // E-mails e avisos só depois do commit
-    $pos_commit = ['atribuicao' => null, 'encerrado' => false, 'reaberto' => false];
+    $pos_commit = ['atribuicao' => null, 'encerrado' => false, 'reaberto' => false, 'pesquisa' => false];
 
     try {
         $updates = [];
@@ -836,6 +837,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'PUT') {
                 if ($input['status'] === 'encerrado') {
                     $pos_commit['encerrado'] = true;
                 }
+                // Pesquisa de satisfação (METRICA360): resolvido ou encerrado; o service decide se é elegível
+                if (in_array($input['status'], PesquisaSatisfacaoService::STATUS_GATILHO, true)) {
+                    $pos_commit['pesquisa'] = true;
+                }
             }
 
             if (isset($input['prioridade']) && $input['prioridade'] !== $current_data['prioridade']) {
@@ -915,6 +920,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'PUT') {
             }
         } catch (Exception $avisoErro) {
             error_log('[TICKETS PUT] Alteração salva; falha nos avisos: ' . $avisoErro->getMessage());
+        }
+
+        // Pedido de pesquisa de satisfação: só grava na fila (o cron entrega ao METRICA360); nunca lança
+        if ($pos_commit['pesquisa']) {
+            PesquisaSatisfacaoService::registrar($db, (int) $ticket_id);
         }
 
         echo json_encode(['success' => true]);

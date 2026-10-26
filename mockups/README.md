@@ -208,6 +208,7 @@ Todos os e-mails que o sistema envia, com dados fictícios (solicitante *Maria S
 ## Como foi feito e como atualizar
 
 - `gerar-mockups.php` monta tudo a partir dos modelos reais de `backend/email-template-*.html`. Rode `php mockups/gerar-mockups.php` depois de mudar um modelo ou um texto de e-mail.
+- A **pesquisa de satisfação** (liga/desliga `sol_pesquisa_satisfacao` na aba Envio de E-mails) não está neste catálogo: o Conecta só pede o convite e quem envia o e-mail é o METRICA360 (ver CLAUDE.md, "Pesquisa de satisfação pelo METRICA360").
 - Os e-mails montados direto no código (agente→agente, lembrete, recuperação de senha e os avisos em texto puro) são cópias do texto original; atualize o catálogo do gerador quando o código mudar.
 - Todos os e-mails ao solicitante trazem no final a **demanda registrada** (título e descrição) e o **histórico da conversa** com o CRPRS, do mais recente para o mais antigo. Notas internas e comentários da equipe que não foram enviados ao solicitante nunca aparecem. A "Resposta da equipe" e a "Cópia da resposta" não repetem a mensagem que acabou de ser enviada.
 - `emails/` guarda o e-mail puro (HTML ou texto), `paginas/` a moldura com o momento do envio, `imagens/` os PNGs.

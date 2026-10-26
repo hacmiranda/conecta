@@ -320,6 +320,9 @@ function mostrarDetalhesTicket(ticket) {
                 let acao;
                 if (item.acao === 'email_enviado' || item.acao === 'email_copia') {
                     acao = '📧 ' + sanitizeHTML(item.valor_novo);
+                } else if (item.acao === 'pesquisa_satisfacao') {
+                    // Pedido entregue ao METRICA360 (pesquisa-satisfacao-service.php)
+                    acao = '⭐ ' + sanitizeHTML(item.valor_novo);
                 } else if (item.valores_formatados) {
                     // Usar valores já formatados do backend
                     const partes = item.valores_formatados.split(' → ').map(p => sanitizeHTML(p));
