@@ -26,7 +26,8 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
 
 $data = json_decode(file_get_contents('php://input'), true) ?? [];
 $email = strtolower(trim((string) ($data['email'] ?? '')));
-$ip = $_SERVER['REMOTE_ADDR'] ?? '0.0.0.0';
+require_once __DIR__ . '/../services/rede-service.php';
+$ip = RedeService::ipCliente();
 $respostaPadrao = ['success' => true, 'message' => 'Se o e-mail estiver cadastrado, você receberá um link para redefinir a senha.'];
 
 if ($email === '' || !filter_var($email, FILTER_VALIDATE_EMAIL)) {
@@ -36,16 +37,15 @@ if ($email === '' || !filter_var($email, FILTER_VALIDATE_EMAIL)) {
 }
 
 $chaveEmail = 'recuperar_' . sha1($email);
+// Registra antes de conferir (pedidos simultâneos não furam o limite)
 foreach ([[$ip, 5], [$chaveEmail, 3]] as [$chave, $max]) {
-    $limite = RateLimitService::verificar($chave, 'recuperar_senha', $max, 3600);
+    $limite = RateLimitService::consumir($chave, 'recuperar_senha', $max, 3600);
     if ($limite['bloqueado']) {
         http_response_code(429);
         echo json_encode(['error' => 'Muitos pedidos de recuperação. Tente novamente mais tarde.']);
         exit;
     }
 }
-RateLimitService::registrar($ip, 'recuperar_senha');
-RateLimitService::registrar($chaveEmail, 'recuperar_senha');
 
 try {
     $db = (new Database())->getConnection();
@@ -70,7 +70,8 @@ try {
     require_once __DIR__ . '/../services/email-sender.php';
     $emailSender = new EmailSender($db);
 
-    $link = rtrim((string) Environment::get('base_url'), '/') . '/frontend/redefinir-senha.html?token=' . $token;
+    // Token no fragmento (#): não vai para logs de servidor/proxy nem no Referer
+    $link = rtrim((string) Environment::get('base_url'), '/') . '/frontend/redefinir-senha.html#token=' . $token;
     $linkHtml = htmlspecialchars($link, ENT_QUOTES, 'UTF-8');
     $nomeHtml = htmlspecialchars($usuario['nome'], ENT_QUOTES, 'UTF-8');
 
@@ -86,11 +87,10 @@ try {
         <p>Se você não solicitou esta recuperação, ignore este email.</p>
     ";
 
-    if (!$emailSender->enviarEmail($usuario['email'], 'Recuperação de Senha - Conecta CRPRS', $mensagem, true)) {
-        error_log('[RECUPERAR-SENHA] Falha ao enviar o e-mail de recuperação para o usuário #' . $usuario['id']);
-        http_response_code(500);
-        echo json_encode(['error' => 'Não foi possível enviar o e-mail agora. Tente novamente mais tarde.']);
-        exit;
+    // Pela fila de e-mails (o cron envia em até ~2 min): a resposta leva o mesmo tempo com ou sem conta,
+    // e não denuncia quais e-mails estão cadastrados. Falha ao enfileirar fica só no log.
+    if (!$emailSender->enviarEmail($usuario['email'], 'Recuperação de Senha - Conecta CRPRS', $mensagem)) {
+        error_log('[RECUPERAR-SENHA] Falha ao enfileirar o e-mail de recuperação do usuário #' . $usuario['id']);
     }
 
     echo json_encode($respostaPadrao);

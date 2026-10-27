@@ -83,6 +83,13 @@ function fazerLogout(todas = false) {
         .finally(() => encerrarSessaoLocal());
 }
 
+// Anexos que o servidor recusou (tipo, conteúdo, tamanho ou quantidade): avisa em vez de sumirem em silêncio
+function avisarAnexosRecusados(lista) {
+    if (!Array.isArray(lista) || lista.length === 0) return;
+    const itens = lista.map(a => `<li><strong>${sanitizeHTML(a.nome)}</strong>: ${sanitizeHTML(a.motivo)}</li>`).join('');
+    mostrarAlert('Anexos não enviados', `<p>Estes arquivos não foram anexados:</p><ul>${itens}</ul>`);
+}
+
 // Avatar → "Sair de todos os dispositivos"
 function sairDeTodosOsDispositivos() {
     mostrarConfirm('Sair de todos os dispositivos',

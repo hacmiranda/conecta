@@ -815,6 +815,7 @@ function adicionarComentario(event, ticketId) {
                 mostrarAlert('Erro', data.error || 'Não foi possível adicionar o comentário.');
                 return;
             }
+            avisarAnexosRecusados(data.anexos_recusados);
             const mensagem = enviarEmail ?
                 (comCopia ? 'Comentário adicionado e e-mails na fila de envio!' : 'Comentário adicionado e e-mail na fila de envio!') :
                 'Comentário adicionado com sucesso!';

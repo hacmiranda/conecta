@@ -53,7 +53,7 @@ if (hash_equals($senha_atual, $nova_senha)) {
 
 // Tentativas de senha atual errada também têm limite
 $chave = 'troca_' . $usuario_id;
-$limite = RateLimitService::verificar($chave, 'alterar_senha', 5, 900);
+$limite = RateLimitService::consumir($chave, 'alterar_senha', 5, 900); // registra antes de conferir (simultâneas não furam)
 if ($limite['bloqueado']) {
     http_response_code(429);
     echo json_encode(['error' => 'Muitas tentativas. Tente novamente em ' . (int) ceil($limite['segundos_restantes'] / 60) . ' minuto(s).']);
@@ -68,7 +68,6 @@ try {
     $usuario = $stmt->fetch(PDO::FETCH_ASSOC);
 
     if (!$usuario || empty($usuario['senha']) || !password_verify($senha_atual, (string) $usuario['senha'])) {
-        RateLimitService::registrar($chave, 'alterar_senha');
         http_response_code(400);
         echo json_encode(['error' => 'Senha atual incorreta']);
         exit;

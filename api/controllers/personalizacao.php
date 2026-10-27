@@ -28,8 +28,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         
         $file = $_FILES['logo'];
         
-        // Validar tipo
-        if ($file['type'] !== 'image/png') {
+        // Validar tipo pelo conteúdo real (o "type" do upload é o que o navegador diz, não o arquivo)
+        $mimeReal = '';
+        if (($file['error'] ?? UPLOAD_ERR_NO_FILE) === UPLOAD_ERR_OK && is_uploaded_file($file['tmp_name'])) {
+            $finfo = finfo_open(FILEINFO_MIME_TYPE);
+            $mimeReal = (string) finfo_file($finfo, $file['tmp_name']);
+            finfo_close($finfo);
+        }
+        $imagem = $mimeReal === 'image/png' ? @getimagesize($file['tmp_name']) : false;
+        if (!$imagem || ($imagem[2] ?? null) !== IMAGETYPE_PNG) {
             http_response_code(400);
             echo json_encode(['error' => 'Apenas PNG é aceito']);
             exit;

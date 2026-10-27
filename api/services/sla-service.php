@@ -283,4 +283,3 @@ class SLAService {
         return $dias . 'd' . ($horasRestantes > 0 ? ' ' . $horasRestantes . 'h' : '');
     }
 }
-?>

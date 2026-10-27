@@ -24,6 +24,15 @@ class LogService {
         error_log("[$canal] $mensagem");
     }
 
+    /** E-mail para log: "j***@dominio.com" (nunca o endereço inteiro). */
+    public static function mascararEmail(string $email): string {
+        $arroba = strpos($email, '@');
+        if ($arroba === false) {
+            return '(sem @)';
+        }
+        return substr($email, 0, 1) . '***@' . substr($email, $arroba + 1);
+    }
+
     private static function gravar(string $canal, string $nivel, string $mensagem): void {
         $linha = '[' . date('Y-m-d H:i:s') . "] $nivel $mensagem";
 

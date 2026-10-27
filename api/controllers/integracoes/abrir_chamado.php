@@ -1,16 +1,14 @@
 <?php
+/**
+ * Integração M2M: sistemas satélites abrem demandas (POST, cabeçalho X-API-KEY = INTEGRATION_API_KEY_*).
+ * Servidor a servidor: sem CORS. Limites: corpo até 8 MB, anexo pela regra do UploadService (até 20 MB,
+ * extensão + conteúdo real), 10 chaves erradas por IP em 15 min, 120 pedidos por IP por minuto.
+ * chave_idempotencia (opcional): repetir o mesmo pedido devolve a demanda já criada, sem duplicar.
+ */
 error_reporting(E_ALL);
 ini_set('display_errors', 0);
 
 header('Content-Type: application/json');
-header('Access-Control-Allow-Origin: *'); // Em produção, restrinja aos IPs da Locaweb
-header('Access-Control-Allow-Methods: POST, OPTIONS');
-header('Access-Control-Allow-Headers: Content-Type, Authorization, X-API-KEY');
-
-if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
-    http_response_code(200);
-    exit();
-}
 
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     http_response_code(405);
@@ -23,15 +21,24 @@ require_once __DIR__ . '/../../config/environment.php';
 require_once __DIR__ . '/../../services/acesso-service.php';
 require_once __DIR__ . '/../../services/html-sanitizer.php';
 require_once __DIR__ . '/../../services/protocolo-service.php';
+require_once __DIR__ . '/../../services/rate-limit-service.php';
+require_once __DIR__ . '/../../services/rede-service.php';
+require_once __DIR__ . '/../../services/upload-service.php';
 
-// Validar API KEY da Transação (Segurança Server-to-Server)
-$headers = getallheaders();
-$api_key = $headers['X-API-KEY'] ?? $headers['x-api-key'] ?? $_SERVER['HTTP_X_API_KEY'] ?? '';
+const MAX_CORPO_BYTES = 8 * 1024 * 1024;
+
+$ip = RedeService::ipCliente();
+
+// Chave errada repetida a partir do mesmo IP: bloqueia antes de qualquer outra coisa
+if (RateLimitService::verificar($ip, 'integracao_chave', 10, 900)['bloqueado']) {
+    http_response_code(429);
+    echo json_encode(['error' => 'Muitas tentativas com chave inválida. Tente mais tarde.']);
+    exit;
+}
 
 // Chave Mestra da API de Integração: definida exclusivamente no .env (INTEGRATION_API_KEY_LOCAL/_PROD).
 // Sem chave configurada, a integração fica desativada (não existe valor padrão no código).
 $expected_key = (string) Environment::get('integration_api_key', '');
-
 if ($expected_key === '') {
     error_log('[M2M Integration] INTEGRATION_API_KEY não configurada no .env; integração desativada.');
     http_response_code(503);
@@ -39,15 +46,30 @@ if ($expected_key === '') {
     exit;
 }
 
+$headers = getallheaders();
+$api_key = $headers['X-API-KEY'] ?? $headers['x-api-key'] ?? $_SERVER['HTTP_X_API_KEY'] ?? '';
 if (empty($api_key) || !hash_equals($expected_key, (string) $api_key)) {
+    RateLimitService::registrar($ip, 'integracao_chave');
     http_response_code(401);
     echo json_encode(['error' => 'Acesso não autorizado. API KEY ausente ou inválida.']);
     exit;
 }
 
-$input = json_decode(file_get_contents('php://input'), true);
+if (RateLimitService::consumir($ip, 'integracao', 120, 60)['bloqueado']) {
+    http_response_code(429);
+    echo json_encode(['error' => 'Muitos pedidos. Tente novamente em instantes.']);
+    exit;
+}
 
-if (!$input) {
+// Lê no máximo 8 MB + 1 byte: se passou, recusa sem processar
+$corpo = (string) file_get_contents('php://input', false, null, 0, MAX_CORPO_BYTES + 1);
+if (strlen($corpo) > MAX_CORPO_BYTES) {
+    http_response_code(413);
+    echo json_encode(['error' => 'Pedido grande demais (máximo 8 MB, incluindo o anexo).']);
+    exit;
+}
+$input = json_decode($corpo, true);
+if (!is_array($input)) {
     http_response_code(400);
     echo json_encode(['error' => 'Payload JSON inválido.']);
     exit;
@@ -58,16 +80,17 @@ if (!$input) {
 $origem = preg_replace('/[^a-z0-9_]/', '', strtolower((string) ($input['origem'] ?? ''))) ?: 'desconhecida';
 $origem = substr($origem, 0, 50);
 $titulo = HtmlSanitizer::texto($input['titulo'] ?? '', 200);
-$descricao_raw = $input['descricao'] ?? '';
-$email_solicitante = strtolower(trim($input['email_solicitante'] ?? ''));
+$descricao_raw = (string) ($input['descricao'] ?? '');
+$email_solicitante = strtolower(trim((string) ($input['email_solicitante'] ?? '')));
 $nome_solicitante = HtmlSanitizer::texto($input['nome_solicitante'] ?? ('Usuário ' . strtoupper($origem)), 100);
-$prioridade = strtolower($input['prioridade'] ?? 'normal');
-$categoria_id = $input['categoria_id'] ?? null;
+$prioridade = strtolower((string) ($input['prioridade'] ?? 'normal'));
+$categoria_id = isset($input['categoria_id']) && $input['categoria_id'] !== '' ? (int) $input['categoria_id'] : null;
 $metadados = $input['metadados'] ?? null; // Array opcional para logs do navegador/sistema
+$chave_idempotencia = substr(preg_replace('/[^A-Za-z0-9:_\-.]/', '', (string) ($input['chave_idempotencia'] ?? '')), 0, 64) ?: null;
 
 // Extensão Anexos Base64 (Opcional - Prints de Erro)
 $anexo_base64 = $input['anexo_base64'] ?? null;
-$anexo_nome = $input['anexo_nome'] ?? 'print_erro_sistema.png';
+$anexo_nome = basename(str_replace(chr(92), '/', (string) ($input['anexo_nome'] ?? 'print_erro_sistema.png')));
 
 // Lógica de Atribuição de E-mail (Ouvidoria)
 if ($origem === 'ouvidoria_interna') {
@@ -86,7 +109,7 @@ if ($origem === 'ouvidoria_interna') {
     $email_solicitante = 'sistema_interno@crprs.org.br';
 }
 
-if (empty($titulo) || empty($descricao_raw)) {
+if (empty($titulo) || trim($descricao_raw) === '') {
     http_response_code(400);
     echo json_encode(['error' => 'Título e descrição (corpo) da demanda são obrigatórios.']);
     exit;
@@ -101,6 +124,33 @@ if ($email_solicitante !== '' && !filter_var($email_solicitante, FILTER_VALIDATE
     exit;
 }
 
+// Anexo: base64 estrito e a mesma regra dos anexos da tela (extensão + conteúdo real, até 20 MB)
+$anexo = null;
+if (!empty($anexo_base64)) {
+    $anexo_base64 = (string) $anexo_base64;
+    if (strpos($anexo_base64, ',') !== false) {
+        // Remove o prefixo "data:image/png;base64,"
+        $anexo_base64 = substr($anexo_base64, strpos($anexo_base64, ',') + 1);
+    }
+    $conteudo = base64_decode($anexo_base64, true);
+    if ($conteudo === false) {
+        http_response_code(400);
+        echo json_encode(['error' => 'Anexo em base64 inválido.']);
+        exit;
+    }
+    if (pathinfo($anexo_nome, PATHINFO_EXTENSION) === '') {
+        $anexo_nome .= '.png';
+    }
+    $mime = UploadService::mimeDoConteudo($conteudo);
+    $validacao = UploadService::validar($anexo_nome, $mime, strlen($conteudo));
+    if (!$validacao['ok']) {
+        http_response_code(400);
+        echo json_encode(['error' => 'Anexo recusado: ' . $validacao['motivo'] . '.']);
+        exit;
+    }
+    $anexo = ['conteudo' => $conteudo, 'nome' => $anexo_nome, 'extensao' => $validacao['extensao'], 'mime' => $mime];
+}
+
 // Tag Tática: Identidade Visual da API no Corpo da Descrição
 $descricao_final = "<div style=\"background-color: #f1f5f9; border-left: 4px solid #3b82f6; padding: 12px; margin-bottom: 20px; border-radius: 4px;\">";
 $descricao_final .= "<p style=\"margin: 0; font-size: 13px; color: #475569;\"><strong>🤖 AVISO DE INTEGRAÇÃO M2M</strong><br>";
@@ -113,114 +163,108 @@ if (!empty($metadados) && is_array($metadados)) {
     $descricao_final .= "<br><br><div style=\"background-color: #1e293b; color: #10b981; padding: 12px; border-radius: 4px; font-family: monospace; font-size: 11px; margin-top: 15px;\">";
     $descricao_final .= "<strong style=\"color: #f8fafc;\">🖥️ LOGS E METADADOS DE DEPURACÃO:</strong><br>";
     $descricao_final .= "<ul style=\"list-style: none; padding-left: 0; margin-top: 8px;\">";
-    foreach ($metadados as $key => $value) {
-        $clean_key = htmlspecialchars(ucfirst(str_replace('_', ' ', $key)));
-        $clean_value = htmlspecialchars(is_array($value) ? json_encode($value) : $value);
+    foreach (array_slice($metadados, 0, 50, true) as $key => $value) {
+        $clean_key = htmlspecialchars(ucfirst(str_replace('_', ' ', (string) $key)));
+        $clean_value = htmlspecialchars(mb_substr(is_array($value) ? (string) json_encode($value) : (string) $value, 0, 2000));
         $descricao_final .= "<li style=\"margin-bottom: 4px;\"><strong style=\"color: #94a3b8;\">{$clean_key}:</strong> {$clean_value}</li>";
     }
     $descricao_final .= "</ul></div>";
 }
 
+/** Resposta de sucesso (também usada quando o pedido repetido já tinha virado demanda). */
+function responderDemanda(int $ticket_id, ?string $protocolo, string $origem, bool $repetido = false): void {
+    $rotulo = ProtocoloService::rotulo($protocolo, $ticket_id);
+    echo json_encode([
+        'success' => true,
+        'ticket_id' => $ticket_id,
+        'protocolo' => $rotulo,
+        'origem' => $origem,
+        'idempotente' => $repetido,
+        'message' => ($repetido ? 'Pedido já recebido antes. Demanda existente: ' : 'Demanda do Satélite inserida limpa na Mesa de TI com identificador: ') . $rotulo,
+    ]);
+}
+
 try {
     $database = new Database();
     $db = $database->getConnection();
-    
-    // 1. Shadow Account (Procura E-mail ou Forja)
-    $stmt_user = $db->prepare("SELECT id FROM usuarios WHERE email = ? LIMIT 1");
-    $stmt_user->execute([$email_solicitante]);
-    $user = $stmt_user->fetch(PDO::FETCH_ASSOC);
-    
-    if ($user) {
-        $usuario_id = $user['id'];
-    } else {
-        // O e-mail nunca existiu no Conecta CRPRS. Forja a conta e libera pra uso em Background.
-        $senha_random = password_hash(bin2hex(random_bytes(10)), PASSWORD_DEFAULT);
-        $stmt_create = $db->prepare("INSERT INTO usuarios (nome, email, senha, tipo, ativo) VALUES (?, ?, ?, 'cliente', 1)");
-        $stmt_create->execute([$nome_solicitante, $email_solicitante, $senha_random]);
-        $usuario_id = $db->lastInsertId();
+
+    // Pedido repetido (mesma origem + chave_idempotencia): devolve a demanda já criada
+    if ($chave_idempotencia !== null) {
+        $existe = $db->prepare("SELECT id, protocolo FROM tickets WHERE origem_api = ? AND chave_idempotencia = ? LIMIT 1");
+        $existe->execute([$origem, $chave_idempotencia]);
+        if ($ja = $existe->fetch(PDO::FETCH_ASSOC)) {
+            responderDemanda((int) $ja['id'], $ja['protocolo'], $origem, true);
+            exit;
+        }
     }
-    
+
     // 2. Validação Padrão de Prioridade
     if (!in_array($prioridade, ['baixa', 'normal', 'alta', 'urgente'])) {
         $prioridade = 'normal';
     }
-    
+
     // 2.1 Setor de entrada: integrações externas caem em "Geral" para triagem
     $setor_stmt = $db->prepare("SELECT id FROM setores WHERE nome = 'Geral' AND ativo = 1 LIMIT 1");
     $setor_stmt->execute();
     $setor_id = $setor_stmt->fetchColumn() ?: null;
 
-    // 3. Gerar o Ticket com Status Novo Mapeado para API
-    $protocolo = ProtocoloService::gerar($db);
-    $query = "INSERT INTO tickets (protocolo, titulo, descricao, usuario_id, origem_api, email_solicitante, prioridade, categoria_id, setor_id, status) VALUES (:protocolo, :titulo, :descricao, :usuario_id, :origem_api, :email_solicitante, :prioridade, :categoria_id, :setor_id, 'novo')";
-    $stmt = $db->prepare($query);
-    $stmt->bindParam(':protocolo', $protocolo);
-    $stmt->bindParam(':titulo', $titulo);
-    $stmt->bindParam(':descricao', $descricao_final); // Conteúdo carimbado pela Flag
-    $stmt->bindParam(':usuario_id', $usuario_id);
-    $stmt->bindParam(':origem_api', $origem);
-    $stmt->bindParam(':email_solicitante', $email_solicitante);
-    $stmt->bindParam(':prioridade', $prioridade);
-    $stmt->bindParam(':categoria_id', $categoria_id);
-    $stmt->bindParam(':setor_id', $setor_id);
-
-    $stmt->execute();
-    $ticket_id = $db->lastInsertId();
-
-    
-    // 4. SLA, janela de setor e evento de abertura na linha do tempo
-    AcessoService::registrarAbertura($db, (int) $ticket_id, $setor_id ? (int) $setor_id : null, (int) $usuario_id, 'via integração (' . $origem . ')');
-    
-    // 4.1 Processar Anexo Base64 do Satélite (Opcional)
-    if (!empty($anexo_base64)) {
-        try {
-            // Remover metadado "data:image/png;base64," do começo da string, se houver
-            if (strpos($anexo_base64, ',') !== false) {
-                $anexo_parts = explode(',', $anexo_base64);
-                $anexo_base64 = $anexo_parts[1];
-            }
-            
-            $file_data = base64_decode($anexo_base64);
-            if ($file_data !== false) {
-                // Prepara diretório de destino
-                $upload_dir = dirname(__DIR__, 3) . '/backend/anexos/';
-                if (!is_dir($upload_dir)) mkdir($upload_dir, 0777, true);
-                
-                $extensao = strtolower(pathinfo($anexo_nome, PATHINFO_EXTENSION));
-                if (empty($extensao)) $extensao = 'png';
-                
-                // Bloqueio de Segurança para Uploads Livres
-                $tipos_permitidos = ['pdf', 'doc', 'docx', 'txt', 'csv', 'xls', 'xlsx', 'png', 'jpg', 'jpeg'];
-                
-                if (in_array($extensao, $tipos_permitidos)) {
-                    // Nome Randomizado Único
-                    $nome_unico = time() . '_' . uniqid() . '_' . preg_replace('/[^a-zA-Z0-9.\-_]/', '', $anexo_nome);
-                    $caminho_destino = $upload_dir . $nome_unico;
-                    
-                    if (file_put_contents($caminho_destino, $file_data)) {
-                        $tamanho = filesize($caminho_destino);
-                        
-                        $finfo = finfo_open(FILEINFO_MIME_TYPE);
-                        $tipo_mime = finfo_file($finfo, $caminho_destino);
-                        finfo_close($finfo);
-                        
-                        $query_anexo = "INSERT INTO anexos (ticket_id, nome_original, nome_arquivo, tamanho, tipo) VALUES (:ticket_id, :nome_original, :nome_arquivo, :tamanho, :tipo)";
-                        $stmt_anexo = $db->prepare($query_anexo);
-                        $stmt_anexo->execute([
-                            ':ticket_id' => $ticket_id,
-                            ':nome_original' => $anexo_nome,
-                            ':nome_arquivo' => $nome_unico,
-                            ':tamanho' => $tamanho,
-                            ':tipo' => $tipo_mime
-                        ]);
-                    }
-                }
-            }
-        } catch (Exception $ex) {
-            error_log("[M2M Integration] Falha ignorada ao salvar Base64 anexado: " . $ex->getMessage());
+    // 2.2 Subcategoria: só vale se for do setor de entrada (senão a demanda nasce sem)
+    if ($categoria_id !== null) {
+        $cat = $db->prepare("SELECT COUNT(*) FROM categorias WHERE id = ? AND setor_id <=> ?");
+        $cat->execute([$categoria_id, $setor_id]);
+        if ((int) $cat->fetchColumn() === 0) {
+            $categoria_id = null;
         }
     }
-    
+
+    $db->beginTransaction();
+
+    // 1. Shadow Account (Procura E-mail ou Forja)
+    $stmt_user = $db->prepare("SELECT id FROM usuarios WHERE email = ? LIMIT 1");
+    $stmt_user->execute([$email_solicitante]);
+    $user = $stmt_user->fetch(PDO::FETCH_ASSOC);
+
+    if ($user) {
+        $usuario_id = $user['id'];
+    } else {
+        // O e-mail nunca existiu no Conecta CRPRS: cria um solicitante externo (cliente, nunca entra no sistema)
+        $senha_random = password_hash(bin2hex(random_bytes(10)), PASSWORD_DEFAULT);
+        $stmt_create = $db->prepare("INSERT INTO usuarios (nome, email, senha, tipo, ativo) VALUES (?, ?, ?, 'cliente', 1)");
+        $stmt_create->execute([$nome_solicitante, $email_solicitante, $senha_random]);
+        $usuario_id = $db->lastInsertId();
+    }
+
+    // 3. Gerar o Ticket com Status Novo Mapeado para API
+    $protocolo = ProtocoloService::gerar($db);
+    $query = "INSERT INTO tickets (protocolo, titulo, descricao, usuario_id, origem_api, chave_idempotencia, email_solicitante, prioridade, categoria_id, setor_id, status)
+              VALUES (:protocolo, :titulo, :descricao, :usuario_id, :origem_api, :chave, :email_solicitante, :prioridade, :categoria_id, :setor_id, 'novo')";
+    $stmt = $db->prepare($query);
+    $stmt->execute([
+        ':protocolo' => $protocolo,
+        ':titulo' => $titulo,
+        ':descricao' => $descricao_final, // Conteúdo carimbado pela Flag
+        ':usuario_id' => $usuario_id,
+        ':origem_api' => $origem,
+        ':chave' => $chave_idempotencia,
+        ':email_solicitante' => $email_solicitante,
+        ':prioridade' => $prioridade,
+        ':categoria_id' => $categoria_id,
+        ':setor_id' => $setor_id,
+    ]);
+    $ticket_id = (int) $db->lastInsertId();
+
+    // 4. SLA, janela de setor e evento de abertura na linha do tempo
+    AcessoService::registrarAbertura($db, $ticket_id, $setor_id ? (int) $setor_id : null, (int) $usuario_id, 'via integração (' . $origem . ')');
+
+    // 4.1 Anexo já validado
+    if ($anexo !== null) {
+        if (UploadService::salvarConteudo($db, $anexo['conteudo'], $anexo['nome'], $anexo['extensao'], $anexo['mime'], $ticket_id) === null) {
+            throw new RuntimeException('Falha ao gravar o anexo');
+        }
+    }
+
+    $db->commit();
+
     // 5. Motor de Notificação (Push Disparador)
     try {
         require_once __DIR__ . '/../../services/email-sender.php';
@@ -230,13 +274,13 @@ try {
     } catch(Exception $e) {
         error_log("[M2M Integration] E-mail de abertura abortado. Falha na lib: " . $e->getMessage());
     }
-    
+
     // Notificar Sino dos Agentes Logados no HD
     try {
-        $msg_notificacao = "🤖 Novo ticket M2M (" . ProtocoloService::rotulo($protocolo, (int) $ticket_id) . ") gerado a partir da: " . strtoupper(str_replace('_', ' ', $origem));
+        $msg_notificacao = "🤖 Novo ticket M2M (" . ProtocoloService::rotulo($protocolo, $ticket_id) . ") gerado a partir da: " . strtoupper(str_replace('_', ' ', $origem));
         // Apenas os gestores do setor de entrada (admins se não houver gestor)
         $agentes = array_column(AcessoService::destinatariosInternosDoSetor($db, $setor_id ? (int) $setor_id : null), 'id');
-        
+
         if (!empty($agentes)) {
             $stmt_notif = $db->prepare("INSERT INTO notificacoes (usuario_id, titulo, mensagem, ticket_id) VALUES (?, '📡 Interceptação API', ?, ?)");
             foreach ($agentes as $ag) {
@@ -247,15 +291,21 @@ try {
         error_log("[M2M Integration] Erro preencher Sino App de Agentes: " . $e->getMessage());
     }
 
-    echo json_encode([
-        'success' => true,
-        'ticket_id' => $ticket_id,
-        'protocolo' => ProtocoloService::rotulo($protocolo, (int) $ticket_id),
-        'origem' => $origem,
-        'message' => "Demanda do Satélite inserida limpa na Mesa de TI com identificador: " . ProtocoloService::rotulo($protocolo, (int) $ticket_id)
-    ]);
-    
+    responderDemanda($ticket_id, $protocolo, $origem);
+
 } catch (Exception $e) {
+    if (isset($db) && $db->inTransaction()) {
+        $db->rollBack();
+    }
+    // Corrida com a mesma chave_idempotencia (índice único): o outro pedido já criou a demanda
+    if ($chave_idempotencia !== null && $e instanceof PDOException && $e->getCode() === '23000') {
+        $existe = $db->prepare("SELECT id, protocolo FROM tickets WHERE origem_api = ? AND chave_idempotencia = ? LIMIT 1");
+        $existe->execute([$origem, $chave_idempotencia]);
+        if ($ja = $existe->fetch(PDO::FETCH_ASSOC)) {
+            responderDemanda((int) $ja['id'], $ja['protocolo'], $origem, true);
+            exit;
+        }
+    }
     error_log("[M2M Integration FATAL] " . $e->getMessage());
     http_response_code(500);
     echo json_encode(['error' => 'Erro interno ao registrar a demanda.']);

@@ -159,6 +159,7 @@ document.getElementById('form-ticket').addEventListener('submit', function (e) {
                 const response = JSON.parse(xhr.responseText);
                 limparFormularioTicket();
                 mostrarToast('Sucesso', 'Demanda criada com sucesso!', 'success');
+                avisarAnexosRecusados(response.anexos_recusados);
             } catch (e) {
                 console.error('Erro ao parsear resposta:', e);
                 mostrarAlert('Erro', 'Erro na resposta do servidor');

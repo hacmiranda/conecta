@@ -1,4 +1,6 @@
 <?php
+require_once __DIR__ . '/rede-service.php';
+
 class AuditoriaService {
     private $db;
     
@@ -6,42 +8,19 @@ class AuditoriaService {
         $this->db = $db;
     }
     
+    /**
+     * IP do cliente: o da conexão, ou o repassado por um proxy confiável (RedeService). Cabeçalhos como
+     * X-Forwarded-For enviados por qualquer cliente não valem (antes, quem quisesse escolhia o IP gravado).
+     */
     private function obterIPv4() {
-        $ip = $_SERVER['REMOTE_ADDR'] ?? null;
-        
-        // Converter localhost IPv6 para IPv4
-        if ($ip === '::1') {
-            return '127.0.0.1';
-        }
-        
-        // Se já é IPv4, retornar
-        if ($ip && filter_var($ip, FILTER_VALIDATE_IP, FILTER_FLAG_IPV4)) {
-            return $ip;
-        }
-        
-        // Tentar obter IPv4 de headers de proxy
-        $headers = ['HTTP_CLIENT_IP', 'HTTP_X_FORWARDED_FOR', 'HTTP_X_FORWARDED', 'HTTP_X_CLUSTER_CLIENT_IP', 'HTTP_FORWARDED_FOR', 'HTTP_FORWARDED'];
-        
-        foreach ($headers as $header) {
-            if (!isset($_SERVER[$header])) continue;
-            
-            $ips = explode(',', $_SERVER[$header]);
-            foreach ($ips as $candidate) {
-                $candidate = trim($candidate);
-                if (filter_var($candidate, FILTER_VALIDATE_IP, FILTER_FLAG_IPV4)) {
-                    return $candidate;
-                }
-            }
-        }
-        
-        return $ip;
+        $ip = RedeService::ipCliente();
+        return $ip === '::1' ? '127.0.0.1' : $ip;
     }
-    
+
     public function registrar($usuario_id, $acao, $tabela, $registro_id = null, $dados_anteriores = null, $dados_novos = null) {
         try {
             $ip = $this->obterIPv4();
-            $hostname = $ip ? gethostbyaddr($ip) : null;
-            if ($hostname === $ip) $hostname = null;
+            $hostname = null; // sem DNS reverso: atrasava cada registro e o nome é controlado por quem tem o IP
             
             $user_agent = $_SERVER['HTTP_USER_AGENT'] ?? null;
             $sessao_id = session_id() ?: null;
@@ -71,8 +50,7 @@ class AuditoriaService {
     public function registrarTicket($ticket_id, $usuario_id, $campo, $valor_anterior, $valor_novo) {
         try {
             $ip = $this->obterIPv4();
-            $hostname = $ip ? gethostbyaddr($ip) : null;
-            if ($hostname === $ip) $hostname = null;
+            $hostname = null; // sem DNS reverso: atrasava cada registro e o nome é controlado por quem tem o IP
             $user_agent = $_SERVER['HTTP_USER_AGENT'] ?? null;
             
             $query = "INSERT INTO auditoria_tickets (ticket_id, usuario_id, campo, valor_anterior, valor_novo, ip_address, hostname, user_agent)
@@ -98,8 +76,7 @@ class AuditoriaService {
     public function registrarLogin($usuario_id, $email, $acao) {
         try {
             $ip = $this->obterIPv4();
-            $hostname = $ip ? gethostbyaddr($ip) : null;
-            if ($hostname === $ip) $hostname = null;
+            $hostname = null; // sem DNS reverso: atrasava cada registro e o nome é controlado por quem tem o IP
             $user_agent = $_SERVER['HTTP_USER_AGENT'] ?? null;
             $sessao_id = session_id() ?: null;
             
@@ -122,4 +99,3 @@ class AuditoriaService {
         }
     }
 }
-?>

@@ -165,8 +165,14 @@
     </div>
 
     <script>
+        // Token no fragmento (#token=…): o navegador não o envia ao servidor nem a outros sites (Referer).
+        // Links antigos (?token=…) continuam funcionando. Depois de lido, sai da barra de endereços e do histórico.
         const urlParams = new URLSearchParams(window.location.search);
-        const token = urlParams.get('token');
+        const hashParams = new URLSearchParams(window.location.hash.replace(/^#/, ''));
+        const token = hashParams.get('token') || urlParams.get('token');
+        if (token) {
+            history.replaceState(null, '', window.location.pathname);
+        }
 
         if (!token) {
             document.getElementById('message').innerHTML = '<div class="message error">Token inválido ou ausente.</div>';

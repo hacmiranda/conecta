@@ -7,6 +7,8 @@ require_once __DIR__ . '/../config/database.php';
 require_once __DIR__ . '/../middleware/auth.php';
 require_once __DIR__ . '/../services/auditoria-service.php';
 require_once __DIR__ . '/../services/rate-limit-service.php';
+require_once __DIR__ . '/../services/rede-service.php';
+require_once __DIR__ . '/../services/log-service.php';
 require_once __DIR__ . '/../config/turnstile.php';
 
 AuthMiddleware::configurarCORS(['POST']);
@@ -25,19 +27,19 @@ $input = json_decode(file_get_contents('php://input'), true) ?? [];
 $email = strtolower(trim((string) ($input['email'] ?? '')));
 $senha = (string) ($input['senha'] ?? '');
 $turnstileToken = $input['cf-turnstile-response'] ?? '';
-$ip = $_SERVER['REMOTE_ADDR'] ?? '0.0.0.0';
-// Limite também por conta (impede tentar muitas senhas de um e-mail trocando de IP)
+$ip = RedeService::ipCliente();
+// Por conta não há bloqueio (senão qualquer um trancaria a conta do administrador errando a senha):
+// a partir da 6ª falha em 15 min, cada resposta de erro demora mais (até 5 s)
 $chaveConta = 'conta_' . sha1($email);
 
-// Verifica rate limiting antes de qualquer processamento
-foreach ([[$ip, 5], [$chaveConta, 10]] as [$chave, $limite]) {
-    $rateLimit = RateLimitService::verificar($chave, 'login', $limite, 900);
-    if ($rateLimit['bloqueado']) {
-        $minutos = (int) ceil($rateLimit['segundos_restantes'] / 60);
-        http_response_code(429);
-        echo json_encode(['error' => "Muitas tentativas de login. Tente novamente em {$minutos} minuto(s)."]);
-        exit;
-    }
+// Por IP: até 20 tentativas em 15 min (o escritório inteiro pode sair pelo mesmo IP). A tentativa é
+// registrada antes de conferir (consumir), então requisições simultâneas não furam o limite.
+$rateLimit = RateLimitService::consumir($ip, 'login', 20, 900);
+if ($rateLimit['bloqueado']) {
+    $minutos = (int) ceil($rateLimit['segundos_restantes'] / 60);
+    http_response_code(429);
+    echo json_encode(['error' => "Muitas tentativas de login. Tente novamente em {$minutos} minuto(s)."]);
+    exit;
 }
 
 // Valida Turnstile
@@ -62,8 +64,13 @@ try {
     $usuario = $stmt->fetch();
 
     // Senha conferida antes de qualquer outra informação sobre a conta (não revela se o e-mail existe).
-    // Só aceita hash: senhas em texto puro (legado) não entram mais.
-    $senhaValida = $usuario && !empty($usuario['senha']) && password_verify($senha, (string) $usuario['senha']);
+    // Só aceita hash: senhas em texto puro (legado) não entram mais. Sem conta (ou sem senha), confere
+    // contra um hash fictício com os mesmos parâmetros: a resposta leva o mesmo tempo e não denuncia
+    // quais e-mails têm conta.
+    $hashFicticio = '$argon2id$v=19$m=65536,t=4,p=1$Q2hxY2ZDeUJVb0VZbUxCaQ$qS7JzbaV5iVA6T19eg8B6xdtyepC2IPAlvkOqFkJX6k';
+    $temSenha = $usuario && !empty($usuario['senha']);
+    $senhaConfere = password_verify($senha, $temSenha ? (string) $usuario['senha'] : $hashFicticio);
+    $senhaValida = $temSenha && $senhaConfere;
 
     // Solicitantes externos (criados a partir de e-mails recebidos) não entram no sistema
     if ($senhaValida && $usuario['tipo'] === 'cliente') {
@@ -71,9 +78,13 @@ try {
     }
 
     if (!$senhaValida) {
-        RateLimitService::registrar($ip, 'login');
-        RateLimitService::registrar($chaveConta, 'login');
-        $auditoriaService->registrarLogin($usuario['id'] ?? null, $email, 'login_falha');
+        RateLimitService::registrar($chaveConta, 'login_conta');
+        $falhasConta = RateLimitService::contar($chaveConta, 'login_conta', 900);
+        if ($falhasConta > 5) {
+            usleep(min($falhasConta - 5, 5) * 1000000);
+        }
+        // E-mail inteiro só se a conta existe; senão mascarado (às vezes é a senha digitada no campo errado)
+        $auditoriaService->registrarLogin($usuario['id'] ?? null, $usuario ? $email : LogService::mascararEmail($email), 'login_falha');
         http_response_code(401);
         echo json_encode(['error' => 'Credenciais inválidas']);
         exit;
@@ -95,7 +106,7 @@ try {
     }
 
     RateLimitService::limpar($ip, 'login');
-    RateLimitService::limpar($chaveConta, 'login');
+    RateLimitService::limpar($chaveConta, 'login_conta');
 
     // Gera o token (claims csrf, tv, jti e exp) e grava no cookie de sessão HttpOnly:
     // o navegador guarda só o csrf (cabeçalho X-CSRF-Token), nunca o token

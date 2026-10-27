@@ -538,7 +538,6 @@ class EmailSender {
         $erro   = null;
         try {
             set_time_limit(30);
-            error_log("[EMAIL] Tentando enviar HTML para: $para");
             
             $mail = clone $this->mailer;
             $mail->clearAddresses();
@@ -551,11 +550,10 @@ class EmailSender {
             
             $resultado = $mail->send();
             $status    = $resultado ? 'sucesso' : 'falha';
-            error_log("[EMAIL] Resultado envio: " . ($resultado ? 'OK' : 'FALHA'));
             return $resultado;
         } catch (Exception $e) {
             $erro = $e->getMessage();
-            error_log("[EMAIL] ERRO ao enviar para $para: $erro");
+            error_log('[EMAIL] ERRO ao enviar para ' . LogService::mascararEmail((string) $para) . ': ' . $erro);
             return false;
         } finally {
             $this->registrarLogEmail($para, $assunto, $status, $erro);
@@ -584,12 +582,12 @@ class EmailSender {
             $resultado = $mail->send();
             $status    = $resultado ? 'sucesso' : 'falha';
             if (!$resultado) {
-                error_log("[EMAIL] Falha ao enviar email para: $para");
+                error_log('[EMAIL] Falha ao enviar email para: ' . LogService::mascararEmail((string) $para));
             }
             return $resultado;
         } catch (Exception $e) {
             $erro = $e->getMessage();
-            error_log("[EMAIL] Erro ao enviar email para $para: $erro");
+            error_log('[EMAIL] Erro ao enviar email para ' . LogService::mascararEmail((string) $para) . ': ' . $erro);
             return false;
         } finally {
             $this->registrarLogEmail($para, $assunto, $status, $erro);
@@ -1030,7 +1028,6 @@ class EmailSender {
             
             // Se era sem atribuição, enviar primeira resposta ao solicitante
             if ($era_sem_atribuicao && $ticket['usuario_email'] && $agente['nome']) {
-                error_log("[EMAIL] Enviando primeira resposta com agente: {$agente['nome']}");
                 $this->enviarPrimeiraRespostaAoSolicitante($ticket_id, $agente['nome']);
             }
             
@@ -1208,5 +1205,3 @@ class EmailSender {
 </table>';
     }
 }
-?>
-

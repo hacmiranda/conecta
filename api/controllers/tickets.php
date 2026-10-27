@@ -8,6 +8,7 @@ require_once __DIR__ . '/../services/sla-service.php';
 require_once __DIR__ . '/../services/acesso-service.php';
 require_once __DIR__ . '/../services/timeline-service.php';
 require_once __DIR__ . '/../services/html-sanitizer.php';
+require_once __DIR__ . '/../services/upload-service.php';
 require_once __DIR__ . '/../services/lembrete-service.php';
 require_once __DIR__ . '/../services/catalogo-service.php';
 require_once __DIR__ . '/../services/demanda-service.php';
@@ -517,68 +518,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         AcessoService::registrarAbertura($db, (int) $ticket_id, $setor_id ? (int) $setor_id : null, (int) $user['id'], 'no sistema');
 
         
-        // Processar anexos se houver
-        if (isset($_FILES['anexos']) && is_array($_FILES['anexos']['name'])) {
-            $upload_dir = dirname(__DIR__, 2) . '/backend/anexos/';
-
-            if (!is_dir($upload_dir)) {
-                mkdir($upload_dir, 0750, true);
-            }
-
-            // Whitelist dupla: extensão + MIME type real
-            $whitelist = [
-                'pdf'  => 'application/pdf',
-                'doc'  => 'application/msword',
-                'docx' => 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-                'txt'  => 'text/plain',
-                'csv'  => 'text/csv',
-                'xls'  => 'application/vnd.ms-excel',
-                'xlsx' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-                'png'  => 'image/png',
-                'jpg'  => 'image/jpeg',
-                'jpeg' => 'image/jpeg',
-            ];
-
-            $total_arquivos = count($_FILES['anexos']['name']);
-
-            for ($i = 0; $i < $total_arquivos; $i++) {
-                if ($_FILES['anexos']['error'][$i] !== UPLOAD_ERR_OK) continue;
-
-                $nome_original = basename($_FILES['anexos']['name'][$i]);
-                $tmp_name      = $_FILES['anexos']['tmp_name'][$i];
-                $size          = $_FILES['anexos']['size'][$i];
-
-                // Valida extensão
-                $extensao = strtolower(pathinfo($nome_original, PATHINFO_EXTENSION));
-                if (!isset($whitelist[$extensao])) continue;
-
-                // Valida MIME type real do arquivo (não o informado pelo cliente)
-                $finfo     = finfo_open(FILEINFO_MIME_TYPE);
-                $mime_real = finfo_file($finfo, $tmp_name);
-                finfo_close($finfo);
-                if ($mime_real !== $whitelist[$extensao]) continue;
-
-                // Nome do arquivo no servidor: sem o nome original para evitar path traversal
-                $nome_arquivo    = time() . '_' . uniqid() . '.' . $extensao;
-                $caminho_completo = $upload_dir . $nome_arquivo;
-
-                if (move_uploaded_file($tmp_name, $caminho_completo)) {
-                    chmod($caminho_completo, 0640);
-                    try {
-                        $anexo_query = "INSERT INTO anexos (ticket_id, nome_original, nome_arquivo, tamanho, tipo)
-                                       VALUES (:ticket_id, :nome_original, :nome_arquivo, :tamanho, :tipo)";
-                        $anexo_stmt = $db->prepare($anexo_query);
-                        $anexo_stmt->bindParam(':ticket_id',    $ticket_id);
-                        $anexo_stmt->bindParam(':nome_original', $nome_original);
-                        $anexo_stmt->bindParam(':nome_arquivo',  $nome_arquivo);
-                        $anexo_stmt->bindParam(':tamanho',       $size);
-                        $anexo_stmt->bindParam(':tipo',          $mime_real);
-                        $anexo_stmt->execute();
-                    } catch (Exception $e) {
-                        error_log('[TICKETS POST] Erro ao inserir anexo: ' . $e->getMessage());
-                    }
-                }
-            }
+        // Anexos: tipo (extensão + conteúdo real), até 5 arquivos e 20 MB cada, conferidos aqui (UploadService)
+        $anexos_recusados = [];
+        if (isset($_FILES['anexos'])) {
+            $anexos_recusados = UploadService::salvarEnviados($db, $_FILES['anexos'], (int) $ticket_id)['recusados'];
         }
         
         // Enviar email de confirmação e Push
@@ -609,6 +552,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $select_stmt->bindParam(':id', $ticket_id);
         $select_stmt->execute();
         $ticket = $select_stmt->fetch();
+        $ticket['anexos_recusados'] = $anexos_recusados; // avisados na tela
         
         echo json_encode($ticket);
         

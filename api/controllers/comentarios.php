@@ -5,6 +5,7 @@ header('Content-Type: application/json');
 require_once __DIR__ . '/../middleware/auth.php';
 require_once __DIR__ . '/../services/acesso-service.php';
 require_once __DIR__ . '/../services/html-sanitizer.php';
+require_once __DIR__ . '/../services/upload-service.php';
 require_once __DIR__ . '/../services/protocolo-service.php';
 require_once __DIR__ . '/../services/notificacao-email-service.php';
 AuthMiddleware::configurarCORS(['POST', 'PUT', 'DELETE']);
@@ -207,73 +208,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $stmt_comentario->execute();
         $comentario_data = $stmt_comentario->fetch(PDO::FETCH_ASSOC);
         
-        // Processar anexos se houver
+        // Anexos: tipo (extensão + conteúdo real), até 5 arquivos e 20 MB cada, conferidos aqui (UploadService)
+        $anexos_recusados = [];
         if ($isFormData && isset($_FILES['anexos'])) {
-            $anexos_dir = dirname(__DIR__, 2) . '/backend/anexos/';
-
-            if (!is_dir($anexos_dir)) {
-                mkdir($anexos_dir, 0750, true);
-            }
-
-            // Whitelist dupla: extensão + MIME type real
-            $whitelist = [
-                'pdf'  => 'application/pdf',
-                'doc'  => 'application/msword',
-                'docx' => 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-                'txt'  => 'text/plain',
-                'csv'  => 'text/csv',
-                'xls'  => 'application/vnd.ms-excel',
-                'xlsx' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-                'png'  => 'image/png',
-                'jpg'  => 'image/jpeg',
-                'jpeg' => 'image/jpeg',
-            ];
-
-            $files       = $_FILES['anexos'];
-            $total_files = is_array($files['name']) ? count($files['name']) : 1;
-
-            for ($i = 0; $i < $total_files; $i++) {
-                $nome_raw  = is_array($files['name'])     ? $files['name'][$i]     : $files['name'];
-                $tmp_name  = is_array($files['tmp_name']) ? $files['tmp_name'][$i] : $files['tmp_name'];
-                $tamanho   = is_array($files['size'])     ? $files['size'][$i]     : $files['size'];
-                $erro      = is_array($files['error'])    ? $files['error'][$i]    : $files['error'];
-
-                if ($erro !== UPLOAD_ERR_OK || empty($nome_raw)) continue;
-
-                // Sanitiza o nome original removendo componentes de path
-                $nome_original = basename($nome_raw);
-                $extensao      = strtolower(pathinfo($nome_original, PATHINFO_EXTENSION));
-
-                if (!isset($whitelist[$extensao])) continue;
-
-                // Valida MIME type real do arquivo
-                $finfo     = finfo_open(FILEINFO_MIME_TYPE);
-                $mime_real = finfo_file($finfo, $tmp_name);
-                finfo_close($finfo);
-                if ($mime_real !== $whitelist[$extensao]) continue;
-
-                // Nome no servidor sem o nome original
-                $nome_unico      = time() . '_' . uniqid() . '.' . $extensao;
-                $caminho_destino = $anexos_dir . $nome_unico;
-
-                if (move_uploaded_file($tmp_name, $caminho_destino)) {
-                    chmod($caminho_destino, 0640);
-                    try {
-                        $query_anexo = "INSERT INTO anexos (ticket_id, comentario_id, nome_original, nome_arquivo, tamanho, tipo)
-                                       VALUES (:ticket_id, :comentario_id, :nome_original, :nome_arquivo, :tamanho, :tipo)";
-                        $stmt_anexo = $db->prepare($query_anexo);
-                        $stmt_anexo->bindParam(':ticket_id',     $ticket_id);
-                        $stmt_anexo->bindParam(':comentario_id', $comentario_id);
-                        $stmt_anexo->bindParam(':nome_original', $nome_original);
-                        $stmt_anexo->bindParam(':nome_arquivo',  $nome_unico);
-                        $stmt_anexo->bindParam(':tamanho',       $tamanho);
-                        $stmt_anexo->bindParam(':tipo',          $mime_real);
-                        $stmt_anexo->execute();
-                    } catch (Exception $e) {
-                        error_log('[COMENTARIOS POST] Erro ao inserir anexo: ' . $e->getMessage());
-                    }
-                }
-            }
+            $anexos_recusados = UploadService::salvarEnviados($db, $_FILES['anexos'], (int) $ticket_id, (int) $comentario_id)['recusados'];
         }
         
         // Não registrar no histórico - o comentário já aparece na timeline
@@ -328,7 +266,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                                 $hist = "INSERT INTO ticket_historico (ticket_id, usuario_id, acao, valor_anterior, valor_novo) VALUES (?, ?, 'status', ?, 'nova_resposta')";
                                 $db->prepare($hist)->execute([$ticket_id, $usuario_id, $status_atual]);
                                 
-                                error_log("[COMENTARIOS] Status do ticket #$ticket_id alterado para 'nova_resposta' por agente/admin ID $usuario_id");
                             } catch (Exception $e) {
                                 error_log("[COMENTARIOS] Erro ao atualizar status: " . $e->getMessage());
                             }
@@ -339,7 +276,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         if (!$interno) {
                             try {
                                 $emailSender->notificarComentarioEntreAgentes($ticket_id, $comentario_id, $autor_nome, $ticket['agente_id']);
-                                error_log("[COMENTARIOS] E-mail de notificação agente→agente enviado para agente_id {$ticket['agente_id']}");
                             } catch (Exception $e) {
                                 error_log("[COMENTARIOS] Erro ao enviar e-mail agente→agente: " . $e->getMessage());
                             }
@@ -425,7 +361,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             error_log("Erro ao buscar anexos: " . $e->getMessage());
         }
         
-        echo json_encode(['success' => true, 'comentario_id' => $comentario_id, 'comentario' => $comentario_data, 'anexos' => $anexos,
+        echo json_encode(['success' => true, 'comentario_id' => $comentario_id, 'comentario' => $comentario_data, 'anexos' => $anexos, 'anexos_recusados' => $anexos_recusados,
             'email_enviado' => $email_resultado, 'email_na_fila' => $email_resultado, 'email_destino' => $email_destino]);
         
     } catch (Exception $e) {

@@ -26,7 +26,8 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
 $data = json_decode(file_get_contents('php://input'), true) ?? [];
 $token = (string) ($data['token'] ?? '');
 $senha = (string) ($data['senha'] ?? '');
-$ip = $_SERVER['REMOTE_ADDR'] ?? '0.0.0.0';
+require_once __DIR__ . '/../services/rede-service.php';
+$ip = RedeService::ipCliente();
 
 if ($token === '' || $senha === '') {
     http_response_code(400);
@@ -34,7 +35,7 @@ if ($token === '' || $senha === '') {
     exit;
 }
 
-$limite = RateLimitService::verificar($ip, 'redefinir_senha', 10, 900);
+$limite = RateLimitService::consumir($ip, 'redefinir_senha', 10, 900); // registra antes de conferir
 if ($limite['bloqueado']) {
     http_response_code(429);
     echo json_encode(['error' => 'Muitas tentativas. Tente novamente mais tarde.']);
@@ -59,7 +60,6 @@ try {
     $tokenData = $stmt->fetch(PDO::FETCH_ASSOC);
 
     if (!$tokenData) {
-        RateLimitService::registrar($ip, 'redefinir_senha');
         http_response_code(400);
         echo json_encode(['error' => 'Link inválido ou expirado. Peça um novo em "Esqueci a senha".']);
         exit;

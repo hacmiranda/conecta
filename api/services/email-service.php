@@ -2,6 +2,7 @@
 require_once __DIR__ . '/acesso-service.php';
 require_once __DIR__ . '/html-sanitizer.php';
 require_once __DIR__ . '/log-service.php';
+require_once __DIR__ . '/upload-service.php';
 require_once __DIR__ . '/protocolo-service.php';
 date_default_timezone_set('America/Sao_Paulo');
 
@@ -23,11 +24,7 @@ class EmailService {
      * setor/papel do sistema — mantém só o domínio, suficiente para depurar.
      */
     private static function mascararEmail(string $email): string {
-        $arroba = strpos($email, '@');
-        if ($arroba === false) {
-            return '(sem @)';
-        }
-        return substr($email, 0, 1) . '***@' . substr($email, $arroba + 1);
+        return LogService::mascararEmail($email);
     }
 
     public function __construct($db) {
@@ -219,13 +216,19 @@ class EmailService {
         // Assunto não entra no log (texto livre, pode conter dado pessoal); remetente mascarado
         LogService::info('email-cron', 'Remetente: ' . self::mascararEmail($remetente));
 
+        // Autenticidade do remetente (SPF/DKIM/DMARC) segundo o servidor que recebeu a mensagem
+        $autenticacao = self::avaliarAutenticacao((string) imap_fetchheader($inbox, $email_number));
+        if ($autenticacao === 'desconhecido') {
+            LogService::aviso('email-cron', 'Sem resultado de SPF/DKIM/DMARC no cabeçalho (Authentication-Results)');
+        }
+
         // Resposta a uma demanda existente? Só vira comentário se o remetente participa da demanda
         // e a caixa é de um setor por onde ela passou; senão, abre uma demanda nova.
         $ticket_id = $this->extrairTicketId($assunto);
         $observacao = null;
 
         try {
-            $recusa = $ticket_id ? $this->motivoRecusaComentario((int) $ticket_id, $remetente) : null;
+            $recusa = $ticket_id ? $this->motivoRecusaComentario((int) $ticket_id, $remetente, $autenticacao) : null;
 
             if ($ticket_id && $recusa === null) {
                 LogService::info('email-cron', 'Resposta à demanda ' . ProtocoloService::rotuloPorId($this->db, (int) $ticket_id));
@@ -314,7 +317,12 @@ class EmailService {
      * Aceita se: a demanda existe; a caixa é global ou de um setor por onde a demanda passou;
      * e o remetente é o solicitante, alguém que recebeu cópia, ou a equipe do setor atual.
      */
-    private function motivoRecusaComentario(int $ticket_id, string $remetente): ?string {
+    private function motivoRecusaComentario(int $ticket_id, string $remetente, string $autenticacao = 'desconhecido'): ?string {
+        // Remetente forjado (o servidor de e-mail reprovou SPF/DMARC): nunca vira comentário de ninguém
+        if ($autenticacao === 'falhou') {
+            return 'o e-mail não passou na verificação de autenticidade do remetente (SPF/DMARC)';
+        }
+
         $stmt = $this->db->prepare("SELECT t.id, t.setor_id, t.email_solicitante, t.excluido_em, u.email AS usuario_email
                                     FROM tickets t LEFT JOIN usuarios u ON u.id = t.usuario_id
                                     WHERE t.id = ?");
@@ -356,6 +364,32 @@ class EmailService {
         }
 
         return 'o remetente não participa dela';
+    }
+
+    /**
+     * Autenticidade do remetente segundo o cabeçalho Authentication-Results. Só vale o PRIMEIRO desses
+     * cabeçalhos (o que o servidor que recebeu a mensagem acrescentou no topo); os de baixo podem ter
+     * vindo prontos de quem enviou. Função pura (testável).
+     *   'falhou'      — dmarc=fail, ou spf=fail/softfail sem dkim=pass
+     *   'passou'      — dmarc, dkim ou spf = pass
+     *   'desconhecido'— sem o cabeçalho ou sem resultado conclusivo
+     */
+    public static function avaliarAutenticacao(string $cabecalhos): string {
+        // Desdobra cabeçalhos de várias linhas (linhas de continuação começam com espaço/tab)
+        $cabecalhos = preg_replace("/\r?\n[ \t]+/", ' ', $cabecalhos);
+        if (!preg_match('/^Authentication-Results:(.*)$/mi', (string) $cabecalhos, $m)) {
+            return 'desconhecido';
+        }
+        $resultado = strtolower($m[1]);
+        $dkimPassou = (bool) preg_match('/\bdkim=pass\b/', $resultado);
+        if (preg_match('/\bdmarc=fail\b/', $resultado)
+            || (preg_match('/\bspf=(fail|softfail)\b/', $resultado) && !$dkimPassou)) {
+            return 'falhou';
+        }
+        if ($dkimPassou || preg_match('/\b(dmarc|spf)=pass\b/', $resultado)) {
+            return 'passou';
+        }
+        return 'desconhecido';
     }
 
     /**
@@ -611,15 +645,16 @@ class EmailService {
                     }
 
                     $extensao = strtolower(pathinfo($filename, PATHINFO_EXTENSION));
-                    $tipos_permitidos = ['pdf', 'doc', 'docx', 'txt', 'csv', 'xls', 'xlsx', 'png', 'jpg', 'jpeg', 'zip', 'rar'];
                     $tamanho = strlen($attachment);
+                    $mime_real = UploadService::mimeDoConteudo($attachment);
 
-                    LogService::info('email-cron', "[ANEXO] Processando: $filename (seção $section) | Ext: $extensao | Tamanho: " . round($tamanho/1024, 2) . "KB | Count: $count_anexos");
+                    LogService::info('email-cron', "[ANEXO] Processando anexo (seção $section) | Ext: $extensao | Tamanho: " . round($tamanho/1024, 2) . "KB | Count: $count_anexos");
 
-                    // Validar tipo
-                    if (!in_array($extensao, $tipos_permitidos)) {
-                        $anexos_rejeitados[] = ['nome' => $filename, 'motivo' => 'Tipo não permitido'];
-                        LogService::aviso('email-cron', "[ANEXO] REJEITADO - Tipo não permitido: $extensao");
+                    // Validar tipo: a mesma regra da tela (extensão + conteúdo real); ZIP/RAR não entram
+                    $validacao = UploadService::validar($filename, $mime_real, $tamanho);
+                    if (!$validacao['ok']) {
+                        $anexos_rejeitados[] = ['nome' => $filename, 'motivo' => $validacao['motivo']];
+                        LogService::aviso('email-cron', "[ANEXO] REJEITADO - {$validacao['motivo']} ($extensao)");
                         continue;
                     }
 
@@ -637,8 +672,8 @@ class EmailService {
                         continue;
                     }
 
-                    // Anexo válido
-                    $tipo_mime = $this->obterTipoMime($extensao);
+                    // Anexo válido (MIME gravado = o conteúdo real, não o deduzido da extensão)
+                    $tipo_mime = $mime_real;
                     $anexos_validos[] = [
                         'nome' => $filename,
                         'conteudo' => $attachment,
@@ -648,7 +683,7 @@ class EmailService {
 
                     $tamanho_total += $tamanho;
                     $count_anexos++;
-                    LogService::info('email-cron', "[ANEXO] ACEITO: $filename | MIME: $tipo_mime");
+                    LogService::info('email-cron', "[ANEXO] ACEITO | MIME: $tipo_mime");
                 }
             }
             
@@ -657,25 +692,6 @@ class EmailService {
                 $this->processarPartesAnexos($inbox, $email_number, $part->parts, $section . '.', $anexos_validos, $anexos_rejeitados, $tamanho_total, $count_anexos);
             }
         }
-    }
-    
-    private function obterTipoMime($extensao) {
-        $tipos = [
-            'pdf' => 'application/pdf',
-            'doc' => 'application/msword',
-            'docx' => 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-            'txt' => 'text/plain',
-            'csv' => 'text/csv',
-            'xls' => 'application/vnd.ms-excel',
-            'xlsx' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-            'png' => 'image/png',
-            'jpg' => 'image/jpeg',
-            'jpeg' => 'image/jpeg',
-            'zip' => 'application/zip',
-            'rar' => 'application/x-rar-compressed'
-        ];
-        
-        return $tipos[$extensao] ?? 'application/octet-stream';
     }
     
     private function extrairNomeArquivo($part) {
@@ -710,65 +726,19 @@ class EmailService {
     }
     
     private function salvarAnexo($ticket_id, $anexo, $comentario_id = null) {
-        $upload_dir = dirname(__DIR__, 2) . '/backend/anexos/';
-        
-        // Log de debug
-        error_log("[ANEXO SAVE] Ticket ID: $ticket_id");
-        error_log("[ANEXO SAVE] Upload dir: $upload_dir");
-        error_log("[ANEXO SAVE] Dir existe? " . (is_dir($upload_dir) ? 'SIM' : 'NAO'));
-        
-        if (!is_dir($upload_dir)) {
-            error_log("[ANEXO SAVE] Criando diretório...");
-            if (mkdir($upload_dir, 0755, true)) {
-                error_log("[ANEXO SAVE] Diretório criado com sucesso");
-                LogService::info('email-cron', "Pasta criada: $upload_dir");
-            } else {
-                error_log("[ANEXO SAVE] ERRO ao criar diretório!");
-                LogService::erro('email-cron', "Erro ao criar pasta: $upload_dir");
-                return;
-            }
-        }
-        
-        // Nome no disco imprevisível e sem o nome original (que vem de fora e fica só no banco)
-        $extensao = strtolower(pathinfo(basename($anexo['nome']), PATHINFO_EXTENSION));
-        $nome_arquivo = bin2hex(random_bytes(16)) . ($extensao !== '' ? '.' . preg_replace('/[^a-z0-9]/', '', $extensao) : '');
-        $anexo['nome'] = basename(str_replace('\\', '/', $anexo['nome']));
-        $caminho_completo = $upload_dir . $nome_arquivo;
-        
-        error_log("[ANEXO SAVE] Nome arquivo: $nome_arquivo");
-        error_log("[ANEXO SAVE] Caminho completo: $caminho_completo");
-        error_log("[ANEXO SAVE] Tamanho conteúdo: " . strlen($anexo['conteudo']) . " bytes");
-        
-        LogService::info('email-cron', "Salvando em: $caminho_completo");
-
-        $bytes_escritos = file_put_contents($caminho_completo, $anexo['conteudo']);
-        if ($bytes_escritos !== false) {
-            error_log("[ANEXO SAVE] Arquivo salvo: $bytes_escritos bytes");
-            LogService::info('email-cron', "Arquivo salvo fisicamente ($bytes_escritos bytes)");
-            
-            $query = "INSERT INTO anexos (ticket_id, comentario_id, nome_original, nome_arquivo, tamanho, tipo) 
-                     VALUES (:ticket_id, :comentario_id, :nome_original, :nome_arquivo, :tamanho, :tipo)";
-            $stmt = $this->db->prepare($query);
-            $stmt->bindParam(':ticket_id', $ticket_id);
-            $stmt->bindParam(':comentario_id', $comentario_id);
-            $stmt->bindParam(':nome_original', $anexo['nome']);
-            $stmt->bindParam(':nome_arquivo', $nome_arquivo);
-            $stmt->bindParam(':tamanho', $anexo['tamanho']);
-            $stmt->bindParam(':tipo', $anexo['tipo']);
-            $stmt->execute();
-            
-            $anexo_id = $this->db->lastInsertId();
-            error_log("[ANEXO SAVE] Registro no banco criado (ID: $anexo_id)");
-            LogService::info('email-cron', "Registro no banco criado (ID: $anexo_id)");
+        // Mesma gravação dos anexos da tela: nome aleatório no disco (o original, que vem de fora, fica só
+        // no banco), permissão 0640. O anexo já foi validado em processarPartesAnexos.
+        $nome = basename(str_replace(chr(92), '/', $anexo['nome'])); // chr(92) = "\": caminhos do Windows
+        $extensao = strtolower(pathinfo($nome, PATHINFO_EXTENSION));
+        $salvo = UploadService::salvarConteudo($this->db, $anexo['conteudo'], $nome, $extensao, (string) $anexo['tipo'],
+            (int) $ticket_id, $comentario_id !== null ? (int) $comentario_id : null);
+        if ($salvo === null) {
+            LogService::erro('email-cron', "Falha ao gravar anexo da demanda #{$ticket_id}");
         } else {
-            $error = error_get_last();
-            error_log("[ANEXO SAVE] ERRO ao salvar arquivo!");
-            error_log("[ANEXO SAVE] Erro PHP: " . print_r($error, true));
-            LogService::erro('email-cron', 'Falha ao salvar arquivo fisicamente: ' . ($error['message'] ?? 'Desconhecido'));
+            LogService::info('email-cron', "Anexo gravado na demanda #{$ticket_id} (" . strlen($anexo['conteudo']) . " bytes)");
         }
     }
-    
-    private function buscarOuCriarUsuario($email) {
+        private function buscarOuCriarUsuario($email) {
         // Buscar usuário existente
         $query = "SELECT id FROM usuarios WHERE email = :email";
         $stmt = $this->db->prepare($query);
@@ -1105,4 +1075,3 @@ class EmailService {
         return $decoded !== false ? $decoded : mb_decode_mimeheader($texto);
     }
 }
-?>

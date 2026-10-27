@@ -1,118 +1,84 @@
 <?php
 /**
- * Serviço de Rate Limiting — Conecta CRPRS
- * Controla o número de tentativas por IP usando arquivos JSON.
- * Usado principalmente para proteger o endpoint de login contra força bruta.
+ * Limite de tentativas — Conecta CRPRS (tabela tentativas_acesso, migração 29).
+ *
+ * - consumir(): grava a tentativa e só depois conta as da janela. Como cada requisição se registra
+ *   antes de conferir, requisições simultâneas se enxergam e o limite vale de verdade (a versão
+ *   antiga, em arquivos, lia e gravava em passos separados e deixava passar rajadas).
+ * - registrar()/contar(): para quem só quer somar falhas e decidir depois (ex.: atraso por conta).
+ * - limpar(): zera a chave (depois de um acerto).
+ * A chave guardada é o sha1 de "chave|ação": nenhum IP ou e-mail em claro na tabela.
  */
+require_once __DIR__ . '/../config/database.php';
 
 class RateLimitService {
 
-    /** Diretório onde os contadores são armazenados */
-    private static function getDiretorio(): string {
-        $dir = __DIR__ . '/../../backend/logs/rate_limits/';
-        if (!is_dir($dir)) {
-            mkdir($dir, 0750, true);
+    private static ?PDO $db = null;
+
+    private static function db(): PDO {
+        if (self::$db === null) {
+            self::$db = (new Database())->getConnection();
         }
-        return $dir;
+        return self::$db;
+    }
+
+    private static function hash(string $chave, string $acao): string {
+        return sha1($chave . '|' . $acao);
     }
 
     /**
-     * Gera o caminho do arquivo de controle para um IP e ação
-     */
-    private static function getCaminho(string $ip, string $acao): string {
-        // Normaliza IP e ação para nome de arquivo seguro
-        $chave = preg_replace('/[^a-zA-Z0-9_\-]/', '_', $ip . '_' . $acao);
-        return self::getDiretorio() . $chave . '.json';
-    }
-
-    /**
-     * Carrega os dados de rate limit de um IP/ação
-     */
-    private static function carregar(string $ip, string $acao): array {
-        $caminho = self::getCaminho($ip, $acao);
-        if (!file_exists($caminho)) {
-            return ['tentativas' => 0, 'primeira_tentativa' => 0, 'bloqueado_ate' => 0];
-        }
-        $dados = json_decode(file_get_contents($caminho), true);
-        return is_array($dados) ? $dados : ['tentativas' => 0, 'primeira_tentativa' => 0, 'bloqueado_ate' => 0];
-    }
-
-    /**
-     * Persiste os dados de rate limit
-     */
-    private static function salvar(string $ip, string $acao, array $dados): void {
-        $caminho = self::getCaminho($ip, $acao);
-        file_put_contents($caminho, json_encode($dados), LOCK_EX);
-    }
-
-    /**
-     * Verifica se o IP está bloqueado para determinada ação.
-     *
-     * @param string $ip             Endereço IP do cliente
-     * @param string $acao           Identificador da ação (ex: 'login')
-     * @param int    $limite         Número máximo de tentativas permitidas
-     * @param int    $janela_segundos Janela de tempo em segundos
+     * Registra a tentativa e diz se ela passou do limite da janela.
      * @return array ['bloqueado' => bool, 'tentativas' => int, 'segundos_restantes' => int]
      */
-    public static function verificar(string $ip, string $acao, int $limite = 5, int $janela_segundos = 900): array {
-        $dados = self::carregar($ip, $acao);
-        $agora = time();
-
-        // Verifica se há bloqueio explícito ativo
-        if ($dados['bloqueado_ate'] > $agora) {
-            return [
-                'bloqueado'         => true,
-                'tentativas'        => $dados['tentativas'],
-                'segundos_restantes' => $dados['bloqueado_ate'] - $agora,
-            ];
+    public static function consumir(string $chave, string $acao, int $limite, int $janela_segundos): array {
+        self::registrar($chave, $acao);
+        $tentativas = self::contar($chave, $acao, $janela_segundos);
+        if ($tentativas <= $limite) {
+            return ['bloqueado' => false, 'tentativas' => $tentativas, 'segundos_restantes' => 0];
         }
+        // Libera quando a tentativa mais antiga da janela sair dela
+        $stmt = self::db()->prepare("SELECT TIMESTAMPDIFF(SECOND, NOW(), DATE_ADD(MIN(criado_em), INTERVAL ? SECOND))
+                                     FROM tentativas_acesso
+                                     WHERE chave = ? AND acao = ? AND criado_em > DATE_SUB(NOW(), INTERVAL ? SECOND)");
+        $stmt->execute([$janela_segundos, self::hash($chave, $acao), $acao, $janela_segundos]);
+        return ['bloqueado' => true, 'tentativas' => $tentativas, 'segundos_restantes' => max(1, (int) $stmt->fetchColumn())];
+    }
 
-        // Reseta janela se já expirou
-        if ($dados['primeira_tentativa'] > 0 && ($agora - $dados['primeira_tentativa']) > $janela_segundos) {
-            self::limpar($ip, $acao);
-            return ['bloqueado' => false, 'tentativas' => 0, 'segundos_restantes' => 0];
-        }
-
-        // Verifica limite de tentativas
-        if ($dados['tentativas'] >= $limite) {
-            // Aplica bloqueio
-            $dados['bloqueado_ate'] = $agora + $janela_segundos;
-            self::salvar($ip, $acao, $dados);
-            return [
-                'bloqueado'          => true,
-                'tentativas'         => $dados['tentativas'],
-                'segundos_restantes' => $janela_segundos,
-            ];
-        }
-
+    /**
+     * Só confere (sem registrar): bloqueado se já há $limite tentativas na janela.
+     * @return array ['bloqueado' => bool, 'tentativas' => int, 'segundos_restantes' => int]
+     */
+    public static function verificar(string $chave, string $acao, int $limite = 5, int $janela_segundos = 900): array {
+        $tentativas = self::contar($chave, $acao, $janela_segundos);
         return [
-            'bloqueado'          => false,
-            'tentativas'         => $dados['tentativas'],
-            'segundos_restantes' => 0,
+            'bloqueado'          => $tentativas >= $limite,
+            'tentativas'         => $tentativas,
+            'segundos_restantes' => $tentativas >= $limite ? $janela_segundos : 0,
         ];
     }
 
-    /**
-     * Registra uma tentativa falha para o IP/ação
-     */
-    public static function registrar(string $ip, string $acao): void {
-        $dados = self::carregar($ip, $acao);
-        $agora = time();
+    /** Registra uma tentativa (falha) para a chave/ação. */
+    public static function registrar(string $chave, string $acao): void {
+        self::db()->prepare("INSERT INTO tentativas_acesso (chave, acao) VALUES (?, ?)")
+            ->execute([self::hash($chave, $acao), $acao]);
 
-        if ($dados['primeira_tentativa'] === 0) {
-            $dados['primeira_tentativa'] = $agora;
+        // Faxina ocasional: nenhuma janela usada passa de 1 dia
+        if (random_int(1, 50) === 1) {
+            self::db()->exec("DELETE FROM tentativas_acesso WHERE criado_em < DATE_SUB(NOW(), INTERVAL 1 DAY)");
         }
-        $dados['tentativas']++;
-        self::salvar($ip, $acao, $dados);
     }
 
-    /**
-     * Limpa o contador para o IP/ação (chamado após sucesso)
-     */
-    public static function limpar(string $ip, string $acao): void {
-        $caminho = self::getCaminho($ip, $acao);
-        if (file_exists($caminho)) {
-            unlink($caminho);
-        }
+    /** Quantas tentativas a chave tem na janela. */
+    public static function contar(string $chave, string $acao, int $janela_segundos): int {
+        $stmt = self::db()->prepare("SELECT COUNT(*) FROM tentativas_acesso
+                                     WHERE chave = ? AND acao = ? AND criado_em > DATE_SUB(NOW(), INTERVAL ? SECOND)");
+        $stmt->execute([self::hash($chave, $acao), $acao, $janela_segundos]);
+        return (int) $stmt->fetchColumn();
+    }
+
+    /** Zera o contador da chave/ação (chamado após sucesso). */
+    public static function limpar(string $chave, string $acao): void {
+        self::db()->prepare("DELETE FROM tentativas_acesso WHERE chave = ? AND acao = ?")
+            ->execute([self::hash($chave, $acao), $acao]);
     }
 }
