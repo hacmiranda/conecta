@@ -241,12 +241,14 @@ function mostrarSelectComDescricao(titulo, mensagem, opcoes, callback) {
     const optionsDiv = document.getElementById('modal-select-options');
     optionsDiv.innerHTML = '';
 
+    // Opções como <button> (teclado); nome e descrição vêm do catálogo do banco: escapados
     opcoes.forEach((opcao) => {
-        const div = document.createElement('div');
+        const div = document.createElement('button');
+        div.type = 'button';
         div.className = 'select-option-descricao';
         div.innerHTML = `
-            <div class="opcao-nome">${opcao.nome}</div>
-            ${opcao.descricao ? `<div class="opcao-descricao">${opcao.descricao}</div>` : ''}
+            <span class="opcao-nome">${sanitizeHTML(String(opcao.nome ?? ''))}</span>
+            ${opcao.descricao ? `<span class="opcao-descricao">${sanitizeHTML(String(opcao.descricao))}</span>` : ''}
         `;
 
         div.onclick = function () {
@@ -263,10 +265,12 @@ function mostrarSelectComDescricao(titulo, mensagem, opcoes, callback) {
 
     document.getElementById('modal-overlay').classList.add('show');
     document.getElementById('modal-select').classList.add('show');
+    setTimeout(() => optionsDiv.querySelector('button')?.focus(), 100);
 }
 
 // Modal de prompt para observações
 function mostrarPromptObservacoes(titulo, mensagem, callback) {
+    restaurarModalPrompt(); // campo e rodapé de volta, mesmo se uma tela de edição foi fechada pelo ESC
     document.getElementById('modal-prompt-title').textContent = titulo;
     document.getElementById('modal-prompt-message').textContent = mensagem;
     document.getElementById('modal-prompt-input').value = '';

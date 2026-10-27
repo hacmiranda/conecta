@@ -1,0 +1,219 @@
+/*
+ * Sino de notificações (auditoria fase 7, 27/10/2026): antes os itens eram <div> com onclick e cores
+ * fixas em estilo inline (brancas também no modo escuro). Agora botões com classes e tokens.
+ */
+:root {
+    --notif-largura: 320px;
+    --notif-altura-max: 400px;
+    --notif-espaco-1: 0.25rem;
+    --notif-espaco-2: 0.5rem;
+    --notif-espaco-3: 0.75rem;
+    --notif-espaco-4: 1rem;
+    --notif-barra: 4px;
+    --notif-fundo: var(--branco);
+    --notif-fundo-nao-lida: var(--vinho-50);
+    --notif-barra-nao-lida: var(--vinho-600);
+    --notif-titulo: var(--neutro-800);
+    --notif-titulo-nao-lida: var(--vinho-900);
+    --notif-texto: var(--neutro-600);
+    --notif-texto-nao-lida: var(--vinho-700);
+    --notif-rodape: var(--neutro-600);
+    --notif-email-fundo: var(--laranja-50);
+    --notif-email-barra: var(--laranja-700);
+    --notif-email-titulo: var(--laranja-700);
+    --notif-perigo: var(--vinho-600);
+    --notif-borda: var(--neutro-200);
+}
+
+body.modo-escuro {
+    --notif-fundo: var(--neutro-800);
+    --notif-fundo-nao-lida: var(--neutro-900);
+    --notif-barra-nao-lida: var(--laranja-500);
+    --notif-titulo: var(--neutro-100);
+    --notif-titulo-nao-lida: var(--branco);
+    --notif-texto: var(--neutro-200);
+    --notif-texto-nao-lida: var(--laranja-100);
+    --notif-rodape: var(--neutro-200);
+    --notif-email-fundo: var(--neutro-900);
+    --notif-email-barra: var(--laranja-500);
+    --notif-email-titulo: var(--laranja-500);
+    --notif-perigo: var(--laranja-100);
+    --notif-borda: var(--neutro-600);
+}
+
+.nav-dropdown--notificacoes {
+    width: var(--notif-largura);
+    max-width: calc(100vw - 2 * var(--notif-espaco-4));
+    max-height: var(--notif-altura-max);
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+}
+
+.notif-dropdown-header {
+    padding: var(--notif-espaco-3) var(--notif-espaco-4);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: var(--notif-espaco-2);
+}
+
+.notif-cabecalho-titulo {
+    margin: 0;
+    font-size: 1rem;
+    flex-shrink: 0;
+}
+
+.notif-cabecalho-acoes {
+    display: flex;
+    gap: var(--notif-espaco-2);
+    align-items: center;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+}
+
+.notif-cabecalho-link,
+.notif-cabecalho-botao {
+    font: inherit;
+    font-size: 0.75rem;
+    color: var(--branco);
+    cursor: pointer;
+    white-space: nowrap;
+}
+
+.notif-cabecalho-link {
+    background: none;
+    border: 0;
+    padding: 0;
+    text-decoration: underline;
+}
+
+.notif-cabecalho-botao {
+    background: transparent;
+    border: 1px solid currentColor;
+    border-radius: var(--radius-sm);
+    padding: var(--notif-espaco-1) var(--notif-espaco-2);
+}
+
+.notif-cabecalho-botao:hover,
+.notif-cabecalho-link:hover {
+    background: var(--vinho-700);
+}
+
+/* No cabeçalho vinho, o anel de foco vinho não aparece: usa branco */
+.notif-dropdown-header :focus-visible {
+    outline-color: var(--branco);
+}
+
+.notif-dropdown-body {
+    overflow-y: auto;
+    flex: 1;
+    padding: var(--notif-espaco-2);
+}
+
+.notif-lista {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+}
+
+.notif-item {
+    background: var(--notif-fundo);
+    border-left: var(--notif-barra) solid transparent;
+    border-radius: var(--radius-sm);
+    box-shadow: var(--shadow-sm);
+    margin-bottom: var(--notif-espaco-2);
+}
+
+.notif-item--nao-lida {
+    background: var(--notif-fundo-nao-lida);
+    border-left-color: var(--notif-barra-nao-lida);
+}
+
+.notif-item--email {
+    border-left-color: var(--notif-borda);
+}
+
+.notif-item--email.notif-item--nao-lida {
+    background: var(--notif-email-fundo);
+    border-left-color: var(--notif-email-barra);
+}
+
+.notif-abrir {
+    display: block;
+    width: 100%;
+    padding: var(--notif-espaco-3);
+    border: 0;
+    background: none;
+    font: inherit;
+    text-align: left;
+    color: inherit;
+    cursor: pointer;
+}
+
+.notif-titulo,
+.notif-mensagem,
+.notif-rodape {
+    display: block;
+}
+
+.notif-titulo {
+    font-weight: 600;
+    font-size: 0.9rem;
+    color: var(--notif-titulo);
+    margin-bottom: var(--notif-espaco-1);
+}
+
+.notif-item--nao-lida .notif-titulo {
+    color: var(--notif-titulo-nao-lida);
+}
+
+.notif-item--email.notif-item--nao-lida .notif-titulo {
+    color: var(--notif-email-titulo);
+}
+
+.notif-mensagem {
+    font-size: 0.8rem;
+    line-height: 1.3;
+    color: var(--notif-texto);
+}
+
+.notif-item--nao-lida .notif-mensagem {
+    color: var(--notif-texto-nao-lida);
+}
+
+.notif-rodape {
+    font-size: 0.7rem;
+    color: var(--notif-rodape);
+    margin-top: var(--notif-espaco-1);
+    text-align: right;
+}
+
+.notif-acoes {
+    display: flex;
+    gap: var(--notif-espaco-2);
+    justify-content: flex-end;
+    padding: 0 var(--notif-espaco-3) var(--notif-espaco-3);
+}
+
+.notif-botao {
+    font: inherit;
+    font-size: 0.75rem;
+    padding: var(--notif-espaco-1) var(--notif-espaco-2);
+    border: 1px solid currentColor;
+    background: transparent;
+    color: var(--notif-email-titulo);
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+}
+
+.notif-botao--perigo {
+    color: var(--notif-perigo);
+}
+
+.notificacoes-vazio {
+    padding: var(--notif-espaco-4);
+    margin: 0;
+    text-align: center;
+    color: var(--notif-texto);
+}

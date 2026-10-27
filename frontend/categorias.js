@@ -46,10 +46,11 @@ function configurarPesquisaCategoria() {
 
     console.log('🔧 Configurando pesquisa de categoria...');
 
-    // Limpar eventos anteriores
-    input.removeEventListener('click', mostrarListaCategorias);
-    input.removeEventListener('focus', mostrarListaCategorias);
-    input.removeEventListener('input', filtrarCategorias);
+    // Cada configuração cancela os ouvintes da anterior (antes se acumulavam a cada abertura da tela:
+    // as setas pulavam vários itens e o clique fora disparava N vezes)
+    if (input._ouvintes) input._ouvintes.abort();
+    input._ouvintes = new AbortController();
+    const ouvintes = { signal: input._ouvintes.signal };
 
     // Renderizar todas as categorias inicialmente (ocultas)
     renderizarCategoriasForm(todasCategorias);
@@ -80,13 +81,13 @@ function configurarPesquisaCategoria() {
     }
 
     // Mostrar lista ao clicar no campo
-    input.addEventListener('click', mostrarListaCategorias);
+    input.addEventListener('click', mostrarListaCategorias, ouvintes);
 
     // Mostrar lista ao focar no campo
-    input.addEventListener('focus', mostrarListaCategorias);
+    input.addEventListener('focus', mostrarListaCategorias, ouvintes);
 
     // Filtrar ao digitar
-    input.addEventListener('input', filtrarCategorias);
+    input.addEventListener('input', filtrarCategorias, ouvintes);
 
     // Navegação por teclado
     input.addEventListener('keydown', function (e) {
@@ -136,14 +137,14 @@ function configurarPesquisaCategoria() {
             lista.classList.remove('show');
             input.blur();
         }
-    });
+    }, ouvintes);
 
     // Ocultar lista ao clicar fora
     document.addEventListener('click', function (e) {
         if (!e.target.closest('.categoria-container')) {
             lista.classList.remove('show');
         }
-    });
+    }, ouvintes);
 
     console.log('✅ Pesquisa de categoria configurada com sucesso!');
 }

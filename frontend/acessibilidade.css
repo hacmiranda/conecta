@@ -1,0 +1,387 @@
+/*
+ * Acessibilidade e interface (auditoria fase 7, 27/10/2026). Carregado por último no index.html.
+ * Só tokens (style.css / modern-enhancements.css); nada de hex solto.
+ */
+
+/* Espaçamentos usados aqui */
+:root {
+    --a11y-espaco-1: 0.25rem;
+    --a11y-espaco-2: 0.5rem;
+    --a11y-espaco-3: 0.75rem;
+    --a11y-espaco-4: 1rem;
+    --a11y-espaco-6: 1.5rem;
+    --a11y-espaco-8: 2rem;
+    --a11y-margem-celular: 16px;
+    --a11y-anel: 2px;
+}
+
+/* Modo escuro: laranja da marca volta a servir de texto (7,5:1 sobre o fundo escuro) e de anel de foco */
+body.modo-escuro {
+    --laranja-texto: var(--laranja-500);
+    --foco-anel: var(--laranja-500);
+}
+
+/* ---------- Foco visível (WCAG 2.4.7 / 2.4.11) ----------
+ * Um anel só, com contraste: vinho no claro, laranja no escuro. Antes 7 regras tiravam o contorno
+ * (outline: none) dos campos e o anel global era laranja claro (2,3:1 sobre branco). */
+*:focus-visible {
+    outline: var(--a11y-anel) solid var(--foco-anel);
+    outline-offset: var(--a11y-anel);
+}
+
+/* ---------- Opções dos modais de seleção (status, prioridade, subcategoria, responsável) ----------
+ * Agora são <button>: chegam pelo Tab e acionam com Enter/Espaço. Tira só a aparência padrão do
+ * botão; cores e bordas continuam vindo de .select-option / .select-option-descricao. */
+button.select-option,
+button.select-option-descricao {
+    display: block;
+    width: 100%;
+    font: inherit;
+    text-align: left;
+    appearance: none;
+}
+
+button.select-option {
+    width: calc(100% - var(--a11y-espaco-4));
+}
+
+/* Campo de pesquisa do modal de (sub)categoria (antes com estilo inline) */
+.modal-pesquisa-opcoes {
+    margin-bottom: var(--a11y-espaco-4);
+}
+
+.modal-pesquisa-opcoes input {
+    width: 100%;
+    padding: var(--a11y-espaco-2);
+    border: 1px solid var(--neutro-200);
+    border-radius: var(--radius-sm);
+}
+
+/* ---------- Cabeçalhos de tabela ordenáveis ----------
+ * O texto do <th> vira um <button> (teclado), e o <th> recebe aria-sort. */
+.th-ordenar {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--a11y-espaco-1);
+    padding: 0;
+    border: 0;
+    background: none;
+    color: inherit;
+    font: inherit;
+    text-transform: inherit;
+    letter-spacing: inherit;
+    cursor: pointer;
+}
+
+/* ---------- Tutorial como diálogo (antes com estilos inline) ---------- */
+.tutorial-card--centro h2,
+.tutorial-card--centro p {
+    text-align: center;
+}
+
+.tutorial-card--centro h2 {
+    margin-bottom: var(--a11y-espaco-4);
+}
+
+.tutorial-card--centro p {
+    font-size: 1.1rem;
+    margin-bottom: var(--a11y-espaco-8);
+}
+
+.tutorial-card--centro .tutorial-buttons {
+    justify-content: center;
+    gap: var(--a11y-espaco-4);
+}
+
+/* ---------- Celular ---------- */
+@media (max-width: 480px) {
+    /* Toast tinha largura mínima de 400 px e o contêiner ficava centrado por margem negativa
+     * (style.css): saía da tela */
+    .toast-container {
+        left: var(--a11y-margem-celular);
+        right: var(--a11y-margem-celular);
+        margin-left: 0;
+        width: auto;
+    }
+
+    .toast {
+        min-width: 0;
+        width: 100%;
+    }
+
+    /* Tutorial: o cartão é posicionado pelo JS junto ao elemento destacado; no celular fica preso
+     * à parte de baixo da tela, na largura dela (o !important vence a posição calculada pelo JS) */
+    .tutorial-card {
+        left: var(--a11y-margem-celular) !important;
+        right: var(--a11y-margem-celular);
+        top: auto !important;
+        bottom: var(--a11y-margem-celular);
+        max-width: none;
+    }
+
+    .tutorial-arrow {
+        display: none;
+    }
+}
+
+/* Nome e descrição dentro do botão de opção (eram <div>) */
+button.select-option-descricao .opcao-nome,
+button.select-option-descricao .opcao-descricao {
+    display: block;
+}
+
+/* ---------- Títulos que tinham cor laranja inline (2,3:1) ---------- */
+.titulo-secao-demandas {
+    color: var(--laranja-texto);
+    font-size: 1.8rem;
+    font-weight: bold;
+    margin: 0;
+}
+
+.titulo-interacoes {
+    font-size: 1.5rem;
+    font-weight: bold;
+    color: var(--laranja-texto);
+    margin-bottom: var(--a11y-espaco-6);
+}
+
+.campo-obrigatorio {
+    color: var(--vinho-600);
+}
+
+body.modo-escuro .campo-obrigatorio {
+    color: var(--laranja-500);
+}
+/* ---------- Barra de filtros e botões da lista de demandas (antes com estilo inline) ---------- */
+.barra-filtros-demandas {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: var(--a11y-espaco-4);
+    margin-bottom: var(--a11y-espaco-4);
+}
+
+.barra-filtros-demandas .filtros-rapidos {
+    padding: 0;
+}
+
+.btn-acao-lista {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--a11y-espaco-2);
+    padding: var(--a11y-espaco-3) var(--a11y-espaco-4);
+    font-weight: 600;
+    font-size: 0.95rem;
+    border-radius: var(--radius-sm);
+    box-shadow: var(--shadow-md);
+    transition: transform var(--transition-fast), background-color var(--transition-fast);
+}
+
+.btn-acao-lista .material-symbols-outlined {
+    font-size: 1.2rem;
+}
+
+.btn-acao-lista:hover {
+    transform: translateY(-1px);
+}
+
+.btn-acao-lista--visao {
+    background-color: var(--vinho-600);
+}
+
+.btn-acao-lista--visao:hover {
+    background-color: var(--vinho-900);
+}
+
+/* Verde-700 da paleta: branco sobre ele dá 6,5:1 (o #28a745 de antes dava 3,1:1) */
+.btn-acao-lista--nova {
+    background-color: var(--verde-700);
+}
+
+.btn-acao-lista--nova:hover {
+    background-color: var(--vinho-900);
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .btn-acao-lista:hover {
+        transform: none;
+    }
+}
+/* ---------- Visualizador de anexo (antes display por estilo inline) ---------- */
+.modal-anexo[hidden] {
+    display: none;
+}
+
+.modal-anexo:not([hidden]) {
+    display: block;
+}
+
+.anexo-aviso {
+    text-align: center;
+    padding: var(--a11y-espaco-8);
+}
+
+.anexo-aviso--erro {
+    color: var(--vinho-600);
+}
+
+body.modo-escuro .anexo-aviso--erro {
+    color: var(--laranja-500);
+}
+/* ---------- Kanban ---------- */
+.sla-badge--kanban {
+    display: inline-block;
+    margin: var(--a11y-espaco-1) 0 0;
+    font-size: 0.7rem;
+}
+
+/* Alternativa ao arrastar o cartão */
+.kanban-mover {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--a11y-espaco-1);
+    margin-top: var(--a11y-espaco-2);
+    padding: var(--a11y-espaco-1) var(--a11y-espaco-2);
+    font: inherit;
+    font-size: 0.75rem;
+    color: var(--vinho-600);
+    background: transparent;
+    border: 1px solid currentColor;
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+}
+
+.kanban-mover:hover {
+    background: var(--vinho-50);
+}
+
+body.modo-escuro .kanban-mover {
+    color: var(--laranja-500);
+}
+
+body.modo-escuro .kanban-mover:hover {
+    background: var(--neutro-900);
+}
+/* ---------- Modo escuro nos editores Quill (descrição, resposta, respostas rápidas) ----------
+ * Antes ficavam brancos com texto claro do tema escuro em volta e ícones pretos na barra. */
+body.modo-escuro .ql-toolbar.ql-snow,
+body.modo-escuro .ql-container.ql-snow {
+    border-color: var(--neutro-600);
+}
+
+body.modo-escuro .ql-toolbar.ql-snow {
+    background: var(--neutro-800);
+}
+
+body.modo-escuro .ql-container.ql-snow,
+body.modo-escuro .ql-editor {
+    background: var(--neutro-900);
+    color: var(--neutro-100);
+}
+
+body.modo-escuro .ql-editor.ql-blank::before {
+    color: var(--neutro-200);
+}
+
+body.modo-escuro .ql-snow .ql-stroke {
+    stroke: var(--neutro-100);
+}
+
+body.modo-escuro .ql-snow .ql-fill,
+body.modo-escuro .ql-snow .ql-stroke.ql-fill {
+    fill: var(--neutro-100);
+}
+
+body.modo-escuro .ql-snow .ql-picker,
+body.modo-escuro .ql-snow .ql-picker-label {
+    color: var(--neutro-100);
+}
+
+body.modo-escuro .ql-snow .ql-picker-options {
+    background: var(--neutro-800);
+    border-color: var(--neutro-600);
+}
+
+body.modo-escuro .ql-snow.ql-toolbar button:hover .ql-stroke,
+body.modo-escuro .ql-snow.ql-toolbar button.ql-active .ql-stroke,
+body.modo-escuro .ql-snow .ql-picker-label:hover .ql-stroke {
+    stroke: var(--laranja-500);
+}
+
+body.modo-escuro .ql-snow.ql-toolbar button:hover .ql-fill,
+body.modo-escuro .ql-snow.ql-toolbar button.ql-active .ql-fill {
+    fill: var(--laranja-500);
+}
+
+body.modo-escuro .ql-snow.ql-toolbar button:hover,
+body.modo-escuro .ql-snow.ql-toolbar button.ql-active,
+body.modo-escuro .ql-snow .ql-picker-label:hover,
+body.modo-escuro .ql-snow .ql-picker-item:hover {
+    color: var(--laranja-500);
+}
+
+body.modo-escuro .ql-snow .ql-tooltip {
+    background: var(--neutro-800);
+    color: var(--neutro-100);
+    border-color: var(--neutro-600);
+    box-shadow: var(--shadow-md);
+}
+
+body.modo-escuro .ql-snow .ql-tooltip input[type="text"] {
+    background: var(--neutro-900);
+    color: var(--neutro-100);
+    border-color: var(--neutro-600);
+}
+
+/* ---------- Busca das listas (antes com estilo inline) ---------- */
+.busca-avancada--linha {
+    display: flex;
+    align-items: center;
+    gap: var(--a11y-espaco-8);
+}
+
+@media (max-width: 768px) {
+    /* No celular a busca descia para fora da tela (largura fixa de 400 px): quebra a linha */
+    .busca-avancada--linha {
+        flex-wrap: wrap;
+        gap: var(--a11y-espaco-3);
+        width: 100%;
+    }
+
+    .busca-avancada--linha .input-busca {
+        width: 100%;
+        min-width: 0;
+    }
+}
+
+/* ---------- Modo escuro: botões e filtros da lista ----------
+ * ".modo-escuro .btn-small" (funcionalidades.css) pinta todo botão pequeno de verde; os dois botões
+ * da lista mantêm as próprias cores. A pílula ativa ficava igual às outras (a regra escura vinha
+ * depois, com a mesma especificidade). */
+body.modo-escuro .btn-acao-lista--visao {
+    background: var(--vinho-600);
+}
+
+body.modo-escuro .btn-acao-lista--visao:hover {
+    background: var(--vinho-900);
+}
+
+body.modo-escuro .btn-acao-lista--nova {
+    background: var(--verde-700);
+}
+
+body.modo-escuro .btn-acao-lista--nova:hover {
+    background: var(--vinho-900);
+}
+
+body.modo-escuro .filtro-pill {
+    color: var(--neutro-200);
+}
+
+body.modo-escuro .filtro-pill.ativo {
+    background: var(--vinho-600);
+    color: var(--branco);
+    border-color: var(--vinho-600);
+}
+

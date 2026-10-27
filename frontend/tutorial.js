@@ -214,36 +214,63 @@ function mostrarPasso(step) {
     const isWelcome = passo.isWelcome;
     const isFinal = passo.isFinal;
 
+    // Diálogo acessível: título ligado ao cartão, foco no botão principal, ESC pula o tutorial.
+    // Sem estilo nem onclick inline: classes do tutorial.css e acessibilidade.css + delegação (data-acao).
+    card.setAttribute("role", "dialog");
+    card.setAttribute("aria-modal", "true");
+    card.setAttribute("aria-labelledby", "tutorial-titulo");
+    card.setAttribute("aria-describedby", "tutorial-descricao");
+    card.classList.toggle("tutorial-card--centro", !!(isWelcome || isFinal));
+
     if (isWelcome) {
         card.innerHTML = `
-            <h2 style="text-align: center; margin-bottom: 1rem;">${passo.title}</h2>
-            <p style="text-align: center; font-size: 1.1rem; margin-bottom: 2rem;">${passo.description}</p>
-            <div class="tutorial-buttons" style="justify-content: center; gap: 1rem;">
-                <button class="btn-tutorial btn-tutorial-skip" onclick="pularTutorial()">Pular Tutorial</button>
-                <button class="btn-tutorial btn-tutorial-next" onclick="proximoPasso()">Iniciar Tutorial</button>
+            <h2 id="tutorial-titulo">${passo.title}</h2>
+            <p id="tutorial-descricao">${passo.description}</p>
+            <div class="tutorial-buttons">
+                <button type="button" class="btn-tutorial btn-tutorial-skip" data-acao="pular">Pular Tutorial</button>
+                <button type="button" class="btn-tutorial btn-tutorial-next" data-acao="proximo">Iniciar Tutorial</button>
             </div>
         `;
     } else if (isFinal) {
         card.innerHTML = `
-            <h2 style="text-align: center; margin-bottom: 1rem;">${passo.title}</h2>
-            <p style="text-align: center; font-size: 1.1rem; margin-bottom: 2rem;">${passo.description}</p>
-            <div class="tutorial-buttons" style="justify-content: center;">
-                <button class="btn-tutorial btn-tutorial-finish" onclick="finalizarTutorial()">Concluir</button>
+            <h2 id="tutorial-titulo">${passo.title}</h2>
+            <p id="tutorial-descricao">${passo.description}</p>
+            <div class="tutorial-buttons">
+                <button type="button" class="btn-tutorial btn-tutorial-finish" data-acao="concluir">Concluir</button>
             </div>
         `;
     } else {
         card.innerHTML = `
-            <h3>${passo.title}</h3>
-            <p>${passo.description}</p>
+            <h3 id="tutorial-titulo">${passo.title}</h3>
+            <p id="tutorial-descricao">${passo.description}</p>
             <div class="tutorial-footer">
                 <div class="tutorial-progress">${step + 1} de ${tutorialSteps.length}</div>
                 <div class="tutorial-buttons">
-                    <button class="btn-tutorial btn-tutorial-skip" onclick="pularTutorial()">Pular</button>
-                    <button class="btn-tutorial btn-tutorial-next" onclick="proximoPasso()">Próximo</button>
+                    <button type="button" class="btn-tutorial btn-tutorial-skip" data-acao="pular">Pular</button>
+                    <button type="button" class="btn-tutorial btn-tutorial-next" data-acao="proximo">Próximo</button>
                 </div>
             </div>
         `;
     }
+    ligarTecladoTutorial(card);
+    const principal = card.querySelector(".btn-tutorial-next, .btn-tutorial-finish");
+    if (principal) setTimeout(() => principal.focus(), 50);
+}
+
+// Botões do cartão (delegação) e ESC = pular. Ligado uma vez por cartão (o cartão é recriado a cada início).
+function ligarTecladoTutorial(card) {
+    if (card.dataset.ligado) return;
+    card.dataset.ligado = "1";
+    card.addEventListener("click", (ev) => {
+        const botao = ev.target.closest("[data-acao]");
+        if (!botao) return;
+        if (botao.dataset.acao === "pular") pularTutorial();
+        else if (botao.dataset.acao === "proximo") proximoPasso();
+        else if (botao.dataset.acao === "concluir") finalizarTutorial();
+    });
+    card.addEventListener("keydown", (ev) => {
+        if (ev.key === "Escape") { ev.preventDefault(); pularTutorial(); }
+    });
 }
 
 function criarSeta(targetRect, direction) {

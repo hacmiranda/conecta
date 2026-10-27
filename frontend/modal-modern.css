@@ -349,7 +349,6 @@
 }
 
 #pesquisa-categoria:focus {
-    outline: none;
     border-color: var(--vinho-600);
     box-shadow: 0 0 0 3px rgba(167, 36, 28, 0.1), 0 4px 12px rgba(0,0,0,0.1);
     transform: translateY(-1px);

@@ -627,7 +627,7 @@
 
 .kanban-ticket-id {
     font-weight: 700;
-    color: var(--laranja);
+    color: var(--laranja-texto);
     font-size: 0.85rem;
 }
 

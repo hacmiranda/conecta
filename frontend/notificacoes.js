@@ -145,60 +145,76 @@ function atualizarBadgeNotificacoes(quantidade) {
     }
 }
 
+// Lista do sino: <ul> de botões (teclado e leitor de tela), cores por classe (notificacoes.css, com
+// modo escuro) e um ouvinte delegado em #lista-notificacoes (sem onclick no HTML montado)
 function renderizarNotificacoes(notificacoes) {
     const lista = document.getElementById('lista-notificacoes');
     if (!lista) return;
+    ligarAcoesNotificacoes();
 
     if (!notificacoes || notificacoes.length === 0) {
-        lista.innerHTML = '<div style="padding: 1rem; text-align: center; color: #666;">Nenhuma notificação encontrada.</div>';
+        lista.innerHTML = '<p class="notificacoes-vazio">Nenhuma notificação encontrada.</p>';
         return;
     }
 
-    let html = '';
-    notificacoes.forEach(notif => {
+    const itens = notificacoes.map(notif => {
+        const naoLida = Number(notif.lida) === 0;
         if (notif._tipo === 'email_falha') {
-            const foiLida = notif.lida == 1;
-            const bgCor    = foiLida ? '#ffffff' : '#fffbeb';
-            const bordaCor = foiLida ? '#ddd6cd' : '#d97706';
-            const tituloCor = foiLida ? '#555' : '#92400e';
-            const msgCor    = foiLida ? '#777' : '#b45309';
-            const ultimaFalhaEsc = (notif._ultima_falha || '').replace(/'/g, "\\'");
-
-            html += `
-                <div style="background: ${bgCor}; border-left: 4px solid ${bordaCor}; padding: 0.8rem; margin-bottom: 0.5rem; border-radius: 4px; box-shadow: 0 1px 2px rgba(0,0,0,0.05);">
-                    <div onclick="fecharNavDropdown('notificacoes'); irParaLogEmails();" style="cursor: pointer;">
-                        <div style="font-weight: 600; font-size: 0.9rem; color: ${tituloCor}; margin-bottom: 0.3rem;">${sanitizeHTML(notif.titulo)}</div>
-                        <div style="font-size: 0.8rem; color: ${msgCor}; line-height: 1.3;">${sanitizeHTML(notif.mensagem)}</div>
-                        <div style="font-size: 0.7rem; color: #aaa; margin-top: 0.4rem; text-align: right;">Ver log de e-mails →</div>
-                    </div>
-                    <div style="display: flex; gap: 0.4rem; margin-top: 0.5rem; justify-content: flex-end;">
-                        ${!foiLida ? `<button onclick="event.stopPropagation(); _marcarEmailFalhaLida('${ultimaFalhaEsc}')" style="font-size: 0.7rem; padding: 2px 8px; border: 1px solid #d97706; background: transparent; color: #d97706; border-radius: 4px; cursor: pointer;">Marcar como lida</button>` : ''}
-                        <button onclick="event.stopPropagation(); _excluirEmailFalha('${ultimaFalhaEsc}')" style="font-size: 0.7rem; padding: 2px 8px; border: 1px solid #dc2626; background: transparent; color: #dc2626; border-radius: 4px; cursor: pointer;">Excluir</button>
-                    </div>
-                </div>
-            `;
-        } else {
-            const bgCor = notif.lida == 0 ? '#fff5f5' : '#ffffff';
-            const barraCor = notif.lida == 0 ? 'var(--vermelho, #e53e3e)' : 'transparent';
-            const txtCor = notif.lida == 0 ? '#c53030' : '#777';
-            const tituloCor = notif.lida == 0 ? '#9b2c2c' : '#555';
-
-            // Se a notificação tem ticket, clica nela e abre
-            const onclickAction = notif.ticket_id ? `abrirDetalhesNotificacao(${notif.id}, ${notif.ticket_id})` : `marcarNotificacaoLida(${notif.id})`;
-
-            html += `
-                <div onclick="${onclickAction}" style="background: ${bgCor}; border-left: 4px solid ${barraCor}; padding: 0.8rem; margin-bottom: 0.5rem; border-radius: 4px; box-shadow: 0 1px 2px rgba(0,0,0,0.05); cursor: pointer; transition: background 0.2s;">
-                    <div style="font-weight: 600; font-size: 0.9rem; color: ${tituloCor}; margin-bottom: 0.3rem;">${sanitizeHTML(notif.titulo)}</div>
-                    <div style="font-size: 0.8rem; color: ${txtCor}; line-height: 1.3;">${sanitizeHTML(notif.mensagem)}</div>
-                    <div style="font-size: 0.7rem; color: #aaa; margin-top: 0.4rem; text-align: right;">${new Date(notif.criado_em).toLocaleString('pt-BR')}</div>
-                </div>
-            `;
+            const ultima = sanitizeHTML(String(notif._ultima_falha || ''));
+            return `
+                <li class="notif-item notif-item--email${naoLida ? ' notif-item--nao-lida' : ''}">
+                    <button type="button" class="notif-abrir" data-acao="log-emails">
+                        <span class="notif-titulo">${sanitizeHTML(notif.titulo)}</span>
+                        <span class="notif-mensagem">${sanitizeHTML(notif.mensagem)}</span>
+                        <span class="notif-rodape">Ver log de e-mails →</span>
+                    </button>
+                    <span class="notif-acoes">
+                        ${naoLida ? `<button type="button" class="notif-botao" data-acao="email-lida" data-ultima="${ultima}">Marcar como lida</button>` : ''}
+                        <button type="button" class="notif-botao notif-botao--perigo" data-acao="email-excluir" data-ultima="${ultima}">Excluir</button>
+                    </span>
+                </li>`;
         }
+        const quando = new Date(notif.criado_em).toLocaleString('pt-BR');
+        return `
+            <li class="notif-item${naoLida ? ' notif-item--nao-lida' : ''}">
+                <button type="button" class="notif-abrir" data-acao="abrir" data-id="${Number(notif.id)}" data-ticket="${notif.ticket_id ? Number(notif.ticket_id) : ''}">
+                    <span class="notif-titulo">${naoLida ? '<span class="sr-only">Não lida: </span>' : ''}${sanitizeHTML(notif.titulo)}</span>
+                    <span class="notif-mensagem">${sanitizeHTML(notif.mensagem)}</span>
+                    <span class="notif-rodape">${sanitizeHTML(quando)}</span>
+                </button>
+            </li>`;
     });
-
-    lista.innerHTML = html;
+    lista.innerHTML = `<ul class="notif-lista">${itens.join('')}</ul>`;
 }
 
+// Ouvintes do sino: ligados uma vez (cabeçalho e lista)
+function ligarAcoesNotificacoes() {
+    const dropdown = document.getElementById('nav-notificacoes-dropdown');
+    if (!dropdown || dropdown.dataset.ligado) return;
+    dropdown.dataset.ligado = '1';
+    dropdown.addEventListener('click', (ev) => {
+        const alvo = ev.target.closest('[data-acao]');
+        if (!alvo || !dropdown.contains(alvo)) return;
+        ev.stopPropagation();
+        const acao = alvo.dataset.acao;
+        if (acao === 'abrir') {
+            const id = Number(alvo.dataset.id);
+            if (alvo.dataset.ticket) abrirDetalhesNotificacao(id, Number(alvo.dataset.ticket));
+            else marcarNotificacaoLida(id);
+        } else if (acao === 'log-emails') {
+            fecharNavDropdown('notificacoes');
+            irParaLogEmails();
+        } else if (acao === 'email-lida') {
+            _marcarEmailFalhaLida(alvo.dataset.ultima);
+        } else if (acao === 'email-excluir') {
+            _excluirEmailFalha(alvo.dataset.ultima);
+        } else if (acao === 'marcar-todas') {
+            marcarTodasComoLidas();
+        } else if (acao === 'excluir-todas') {
+            excluirTodasNotificacoes();
+        }
+    });
+}
 function marcarNotificacaoLida(id) {
     const xhr = new XMLHttpRequest();
     xhr.open('PUT', window.APP_CONFIG.apiBase + 'notificacoes.php?id=' + id, true);
@@ -239,7 +255,14 @@ function abrirDetalhesNotificacao(notifId, ticketId) {
     }
 }
 
+// Pede confirmação antes (antes apagava todas de uma vez, sem volta)
 function excluirTodasNotificacoes() {
+    mostrarConfirm('Excluir notificações', 'Excluir todas as suas notificações? Isso não pode ser desfeito.', function (confirmado) {
+        if (confirmado) executarExclusaoNotificacoes();
+    }, true);
+}
+
+function executarExclusaoNotificacoes() {
     const xhr = new XMLHttpRequest();
     xhr.open('DELETE', window.APP_CONFIG.apiBase + 'notificacoes.php', true);
     setSecurityHeaders(xhr);
@@ -249,7 +272,7 @@ function excluirTodasNotificacoes() {
             // Limpar lista imediatamente; SSE atualizará o badge
             const lista = document.getElementById('lista-notificacoes');
             if (lista) {
-                lista.innerHTML = '<div style="padding: 1rem; text-align: center; color: #666;">Nenhuma notificação encontrada.</div>';
+                lista.innerHTML = '<p class="notificacoes-vazio">Nenhuma notificação encontrada.</p>';
             }
             atualizarBadgeNotificacoes(0);
         }

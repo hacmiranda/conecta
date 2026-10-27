@@ -484,13 +484,19 @@ function configurarBuscaUsuarioAudit() {
 
     if (!input || !lista) return;
 
+    // Cada configuração cancela os ouvintes da anterior (antes se acumulavam a cada abertura da tela:
+    // as setas pulavam vários itens e o clique fora disparava N vezes)
+    if (input._ouvintes) input._ouvintes.abort();
+    input._ouvintes = new AbortController();
+    const ouvintes = { signal: input._ouvintes.signal };
+
     // Mostrar lista ao focar
     input.addEventListener('focus', function () {
         if (todosUsuariosAudit.length > 0) {
             renderizarUsuariosAudit(todosUsuariosAudit);
             lista.style.display = 'block';
         }
-    });
+    }, ouvintes);
 
     // Filtrar ao digitar
     input.addEventListener('input', function () {
@@ -506,14 +512,14 @@ function configurarBuscaUsuarioAudit() {
             renderizarUsuariosAudit(filtrados);
         }
         lista.style.display = 'block';
-    });
+    }, ouvintes);
 
     // Fechar ao clicar fora
     document.addEventListener('click', function (e) {
         if (!input.contains(e.target) && !lista.contains(e.target)) {
             lista.style.display = 'none';
         }
-    });
+    }, ouvintes);
 }
 
 // Renderizar lista de usuários
@@ -730,7 +736,7 @@ function mostrarRegistrosLoginAudit(registros) {
                 </div>
                 <div class="auditoria-body">
                     <div><strong>Usuário:</strong> ${sanitizeHTML(reg.usuario_nome || reg.email)}</div>
-                    <div><strong>Email:</strong> ${sanitizeHTML(reg.email)}</div>
+                    <div><strong>E-mail:</strong> ${sanitizeHTML(reg.email)}</div>
                     <div><strong>IP:</strong> ${sanitizeHTML(reg.ip_address || 'N/A')} | <strong>Host:</strong> ${sanitizeHTML(reg.hostname || 'N/A')}</div>
                     <div><strong>Navegador:</strong> ${formatarUserAgent(reg.user_agent)}</div>
                 </div>
@@ -840,7 +846,7 @@ function formatarAcaoLogin(acao) {
     const acoes = {
         'login_sucesso': 'Login Bem-sucedido',
         'login_falha': 'Tentativa de Login Falhou',
-        'logout': 'Logout'
+        'logout': 'Saída do sistema'
     };
     return acoes[acao] || sanitizeHTML(acao);
 }

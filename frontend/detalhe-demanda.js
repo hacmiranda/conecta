@@ -4,12 +4,12 @@
 // Download autenticado de anexo via fetch + Blob
 async function baixarAnexo(id, nomeOriginal) {
     try {
-        const resp = await fetch(`../api/controllers/anexos.php?id=${id}&action=download`, {
+        const resp = await fetch(`${window.APP_CONFIG.apiBase}anexos.php?id=${encodeURIComponent(id)}&action=download`, {
             headers: getAuthHeaders()
         });
         if (!resp.ok) {
             const err = await resp.json().catch(() => ({}));
-            alert('Erro ao baixar anexo: ' + (err.error || resp.statusText));
+            mostrarAlert('Erro', err.error || 'Não foi possível baixar o anexo.');
             return;
         }
         const blob = await resp.blob();
@@ -22,7 +22,7 @@ async function baixarAnexo(id, nomeOriginal) {
         a.remove();
         setTimeout(() => URL.revokeObjectURL(url), 10000);
     } catch (e) {
-        alert('Erro ao baixar anexo.');
+        mostrarAlert('Erro', 'Não foi possível baixar o anexo. Verifique a conexão.');
         console.error(e);
     }
 }
@@ -466,7 +466,7 @@ function mostrarDetalhesTicket(ticket) {
             </div>
 
             <div class="comentarios-section">
-                <h3 style="font-size: 1.5rem; font-weight: bold; color: var(--laranja); margin-bottom: 1.5rem;">Interações (${(ticket.comentarios || []).length})</h3>
+                <h3 class="titulo-interacoes">Interações (${(ticket.comentarios || []).length})</h3>
 
                 <div id="lista-comentarios">
                     ${comentariosHtml}
@@ -518,7 +518,7 @@ function mostrarDetalhesTicket(ticket) {
                         <input type="email" id="com-copia" placeholder="email@exemplo.com">
                     </div>
                     <div class="form-group">
-                        <label for="anexos-comentario">Anexos (máx. 5 arquivos, 20MB total):</label>
+                        <label for="anexos-comentario">Anexos (até 5 arquivos, 20 MB no total):</label>
                         <input type="file" id="anexos-comentario" multiple accept=".pdf,.doc,.docx,.txt,.csv,.xls,.xlsx,.png,.jpg,.jpeg" onchange="validarAnexosComentario()">
                         <div id="anexos-comentario-info" style="margin-top: 0.5rem; font-size: 0.9rem; color: #666;"></div>
                     </div>
@@ -529,12 +529,12 @@ function mostrarDetalhesTicket(ticket) {
                 </form>
             </div>
 
-            <div id="visualizador-anexo" class="modal-anexo" style="display: none;">
+            <div id="visualizador-anexo" class="modal-anexo" role="dialog" aria-modal="true" aria-labelledby="visualizador-anexo-titulo" hidden>
                 <div class="modal-anexo-content">
                     <div class="modal-anexo-header">
-                        <h3>Visualizar Anexo</h3>
-                        <button class="btn-close-anexo" onclick="fecharVisualizador()">
-                            <span>&times;</span>
+                        <h3 id="visualizador-anexo-titulo">Visualizar Anexo</h3>
+                        <button type="button" class="btn-close-anexo" onclick="fecharVisualizador()" aria-label="Fechar a visualização do anexo">
+                            <span aria-hidden="true">&times;</span>
                         </button>
                     </div>
                     <div class="modal-anexo-body">
@@ -562,17 +562,20 @@ async function visualizarAnexo(anexoId, tipoMime) {
         modal._blobUrl = null;
     }
 
-    conteudo.innerHTML = '<p style="text-align:center;padding:2rem;">Carregando...</p>';
-    modal.style.display = 'block';
+    conteudo.innerHTML = '<p class="anexo-aviso">Carregando...</p>';
+    // Diálogo: guarda quem abriu para devolver o foco ao fechar; foco no botão de fechar
+    modal._focoAnterior = document.activeElement;
+    modal.hidden = false;
+    modal.querySelector('.btn-close-anexo')?.focus();
 
     try {
-        const resp = await fetch(`../api/controllers/anexos.php?id=${anexoId}&action=view`, {
+        const resp = await fetch(`${window.APP_CONFIG.apiBase}anexos.php?id=${encodeURIComponent(anexoId)}&action=view`, {
             headers: getAuthHeaders()
         });
 
         if (!resp.ok) {
             const err = await resp.json().catch(() => ({}));
-            conteudo.innerHTML = `<p style="color:red;text-align:center;">Erro ao carregar anexo: ${err.error || resp.statusText}</p>`;
+            conteudo.innerHTML = `<p class="anexo-aviso anexo-aviso--erro" role="alert">Erro ao carregar anexo: ${sanitizeHTML(String(err.error || resp.statusText))}</p>`;
             return;
         }
 
@@ -590,11 +593,11 @@ async function visualizarAnexo(anexoId, tipoMime) {
         } else if (tipoMime.startsWith('image/')) {
             conteudo.innerHTML = `<img src="${blobUrl}" style="max-width: 100%; height: auto; display: block; margin: 0 auto;" alt="Visualização do anexo">`;
         } else {
-            conteudo.innerHTML = `<p>Tipo de arquivo não suportado para visualização: ${tipoMime}</p>`;
+            conteudo.innerHTML = `<p class="anexo-aviso">Tipo de arquivo não suportado para visualização: ${sanitizeHTML(String(tipoMime))}</p>`;
         }
     } catch (e) {
         console.error('Erro ao visualizar anexo:', e);
-        conteudo.innerHTML = '<p style="color:red;text-align:center;">Erro ao carregar o arquivo.</p>';
+        conteudo.innerHTML = '<p class="anexo-aviso anexo-aviso--erro" role="alert">Erro ao carregar o arquivo.</p>';
     }
 }
 
@@ -606,7 +609,9 @@ function fecharVisualizador() {
         URL.revokeObjectURL(modal._blobUrl);
         modal._blobUrl = null;
     }
-    modal.style.display = 'none';
+    modal.hidden = true;
+    if (modal._focoAnterior && document.contains(modal._focoAnterior)) modal._focoAnterior.focus();
+    modal._focoAnterior = null;
 }
 
 // Nota interna nunca vai por e-mail: ao marcar, desliga e trava "Enviar por e-mail"

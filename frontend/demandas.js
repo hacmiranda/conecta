@@ -468,12 +468,19 @@ function calcularTextoSLA(ticket) {
 
 
 // === MODO KANBAN ===
+// Conteúdo do botão que alterna lista/Kanban (ícone decorativo; o texto diz para onde vai)
+function rotuloBotaoVisao() {
+    return modoVisualizacaoTickets === 'lista'
+        ? '<span class="material-symbols-outlined" aria-hidden="true">view_kanban</span> Kanban'
+        : '<span class="material-symbols-outlined" aria-hidden="true">list_alt</span> Tabela';
+}
+
 function toggleVisaoTickets() {
     modoVisualizacaoTickets = modoVisualizacaoTickets === 'lista' ? 'kanban' : 'lista';
     localStorage.setItem('cd_ticketsModoView', modoVisualizacaoTickets);
     const btn = document.getElementById('btn-toggle-view');
     if (btn) {
-        btn.innerHTML = modoVisualizacaoTickets === 'lista' ? '<span class="material-symbols-outlined" style="font-size: 1.2rem; margin-right: 0.3rem;">view_kanban</span> Kanban' : '<span class="material-symbols-outlined" style="font-size: 1.2rem; margin-right: 0.3rem;">list_alt</span> Tabela';
+        btn.innerHTML = rotuloBotaoVisao();
     }
     // A lista vem paginada do servidor; o Kanban precisa de todas: recarrega no formato do novo modo
     paginaAtual = 1;
@@ -516,7 +523,7 @@ function renderizarKanbanTela(tickets) {
             const isNovaResposta = ticket.status === 'nova_resposta';
             const tituloSeguro = sanitizeHTML(ticket.titulo || '');
             const slaInfo = calcularTextoSLA(ticket);
-            const slaBadge = slaInfo ? `<span class="sla-badge ${slaInfo.classe}" style="display:inline-block; margin: 5px 0 0 0; font-size: 0.7rem;">⏱ ${slaInfo.texto}</span>` : '';
+            const slaBadge = slaInfo ? `<span class="sla-badge sla-badge--kanban ${slaInfo.classe}"><span aria-hidden="true">⏱</span> ${sanitizeHTML(slaInfo.texto)}</span>` : '';
 
             kanbanHTML += `
                 <div class="kanban-card ${isNovaResposta ? 'kanban-nova-resposta' : ''}" draggable="true" ondragstart="dragKanban(event)" data-id="${ticket.id}" onclick="verDetalhes(${ticket.id})">
@@ -533,6 +540,10 @@ function renderizarKanbanTela(tickets) {
                         <span class="kanban-agente">${sanitizeHTML(ticket.agente_nome || 'Livre')}</span>
                         <span class="kanban-data">${new Date(ticket.criado_em).toLocaleDateString('pt-BR')}</span>
                     </div>
+                    <button type="button" class="kanban-mover" data-acao="mover-kanban" data-id="${Number(ticket.id)}"
+                        aria-label="Mudar status da demanda ${sanitizeHTML(numeroDemanda(ticket))}">
+                        <span aria-hidden="true">⇄</span> Mudar status
+                    </button>
                 </div>
             `;
         });
@@ -543,6 +554,21 @@ function renderizarKanbanTela(tickets) {
 
     // Adicionar HTML na tela e ocultar paginação se houver placeholder
     listaTickets.innerHTML = kanbanHTML;
+    ligarMoverKanbanPorTeclado(listaTickets);}
+
+// Alternativa ao arrastar (teclado e leitor de tela): o botão "Mudar status" de cada cartão abre o
+// seletor de status, o mesmo da lista. Ouvinte na fase de captura, para o clique não abrir também o
+// detalhe da demanda (onclick do cartão). Ligado uma vez.
+function ligarMoverKanbanPorTeclado(container) {
+    if (container.dataset.moverKanban) return;
+    container.dataset.moverKanban = '1';
+    container.addEventListener('click', (ev) => {
+        const botao = ev.target.closest('[data-acao="mover-kanban"]');
+        if (!botao) return;
+        ev.stopPropagation();
+        const id = Number(botao.dataset.id);
+        alterarStatus(id, obterSetorIdDoTicket(id));
+    }, true);
 }
 
 // DRAG AND DROP API KANBAN
@@ -574,7 +600,7 @@ function mostrarTicketsNaTela(tickets) {
     // Atualizar estado visual do botão
     const btnToggle = document.getElementById('btn-toggle-view');
     if (btnToggle) {
-        btnToggle.innerHTML = modoVisualizacaoTickets === 'lista' ? '<span class="material-symbols-outlined" style="font-size: 1.2rem; margin-right: 0.3rem;">view_kanban</span> Kanban' : '<span class="material-symbols-outlined" style="font-size: 1.2rem; margin-right: 0.3rem;">list_alt</span> Tabela';
+        btnToggle.innerHTML = rotuloBotaoVisao();
     }
 
     // Atualizar contadores
@@ -630,7 +656,7 @@ function mostrarTicketsNaTela(tickets) {
     const ticketsPagina = doServidor ? tickets : tickets.slice(inicio, fim);
 
     let tabelaHTML = `
-        <table class="tickets-tabela" role="grid" aria-label="Lista de demandas abertas">
+        <table class="tickets-tabela" aria-label="Lista de demandas abertas">
             <thead>
                 <tr>
                     <th onclick="ordenarTabela('id')" class="sortable" data-campo="id" scope="col">Nº Demanda <span class="sort-arrows">↕</span></th>
@@ -668,7 +694,7 @@ function mostrarTicketsNaTela(tickets) {
         // SLA badge inline
         const slaInfo = calcularTextoSLA(ticket);
         const slaBadge = slaInfo
-            ? `<span class="sla-badge ${slaInfo.classe}" role="status" aria-label="SLA: ${slaInfo.texto}">⏱ ${slaInfo.texto}</span>` : '';
+            ? `<span class="sla-badge ${slaInfo.classe}"><span class="sr-only">SLA: </span><span aria-hidden="true">⏱</span> ${sanitizeHTML(slaInfo.texto)}</span>` : '';
 
         // Data formatada sem cor hardcoded
         const dataObj = new Date(ticket.criado_em);

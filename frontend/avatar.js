@@ -61,7 +61,7 @@ function loadImageToCrop(input) {
         
         // Validar tamanho (5MB)
         if (file.size > 5 * 1024 * 1024) {
-            mostrarToast('Arquivo muito grande. Máximo 5MB', 'error');
+            mostrarToast('Erro', 'Arquivo muito grande. Máximo de 5 MB.', 'error');
             return;
         }
         

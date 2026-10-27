@@ -22,7 +22,7 @@
 
 .tab-btn.active {
     border-bottom-color: var(--laranja);
-    color: var(--laranja);
+    color: var(--laranja-texto);
     font-weight: bold;
 }
 
@@ -221,14 +221,14 @@
     padding: 0.5rem 1rem;
     border: 1px solid var(--laranja);
     background: white;
-    color: var(--laranja);
+    color: var(--laranja-texto);
     border-radius: 4px;
     cursor: pointer;
     transition: all 0.3s;
 }
 
 .paginacao button:hover {
-    background: var(--laranja);
+    background: var(--laranja-fundo);
     color: white;
 }
 
@@ -262,7 +262,7 @@
 
 .estatistica-valor {
     font-weight: bold;
-    color: var(--laranja);
+    color: var(--laranja-texto);
 }
 
 /* Modo Escuro */

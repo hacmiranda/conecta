@@ -209,7 +209,6 @@ select {
 input:focus,
 textarea:focus,
 select:focus {
-    outline: none;
     border-color: var(--laranja);
     box-shadow: 0 0 0 4px rgba(248, 147, 39, 0.1);
     transform: translateY(-1px);
@@ -273,7 +272,7 @@ select:focus {
 
 .title-left .material-symbols-outlined {
     font-size: 1.25rem;
-    color: var(--laranja);
+    color: var(--laranja-texto);
 }
 
 .fcr-card {

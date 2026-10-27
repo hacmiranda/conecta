@@ -75,7 +75,7 @@ function mostrarFluxosEmail() {
                 <div class="email-card">
                     <div class="email-card-header" style="background: #5f5852;">
                         <span class="email-icon">📨</span>
-                        <h4>3. Comentário Recebido por Email</h4>
+                        <h4>3. Comentário Recebido por E-mail</h4>
                     </div>
                     <div class="email-card-body">
                         <div class="email-item">

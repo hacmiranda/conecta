@@ -156,7 +156,13 @@ function salvarMacro() {
 }
 
 function excluirMacro(id) {
-    if (!confirm('Tem certeza que deseja excluir esta macro?')) return;
+    // Modal do sistema (o confirm() nativo não segue o tema nem o padrão de acessibilidade dos modais)
+    mostrarConfirm('Excluir resposta rápida', 'Tem certeza que deseja excluir esta resposta rápida?', function (confirmado) {
+        if (confirmado) executarExclusaoMacro(id);
+    }, true);
+}
+
+function executarExclusaoMacro(id) {
 
     const xhr = new XMLHttpRequest();
     xhr.open('DELETE', `${window.APP_CONFIG.apiBase}macros.php?id=${id}`, true);

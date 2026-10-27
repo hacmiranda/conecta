@@ -10,6 +10,13 @@
     --laranja-500: #f89327;
     --laranja-100: #ffe6c7;
     --laranja-50: #fff3e3;
+    /* Laranja com contraste (WCAG AA): texto sobre fundo claro e fundo de texto branco (5,1:1).
+       O laranja da marca (#f89327) dá 2,3:1 com branco: fica para bordas, ícones e o modo escuro. */
+    --laranja-700: #a8590b;
+    --laranja-texto: var(--laranja-700);
+    --laranja-fundo: var(--laranja-700);
+    /* Anel de foco do teclado (3:1 ou mais sobre o fundo) */
+    --foco-anel: var(--vinho-600);
     --verde-500: #70ab2a;
     --verde-700: #2f6b12;
     --verde-50: #eef6e6;
@@ -525,7 +532,7 @@ main {
 
 .ticket-id {
     font-weight: bold;
-    color: var(--laranja);
+    color: var(--laranja-texto);
 }
 
 .status {
@@ -791,7 +798,7 @@ select {
 }
 
 .btn-small {
-    background-color: var(--laranja);
+    background-color: var(--laranja-fundo);
     color: white;
     border: none;
     padding: 0.6rem 1.2rem;
@@ -921,7 +928,7 @@ select {
 
 .btn-config.active {
     border-bottom-color: var(--laranja);
-    color: var(--laranja);
+    color: var(--laranja-texto);
     font-weight: bold;
 }
 
@@ -944,7 +951,7 @@ select {
 
 .aba-usuarios-btn[aria-selected="true"] {
     border-bottom-color: var(--laranja);
-    color: var(--laranja);
+    color: var(--laranja-texto);
     font-weight: bold;
 }
 
@@ -976,7 +983,7 @@ select {
 
 .usuario-info h4 {
     margin: 0 0 0.5rem 0;
-    color: var(--laranja);
+    color: var(--laranja-texto);
 }
 
 .usuario-info p {
@@ -1067,7 +1074,7 @@ select {
 }
 
 .modal-header {
-    background-color: var(--laranja);
+    background-color: var(--laranja-fundo);
     color: white;
     padding: 1rem;
     border-radius: 8px 8px 0 0;
@@ -1155,7 +1162,7 @@ select {
 }
 
 .select-option.selected {
-    background-color: var(--laranja);
+    background-color: var(--laranja-fundo);
     color: white;
     border-color: var(--laranja);
 }
@@ -1198,7 +1205,7 @@ select {
 }
 
 .categoria-item.selected {
-    background-color: var(--laranja);
+    background-color: var(--laranja-fundo);
     color: white;
 }
 
@@ -1242,7 +1249,7 @@ select {
 }
 
 .categoria-item-form.selected {
-    background-color: var(--laranja);
+    background-color: var(--laranja-fundo);
     color: white;
 }
 
@@ -1258,7 +1265,6 @@ select {
 
 #categoria-busca:focus {
     border-color: var(--laranja);
-    outline: none;
     box-shadow: 0 0 0 3px rgba(248, 147, 39, 0.1);
 }
 
@@ -1463,7 +1469,7 @@ select {
 .dashboard-number {
     font-size: 2rem;
     font-weight: bold;
-    color: var(--laranja);
+    color: var(--laranja-texto);
     text-align: center;
 }
 
@@ -1489,7 +1495,7 @@ select {
 
 .dashboard-item span:last-child {
     font-weight: bold;
-    color: var(--laranja);
+    color: var(--laranja-texto);
 }
 
 /* Relatórios */
@@ -1573,7 +1579,7 @@ select {
 .resumo-numero {
     font-size: 2rem;
     font-weight: bold;
-    color: var(--laranja);
+    color: var(--laranja-texto);
 }
 
 .relatorio-tabela {
@@ -1634,7 +1640,7 @@ select {
 
 @keyframes pulse-laranja-vermelho {
     0% {
-        background-color: var(--laranja);
+        background-color: var(--laranja-fundo);
         color: white;
         transform: scale(1);
     }
@@ -1646,7 +1652,7 @@ select {
     }
 
     100% {
-        background-color: var(--laranja);
+        background-color: var(--laranja-fundo);
         color: white;
         transform: scale(1);
     }
@@ -1827,7 +1833,7 @@ select {
 
 /* Visualizador de anexos */
 .btn-visualizar {
-    background-color: var(--laranja);
+    background-color: var(--laranja-fundo);
     color: white;
     border: none;
     padding: 0.25rem 0.5rem;
@@ -2031,7 +2037,7 @@ select {
     position: fixed;
     bottom: 20px;
     right: 20px;
-    background: var(--laranja);
+    background: var(--laranja-fundo);
     color: white;
     padding: 0.75rem 1rem;
     border-radius: 8px;
@@ -2062,7 +2068,7 @@ select {
 
 .btn-ajuda.active {
     border-bottom-color: var(--laranja);
-    color: var(--laranja);
+    color: var(--laranja-texto);
     font-weight: bold;
 }
 
@@ -2187,7 +2193,6 @@ select {
 }
 
 .input-busca:focus {
-    outline: none;
     border-color: var(--laranja);
 }
 
@@ -2323,7 +2328,7 @@ select {
 }
 
 .btn-laranja-modal {
-    background-color: var(--laranja);
+    background-color: var(--laranja-fundo);
     color: white;
 }
 
@@ -2346,7 +2351,7 @@ select {
 }
 
 .modal-header.laranja {
-    background-color: var(--laranja);
+    background-color: var(--laranja-fundo);
 }
 
 .modal-header.vermelho {
@@ -2423,7 +2428,7 @@ select {
 }
 
 .modal-anexo-header {
-    background-color: var(--laranja);
+    background-color: var(--laranja-fundo);
     color: white;
     padding: 1rem;
     display: flex;
@@ -2881,7 +2886,7 @@ select {
 }
 
 .select-option-descricao.selected {
-    background-color: var(--laranja);
+    background-color: var(--laranja-fundo);
     color: white;
     border-color: var(--laranja);
 }
@@ -3063,7 +3068,7 @@ select {
     margin-bottom: 1.5rem;
     padding-bottom: 0.75rem;
     border-bottom: 2px solid var(--laranja);
-    color: var(--laranja);
+    color: var(--laranja-texto);
 }
 
 #config-content {
@@ -3161,7 +3166,7 @@ select {
 
 .tutorial-card h3 {
     margin: 0 0 1rem 0;
-    color: var(--laranja);
+    color: var(--laranja-texto);
     font-size: 1.3rem;
 }
 
@@ -3210,7 +3215,7 @@ select {
 }
 
 .btn-tutorial-next {
-    background-color: var(--laranja);
+    background-color: var(--laranja-fundo);
     color: white;
 }
 
@@ -3233,7 +3238,7 @@ select {
 .tutorial-arrow {
     position: fixed;
     font-size: 4rem;
-    color: var(--laranja);
+    color: var(--laranja-texto);
     z-index: 10003;
     animation: bounce-arrow 1.5s infinite;
     text-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
@@ -3409,7 +3414,7 @@ input:disabled+.slider {
 }
 
 .config-section h4 {
-    color: var(--laranja);
+    color: var(--laranja-texto);
     margin-top: 0;
     margin-bottom: 1rem;
     font-size: 1.1rem;
@@ -3444,7 +3449,6 @@ input:disabled+.slider {
 }
 
 .config-section input:focus {
-    outline: none;
     border-color: var(--laranja);
     box-shadow: 0 0 0 3px rgba(248, 147, 39, 0.1);
 }

@@ -913,9 +913,10 @@ function mostrarToast(titulo, mensagem, tipo = 'info') {
     const toast = document.createElement('div');
     toast.className = `toast ${tipo}`;
 
+    // Título é texto; a mensagem pode ter formatação simples dos chamadores, limpa pelo DOMPurify
     toast.innerHTML = `
-        <div class="toast-header">${titulo}</div>
-        <div class="toast-body">${mensagem}</div>
+        <div class="toast-header">${sanitizeHTML(String(titulo))}</div>
+        <div class="toast-body">${htmlSeguro(String(mensagem ?? ''))}</div>
     `;
 
     container.appendChild(toast);
@@ -940,7 +941,7 @@ function mostrarAlert(titulo, mensagem, callback) {
     }
 
     document.getElementById('modal-alert-title').textContent = titulo;
-    document.getElementById('modal-alert-message').innerHTML = mensagem;
+    document.getElementById('modal-alert-message').innerHTML = htmlSeguro(String(mensagem ?? ''));
 
     const header = document.querySelector('#modal-alert .modal-header');
     const btnOk = document.querySelector('#modal-alert .btn-modal');
@@ -1006,8 +1007,29 @@ function mostrarConfirm(titulo, mensagem, callback, isPerigoso = false) {
     modalCallback = callback;
 }
 
+// O modal de texto (#modal-prompt) é reaproveitado pelas telas de edição (setores, usuários,
+// categorias, lembretes), que escondem o campo e trocam o rodapé e só desfazem isso nos próprios
+// botões. Fechando pelo ESC ou clicando fora, o próximo pedido de motivo (devolver, repassar,
+// transferir) abria sem campo de texto até recarregar a página. Todo pedido de texto restaura antes.
+let _rodapePromptOriginal = null;
+
+function restaurarModalPrompt() {
+    const rodape = document.querySelector('#modal-prompt .modal-footer');
+    if (_rodapePromptOriginal === null) {
+        _rodapePromptOriginal = rodape.innerHTML; // guardado no carregamento (DOMContentLoaded)
+    } else {
+        rodape.innerHTML = _rodapePromptOriginal;
+    }
+    const campo = document.getElementById('modal-prompt-input');
+    campo.style.display = '';
+    campo.hidden = false;
+    campo.value = '';
+    campo.placeholder = '';
+}
+
 // Prompt customizado
 function mostrarPrompt(titulo, mensagem, callback) {
+    restaurarModalPrompt();
     document.getElementById('modal-prompt-title').textContent = titulo;
     document.getElementById('modal-prompt-message').textContent = mensagem;
     document.getElementById('modal-prompt-input').value = '';
@@ -1024,68 +1046,51 @@ function mostrarSelect(titulo, mensagem, opcoes, callback) {
 
     const optionsDiv = document.getElementById('modal-select-options');
 
-    // Adicionar campo de pesquisa se for (sub)categoria
+    // Opções como <button>: chegam pelo Tab e acionam com Enter/Espaço (antes <div> com onclick,
+    // só mouse). Um ouvinte por renderização, sem acumular.
+    function criarOpcao(opcao) {
+        const botao = document.createElement('button');
+        botao.type = 'button';
+        botao.className = 'select-option';
+        botao.textContent = opcao.nome;
+        botao.addEventListener('click', function () {
+            document.querySelectorAll('.select-option').forEach(opt => opt.classList.remove('selected'));
+            botao.classList.add('selected');
+            setTimeout(() => selecionarModal(opcao), 200);
+        });
+        return botao;
+    }
+
+    // Campo de pesquisa se for (sub)categoria
     if (/categoria/i.test(titulo)) {
         optionsDiv.innerHTML = `
-            <div style="margin-bottom: 1rem;">
-                <input type="text" id="pesquisa-categoria" placeholder="Digite para pesquisar..." 
-                       style="width: 100%; padding: 0.5rem; border: 1px solid #ddd; border-radius: 4px;">
+            <div class="modal-pesquisa-opcoes">
+                <label for="pesquisa-categoria" class="sr-only">Pesquisar</label>
+                <input type="text" id="pesquisa-categoria" placeholder="Digite para pesquisar...">
             </div>
-            <div id="opcoes-lista"></div>
+            <div id="opcoes-lista" role="group" aria-label="Opções"></div>
         `;
 
         const pesquisaInput = document.getElementById('pesquisa-categoria');
         const opcoesLista = document.getElementById('opcoes-lista');
 
         function renderizarOpcoes(opcoesFiltradas) {
-            opcoesLista.innerHTML = '';
-            opcoesFiltradas.forEach((opcao) => {
-                const div = document.createElement('div');
-                div.className = 'select-option';
-                div.textContent = opcao.nome;
-                div.onclick = function () {
-                    document.querySelectorAll('.select-option').forEach(opt => opt.classList.remove('selected'));
-                    div.classList.add('selected');
-                    setTimeout(() => {
-                        selecionarModal(opcao);
-                    }, 200);
-                };
-                opcoesLista.appendChild(div);
-            });
+            opcoesLista.replaceChildren(...opcoesFiltradas.map(criarOpcao));
         }
 
-        // Renderizar todas as opções inicialmente
         renderizarOpcoes(opcoes);
 
-        // Filtrar ao digitar
+        // Filtrar ao digitar (o campo é recriado a cada abertura: o ouvinte não acumula)
         pesquisaInput.addEventListener('input', function () {
             const termo = this.value.toLowerCase();
-            const opcoesFiltradas = opcoes.filter(opcao =>
-                opcao.nome.toLowerCase().includes(termo)
-            );
-            renderizarOpcoes(opcoesFiltradas);
+            renderizarOpcoes(opcoes.filter(opcao => opcao.nome.toLowerCase().includes(termo)));
         });
 
-        // Focar no campo de pesquisa
         setTimeout(() => pesquisaInput.focus(), 100);
     } else {
-        // Modal normal sem pesquisa
-        optionsDiv.innerHTML = '';
-        opcoes.forEach((opcao) => {
-            const div = document.createElement('div');
-            div.className = 'select-option';
-            div.textContent = opcao.nome;
-            div.onclick = function () {
-                document.querySelectorAll('.select-option').forEach(opt => opt.classList.remove('selected'));
-                div.classList.add('selected');
-                setTimeout(() => {
-                    selecionarModal(opcao);
-                }, 200);
-            };
-            optionsDiv.appendChild(div);
-        });
+        optionsDiv.replaceChildren(...opcoes.map(criarOpcao));
+        setTimeout(() => optionsDiv.querySelector('button')?.focus(), 100);
     }
-
     document.getElementById('modal-overlay').classList.add('show');
     document.getElementById('modal-select').classList.add('show');
     modalSelectCallback = callback;
@@ -1390,11 +1395,13 @@ window.onclick = function (event) {
     }
 }
 
-// Atalhos de teclado
+// Atalhos de teclado: Alt+Shift+letra. Antes eram Alt+D/F/T, que já são do navegador (barra de
+// endereço, menu, ferramentas), e disparavam até digitando no editor de texto (contenteditable).
 document.addEventListener('keydown', function (e) {
-    // Ignorar atalhos se estiver digitando em input/textarea
-    if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') {
-        // Permitir apenas ESC em campos de texto
+    const alvo = e.target;
+    const digitando = alvo && (alvo.isContentEditable || ['INPUT', 'TEXTAREA', 'SELECT'].includes(alvo.tagName));
+    if (digitando) {
+        // Em campos de texto só o ESC (fecha o modal/visualizador)
         if (e.key === 'Escape') {
             fecharModal();
             fecharVisualizador();
@@ -1402,33 +1409,27 @@ document.addEventListener('keydown', function (e) {
         return;
     }
 
-    // Alt+N = Novo ticket
-    if (e.altKey && e.key === 'n') {
-        e.preventDefault();
-        mostrarSecao('novo');
-        setTimeout(() => {
-            if (todasCategorias.length > 0) {
-                configurarPesquisaCategoria();
-            }
-        }, 200);
+    if (e.altKey && e.shiftKey && !e.ctrlKey && !e.metaKey) {
+        const tecla = (e.code || '').replace('Key', '').toLowerCase();
+        const acoes = {
+            n: () => {
+                mostrarSecao('novo');
+                setTimeout(() => {
+                    if (todasCategorias.length > 0) configurarPesquisaCategoria();
+                }, 200);
+            },
+            d: () => mostrarDashboard(),
+            t: () => mostrarTicketsComAtualizacao(),
+            f: () => mostrarTicketsFechados(),
+        };
+        if (acoes[tecla]) {
+            e.preventDefault();
+            acoes[tecla]();
+        }
+        return;
     }
-    // Alt+D = Dashboard
-    else if (e.altKey && e.key === 'd') {
-        e.preventDefault();
-        mostrarDashboard();
-    }
-    // Alt+T = Tickets
-    else if (e.altKey && e.key === 't') {
-        e.preventDefault();
-        mostrarTicketsComAtualizacao();
-    }
-    // Alt+F = Fechados
-    else if (e.altKey && e.key === 'f') {
-        e.preventDefault();
-        mostrarTicketsFechados();
-    }
-    // ESC = Fechar modals
-    else if (e.key === 'Escape') {
+
+    if (e.key === 'Escape') {
         fecharModal();
         fecharVisualizador();
     }
@@ -1436,6 +1437,7 @@ document.addEventListener('keydown', function (e) {
 
 // Inicializar aplicação
 document.addEventListener('DOMContentLoaded', function () {
+    restaurarModalPrompt(); // guarda o rodapé original do modal de texto
     // Verificar se há usuário logado (o token fica no cookie HttpOnly; se tiver expirado, a primeira
     // chamada à API responde 401 e tratarRespostaDeSessao leva ao login)
     const usuario = localStorage.getItem('cd_usuario');

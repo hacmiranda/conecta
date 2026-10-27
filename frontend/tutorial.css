@@ -51,7 +51,7 @@
 
 .tutorial-card h3 {
     margin: 0 0 1rem 0;
-    color: var(--laranja);
+    color: var(--laranja-texto);
     font-size: 1.3rem;
 }
 
@@ -96,7 +96,7 @@
 }
 
 .btn-tutorial-next {
-    background: var(--laranja);
+    background: var(--laranja-fundo);
     color: white;
 }
 

@@ -10,24 +10,26 @@
     <meta property="og:type" content="website">
     <title>Conecta CRPRS</title>
     <link rel="icon" type="image/png" href="images/logo_vazado.png">
-    <link rel="stylesheet" href="style.css?v=3.10.c9">
+    <link rel="stylesheet" href="style.css?v=3.10.c9.f7">
     <link rel="stylesheet" href="historico.css?v=c1">
-    <link rel="stylesheet" href="modal-modern.css?v=c1">
-    <link rel="stylesheet" href="funcionalidades.css?v=c5">
+    <link rel="stylesheet" href="modal-modern.css?v=c1.f7">
+    <link rel="stylesheet" href="funcionalidades.css?v=c5.f7">
     <link rel="stylesheet" href="status-sla.css?v=c1">
     <link rel="stylesheet" href="responsive.css?v=c2">
-    <link rel="stylesheet" href="tutorial.css?v=c1">
+    <link rel="stylesheet" href="tutorial.css?v=c1.f7">
     <link rel="stylesheet" href="lembretes.css?v=2.c1">
-    <link rel="stylesheet" href="auditoria.css?v=c1">
-    <link rel="stylesheet" href="modern-enhancements.css?v=c5">
+    <link rel="stylesheet" href="auditoria.css?v=c1.f7">
+    <link rel="stylesheet" href="modern-enhancements.css?v=c5.f7">
     <link rel="stylesheet" href="nova_resposta.css?v=c1">
     <link rel="stylesheet" href="email-alert.css?v=c1">
     <link rel="stylesheet" href="nav-dropdown.css?v=2.c1">
     <link rel="stylesheet" href="sidebar.css?v=5.c4">
     <link rel="stylesheet" href="senha-visivel.css?v=1.c1">
-    <link rel="stylesheet" href="tickets-melhorias.css?v=7.c7">
+    <link rel="stylesheet" href="tickets-melhorias.css?v=7.c7.f7">
     <link rel="stylesheet" href="vanguard-tooltip.css?v=c1">
     <link rel="stylesheet" href="dashboard-redesign.css?v=c1">
+    <link rel="stylesheet" href="notificacoes.css?v=1.f7">
+    <link rel="stylesheet" href="acessibilidade.css?v=3.f7">
     <!-- Material Symbols para ícones da tabela -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -48,7 +50,7 @@
     <a href="#conteudo-principal" class="skip-link">Pular para o conteúdo principal</a>
     <div class="app-shell">
     <aside class="sidebar" id="app-sidebar" aria-label="Menu de navegação">
-        <div class="sidebar-logo" role="banner" aria-label="Identificação do sistema">
+        <div class="sidebar-logo">
             <!-- Marca: o símbolo do CRPRS faz o papel do "C" de Conecta -->
             <img src="images/logo_vazado.png" alt="" class="marca-conecta-c">
             <div class="sidebar-logo-texto">
@@ -73,7 +75,7 @@
                             <span id="header-avatar-iniciais"></span>
                         </div>
                         <div class="avatar-face avatar-face-back" aria-hidden="true">
-                            <span class="material-symbols-outlined">more_vert</span>
+                            <span class="material-symbols-outlined" aria-hidden="true">more_vert</span>
                         </div>
                     </div>
                 </div>
@@ -85,7 +87,7 @@
             </button>
 
             <!-- Dropdown do avatar -->
-            <div class="header-avatar-dropdown" id="header-avatar-dropdown" role="menu" aria-hidden="true">
+            <div class="header-avatar-dropdown" id="header-avatar-dropdown" aria-hidden="true">
                 <div class="header-avatar-dropdown-header">
                     <div class="header-avatar-circle-sm" id="header-avatar-circle-sm">
                         <span id="header-avatar-iniciais-sm"></span>
@@ -96,32 +98,32 @@
                     </div>
                 </div>
                 <div class="header-avatar-dropdown-divider"></div>
-                <button class="had-item" role="menuitem" onclick="abrirModalMacros(); fecharAvatarDropdown();">
+                <button class="had-item" onclick="abrirModalMacros(); fecharAvatarDropdown();">
                     ⚡ Respostas Rápidas
                 </button>
-                <button class="had-item" role="menuitem" id="btn-alterar-avatar">
+                <button class="had-item" id="btn-alterar-avatar">
                     📷 Alterar Avatar
                 </button>
-                <button class="had-item" role="menuitem" onclick="toggleModoEscuro(); fecharAvatarDropdown();">
+                <button class="had-item" onclick="toggleModoEscuro(); fecharAvatarDropdown();">
                     <span id="icone-modo-escuro">🌙</span>
                     <span id="texto-modo-escuro">Modo Escuro</span>
                 </button>
-                <button class="had-item" role="menuitem"
+                <button class="had-item"
                     onclick="mostrarAlterarSenha(); fecharAvatarDropdown();">
                     🔑 Alterar Senha
                 </button>
-                <button class="had-item" role="menuitem"
+                <button class="had-item"
                     onclick="mostrarSobre(); fecharAvatarDropdown();">
                     ℹ️ Sobre
                 </button>
-                <a class="had-item" role="menuitem" href="politica-privacidade.html">
+                <a class="had-item" href="politica-privacidade.html">
                     🔒 Política de Privacidade
                 </a>
                 <div class="header-avatar-dropdown-divider"></div>
-                <button class="had-item had-item--danger" role="menuitem" onclick="fazerLogout()">
+                <button class="had-item had-item--danger" onclick="fazerLogout()">
                     🚪 Sair
                 </button>
-                <button class="had-item had-item--danger" role="menuitem" onclick="sairDeTodosOsDispositivos()">
+                <button class="had-item had-item--danger" onclick="sairDeTodosOsDispositivos()">
                     🔐 Sair de todos os dispositivos
                 </button>
             </div>
@@ -137,22 +139,22 @@
         <nav class="sidebar-nav" aria-label="Menu principal">
             <ul role="list">
             <li><button onclick="mostrarSecao('tickets'); carregarTickets()" class="btn-nav nav-link active"
-                id="btn-nav-tickets"><span class="material-symbols-outlined nav-icon">confirmation_number</span><span class="nav-label">Demandas</span></button></li>
+                id="btn-nav-tickets"><span class="material-symbols-outlined nav-icon" aria-hidden="true">confirmation_number</span><span class="nav-label">Demandas</span></button></li>
             <li><button onclick="mostrarSecao('fechados'); carregarTicketsFechados()" class="btn-nav nav-link"
-                id="btn-nav-arquivo"><span class="material-symbols-outlined nav-icon">archive</span><span class="nav-label">Arquivo</span></button></li>
+                id="btn-nav-arquivo"><span class="material-symbols-outlined nav-icon" aria-hidden="true">archive</span><span class="nav-label">Arquivo</span></button></li>
             <li id="nav-lixeira-item" hidden><button onclick="mostrarLixeira()" class="btn-nav nav-link"
-                id="btn-nav-lixeira"><span class="material-symbols-outlined nav-icon">delete</span><span class="nav-label">Lixeira</span></button></li>
-            <li><button onclick="mostrarDashboard()" class="btn-nav nav-link" id="btn-nav-dashboard"><span class="material-symbols-outlined nav-icon">dashboard</span><span class="nav-label">Dashboard</span></button></li>
-            <li><button onclick="mostrarRelatorios()" class="btn-nav nav-link" id="btn-nav-relatorios"><span class="material-symbols-outlined nav-icon">bar_chart</span><span class="nav-label">Relatórios</span></button></li>
+                id="btn-nav-lixeira"><span class="material-symbols-outlined nav-icon" aria-hidden="true">delete</span><span class="nav-label">Lixeira</span></button></li>
+            <li><button onclick="mostrarDashboard()" class="btn-nav nav-link" id="btn-nav-dashboard"><span class="material-symbols-outlined nav-icon" aria-hidden="true">dashboard</span><span class="nav-label">Dashboard</span></button></li>
+            <li><button onclick="mostrarRelatorios()" class="btn-nav nav-link" id="btn-nav-relatorios"><span class="material-symbols-outlined nav-icon" aria-hidden="true">bar_chart</span><span class="nav-label">Relatórios</span></button></li>
 
             <!-- Menu Ajuda -->
             <li class="nav-group">
             <div class="nav-dropdown-wrapper" id="nav-ajuda-wrapper">
                 <button class="btn-nav nav-group-toggle" id="btn-nav-ajuda" onclick="toggleNavDropdown('ajuda')" aria-haspopup="true"
                     aria-expanded="false" aria-controls="nav-ajuda-dropdown">
-                    <span class="material-symbols-outlined nav-icon">help</span>
+                    <span class="material-symbols-outlined nav-icon" aria-hidden="true">help</span>
                     <span class="nav-label">Ajuda</span>
-                    <span class="material-symbols-outlined nav-group-caret">expand_more</span>
+                    <span class="material-symbols-outlined nav-group-caret" aria-hidden="true">expand_more</span>
                 </button>
                 <div class="nav-dropdown" id="nav-ajuda-dropdown">
                     <button class="nav-dropdown-item" data-subsecao="sla"
@@ -165,7 +167,7 @@
                         Prioridades</button>
                     <button class="nav-dropdown-item" data-subsecao="fluxos-email"
                         onclick="mostrarAjuda(); mostrarFluxosEmail()">📧 Fluxos de
-                        Email</button>
+                        E-mail</button>
                     <button class="nav-dropdown-item" data-subsecao="atalhos"
                         onclick="mostrarAjuda(); mostrarAtalhosGuia()">⌨️ Atalhos de
                         Teclado</button>
@@ -183,9 +185,9 @@
             <div class="nav-dropdown-wrapper" id="nav-config-wrapper">
                 <button class="btn-nav nav-group-toggle" id="btn-nav-config" onclick="toggleNavDropdown('config')"
                     aria-haspopup="true" aria-expanded="false" aria-controls="nav-config-dropdown">
-                    <span class="material-symbols-outlined nav-icon">settings</span>
+                    <span class="material-symbols-outlined nav-icon" aria-hidden="true">settings</span>
                     <span class="nav-label">Configurações</span>
-                    <span class="material-symbols-outlined nav-group-caret">expand_more</span>
+                    <span class="material-symbols-outlined nav-group-caret" aria-hidden="true">expand_more</span>
                 </button>
                 <div class="nav-dropdown" id="nav-config-dropdown">
                     <button class="nav-dropdown-item" id="btn-config-setores" data-subsecao="setores"
@@ -205,7 +207,7 @@
                         Horários e Feriados</button>
                     <button class="nav-dropdown-item" id="btn-config-email" data-subsecao="config-email"
                         onclick="mostrarSecao('config'); document.getElementById('config-content').innerHTML=''; mostrarConfigEmail()">📧
-                        Configurar Email</button>
+                        Configurar E-mail</button>
                     <button class="nav-dropdown-item" id="btn-config-personalizacao" data-subsecao="personalizacao"
                         onclick="mostrarSecao('config'); document.getElementById('config-content').innerHTML=''; mostrarPersonalizacao()">🎨
                         Personalização</button>
@@ -221,26 +223,21 @@
             <div class="nav-dropdown-wrapper" id="nav-notificacoes-wrapper">
                 <button class="btn-nav nav-link" id="btn-nav-notificacoes" onclick="toggleNavDropdown('notificacoes')"
                     aria-haspopup="true" aria-expanded="false" aria-controls="nav-notificacoes-dropdown">
-                    <span class="material-symbols-outlined nav-icon">notifications</span>
+                    <span class="material-symbols-outlined nav-icon" aria-hidden="true">notifications</span>
                     <span class="nav-label">Notificações</span>
                     <span id="badge-notificacoes" class="badge-notificacoes" style="display: none;"></span>
                 </button>
                 <!-- Dropdown Notificacoes -->
-                <div class="nav-dropdown" id="nav-notificacoes-dropdown"
-                    style="width: 320px; padding: 0; overflow: hidden; max-height: 400px; display: flex; flex-direction: column;">
-                    <div class="notif-dropdown-header"
-                        style="padding: 0.75rem 1rem; display: flex; justify-content: space-between; align-items: center; gap: 0.5rem;">
-                        <h4 style="margin: 0; font-size: 1rem; flex-shrink: 0;">Alertas</h4>
-                        <div style="display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap; justify-content: flex-end;">
-                            <button onclick="marcarTodasComoLidas()"
-                                style="background: none; border: none; color: rgba(255,255,255,0.85); cursor: pointer; font-size: 0.75rem; text-decoration: underline; white-space: nowrap; padding: 0;">Marcar lidas</button>
-                            <button onclick="excluirTodasNotificacoes()"
-                                style="background: rgba(255,255,255,0.15); border: 1px solid rgba(255,255,255,0.35); color: white; cursor: pointer; font-size: 0.75rem; border-radius: 4px; padding: 0.2rem 0.55rem; white-space: nowrap; transition: background 0.15s;" onmouseover="this.style.background='rgba(255,255,255,0.28)'" onmouseout="this.style.background='rgba(255,255,255,0.15)'">Excluir todos</button>
+                <div class="nav-dropdown nav-dropdown--notificacoes" id="nav-notificacoes-dropdown">
+                    <div class="notif-dropdown-header">
+                        <h4 class="notif-cabecalho-titulo">Alertas</h4>
+                        <div class="notif-cabecalho-acoes">
+                            <button type="button" class="notif-cabecalho-link" data-acao="marcar-todas">Marcar lidas</button>
+                            <button type="button" class="notif-cabecalho-botao" data-acao="excluir-todas">Excluir todas</button>
                         </div>
                     </div>
-                    <div id="lista-notificacoes" class="notif-dropdown-body"
-                        style="overflow-y: auto; flex: 1; padding: 0.5rem;">
-                        <div style="padding: 1rem; text-align: center; color: #666;">Carregando...</div>
+                    <div id="lista-notificacoes" class="notif-dropdown-body">
+                        <p class="notificacoes-vazio">Carregando...</p>
                     </div>
                 </div>
             </div>
@@ -255,8 +252,8 @@
         <section id="tickets" class="secao active">
             <div class="tickets-header">
                 <div class="tickets-titulo">
-                    <h2 style="color: var(--laranja); font-size: 1.8rem; font-weight: bold; margin: 0;">🎫 Demandas Abertas
-                        <span id="total-tickets-abertos" style="color: var(--laranja);"></span>
+                    <h2 class="titulo-secao-demandas"><span aria-hidden="true">🎫</span> Demandas Abertas
+                        <span id="total-tickets-abertos"></span>
                     </h2>
                     <!-- Aviso de nova resposta do solicitante: sempre visível ao lado do título, mesmo com muitas linhas -->
                     <div id="alerta-nova-resposta-area" role="status" aria-live="polite">
@@ -265,7 +262,7 @@
                     </div>
                 </div>
                 <div class="tickets-actions">
-                    <div class="busca-avancada" style="display: flex; align-items: center; gap: 2rem;">
+                    <div class="busca-avancada busca-avancada--linha">
                         <label class="switch-label"
                             data-vg-tooltip="Altera a visualização para focar apenas nas demandas atribuídas ao seu usuário logado."
                             data-vg-title="FILTRO PESSOAL">
@@ -297,10 +294,8 @@
                 </div>
             </div>
             <!-- Filtros e Ações secundárias -->
-            <div
-                style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem; margin-bottom: 1rem;">
-                <div class="filtros-rapidos" id="filtros-rapidos-container" aria-label="Filtros rápidos por status"
-                    style="padding: 0;">
+            <div class="barra-filtros-demandas">
+                <div class="filtros-rapidos" id="filtros-rapidos-container" role="group" aria-label="Filtros rápidos por status">
                     <span class="filtros-rapidos-label">Filtrar:</span>
                     <button class="filtro-pill ativo" data-status="todos" onclick="aplicarFiltroPill(this)">
                         Todos <span class="filtro-pill-count" id="pill-count-todos"></span>
@@ -322,19 +317,14 @@
                     </button>
                 </div>
                 <div style="display: flex; gap: 0.5rem; align-items: center; margin-left: auto;">
-                    <button onclick="toggleVisaoTickets()" class="btn-small" id="btn-toggle-view"
-                        style="background-color: #a7241c; display: inline-flex; align-items: center; gap: 0.4rem; padding: 0.6rem 1.2rem; font-weight: 600; font-size: 0.95rem; box-shadow: 0 4px 12px rgba(167, 36, 28, 0.3); border-radius: 8px; transition: transform 0.2s, background 0.2s;"
-                        onmouseover="this.style.backgroundColor='#5e130e'; this.style.transform='translateY(-1px)'"
-                        onmouseout="this.style.backgroundColor='#a7241c'; this.style.transform='translateY(0)'">
-                        <span class="material-symbols-outlined" style="font-size: 1.2rem;">view_kanban</span> Kanban
+                    <button type="button" onclick="toggleVisaoTickets()" class="btn-small btn-acao-lista btn-acao-lista--visao" id="btn-toggle-view">
+                        <span class="material-symbols-outlined" aria-hidden="true">view_kanban</span> Kanban
                     </button>
-                    <button onclick="mostrarSecao('novo')" class="btn-small" id="btn-novo-ticket"
-                        style="background-color: #28a745; display: inline-flex; align-items: center; gap: 0.4rem; padding: 0.6rem 1.2rem; font-weight: 600; font-size: 0.95rem; box-shadow: 0 4px 12px rgba(40,167,69,0.3); border-radius: 8px; transition: transform 0.2s, background 0.2s;"
-                        onmouseover="this.style.backgroundColor='#218838'; this.style.transform='translateY(-1px)'"
-                        onmouseout="this.style.backgroundColor='#28a745'; this.style.transform='translateY(0)'">
-                        <span class="material-symbols-outlined" style="font-size: 1.2rem;">add_circle</span> Nova Demanda
+                    <button type="button" onclick="mostrarSecao('novo')" class="btn-small btn-acao-lista btn-acao-lista--nova" id="btn-novo-ticket">
+                        <span class="material-symbols-outlined" aria-hidden="true">add_circle</span> Nova Demanda
                     </button>
                 </div>
+            </div>
 
                 <div id="lista-tickets"
                     style="width: 100%; overflow-x: auto; box-sizing: border-box; padding-bottom: 1rem;">
@@ -355,7 +345,7 @@
             <div class="tickets-header">
                 <h2 style="color: #5f5852; font-size: 1.8rem; font-weight: bold; margin: 0;">🏁 Demandas Encerradas</h2>
                 <div class="tickets-actions">
-                    <div class="busca-avancada" style="display: flex; align-items: center; gap: 2rem;">
+                    <div class="busca-avancada busca-avancada--linha">
                         <div id="filtro-arquivo-wrapper" class="filtro-arquivo">
                             <label for="filtro-arquivo-escopo" class="filtro-arquivo-label">Exibir:</label>
                             <select id="filtro-arquivo-escopo" class="filtro-arquivo-select"
@@ -372,11 +362,11 @@
                             </label>
                             <span>Minhas Demandas</span>
                         </label>
-                        <input type="text" id="busca-fechados"
+                        <input type="text" id="busca-fechados" aria-label="Buscar no arquivo por título, descrição ou solicitante"
                             placeholder="🔍 Buscar por título, descrição ou solicitante..." class="input-busca"
                             data-vg-tooltip="Pesquisa profunda no arquivo morto. Insira nomes ou termos da demanda já fechada."
                             data-vg-title="ARQUIVO MORTO" oninput="aplicarBuscaFechadosComDebounce()">
-                        <button onclick="limparBuscaFechados()" class="btn-limpar-busca"
+                        <button type="button" onclick="limparBuscaFechados()" class="btn-limpar-busca" aria-label="Limpar a busca do arquivo"
                             data-vg-tooltip="Zerar filtro do arquivo morto." data-vg-title="AÇÃO RÁPIDA">✕</button>
                     </div>
                     <button onclick="toggleModoMergeFechados()" class="btn-merge" id="btn-merge-fechados">🔗 Mesclar
@@ -581,7 +571,7 @@
                 </div>
 
                 <div class="form-group">
-                    <label for="categoria">Subcategoria: <span style="color: red;">*</span></label>
+                    <label for="categoria-busca">Subcategoria: <span class="campo-obrigatorio" aria-hidden="true">*</span><span class="sr-only">(obrigatório)</span></label>
                     <div class="categoria-container">
                         <input type="text" id="categoria-busca"
                             placeholder="Clique aqui ou digite para buscar subcategoria..." autocomplete="off" required>
@@ -603,16 +593,16 @@
                 </div>
 
                 <div class="form-group">
-                    <label for="anexos">Anexos (máx. 5 arquivos, 20MB total):</label>
+                    <label for="anexos">Anexos (até 5 arquivos, 20 MB no total):</label>
                     <input type="file" id="anexos" multiple
                         accept=".pdf,.doc,.docx,.txt,.csv,.xls,.xlsx,.png,.jpg,.jpeg">
                     <div
                         style="background: linear-gradient(135deg, #fbeceb 0%, #fbeceb 100%); border: 1px solid #a7241c; border-radius: 8px; padding: 0.75rem; margin-top: 0.5rem; font-size: 0.85rem;">
                         <div style="color: #2b2523; margin-bottom: 0.25rem;">
-                            📎 <strong>Tipos aceitos:</strong> PDF, DOC, DOCX, TXT, CSV, XLS, XLSX, PNG, JPG, ZIP, RAR
+                            📎 <strong>Tipos aceitos:</strong> PDF, DOC, DOCX, TXT, CSV, XLS, XLSX, PNG, JPG/JPEG
                         </div>
                         <div style="color: #2b2523;">
-                            📏 <strong>Limite:</strong> Máximo 5 arquivos com 20MB no total
+                            📏 <strong>Limite:</strong> até 5 arquivos, 20 MB no total
                         </div>
                     </div>
                     <div id="anexos-info" class="anexos-info"></div>
@@ -678,7 +668,7 @@
             </div>
             <div class="modal-body">
                 <p id="modal-prompt-message"></p>
-                <input type="text" id="modal-prompt-input" class="modal-input">
+                <input type="text" id="modal-prompt-input" class="modal-input" aria-labelledby="modal-prompt-title modal-prompt-message">
             </div>
             <div class="modal-footer">
                 <button onclick="promptModal(null)" class="btn-voltar" data-fecha-modal>Cancelar</button>
@@ -842,7 +832,7 @@
                     <img id="imageToCrop" alt="Visualização do avatar para edição" style="max-width: 100%;">
                 </div>
                 <div style="display: flex; align-items: center; gap: 1rem;">
-                    <label style="font-size: 0.9rem; font-weight: 600;">Zoom:</label>
+                    <label for="zoomSlider" style="font-size: 0.9rem; font-weight: 600;">Zoom:</label>
                     <input type="range" id="zoomSlider" min="0.1" max="3" step="0.1" value="1" style="flex: 1;">
                     <button type="button" onclick="resetCrop()"
                         style="font-size: 0.85rem; color: var(--laranja); background: none; border: none; cursor: pointer;">Resetar</button>
@@ -870,32 +860,32 @@
     <script src="lib/purify.min.js"></script>
     <script src="canvas-tooltip.js?v=c1"></script>
     <script src="vanguard-tooltip.js?v=2.c1"></script>
-    <script src="script.js?v=4.28.f6"></script>
+    <script src="script.js?v=4.28.f6.f7"></script>
     <script src="api.js?v=1.c1"></script>
     <script src="setores.js?v=1.c2"></script>
     <script src="lixeira.js?v=1.c9"></script>
     <script src="usuarios.js?v=3.c2"></script>
-    <script src="categorias.js?v=2.c1"></script>
+    <script src="categorias.js?v=2.c1.f7"></script>
     <script src="ativacao-setor.js?v=1.c9"></script>
-    <script src="relatorios.js?v=2.c8"></script>
+    <script src="relatorios.js?v=2.c8.f7"></script>
     <script src="configuracoes.js?v=1.c2"></script>
-    <script src="ajuda.js?v=1.c1"></script>
+    <script src="ajuda.js?v=1.c1.f7"></script>
     <script src="dashboard.js?v=1.c1"></script>
-    <script src="auditoria.js?v=1.c8"></script>
+    <script src="auditoria.js?v=1.c8.f7"></script>
     <script src="arquivo.js?v=1.c9.f6"></script>
     <script src="editor-imagens.js?v=3"></script>
-    <script src="detalhe-demanda.js?v=2.d3"></script>
-    <script src="demandas.js?v=3.c2.f6"></script>
-    <script src="acessibilidade.js?v=1.c1"></script>
+    <script src="detalhe-demanda.js?v=2.d3.f7"></script>
+    <script src="demandas.js?v=3.c2.f6.f7"></script>
+    <script src="acessibilidade.js?v=1.c1.f7"></script>
     <script src="graficos-dashboard.js?v=c2"></script>
-    <script src="status-sla.js?v=3.0.c1"></script>
-    <script src="tutorial.js?v=3.7.c1"></script>
+    <script src="status-sla.js?v=3.0.c1.f7"></script>
+    <script src="tutorial.js?v=3.7.c1.f7"></script>
     <script src="lembretes.js?v=2.c2"></script>
-    <script src="fluxos-email-func.js?v=c8"></script>
+    <script src="fluxos-email-func.js?v=c8.f7"></script>
     <script src="horarios-sla.js?v=2.1.c1"></script>
-    <script src="macros.js?v=1.2.c7"></script>
-    <script src="notificacoes.js?v=2.2.c2.f6"></script>
-    <script src="avatar.js?v=1.7.c1"></script>
+    <script src="macros.js?v=1.2.c7.f7"></script>
+    <script src="notificacoes.js?v=3.f7"></script>
+    <script src="avatar.js?v=1.7.c1.f7"></script>
     <script src="cabecalho-setor.js?v=1.0.c1"></script>
 
     <!-- Botão Voltar ao Topo -->

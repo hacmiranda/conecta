@@ -127,14 +127,69 @@
         });
     });
 
+    // ===================== A4: cabeçalhos de tabela ordenáveis =====================
+    // <th class="sortable" onclick="ordenar…"> só funcionava com o mouse. O conteúdo vai para dentro de
+    // um <button> (Tab + Enter/Espaço; o clique sobe até o onclick do <th>) e o <th> ganha aria-sort,
+    // lido da seta que as telas já mostram (↑ crescente, ↓ decrescente, ↕ sem ordem).
+    function atualizarAriaSort(th) {
+        const seta = th.querySelector('.sort-arrows');
+        const s = seta ? seta.textContent.trim() : '';
+        th.setAttribute('aria-sort', s === '↑' ? 'ascending' : (s === '↓' ? 'descending' : 'none'));
+    }
+
+    function tornarOrdenavel(th) {
+        if (!th.querySelector('.th-ordenar')) {
+            const botao = document.createElement('button');
+            botao.type = 'button';
+            botao.className = 'th-ordenar';
+            while (th.firstChild) botao.appendChild(th.firstChild);
+            th.appendChild(botao);
+            const seta = botao.querySelector('.sort-arrows');
+            if (seta) seta.setAttribute('aria-hidden', 'true');
+        }
+        atualizarAriaSort(th);
+    }
+
+    function varrerOrdenaveis(raiz) {
+        if (raiz.matches && raiz.matches('th.sortable')) tornarOrdenavel(raiz);
+        if (raiz.querySelectorAll) raiz.querySelectorAll('th.sortable').forEach(tornarOrdenavel);
+    }
+
+    // Visualizador de anexo: Tab fica dentro dele enquanto aberto; ESC fecha
+    document.addEventListener('keydown', function (ev) {
+        const visualizador = document.getElementById('visualizador-anexo');
+        if (!visualizador || visualizador.hidden) return;
+        if (ev.key === 'Escape') {
+            ev.preventDefault();
+            if (typeof fecharVisualizador === 'function') fecharVisualizador();
+            return;
+        }
+        if (ev.key === 'Tab') {
+            const alvos = elementosFocaveis(visualizador);
+            if (!alvos.length) return;
+            if (ev.shiftKey && document.activeElement === alvos[0]) {
+                ev.preventDefault();
+                alvos[alvos.length - 1].focus();
+            } else if (!ev.shiftKey && document.activeElement === alvos[alvos.length - 1]) {
+                ev.preventDefault();
+                alvos[0].focus();
+            }
+        }
+    });
+
     // ===================== Conteúdo renderizado dinamicamente =====================
     // Telas e modais são montados via innerHTML depois do carregamento inicial: um observer
     // no <body> garante que A1/A2 continuem valendo para o que a aplicação cria depois.
     const observerConteudo = new MutationObserver(function (mutacoes) {
         mutacoes.forEach(function (m) {
+            // Seta de ordenação trocada depois da montagem da tabela: atualiza o aria-sort
+            const alvo = m.target.nodeType === 1 ? m.target : m.target.parentElement;
+            const th = alvo && alvo.closest ? alvo.closest('th.sortable') : null;
+            if (th) atualizarAriaSort(th);
             m.addedNodes.forEach(function (n) {
                 if (n.nodeType !== 1) return;
                 varrerClicaveis(n);
+                varrerOrdenaveis(n);
                 observarModais(n);
             });
         });
@@ -142,8 +197,9 @@
 
     function iniciar() {
         varrerClicaveis(document);
+        varrerOrdenaveis(document);
         observarModais(document);
-        observerConteudo.observe(document.body, { childList: true, subtree: true });
+        observerConteudo.observe(document.body, { childList: true, subtree: true, characterData: true });
     }
 
     if (document.readyState === 'loading') {

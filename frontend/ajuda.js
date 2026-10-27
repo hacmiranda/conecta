@@ -372,22 +372,22 @@ function mostrarAtalhosGuia() {
 
             <div class="atalho-item">
                 <span>Criar nova demanda</span>
-                <span class="atalho-tecla">Alt + N</span>
+                <span class="atalho-tecla">Alt + Shift + N</span>
             </div>
 
             <div class="atalho-item">
                 <span>Ir para lista de demandas</span>
-                <span class="atalho-tecla">Alt + T</span>
+                <span class="atalho-tecla">Alt + Shift + T</span>
             </div>
 
             <div class="atalho-item">
                 <span>Abrir dashboard</span>
-                <span class="atalho-tecla">Alt + D</span>
+                <span class="atalho-tecla">Alt + Shift + D</span>
             </div>
 
             <div class="atalho-item">
                 <span>Ver demandas fechadas</span>
-                <span class="atalho-tecla">Alt + F</span>
+                <span class="atalho-tecla">Alt + Shift + F</span>
             </div>
 
             <div class="atalho-item">
@@ -411,7 +411,7 @@ function mostrarAtalhosGuia() {
 function mostrarDicaAtalhos() {
     const dica = document.createElement('div');
     dica.className = 'atalhos-info';
-    dica.innerHTML = 'Alt+N: Novo | Alt+T: Demandas | Alt+D: Dashboard | Alt+F: Fechados';
+    dica.textContent = 'Atalhos (Alt+Shift+): N Novo | T Demandas | D Dashboard | F Arquivo';
     document.body.appendChild(dica);
 
     setTimeout(() => dica.classList.add('show'), 1000);
