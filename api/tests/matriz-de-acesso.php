@@ -368,6 +368,39 @@ try {
     [$c] = req('DELETE', "$cfgAtiv?acao=tipo&id=$tipoRestante", $T['gestorA']);
     verifica('atividade já registrada não pode ser excluída (409)', $c === 409, (string) $c);
 
+    echo "\n[7f] Acompanhamento das atividades (admin: todos; gestor: só o próprio setor; operador: nada)\n";
+    $acomp = $baseUrl . 'atividades-acompanhamento.php';
+    [$c] = req('GET', "$acomp?acao=painel", $T['operadorA']);
+    verifica('operador não abre o Painel de Atividades (403)', $c === 403, (string) $c);
+    [$c, $j] = req('GET', "$acomp?acao=painel&setor_id=$setorB", $T['gestorA']);
+    $setoresVistos = array_column($j['setores'] ?? [], 'id');
+    verifica('gestor só vê o próprio setor, mesmo pedindo outro (200)', $c === 200 && !in_array((int) $setorB, array_map('intval', $setoresVistos), true), (string) $c);
+    [$c] = req('GET', "$acomp?acao=relatorio&usuario_id=$gestorB", $T['gestorA']);
+    verifica('gestor não filtra o relatório por servidor de outro setor (403)', $c === 403, (string) $c);
+    [$c] = req('GET', "$acomp?acao=detalhe&id=$regA", $T['gestorB']);
+    verifica('gestor de outro setor não abre o relatório enviado (404)', $c === 404, (string) $c);
+    [$c, $j] = req('GET', "$acomp?acao=detalhe&id=$regA", $T['gestorA']);
+    verifica('gestor do setor abre o relatório enviado com os itens (200)', $c === 200 && count($j['itens'] ?? []) === 1, (string) $c);
+    [$c] = req('POST', "$acomp?acao=abonar", $T['gestorB'], ['usuario_id' => $operadorA, 'data' => '2026-01-07', 'tipo' => 'entrega', 'justificativa' => 'zz_matriz abono']);
+    verifica('gestor de outro setor não abona (403)', $c === 403, (string) $c);
+    [$c] = req('POST', "$acomp?acao=abonar", $T['gestorA'], ['usuario_id' => $operadorA, 'data' => '2026-01-07', 'tipo' => 'entrega', 'justificativa' => 'zz']);
+    verifica('justificativa curta é recusada (400)', $c === 400, (string) $c);
+    [$c] = req('POST', "$acomp?acao=abonar", $T['gestorA'], ['usuario_id' => $operadorA, 'data' => '2026-01-05', 'tipo' => 'entrega', 'justificativa' => 'zz_matriz abono']);
+    verifica('dia já enviado não é abonado (409)', $c === 409, (string) $c);
+    [$c] = req('POST', "$acomp?acao=abonar", $T['gestorA'], ['usuario_id' => $operadorA, 'data' => '2026-01-07', 'tipo' => 'entrega', 'justificativa' => 'zz_matriz abono']);
+    $abonoMatriz = (int) $db->query("SELECT id FROM atividades_abonos WHERE usuario_id = " . (int) $operadorA . " AND data_referencia = '2026-01-07'")->fetchColumn();
+    verifica('gestor do setor abona a pendência (200)', $c === 200 && $abonoMatriz > 0, (string) $c);
+    [$c] = req('DELETE', "$acomp?acao=abono&id=$abonoMatriz", $T['gestorB']);
+    verifica('gestor de outro setor não remove o abono (403)', $c === 403, (string) $c);
+    [$c] = req('DELETE', "$acomp?acao=abono&id=$abonoMatriz", $T['gestorA']);
+    verifica('gestor do setor remove o abono (200)', $c === 200, (string) $c);
+    [$c] = req('GET', "$acomp?acao=cruzamento&usuario_id=$gestorB", $T['gestorA']);
+    verifica('cruzamento de servidor de outro setor é recusado (403)', $c === 403, (string) $c);
+    [$c] = req('GET', "$acomp?acao=historico&data_ini=2026-01-01&data_fim=2026-12-31", $T['admin']);
+    verifica('admin vê o histórico de ausências de todos (200)', $c === 200, (string) $c);
+    [$c] = req('GET', "$acomp?acao=historico&data_ini=2024-01-01&data_fim=2026-12-31", $T['admin']);
+    verifica('período maior que um ano é recusado (400)', $c === 400, (string) $c);
+
     echo "\n[7e] Meu Painel (repassa ao METRICA360 pelo e-mail do usuário logado)\n";
     $painel = $baseUrl . 'meu-painel.php';
     [$c, $j] = req('GET', "$painel?acao=acesso", $T['operadorA']);
@@ -435,6 +468,7 @@ try {
         $db->exec("DELETE FROM registros_atividades WHERE usuario_id IN ($idsUsuarios)");
         $db->exec("DELETE FROM auditoria WHERE tabela = 'registros_atividades' AND usuario_id IN ($idsUsuarios)");
         $db->exec("DELETE FROM auditoria WHERE tabela LIKE 'atividades_config_%' AND registro_id IN ($idsUsuarios)");
+        $db->exec("DELETE FROM auditoria WHERE tabela = 'atividades_abonos' AND usuario_id IN ($idsUsuarios)");
     }
     $db->exec("DELETE FROM atividades_tipos WHERE nome LIKE 'zz_matriz_%'");
     $db->exec("DELETE FROM auditoria WHERE tabela = 'atividades_tipos' AND (dados_novos LIKE '%zz_matriz_%' OR dados_anteriores LIKE '%zz_matriz_%')");

@@ -23,6 +23,16 @@ async function verificarAcessoMeuPainel() {
     }
 }
 
+// Ao recarregar a página: só reabre o painel se o usuário ainda tem acesso; senão volta às demandas
+async function restaurarMeuPainel() {
+    try {
+        const r = await Api.get('meu-painel.php?acao=acesso');
+        if (r.existe && r.atendimento_externo) return mostrarMeuPainel();
+    } catch (e) { /* sem acesso ou METRICA360 fora: cai nas demandas */ }
+    mostrarSecao('tickets');
+    carregarTickets();
+}
+
 function mostrarMeuPainel() {
     mostrarSecao('meu-painel');
     carregarMeuPainel();

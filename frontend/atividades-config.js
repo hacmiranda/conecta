@@ -263,8 +263,10 @@ async function alterarTipoCfg(id, dados, caixa) {
 }
 
 function renomearTipoCfg(id, nome) {
-    mostrarPrompt('Renomear atividade', 'Novo nome da atividade:', async (novo) => {
-        if (novo === null || novo === undefined || !String(novo).trim()) return;
+    mostrarPrompt('Renomear atividade', 'Novo nome da atividade:', async (confirmado) => {
+        // O modal devolve só true/false; o texto fica no campo do próprio modal
+        const novo = document.getElementById('modal-prompt-input').value;
+        if (!confirmado || !novo.trim()) return;
         try {
             await Api.put(`atividades-config.php?acao=tipo&id=${id}`, { nome: String(novo).trim() });
             mostrarToast('Sucesso', 'Atividade renomeada.', 'success');

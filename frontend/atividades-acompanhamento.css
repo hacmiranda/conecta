@@ -1,0 +1,572 @@
+/*
+ * Acompanhamento do Registro de Atividades (Painel, Relatório, Histórico de ausências, Cruzamento).
+ * Só tokens de style.css; modo escuro por variáveis. Cores do gráfico lidas pelo JS destas variáveis.
+ */
+#atividades {
+    --acomp-espaco-1: 0.25rem;
+    --acomp-espaco-2: 0.5rem;
+    --acomp-espaco-3: 0.75rem;
+    --acomp-espaco-4: 1rem;
+    --acomp-espaco-6: 1.5rem;
+    --acomp-fundo: var(--branco);
+    --acomp-borda: var(--neutro-200);
+    --acomp-texto: var(--neutro-800);
+    --acomp-texto-suave: var(--neutro-600);
+    --acomp-cabecalho: var(--neutro-100);
+    --acomp-ok-fundo: var(--verde-50);
+    --acomp-ok-texto: var(--verde-700);
+    --acomp-atraso-fundo: var(--vinho-50);
+    --acomp-atraso-texto: var(--vinho-900);
+    --acomp-aviso-fundo: var(--laranja-50);
+    --acomp-aviso-texto: var(--laranja-texto);
+    --acomp-grafico-barra: var(--laranja-500);
+    --acomp-grafico-linha: var(--vinho-900);
+}
+
+body.modo-escuro #atividades {
+    --acomp-fundo: var(--neutro-800);
+    --acomp-borda: var(--neutro-600);
+    --acomp-texto: var(--neutro-100);
+    --acomp-texto-suave: var(--neutro-200);
+    --acomp-cabecalho: var(--neutro-900);
+    --acomp-ok-fundo: var(--neutro-900);
+    --acomp-ok-texto: var(--verde-500);
+    --acomp-atraso-fundo: var(--neutro-900);
+    --acomp-atraso-texto: var(--laranja-100);
+    --acomp-aviso-fundo: var(--neutro-900);
+    --acomp-grafico-barra: var(--laranja-500);
+    --acomp-grafico-linha: var(--neutro-100);
+}
+
+.acomp-intro {
+    color: var(--acomp-texto-suave);
+    margin: 0 0 var(--acomp-espaco-4);
+}
+
+.acomp-aviso,
+.acomp-dica {
+    color: var(--acomp-texto-suave);
+    font-style: italic;
+}
+
+.acomp-dica {
+    font-size: 0.85rem;
+    margin: 0 0 var(--acomp-espaco-3);
+}
+
+.acomp-traco {
+    color: var(--acomp-texto-suave);
+}
+
+.acomp-ok {
+    color: var(--acomp-ok-texto);
+}
+
+/* Indicadores */
+.acomp-kpis {
+    list-style: none;
+    margin: 0 0 var(--acomp-espaco-4);
+    padding: 0;
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr));
+    gap: var(--acomp-espaco-3);
+}
+
+.acomp-kpi {
+    background: var(--acomp-fundo);
+    color: var(--acomp-texto);
+    border: 1px solid var(--acomp-borda);
+    border-top: 4px solid var(--vinho-600);
+    border-radius: var(--radius-md);
+    padding: var(--acomp-espaco-3);
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    box-shadow: var(--shadow-sm);
+}
+
+.acomp-kpi--alerta {
+    border-top-color: var(--laranja-500);
+}
+
+.acomp-kpi-rotulo {
+    font-size: 0.8rem;
+    color: var(--acomp-texto-suave);
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+}
+
+.acomp-kpi-valor {
+    font-size: 1.7rem;
+    font-weight: 700;
+}
+
+.acomp-kpi-sub {
+    font-size: 0.8rem;
+    color: var(--acomp-texto-suave);
+}
+
+/* Alerta de pendências */
+.acomp-alerta {
+    background: var(--acomp-atraso-fundo);
+    color: var(--acomp-atraso-texto);
+    border-left: 4px solid var(--vinho-600);
+    border-radius: var(--radius-sm);
+    padding: var(--acomp-espaco-2) var(--acomp-espaco-3);
+    margin-bottom: var(--acomp-espaco-4);
+}
+
+.acomp-alerta summary {
+    cursor: pointer;
+    font-weight: 600;
+}
+
+.acomp-chips {
+    list-style: none;
+    margin: var(--acomp-espaco-2) 0 0;
+    padding: 0;
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--acomp-espaco-2);
+}
+
+.acomp-chip {
+    display: inline-block;
+    padding: 2px var(--acomp-espaco-2);
+    border-radius: 999px;
+    border: 1px solid var(--acomp-borda);
+    background: var(--acomp-fundo);
+    color: var(--acomp-texto);
+    font-size: 0.85rem;
+}
+
+.acomp-chip em {
+    color: var(--acomp-texto-suave);
+}
+
+.acomp-chip--atrasado {
+    border-color: var(--vinho-600);
+}
+
+.acomp-chip--abonado {
+    border-style: dashed;
+}
+
+.acomp-pendencias,
+.acomp-pendencia {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--acomp-espaco-1);
+}
+
+.acomp-pendencias {
+    gap: var(--acomp-espaco-2);
+}
+
+.acomp-mini {
+    border: 1px solid var(--acomp-borda);
+    background: var(--acomp-fundo);
+    color: var(--acomp-texto);
+    border-radius: var(--radius-sm);
+    padding: 1px var(--acomp-espaco-2);
+    font-size: 0.8rem;
+    cursor: pointer;
+}
+
+/* Painel por setor */
+.acomp-visao {
+    display: flex;
+    gap: var(--acomp-espaco-2);
+    justify-content: flex-end;
+    margin-bottom: var(--acomp-espaco-3);
+}
+
+.acomp-visao [aria-pressed="false"] {
+    background: var(--acomp-cabecalho);
+    color: var(--acomp-texto);
+}
+
+.acomp-visao [aria-pressed="true"] {
+    background: var(--vinho-600);
+    color: var(--branco);
+}
+
+.acomp-setor,
+.acomp-bloco {
+    background: var(--acomp-fundo);
+    color: var(--acomp-texto);
+    border: 1px solid var(--acomp-borda);
+    border-radius: var(--radius-md);
+    padding: var(--acomp-espaco-4);
+    margin-bottom: var(--acomp-espaco-4);
+    box-shadow: var(--shadow-sm);
+}
+
+.acomp-setor-cabecalho {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--acomp-espaco-3) var(--acomp-espaco-6);
+    margin-bottom: var(--acomp-espaco-3);
+}
+
+.acomp-setor-titulo,
+.acomp-bloco-titulo {
+    margin: 0;
+    font-size: 1.1rem;
+}
+
+.acomp-bloco-titulo small {
+    font-weight: normal;
+    color: var(--acomp-texto-suave);
+    font-size: 0.85rem;
+}
+
+.acomp-bloco-cabecalho {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--acomp-espaco-3);
+    margin-bottom: var(--acomp-espaco-3);
+}
+
+.acomp-setor-contagem {
+    padding: 2px var(--acomp-espaco-3);
+    border-radius: 999px;
+    background: var(--acomp-cabecalho);
+    font-size: 0.85rem;
+}
+
+.acomp-setor-kpis,
+.acomp-cartao-numeros,
+.acomp-mini-kpis {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--acomp-espaco-4);
+    margin: 0;
+}
+
+.acomp-setor-kpis div,
+.acomp-cartao-numeros div,
+.acomp-mini-kpis div {
+    display: flex;
+    flex-direction: column-reverse;
+}
+
+.acomp-setor-kpis dt,
+.acomp-cartao-numeros dt,
+.acomp-mini-kpis dt {
+    font-size: 0.75rem;
+    color: var(--acomp-texto-suave);
+}
+
+.acomp-setor-kpis dd,
+.acomp-cartao-numeros dd,
+.acomp-mini-kpis dd {
+    margin: 0;
+    font-weight: 700;
+    font-size: 1.15rem;
+}
+
+.acomp-mini-kpis--alerta dd {
+    color: var(--acomp-atraso-texto);
+}
+
+.acomp-cartoes {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(17rem, 1fr));
+    gap: var(--acomp-espaco-3);
+}
+
+.acomp-cartao {
+    border: 1px solid var(--acomp-borda);
+    border-top: 4px solid var(--acomp-borda);
+    border-radius: var(--radius-md);
+    padding: var(--acomp-espaco-3);
+    display: flex;
+    flex-direction: column;
+    gap: var(--acomp-espaco-2);
+}
+
+.acomp-cartao--enviou { border-top-color: var(--verde-500); }
+.acomp-cartao--atrasado { border-top-color: var(--vinho-600); }
+.acomp-cartao--no_prazo { border-top-color: var(--laranja-500); }
+
+.acomp-cartao-topo {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    gap: var(--acomp-espaco-2);
+}
+
+.acomp-cartao-linha {
+    margin: 0;
+    font-size: 0.85rem;
+}
+
+.acomp-situacao,
+.acomp-selo {
+    display: inline-block;
+    padding: 1px var(--acomp-espaco-2);
+    border-radius: 999px;
+    font-size: 0.8rem;
+    font-weight: 600;
+    white-space: nowrap;
+}
+
+.acomp-situacao--ok { background: var(--acomp-ok-fundo); color: var(--acomp-ok-texto); }
+.acomp-situacao--atraso,
+.acomp-selo--atraso { background: var(--acomp-atraso-fundo); color: var(--acomp-atraso-texto); }
+.acomp-situacao--prazo,
+.acomp-selo--aviso { background: var(--acomp-aviso-fundo); color: var(--acomp-aviso-texto); }
+.acomp-situacao--neutra,
+.acomp-selo--neutro { background: var(--acomp-cabecalho); color: var(--acomp-texto-suave); }
+.acomp-selo--remoto { background: var(--acomp-cabecalho); color: var(--acomp-texto); }
+.acomp-selo--presencial { background: var(--acomp-aviso-fundo); color: var(--acomp-aviso-texto); }
+
+.acomp-tendencia--up { color: var(--acomp-ok-texto); }
+.acomp-tendencia--down { color: var(--acomp-atraso-texto); }
+.acomp-tendencia--flat,
+.acomp-tendencia--sem-dado { color: var(--acomp-texto-suave); }
+
+/* Tabelas */
+.acomp-tabela-wrap {
+    overflow-x: auto;
+}
+
+.acomp-tabela {
+    width: 100%;
+    border-collapse: collapse;
+    color: var(--acomp-texto);
+}
+
+.acomp-tabela th,
+.acomp-tabela td {
+    padding: var(--acomp-espaco-2) var(--acomp-espaco-3);
+    border-bottom: 1px solid var(--acomp-borda);
+    text-align: left;
+    vertical-align: middle;
+}
+
+.acomp-tabela thead th {
+    background: var(--acomp-cabecalho);
+    border-bottom: 2px solid var(--vinho-600);
+}
+
+.acomp-tabela tbody th {
+    font-weight: 600;
+}
+
+.acomp-tabela--compacta {
+    margin-top: var(--acomp-espaco-2);
+    font-size: 0.9rem;
+}
+
+/* Filtros */
+.acomp-filtros {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-end;
+    gap: var(--acomp-espaco-3);
+    padding: var(--acomp-espaco-4);
+    background: var(--acomp-fundo);
+    border: 1px solid var(--acomp-borda);
+    border-radius: var(--radius-md);
+    margin-bottom: var(--acomp-espaco-4);
+    color: var(--acomp-texto);
+}
+
+.acomp-filtros .form-group {
+    margin: 0;
+    flex: 1 1 11rem;
+}
+
+.acomp-filtros select,
+.acomp-filtros input {
+    width: 100%;
+}
+
+.acomp-filtros-botoes {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--acomp-espaco-2);
+    align-items: center;
+}
+
+/* Listas expansíveis (registros e histórico) */
+.acomp-registros {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+}
+
+.acomp-registro {
+    border-top: 1px solid var(--acomp-borda);
+}
+
+.acomp-registro-botao {
+    width: 100%;
+    background: none;
+    border: 0;
+    color: var(--acomp-texto);
+    text-align: left;
+    padding: var(--acomp-espaco-3) 0;
+    display: grid;
+    grid-template-columns: minmax(0, 2fr) minmax(0, 1.5fr) minmax(0, 1.5fr);
+    gap: var(--acomp-espaco-3);
+    align-items: center;
+    cursor: pointer;
+}
+
+.acomp-registro-botao small {
+    color: var(--acomp-texto-suave);
+    display: block;
+}
+
+.acomp-registro-qtd {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--acomp-espaco-1);
+    font-size: 0.9rem;
+}
+
+.acomp-registro-detalhe {
+    padding: 0 0 var(--acomp-espaco-3);
+}
+
+.acomp-paginacao {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--acomp-espaco-1);
+    margin-top: var(--acomp-espaco-3);
+    align-items: center;
+}
+
+.acomp-pagina {
+    min-width: 2.25rem;
+    height: 2.25rem;
+    border: 1px solid var(--acomp-borda);
+    background: var(--acomp-fundo);
+    color: var(--acomp-texto);
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+}
+
+.acomp-pagina--atual {
+    background: var(--vinho-600);
+    border-color: var(--vinho-600);
+    color: var(--branco);
+}
+
+.acomp-reticencias {
+    color: var(--acomp-texto-suave);
+    padding: 0 var(--acomp-espaco-1);
+}
+
+/* Cruzamento */
+.acomp-colunas {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(20rem, 1fr));
+    gap: var(--acomp-espaco-4);
+}
+
+.acomp-nota {
+    font-size: 2.5rem;
+    font-weight: 700;
+    margin: 0;
+    color: var(--acomp-aviso-texto);
+}
+
+.acomp-nota-sub {
+    margin: 0 0 var(--acomp-espaco-3);
+    color: var(--acomp-texto-suave);
+}
+
+.acomp-distribuicao,
+.acomp-comentarios,
+.acomp-top {
+    list-style: none;
+    margin: 0 0 var(--acomp-espaco-3);
+    padding: 0;
+}
+
+.acomp-distribuicao li {
+    display: grid;
+    grid-template-columns: 2.5rem 1fr 2rem;
+    gap: var(--acomp-espaco-2);
+    align-items: center;
+}
+
+.acomp-distribuicao meter {
+    width: 100%;
+}
+
+.acomp-comentarios li {
+    border-left: 3px solid var(--laranja-500);
+    padding: var(--acomp-espaco-1) var(--acomp-espaco-3);
+    margin-bottom: var(--acomp-espaco-2);
+    font-style: italic;
+}
+
+.acomp-comentarios small {
+    display: block;
+    font-style: normal;
+    color: var(--acomp-texto-suave);
+}
+
+.acomp-subtitulo {
+    margin: var(--acomp-espaco-4) 0 var(--acomp-espaco-2);
+    font-size: 0.95rem;
+}
+
+.acomp-top li {
+    display: flex;
+    justify-content: space-between;
+    gap: var(--acomp-espaco-3);
+    padding: var(--acomp-espaco-1) 0;
+    border-bottom: 1px solid var(--acomp-borda);
+}
+
+.acomp-grafico-wrap {
+    width: 100%;
+    overflow: hidden;
+}
+
+.acomp-grafico-wrap canvas {
+    display: block;
+    width: 100%;
+}
+
+.acomp-legenda {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--acomp-espaco-2);
+    font-size: 0.85rem;
+    color: var(--acomp-texto-suave);
+}
+
+.acomp-legenda-barra,
+.acomp-legenda-linha {
+    display: inline-block;
+    width: 1.5rem;
+    height: 0.75rem;
+    background: var(--acomp-grafico-barra);
+    margin-left: var(--acomp-espaco-3);
+}
+
+.acomp-legenda-linha {
+    height: 3px;
+    background: var(--acomp-grafico-linha);
+}
+
+@media (max-width: 700px) {
+    .acomp-registro-botao {
+        grid-template-columns: minmax(0, 1fr);
+    }
+}

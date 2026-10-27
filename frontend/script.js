@@ -300,6 +300,7 @@ function mostrarSecao(secaoId) {
         'relatorios': 'btn-nav-relatorios',
         'registro-atividades': 'btn-nav-registro-atividades',
         'meu-painel': 'btn-nav-meu-painel',
+        'atividades': 'btn-nav-atividades',
         'ajuda': 'btn-nav-ajuda',
         'config': 'btn-nav-config'
     };
@@ -984,6 +985,10 @@ function aplicarVisibilidadePorPapel(tipo) {
     const itemRegistro = document.getElementById('nav-registro-atividades-item');
     if (itemRegistro) itemRegistro.hidden = !podeRegistrarAtividades();
 
+    // Acompanhamento das atividades: admin e gestor
+    const itemAcomp = document.getElementById('nav-atividades-item');
+    if (itemAcomp) itemAcomp.hidden = !(tipo === 'admin' || tipo === 'gestor');
+
     // Meu Painel: só quem o METRICA360 reconhece com atendimento externo (consulta assíncrona)
     if (typeof verificarAcessoMeuPainel === 'function') verificarAcessoMeuPainel();
 
@@ -1080,7 +1085,9 @@ function restaurarSecaoAtiva() {
     } else if (secaoSalva === 'registro-atividades' && podeRegistrarAtividades()) {
         mostrarRegistroAtividades();
     } else if (secaoSalva === 'meu-painel') {
-        mostrarMeuPainel();
+        restaurarMeuPainel();
+    } else if (secaoSalva === 'atividades' && podeAcompanharAtividades()) {
+        mostrarAcompanhamentoAtividades(subSecaoSalva);
     } else if (secaoSalva === 'sobre') {
         mostrarSobre();
     } else if (secaoSalva === 'ajuda') {

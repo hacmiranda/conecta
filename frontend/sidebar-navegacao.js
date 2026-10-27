@@ -34,7 +34,7 @@
             item.removeAttribute('aria-current');
         });
 
-        if ((secao !== 'ajuda' && secao !== 'config') || !subsecao) return;
+        if ((secao !== 'ajuda' && secao !== 'config' && secao !== 'atividades') || !subsecao) return;
 
         const dropdown = document.getElementById('nav-' + secao + '-dropdown');
         if (!dropdown) return;
