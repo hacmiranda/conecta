@@ -17,6 +17,10 @@ backend/uploads/avatars/*
 !backend/uploads/avatars/.htaccess
 backend/logs/*
 !backend/logs/.gitkeep
+# Dumps do banco com dados reais (só o esquema e as migrações vão para o git)
+database/crpdesk.sql
+db_conecta_atual.sql
+*_dump*.sql
 # Cache do HTML Purifier (gerado em tempo de execução)
 backend/cache/
 error_log
