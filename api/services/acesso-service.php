@@ -14,6 +14,20 @@ class AcessoService {
     const STATUS_ARQUIVO = ['encerrado', 'cancelado', 'fechado']; // 'fechado' = valor legado do ENUM
 
     /**
+     * Demanda concluída (atendida) para SLA e indicadores: resolvido (aguarda só a confirmação do
+     * solicitante) e encerrado. Cancelado não é conclusão. Dashboard e relatórios usam esta lista.
+     */
+    const STATUS_CONCLUIDOS = ['resolvido', 'encerrado', 'fechado'];
+
+    /** Status do grupo "Aguardando" (lista de demandas, contadores e funil do dashboard) */
+    const GRUPO_AGUARDANDO = ['aguardando', 'aguardando_resposta', 'aguardando_terceiros', 'aguardando_aprovacao', 'aguardando_data'];
+
+    /** Lista de status para usar dentro de um IN (...) de SQL (valores fixos do código, não do usuário). */
+    public static function listaSql(array $status): string {
+        return implode(',', array_map(fn($s) => "'" . preg_replace('/[^a-z_]/', '', $s) . "'", $status));
+    }
+
+    /**
      * Quem pode VER a demanda.
      */
     public static function podeVerTicket(array $user, array $ticket): bool {

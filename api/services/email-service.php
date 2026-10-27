@@ -3,6 +3,7 @@ require_once __DIR__ . '/acesso-service.php';
 require_once __DIR__ . '/html-sanitizer.php';
 require_once __DIR__ . '/log-service.php';
 require_once __DIR__ . '/upload-service.php';
+require_once __DIR__ . '/demanda-service.php';
 require_once __DIR__ . '/protocolo-service.php';
 date_default_timezone_set('America/Sao_Paulo');
 
@@ -323,13 +324,16 @@ class EmailService {
             return 'o e-mail não passou na verificação de autenticidade do remetente (SPF/DMARC)';
         }
 
-        $stmt = $this->db->prepare("SELECT t.id, t.setor_id, t.email_solicitante, t.excluido_em, u.email AS usuario_email
+        $stmt = $this->db->prepare("SELECT t.id, t.setor_id, t.status, t.email_solicitante, t.excluido_em, u.email AS usuario_email
                                     FROM tickets t LEFT JOIN usuarios u ON u.id = t.usuario_id
                                     WHERE t.id = ?");
         $stmt->execute([$ticket_id]);
         $ticket = $stmt->fetch(PDO::FETCH_ASSOC);
         if (!$ticket || !empty($ticket['excluido_em'])) {
             return 'a demanda não existe ou foi excluída';
+        }
+        if (($ticket['status'] ?? '') === 'cancelado') {
+            return 'a demanda foi cancelada';
         }
 
         if ($this->setorAtualId !== null && (int) $ticket['setor_id'] !== (int) $this->setorAtualId) {
@@ -772,14 +776,27 @@ class EmailService {
         if ($protocolo === null) {
             return null;
         }
-        return ProtocoloService::buscarId($this->db, $protocolo);
+        $id = ProtocoloService::buscarId($this->db, $protocolo);
+
+        // Demanda mesclada: a conversa continua na principal (segue a cadeia, no máximo 5 saltos)
+        $principal = $this->db->prepare("SELECT mesclada_em FROM tickets WHERE id = ?");
+        for ($salto = 0; $id && $salto < 5; $salto++) {
+            $principal->execute([(int) $id]);
+            $destino = $principal->fetchColumn();
+            if (!$destino) {
+                break;
+            }
+            LogService::info('email-cron', 'Demanda mesclada: resposta segue para ' . ProtocoloService::rotuloPorId($this->db, (int) $destino));
+            $id = (int) $destino;
+        }
+        return $id;
     }
     
     private function adicionarComentario($ticket_id, $comentario, $email, $anexos_processados = [], $inbox = null, $email_number = null) {
         LogService::info('email-cron', 'Adicionando comentário à demanda ' . ProtocoloService::rotuloPorId($this->db, (int) $ticket_id));
         
         // Verificar se ticket está fechado - se sim, reabrir
-        $this->verificarEReabrirTicket($ticket_id);
+        $reabertaAgora = $this->verificarEReabrirTicket($ticket_id);
         
         $usuario_id = $this->buscarOuCriarUsuario($email);
         
@@ -871,22 +888,19 @@ class EmailService {
             }
             
             // Só muda status se NÃO for o agente e status não for final
-            if (!$is_agente && !in_array($ticket_atual['status'], AcessoService::STATUS_ARQUIVO, true)) {
+            if (!$is_agente && !$reabertaAgora && !in_array($ticket_atual['status'], AcessoService::STATUS_ARQUIVO, true)) {
                 if ($ticket_atual['status'] !== 'nova_resposta') {
-                    $up_q = "UPDATE tickets SET status = 'nova_resposta' WHERE id = ?";
-                    $this->db->prepare($up_q)->execute([$ticket_id]);
-                    
-                    // Historico
-                    $hist_q = "INSERT INTO ticket_historico (ticket_id, usuario_id, acao, valor_anterior, valor_novo) VALUES (?, ?, 'status', ?, 'nova_resposta')";
-                    $this->db->prepare($hist_q)->execute([$ticket_id, $usuario_id, $ticket_atual['status']]);
-                    
+                    // Regra única da troca de status: retoma o SLA pausado (ex.: "aguardando resposta"),
+                    // histórico e auditoria. A resposta do solicitante não conta como primeira resposta.
+                    DemandaService::mudarStatus($this->db, (int) $ticket_id, 'nova_resposta', (int) $usuario_id, ['resposta_da_equipe' => false]);
                     LogService::info('email-cron', "Status atualizado para 'nova_resposta'");
                 }
             }
         }
     }
     
-    private function verificarEReabrirTicket($ticket_id) {
+    /** Reabre a demanda encerrada que recebeu resposta por e-mail. Devolve true se reabriu agora. */
+    private function verificarEReabrirTicket($ticket_id): bool {
         // Buscar status atual do ticket
         $query = "SELECT t.*, u.email as usuario_email FROM tickets t LEFT JOIN usuarios u ON t.usuario_id = u.id WHERE t.id = :ticket_id";
         $stmt = $this->db->prepare($query);
@@ -897,28 +911,9 @@ class EmailService {
         if ($ticket && ($ticket['status'] === 'fechado' || $ticket['status'] === 'encerrado')) {
             LogService::info('email-cron', 'Reabrindo ticket fechado...');
             
-            // Reabrir ticket
-            $update_query = "UPDATE tickets SET status = 'reaberto', fechado_por = NULL, fechado_em = NULL WHERE id = :ticket_id";
-            $update_stmt = $this->db->prepare($update_query);
-            $update_stmt->bindParam(':ticket_id', $ticket_id);
-            $update_stmt->execute();
-            
-            // Registrar no histórico
-            $hist_query = "INSERT INTO ticket_historico (ticket_id, usuario_id, acao, valor_anterior, valor_novo) VALUES (:ticket_id, :usuario_id, 'status', :valor_anterior, 'reaberto')";
-            $hist_stmt = $this->db->prepare($hist_query);
-            $hist_stmt->bindParam(':ticket_id', $ticket_id);
-            $hist_stmt->bindParam(':usuario_id', $ticket['usuario_id']);
-            $hist_stmt->bindParam(':valor_anterior', $ticket['status']);
-            $hist_stmt->execute();
-
-            // Reabre as janelas de passagem por setor/responsável (fechadas no encerramento)
-            AcessoService::reabrirJanelasDaDemanda(
-                $this->db,
-                (int) $ticket_id,
-                !empty($ticket['setor_id']) ? (int) $ticket['setor_id'] : null,
-                !empty($ticket['agente_id']) ? (int) $ticket['agente_id'] : null
-            );
-            
+            // Reabre pela regra única: limpa a resolução (o SLA volta a contar), fechado_em/fechado_por,
+            // soma reaberto_contador, reabre as janelas de setor/responsável, histórico e auditoria
+            DemandaService::mudarStatus($this->db, (int) $ticket_id, 'reaberto', (int) $ticket['usuario_id'], ['resposta_da_equipe' => false]);
             LogService::info('email-cron', 'Ticket reaberto automaticamente');
 
             // Enviar notificações
@@ -936,7 +931,9 @@ class EmailService {
             } catch (Exception $e) {
                 LogService::erro('email-cron', 'Erro ao notificar reabertura: ' . $e->getMessage());
             }
+            return true;
         }
+        return false;
     }
     
     private function extrairCorpoEmail($inbox, $email_number, $structure) {

@@ -21,27 +21,35 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
 
     try {
         // Parâmetros de filtro
-        $dataInicio = $_GET['dataInicio'] ?? null;
-        $dataFim = $_GET['dataFim'] ?? null;
+        // Datas só no formato AAAA-MM-DD (o resto é ignorado)
+        $dataValida = fn($d) => is_string($d) && preg_match('/^\d{4}-\d{2}-\d{2}$/', $d) ? $d : null;
+        $dataInicio = $dataValida($_GET['dataInicio'] ?? null);
+        $dataFim = $dataValida($_GET['dataFim'] ?? null);
         $status = $_GET['status'] ?? 'todos';
         $prioridade = $_GET['prioridade'] ?? 'todas';
         $categoria = $_GET['categoria'] ?? 'todas';
         $agente = $_GET['agente'] ?? 'todos';
-        
+
         // Query base
-        $query = "SELECT t.*, 
+        // Só as colunas que o relatório usa (sem a descrição, que pode ter imagens em base64) e os
+        // tempos de SLA numa consulta só (antes: uma consulta de primeira resposta por demanda)
+        $query = "SELECT t.id, t.protocolo, t.titulo, t.status, t.prioridade, t.criado_em, t.fechado_em,
+                  t.setor_id, t.agente_id, t.usuario_id, t.categoria_id, t.mesclada_em,
                   u.nome as usuario_nome, u.email as usuario_email,
                   a.nome as agente_nome,
-                  NULLIF(CONCAT_WS(' - ', c.nome, mc.nome), '') as categoria_nome
+                  NULLIF(CONCAT_WS(' - ', c.nome, mc.nome), '') as categoria_nome,
+                  ts.primeira_resposta_em, ts.tempo_primeira_resposta_segundos,
+                  ts.resolvido_em, ts.tempo_resolucao_segundos
                   FROM tickets t
                   LEFT JOIN usuarios u ON t.usuario_id = u.id
                   LEFT JOIN usuarios a ON t.agente_id = a.id
                   LEFT JOIN categorias c ON t.categoria_id = c.id
                   LEFT JOIN macrocategorias mc ON c.macrocategoria_id = mc.id
+                  LEFT JOIN ticket_sla ts ON ts.ticket_id = t.id
                   WHERE t.excluido_em IS NULL";
-        
+
         $params = [];
-        
+
         // Filtro de data
         if ($dataInicio) {
             $query .= " AND DATE(t.criado_em) >= :dataInicio";
@@ -51,25 +59,25 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
             $query .= " AND DATE(t.criado_em) <= :dataFim";
             $params[':dataFim'] = $dataFim;
         }
-        
+
         // Filtro de status
         if ($status !== 'todos') {
             $query .= " AND t.status = :status";
             $params[':status'] = $status;
         }
-        
+
         // Filtro de prioridade
         if ($prioridade !== 'todas') {
             $query .= " AND t.prioridade = :prioridade";
             $params[':prioridade'] = $prioridade;
         }
-        
+
         // Filtro de categoria
         if ($categoria !== 'todas') {
             $query .= " AND t.categoria_id = :categoria";
             $params[':categoria'] = $categoria;
         }
-        
+
         // Filtro de agente
         if ($agente !== 'todos') {
             $query .= " AND t.agente_id = :agente";
@@ -96,77 +104,32 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
         }
 
         $query .= " ORDER BY t.criado_em DESC";
-        
+
         $stmt = $db->prepare($query);
         foreach ($params as $key => $value) {
             $stmt->bindValue($key, $value);
         }
         $stmt->execute();
         $tickets = $stmt->fetchAll(PDO::FETCH_ASSOC);
-        
-        // Calcular estatísticas
+
+        // Estatísticas com as mesmas regras do dashboard: concluída = resolvido/encerrado
+        // (AcessoService::STATUS_CONCLUIDOS), mesclada não conta, tempos de ticket_sla
         $totalTickets = count($tickets);
-        $ticketsEncerradosCount = count(array_filter($tickets, function($t) {
-            return $t['status'] === 'encerrado';
+        $concluidas = array_values(array_filter($tickets, function ($t) {
+            return in_array($t['status'], AcessoService::STATUS_CONCLUIDOS, true) && empty($t['mesclada_em']);
         }));
-        
-        // Calcular tempo médio usando horas úteis (apenas dos tickets filtrados)
+        $ticketsEncerradosCount = count($concluidas);
+
         $tempoMedioSegundos = 0;
         $tempoPrimeiroAtendimentoSegundos = 0;
-        
         try {
             $slaService = new SLAService($db);
-            
-            // Tempo médio de primeira resposta (apenas tickets filtrados)
-            $ticketsComResposta = [];
-            foreach ($tickets as $ticket) {
-                // Buscar primeira resposta de agente para este ticket
-                $queryPrimeiraResposta = "SELECT MIN(c.criado_em) as primeira_resposta
-                                         FROM comentarios c
-                                         INNER JOIN usuarios u ON c.usuario_id = u.id
-                                         WHERE c.ticket_id = :ticket_id AND u.tipo IN ('operador', 'gestor', 'admin')";
-                $stmtPR = $db->prepare($queryPrimeiraResposta);
-                $stmtPR->bindParam(':ticket_id', $ticket['id']);
-                $stmtPR->execute();
-                $resultado = $stmtPR->fetch(PDO::FETCH_ASSOC);
-                
-                if ($resultado['primeira_resposta']) {
-                    $ticketsComResposta[] = [
-                        'criado_em' => $ticket['criado_em'],
-                        'primeira_resposta' => $resultado['primeira_resposta'],
-                        'setor_id' => $ticket['setor_id'] ?? null
-                    ];
-                }
-            }
-            
-            if (count($ticketsComResposta) > 0) {
-                $soma = 0;
-                foreach ($ticketsComResposta as $tempo) {
-                    // Usar SLAService PHP para calcular segundos úteis
-                    $segundosUteis = $slaService->calcularSegundosUteis($tempo['criado_em'], $tempo['primeira_resposta'], $tempo['setor_id']);
-                    $soma += $segundosUteis;
-                }
-                $tempoPrimeiroAtendimentoSegundos = round($soma / count($ticketsComResposta));
-            }
-            
-            // Tempo médio de resolução (apenas tickets encerrados filtrados)
-            $ticketsEncerradosFiltrados = array_filter($tickets, function($t) {
-                return $t['status'] === 'encerrado' && $t['fechado_em'] !== null;
-            });
-            
-            if (count($ticketsEncerradosFiltrados) > 0) {
-                $soma = 0;
-                foreach ($ticketsEncerradosFiltrados as $ticket) {
-                    // Usar SLAService PHP para calcular segundos úteis
-                    $segundosUteis = $slaService->calcularSegundosUteis($ticket['criado_em'], $ticket['fechado_em'], $ticket['setor_id'] ?? null);
-                    $soma += $segundosUteis;
-                }
-                $tempoMedioSegundos = round($soma / count($ticketsEncerradosFiltrados));
-            }
+            $semMescladas = array_filter($tickets, fn($t) => empty($t['mesclada_em']));
+            $tempoPrimeiroAtendimentoSegundos = $slaService->mediaPrimeiraResposta($semMescladas);
+            $tempoMedioSegundos = $slaService->mediaResolucao($concluidas);
         } catch (Exception $e) {
-            // Manter valores padrão em caso de erro
+            error_log('[RELATORIOS] Erro ao calcular tempos médios: ' . $e->getMessage());
         }
-        
         $resultado = [
             'tickets' => $tickets,
             'estatisticas' => [
@@ -176,9 +139,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
                 'tempoMedioPrimeiroAtendimentoSegundos' => $tempoPrimeiroAtendimentoSegundos
             ]
         ];
-        
+
         echo json_encode($resultado);
-        
+
     } catch (Exception $e) {
         http_response_code(500);
         error_log('[RELATORIOS] Erro: ' . $e->getMessage());

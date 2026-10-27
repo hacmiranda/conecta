@@ -54,6 +54,37 @@ class SLAService {
         return null;
     }
 
+    /**
+     * Média, em segundos úteis, da primeira resposta (definição única: ticket_sla.primeira_resposta_em,
+     * gravada pela regra do DemandaService). Usa o tempo já calculado e, em dado antigo sem ele, calcula
+     * pelas datas. $linhas: criado_em, setor_id, primeira_resposta_em, tempo_primeira_resposta_segundos.
+     */
+    public function mediaPrimeiraResposta(array $linhas): int {
+        return $this->mediaTempos($linhas, 'primeira_resposta_em', 'tempo_primeira_resposta_segundos');
+    }
+
+    /** O mesmo para a resolução: resolvido_em, tempo_resolucao_segundos (já sem o tempo pausado). */
+    public function mediaResolucao(array $linhas): int {
+        return $this->mediaTempos($linhas, 'resolvido_em', 'tempo_resolucao_segundos');
+    }
+
+    private function mediaTempos(array $linhas, string $campoData, string $campoSegundos): int {
+        $soma = 0;
+        $quantos = 0;
+        foreach ($linhas as $l) {
+            if (empty($l[$campoData]) || empty($l['criado_em'])) {
+                continue;
+            }
+            $segundos = (int) ($l[$campoSegundos] ?? 0);
+            if ($segundos <= 0) {
+                $segundos = $this->calcularSegundosUteis($l['criado_em'], $l[$campoData], $l['setor_id'] ?? null);
+            }
+            $soma += max(0, $segundos);
+            $quantos++;
+        }
+        return $quantos > 0 ? (int) round($soma / $quantos) : 0;
+    }
+
     private function montarSituacao(string $tipo, int $segundosPrazo, int $tempoDecorrido, bool $pausado): array {
         $segundosRestantes = $segundosPrazo - $tempoDecorrido;
         return [

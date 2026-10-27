@@ -4,6 +4,7 @@ header('Content-Type: application/json');
 require_once __DIR__ . '/../config/database.php';
 require_once __DIR__ . '/../middleware/auth.php';
 require_once __DIR__ . '/../services/acesso-service.php';
+require_once __DIR__ . '/../services/demanda-service.php';
 require_once __DIR__ . '/../services/protocolo-service.php';
 
 AuthMiddleware::configurarCORS(['POST']);
@@ -54,22 +55,35 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $db->beginTransaction();
         
         // Buscar dados do ticket principal
-        $query = "SELECT categoria_id, protocolo FROM tickets WHERE id = :id";
+        $query = "SELECT categoria_id, protocolo, mesclada_em FROM tickets WHERE id = :id FOR UPDATE";
         $stmt = $db->prepare($query);
         $stmt->bindParam(':id', $ticket_principal);
         $stmt->execute();
         $ticket_principal_data = $stmt->fetch(PDO::FETCH_ASSOC);
+        if (!empty($ticket_principal_data['mesclada_em'])) {
+            $db->rollBack();
+            http_response_code(400);
+            echo json_encode(['error' => 'A demanda principal já foi mesclada em outra']);
+            exit;
+        }
         $categoria_principal = $ticket_principal_data['categoria_id'];
         $principal_rotulo = ProtocoloService::rotulo($ticket_principal_data['protocolo'] ?? null, (int) $ticket_principal);
 
         // Buscar dados dos tickets secundários
         $tickets_secundarios_info = [];
         foreach ($tickets_secundarios as $ticket_id) {
-            $query = "SELECT id, titulo, descricao, categoria_id, protocolo FROM tickets WHERE id = :id";
+            $query = "SELECT id, titulo, descricao, categoria_id, protocolo, status, mesclada_em FROM tickets WHERE id = :id FOR UPDATE";
             $stmt = $db->prepare($query);
             $stmt->bindParam(':id', $ticket_id);
             $stmt->execute();
-            $tickets_secundarios_info[] = $stmt->fetch(PDO::FETCH_ASSOC);
+            $secundaria = $stmt->fetch(PDO::FETCH_ASSOC);
+            if (!empty($secundaria['mesclada_em'])) {
+                $db->rollBack();
+                http_response_code(400);
+                echo json_encode(['error' => 'A demanda ' . ProtocoloService::rotulo($secundaria['protocolo'] ?? null, (int) $secundaria['id']) . ' já foi mesclada em outra']);
+                exit;
+            }
+            $tickets_secundarios_info[] = $secundaria;
         }
         
         // Transferir comentários dos tickets secundários para o principal
@@ -129,19 +143,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $stmt->execute();
             }
             
-            // Fechar ticket com status 'encerrado'
-            $query = "UPDATE tickets SET status = 'encerrado', fechado_em = NOW(), fechado_por = :fechado_por WHERE id = :id";
-            $stmt = $db->prepare($query);
-            $stmt->bindParam(':fechado_por', $user['id']);
-            $stmt->bindParam(':id', $ticket_id);
-            $stmt->execute();
+            // Vínculo com a principal: respostas por e-mail com o protocolo desta seguem para a principal,
+            // e a mesclada fica fora dos indicadores (não conta como atendida)
+            $db->prepare("UPDATE tickets SET mesclada_em = ? WHERE id = ?")->execute([$ticket_principal, $ticket_id]);
 
-            // Linha do tempo da demanda mesclada + fechamento das janelas de setor/responsável
+            // Encerra pela regra única (SLA, histórico, janelas de setor/responsável, lembretes).
+            // Já arquivada (encerrada ou cancelada, mesclagem pelo Arquivo) continua como está.
+            if (!in_array($info['status'], AcessoService::STATUS_ARQUIVO, true)) {
+                DemandaService::mudarStatus($db, (int) $ticket_id, 'encerrado', (int) $user['id']);
+            }
+
+            // Linha do tempo da demanda mesclada
             $db->prepare("INSERT INTO ticket_historico (ticket_id, usuario_id, acao, valor_anterior, valor_novo) VALUES (?, ?, 'merge', NULL, ?)")
                ->execute([$ticket_id, $user['id'], $principal_rotulo]);
-            AcessoService::fecharJanelasDaDemanda($db, (int) $ticket_id);
-            require_once __DIR__ . '/../services/lembrete-service.php';
-            LembreteService::cancelarPendentes($db, (int) $ticket_id, 'Demanda mesclada à ' . $principal_rotulo);
 
             // Adicionar comentário detalhado nos tickets fechados
             $comentario_fechado = "🔗 **TICKET MESCLADO**\n\n";

@@ -95,12 +95,23 @@ class PesquisaSatisfacaoService {
             return self::postar($url . '/api/integracao/convite', $chave, $corpo);
         };
 
-        $stmt = $db->prepare("SELECT * FROM pesquisa_satisfacao
-                              WHERE status = 'pendente' AND proxima_tentativa_em <= NOW()
-                              ORDER BY id LIMIT " . max(1, min(100, $lote)));
+        // Junto, o estado atual da demanda: o pedido pode ter deixado de valer desde que foi registrado
+        $stmt = $db->prepare("SELECT p.*, t.status AS demanda_status, t.excluido_em AS demanda_excluida,
+                                     t.mesclada_em AS demanda_mesclada, t.setor_id AS demanda_setor
+                              FROM pesquisa_satisfacao p
+                              LEFT JOIN tickets t ON t.id = p.ticket_id
+                              WHERE p.status = 'pendente' AND p.proxima_tentativa_em <= NOW()
+                              ORDER BY p.id LIMIT " . max(1, min(100, $lote)));
         $stmt->execute();
 
         foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $p) {
+            $motivoCancelar = self::motivoParaCancelar($db, $p);
+            if ($motivoCancelar !== null) {
+                self::finalizar($db, (int) $p['id'], 'cancelada', (int) $p['tentativas'], $motivoCancelar);
+                $resumo['nao_enviados']++;
+                continue;
+            }
+
             // Sem responsável nem quem encerrou: não há a quem atribuir a nota no METRICA360
             if (trim((string) ($p['responsavel_email'] ?? '')) === '') {
                 self::finalizar($db, (int) $p['id'], 'sem_funcionario', (int) $p['tentativas'], 'Demanda sem responsável');
@@ -197,6 +208,29 @@ class PesquisaSatisfacaoService {
         $valor = (string) Environment::get('pesquisa_dominios_internos', '');
         $lista = array_filter(array_map('trim', explode(',', $valor)));
         return $lista ?: ['crprs.org.br'];
+    }
+
+    /**
+     * O pedido ainda vale? (null = sim). Reconfere a demanda na hora do envio, que pode ser horas depois
+     * do registro (novas tentativas): na lixeira, reaberta/cancelada, mesclada, ou pesquisa desligada no setor.
+     */
+    private static function motivoParaCancelar(PDO $db, array $p): ?string {
+        if ($p['demanda_status'] === null) {
+            return 'Demanda excluída';
+        }
+        if ($p['demanda_excluida'] !== null) {
+            return 'Demanda na lixeira';
+        }
+        if (!empty($p['demanda_mesclada'])) {
+            return 'Demanda mesclada em outra';
+        }
+        if (!in_array($p['demanda_status'], self::STATUS_GATILHO, true)) {
+            return 'Demanda não está mais resolvida/encerrada (' . $p['demanda_status'] . ')';
+        }
+        if (!NotificacaoEmailService::ativa($db, $p['demanda_setor'] !== null ? (int) $p['demanda_setor'] : null, self::CODIGO_EMAIL)) {
+            return 'Pesquisa desligada no setor';
+        }
+        return null;
     }
 
     /** Caixas de e-mail dos setores nunca recebem pesquisa (e-mail do próprio sistema). */

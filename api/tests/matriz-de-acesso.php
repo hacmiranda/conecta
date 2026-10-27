@@ -285,6 +285,9 @@ try {
     echo "\n[limpeza]\n";
     $idsTickets = implode(',', array_filter($ticketsCriados)) ?: '0';
     $db->exec("DELETE FROM notificacoes WHERE ticket_id IN ($idsTickets)");
+    // Auditoria não tem chave estrangeira (fica mesmo se a demanda some): apaga a das demandas de teste
+    $db->exec("DELETE FROM auditoria_tickets WHERE ticket_id IN ($idsTickets)");
+    $db->exec("DELETE FROM auditoria WHERE tabela = 'tickets' AND registro_id IN ($idsTickets)");
     $db->exec("DELETE FROM tickets WHERE id IN ($idsTickets)"); // cascata cuida do resto
     $db->exec("DELETE FROM auditoria_login WHERE email LIKE 'zz_matriz_%'"); // logins de teste da seção [8]
     if ($usuariosCriados) {

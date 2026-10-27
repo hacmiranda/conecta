@@ -17,7 +17,10 @@ $database = new Database();
 $db = $database->getConnection();
 
 // Lista única de status finais (P6 da auditoria) — evita listas soltas que podem ficar desatualizadas
-$ARQUIVO_SQL = "'" . implode("','", AcessoService::STATUS_ARQUIVO) . "'";
+$ARQUIVO_SQL = AcessoService::listaSql(AcessoService::STATUS_ARQUIVO);
+// Concluída = resolvido/encerrado (mesma regra dos relatórios e do SLA); mesclada não conta como atendida
+$CONCLUIDOS_SQL = AcessoService::listaSql(AcessoService::STATUS_CONCLUIDOS);
+$EM_ANDAMENTO_SQL = AcessoService::listaSql(array_merge(AcessoService::STATUS_ARQUIVO, AcessoService::STATUS_CONCLUIDOS));
 
 // GET - Dados do dashboard
 if ($_SERVER['REQUEST_METHOD'] === 'GET') {
@@ -151,9 +154,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
 
         // Taxa de resolução (abertos vs fechados) - excluindo cancelados da conta total
         $query = "SELECT
-                    SUM(CASE WHEN t.status = 'encerrado' THEN 1 ELSE 0 END) as fechados,
-                    SUM(CASE WHEN t.status NOT IN ($ARQUIVO_SQL) THEN 1 ELSE 0 END) as abertos
-                  FROM tickets t WHERE t.status != 'cancelado'{$filtroT}";
+                    SUM(CASE WHEN t.status IN ($CONCLUIDOS_SQL) THEN 1 ELSE 0 END) as fechados,
+                    SUM(CASE WHEN t.status NOT IN ($EM_ANDAMENTO_SQL) THEN 1 ELSE 0 END) as abertos
+                  FROM tickets t WHERE t.status != 'cancelado' AND t.mesclada_em IS NULL{$filtroT}";
         $stmt = $db->prepare($query);
         $stmt->execute();
         $dashboard['taxa_resolucao'] = $stmt->fetch();
@@ -194,8 +197,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
         // Indicadores de SLA (excluindo cancelados)
         $query = "SELECT
                     COUNT(*) as total,
-                    SUM(CASE WHEN t.status = 'encerrado' THEN 1 ELSE 0 END) as concluidos
-                  FROM tickets t WHERE t.status != 'cancelado'{$filtroT}";
+                    SUM(CASE WHEN t.status IN ($CONCLUIDOS_SQL) THEN 1 ELSE 0 END) as concluidos
+                  FROM tickets t WHERE t.status != 'cancelado' AND t.mesclada_em IS NULL{$filtroT}";
         $stmt = $db->prepare($query);
         $stmt->execute();
         $sla_data = $stmt->fetch();
@@ -213,7 +216,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
         $dashboard['funil_conversao'] = [];
         $aguardando_total = 0;
         foreach ($funil_data as $row) {
-            if (in_array($row['status'], ['aguardando_resposta', 'aguardando_terceiros', 'aguardando_aprovacao'])) {
+            if (in_array($row['status'], AcessoService::GRUPO_AGUARDANDO, true)) {
                 $aguardando_total += $row['total'];
             } else {
                 $dashboard['funil_conversao'][$row['status']] = $row['total'];
@@ -230,7 +233,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
                         WHERE c.ticket_id = t.id AND c.usuario_id = t.usuario_id
                     ) = 0 THEN 1 ELSE 0 END) as resolvidos_primeiro_contato
                   FROM tickets t
-                  WHERE t.status IN ('encerrado', 'resolvido'){$filtroT}";
+                  WHERE t.status IN ($CONCLUIDOS_SQL) AND t.mesclada_em IS NULL{$filtroT}";
         $stmt = $db->prepare($query);
         $stmt->execute();
         $fcr_data = $stmt->fetch();
@@ -248,64 +251,44 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
         try {
             $slaService = new SLAService($db);
 
-            // Tempo médio de primeira resposta (considera atribuição, mudança de status ou comentário)
-            $query = "SELECT t.id, t.criado_em, t.setor_id,
-LEAST(
-                          COALESCE((SELECT MIN(h.criado_em) FROM ticket_historico h
-                                    WHERE h.ticket_id = t.id
-                                    AND h.acao IN ('atribuicao', 'status')), '9999-12-31'),
-                          COALESCE((SELECT MIN(c.criado_em) FROM comentarios c
-                                    JOIN usuarios u ON c.usuario_id = u.id
-                                    WHERE c.ticket_id = t.id
-                                    AND u.tipo IN ('operador', 'gestor', 'admin')), '9999-12-31')
-                      ) as primeiro_atendimento
+            // Tempos médios (segundos úteis) com a definição única de ticket_sla: primeira resposta =
+            // primeira_resposta_em (encaminhar, sair de "novo" ou responder por e-mail), resolução =
+            // resolvido_em, já sem o tempo pausado. Últimos 12 meses; mescladas não contam.
+            $query = "SELECT t.criado_em, t.setor_id, t.status,
+                             ts.primeira_resposta_em, ts.tempo_primeira_resposta_segundos,
+                             ts.resolvido_em, ts.tempo_resolucao_segundos
                       FROM tickets t
-                      WHERE t.status != 'cancelado'{$filtroT}
-                      HAVING primeiro_atendimento < '9999-12-31'";
+                      JOIN ticket_sla ts ON ts.ticket_id = t.id
+                      WHERE t.status != 'cancelado' AND t.mesclada_em IS NULL
+                        AND t.criado_em >= DATE_SUB(NOW(), INTERVAL 12 MONTH){$filtroT}";
             $stmt = $db->prepare($query);
             $stmt->execute();
-            $tempos = $stmt->fetchAll(PDO::FETCH_ASSOC);
+            $linhas = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
-            if (count($tempos) > 0) {
-                $soma = 0;
-                foreach ($tempos as $tempo) {
-                    // Usar SLAService PHP para calcular segundos úteis
-                    $segundosUteis = $slaService->calcularSegundosUteis($tempo['criado_em'], $tempo['primeiro_atendimento'], $tempo['setor_id']);
-                    $soma += $segundosUteis;
-                }
-                $dashboard['tempoPrimeiroAtendimentoSegundos'] = round($soma / count($tempos));
-            }
-
-            // Tempo médio total (abertura até fechamento em horas úteis)
-            $query = "SELECT t.criado_em, t.fechado_em, t.setor_id
-                      FROM tickets t
-                      WHERE t.status = 'encerrado' AND t.fechado_em IS NOT NULL{$filtroT}";
-            $stmt = $db->prepare($query);
-            $stmt->execute();
-            $tickets_fechados = $stmt->fetchAll(PDO::FETCH_ASSOC);
-
-            if (count($tickets_fechados) > 0) {
-                $soma = 0;
-                foreach ($tickets_fechados as $ticket) {
-                    // Usar SLAService PHP para calcular segundos úteis
-                    $segundosUteis = $slaService->calcularSegundosUteis($ticket['criado_em'], $ticket['fechado_em'], $ticket['setor_id']);
-                    $soma += $segundosUteis;
-                }
-                $dashboard['tempoMedioSegundos'] = round($soma / count($tickets_fechados));
-            }
+            $dashboard['tempoPrimeiroAtendimentoSegundos'] = $slaService->mediaPrimeiraResposta($linhas);
+            $dashboard['tempoMedioSegundos'] = $slaService->mediaResolucao(array_filter($linhas,
+                fn($l) => in_array($l['status'], AcessoService::STATUS_CONCLUIDOS, true)));
         } catch (Exception $e) {
             // Manter valores padrão em caso de erro
         }
 
         // Tickets com SLA vencido (resposta ou resolução, apenas ativos)
-        $query = "SELECT COUNT(DISTINCT t.id) as total
+        $query = "SELECT t.criado_em, t.status, t.prioridade, t.setor_id,
+                         ts.primeira_resposta_em, ts.resolvido_em, ts.tempo_pausado_segundos, ts.pausado_em
                   FROM tickets t
-                  JOIN ticket_sla ts ON t.id = ts.ticket_id
-                  WHERE t.status NOT IN ($ARQUIVO_SQL)
-                    AND (ts.sla_resposta_vencido = 1 OR ts.sla_resolucao_vencido = 1){$filtroT}";
+                  LEFT JOIN ticket_sla ts ON t.id = ts.ticket_id
+                  WHERE t.status NOT IN ($EM_ANDAMENTO_SQL){$filtroT}";
         $stmt = $db->prepare($query);
         $stmt->execute();
-        $dashboard['sla_vencido'] = (int) $stmt->fetch()['total'];
+        $slaVencido = 0;
+        $slaCalculo = new SLAService($db);
+        foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $aberta) {
+            $situacao = $slaCalculo->situacao($aberta, $aberta, $aberta['setor_id'] !== null ? (int) $aberta['setor_id'] : null);
+            if ($situacao && $situacao['vencido']) {
+                $slaVencido++;
+            }
+        }
+        $dashboard['sla_vencido'] = $slaVencido;
 
         // Tickets via origem externa (não 'interna'), excluindo cancelados
         $query = "SELECT COUNT(*) as total

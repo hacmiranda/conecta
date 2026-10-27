@@ -8,6 +8,7 @@ require_once __DIR__ . '/../services/html-sanitizer.php';
 require_once __DIR__ . '/../services/upload-service.php';
 require_once __DIR__ . '/../services/protocolo-service.php';
 require_once __DIR__ . '/../services/notificacao-email-service.php';
+require_once __DIR__ . '/../services/demanda-service.php';
 AuthMiddleware::configurarCORS(['POST', 'PUT', 'DELETE']);
 
 if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
@@ -175,28 +176,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         
         $comentario_id = $db->lastInsertId();
         
-        // === LÓGICA DE SLA: Primeira resposta ===
-        // Marcar primeira resposta se for de agente/admin
-        /* DESABILITADO - Coluna não existe no banco
-        try {
-            $user_query = "SELECT tipo FROM usuarios WHERE id = ?";
-            $user_stmt = $db->prepare($user_query);
-            $user_stmt->execute([$usuario_id]);
-            $user_data = $user_stmt->fetch(PDO::FETCH_ASSOC);
-            
-            if ($user_data && in_array($user_data['tipo'], ['operador', 'gestor', 'admin'])) {
-                $sla_update = "UPDATE ticket_sla 
-                              SET sla_primeira_resposta_cumprido = 1, 
-                                  sla_primeira_resposta_cumprido_em = NOW() 
-                              WHERE ticket_id = ? 
-                                AND sla_primeira_resposta_cumprido = 0";
-                $sla_stmt = $db->prepare($sla_update);
-                $sla_stmt->execute([$ticket_id]);
+        // === SLA: primeira resposta ===
+        // Comentário da equipe enviado ao solicitante cumpre o SLA de resposta (só a primeira vez;
+        // mesma regra do DemandaService). Nota interna e comentário sem e-mail não contam.
+        if (!$interno && $enviar_email && in_array($user['tipo'] ?? '', ['operador', 'gestor', 'admin'], true)) {
+            try {
+                DemandaService::marcarPrimeiraResposta($db, (int) $ticket_id, $setorDemanda);
+            } catch (Exception $e) {
+                error_log('[COMENTARIOS] Erro ao marcar a primeira resposta: ' . $e->getMessage());
             }
-        } catch (Exception $e) {
-            error_log("Erro ao atualizar SLA primeira resposta: " . $e->getMessage());
         }
-        */
         
         // Buscar dados do comentário recém-criado
         $query_comentario = "SELECT c.*, u.nome as autor_nome 
@@ -259,13 +248,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         
                         if (!in_array($status_atual, array_merge(AcessoService::STATUS_ARQUIVO, ['nova_resposta']), true)) {
                             try {
-                                $upd_status = "UPDATE tickets SET status = 'nova_resposta' WHERE id = ?";
-                                $db->prepare($upd_status)->execute([$ticket_id]);
-                                
-                                // Registrar no histórico
-                                $hist = "INSERT INTO ticket_historico (ticket_id, usuario_id, acao, valor_anterior, valor_novo) VALUES (?, ?, 'status', ?, 'nova_resposta')";
-                                $db->prepare($hist)->execute([$ticket_id, $usuario_id, $status_atual]);
-                                
+                                // Regra única da troca de status: retoma o SLA pausado, histórico, auditoria
+                                DemandaService::mudarStatus($db, (int) $ticket_id, 'nova_resposta', (int) $usuario_id);
                             } catch (Exception $e) {
                                 error_log("[COMENTARIOS] Erro ao atualizar status: " . $e->getMessage());
                             }

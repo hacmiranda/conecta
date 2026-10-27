@@ -65,7 +65,7 @@ function listarTicketsPaginado(PDO $db, string $selectCompleto, array $where, ar
     $grupos = [
         'novo'           => ['novo'],
         'em_atendimento' => ['em_atendimento'],
-        'aguardando'     => ['aguardando', 'aguardando_resposta', 'aguardando_terceiros', 'aguardando_aprovacao', 'aguardando_data'],
+        'aguardando'     => AcessoService::GRUPO_AGUARDANDO,
         'nova_resposta'  => ['nova_resposta'],
     ];
 
@@ -82,7 +82,7 @@ function listarTicketsPaginado(PDO $db, string $selectCompleto, array $where, ar
                                  COALESCE(SUM(t.agente_id = :c_self), 0) AS meus,
                                  COALESCE(SUM(t.status = 'novo'), 0) AS novo,
                                  COALESCE(SUM(t.status = 'em_atendimento'), 0) AS em_atendimento,
-                                 COALESCE(SUM(t.status IN ('aguardando','aguardando_resposta','aguardando_terceiros','aguardando_aprovacao','aguardando_data')), 0) AS aguardando,
+                                 COALESCE(SUM(t.status IN (" . AcessoService::listaSql(AcessoService::GRUPO_AGUARDANDO) . ")), 0) AS aguardando,
                                  COALESCE(SUM(t.status = 'nova_resposta'), 0) AS nova_resposta,
                                  COALESCE(SUM(t.prioridade = 'urgente'), 0) AS urgente
                           FROM tickets t WHERE $base");
@@ -674,14 +674,22 @@ if ($_SERVER['REQUEST_METHOD'] === 'PUT') {
 
         $db->beginTransaction();
 
+        // Trava a demanda até o commit e relê status/responsável: duas alterações simultâneas não
+        // duplicam histórico nem e-mails (a segunda já enxerga o que a primeira gravou)
+        $trava = $db->prepare("SELECT status, agente_id FROM tickets WHERE id = ? FOR UPDATE");
+        $trava->execute([$ticket_id]);
+        $travada = $trava->fetch(PDO::FETCH_ASSOC);
+        $current_data['status'] = $travada['status'];
+        $current_data['agente_id'] = $travada['agente_id'];
+
         // Auditoria do cancelamento ANTES da alteração
-        if (isset($input['status']) && $input['status'] === 'cancelado') {
+        if (isset($input['status']) && $input['status'] === 'cancelado' && $current_data['status'] !== 'cancelado') {
             $dados_novos = $current_data;
             $dados_novos['status'] = 'cancelado';
             (new AuditoriaService($db))->registrar($usuario_id, 'cancelar_ticket', 'tickets', $ticket_id, json_encode($current_data), json_encode($dados_novos));
         }
 
-        if (isset($input['status'])) {
+        if (isset($input['status']) && $input['status'] !== $current_data['status']) {
             $updates[] = 'status = :status';
             $params[':status'] = $input['status'];
 
@@ -723,68 +731,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'PUT') {
             $auditoria = new AuditoriaService($db);
             $mudou_status = isset($input['status']) && $input['status'] !== $current_data['status'];
 
-            // === SLA ===
-            if ($mudou_status) {
-                $slaService = new SLAService($db);
-                $congela_novo = $slaService->congelaSla($input['status']);
-                $congela_anterior = $slaService->congelaSla($current_data['status']);
-
-                if ($congela_novo && !$congela_anterior) {
-                    $db->prepare("UPDATE ticket_sla SET pausado = TRUE, pausado_em = NOW() WHERE ticket_id = ?")->execute([$ticket_id]);
-                }
-                if (!$congela_novo && $congela_anterior) {
-                    $slaService->retomarPausa($ticket_id, $setor_da_demanda);
-                }
-
-                $criado = $db->prepare("SELECT criado_em FROM tickets WHERE id = ?");
-                $criado->execute([$ticket_id]);
-                $criado_em = $criado->fetchColumn();
-
-                // Primeira resposta (quando sai de 'novo')
-                if ($criado_em && $current_data['status'] === 'novo' && $input['status'] !== 'novo') {
-                    $segundos = $slaService->calcularSegundosUteis($criado_em, date('Y-m-d H:i:s'), $setor_da_demanda);
-                    $db->prepare("UPDATE ticket_sla SET primeira_resposta_em = NOW(), tempo_primeira_resposta_segundos = ? WHERE ticket_id = ?")
-                       ->execute([$segundos, $ticket_id]);
-                }
-
-                // Resolução (resolvido/encerrado)
-                if ($criado_em && in_array($input['status'], ['resolvido', 'encerrado'], true)) {
-                    $pz = $db->prepare("SELECT COALESCE(tempo_pausado_segundos, 0) FROM ticket_sla WHERE ticket_id = ?");
-                    $pz->execute([$ticket_id]);
-                    $tempo_pausado = (int) $pz->fetchColumn();
-                    $totais = $slaService->calcularSegundosUteis($criado_em, date('Y-m-d H:i:s'), $setor_da_demanda);
-                    $db->prepare("UPDATE ticket_sla SET resolvido_em = NOW(), tempo_resolucao_segundos = ? WHERE ticket_id = ?")
-                       ->execute([max(0, $totais - $tempo_pausado), $ticket_id]);
-                }
-            }
-
-            // === Histórico, auditoria e janelas ===
+            // === Efeitos da troca de status: SLA (pausa, primeira resposta, resolução, reabertura),
+            // histórico, auditoria, janelas e lembretes — regra única, a mesma do e-mail e da mesclagem ===
             $hist = $db->prepare("INSERT INTO ticket_historico (ticket_id, usuario_id, acao, valor_anterior, valor_novo) VALUES (?, ?, ?, ?, ?)");
 
             if ($mudou_status) {
-                $hist->execute([$ticket_id, $usuario_id, 'status', $current_data['status'], $input['status']]);
-                $auditoria->registrarTicket($ticket_id, $usuario_id, 'status', $current_data['status'], $input['status']);
-
-                // Encerrar/cancelar fecha as janelas de setor e responsável e os lembretes; reabrir as reabre
-                $era_arquivada = in_array($current_data['status'], AcessoService::STATUS_ARQUIVO, true);
-                $vai_arquivar  = in_array($input['status'], AcessoService::STATUS_ARQUIVO, true);
-                if ($vai_arquivar && !$era_arquivada) {
-                    AcessoService::fecharJanelasDaDemanda($db, $ticket_id);
-                    LembreteService::cancelarPendentes($db, $ticket_id, 'Demanda ' . ($input['status'] === 'cancelado' ? 'cancelada' : 'encerrada'));
-                } elseif ($era_arquivada && !$vai_arquivar) {
-                    // Se a mesma requisição troca o responsável, a janela dele é aberta mais abaixo
-                    $troca_agente = array_key_exists('agente_id', $input) && $input['agente_id'] != $current_data['agente_id'];
-                    $agente_atual = $troca_agente ? null : $current_data['agente_id'];
-                    AcessoService::reabrirJanelasDaDemanda($db, $ticket_id, $setor_da_demanda, $agente_atual ? (int) $agente_atual : null);
-                    $pos_commit['reaberto'] = true;
-                }
-                if ($input['status'] === 'encerrado') {
-                    $pos_commit['encerrado'] = true;
-                }
-                // Pesquisa de satisfação (METRICA360): resolvido ou encerrado; o service decide se é elegível
-                if (in_array($input['status'], PesquisaSatisfacaoService::STATUS_GATILHO, true)) {
-                    $pos_commit['pesquisa'] = true;
-                }
+                // Se a mesma requisição troca o responsável, a janela dele é aberta mais abaixo
+                $troca_agente = array_key_exists('agente_id', $input) && $input['agente_id'] != $current_data['agente_id'];
+                $marcas = DemandaService::efeitosDaMudancaDeStatus($db, (int) $ticket_id, (string) $current_data['status'],
+                    (string) $input['status'], (int) $usuario_id, $setor_da_demanda, $troca_agente ? ['agente_reaberto' => null] : []);
+                $pos_commit['reaberto'] = $marcas['reaberto'];
+                $pos_commit['encerrado'] = $marcas['encerrado'];
+                $pos_commit['pesquisa'] = $marcas['pesquisa'];
             }
 
             if (isset($input['prioridade']) && $input['prioridade'] !== $current_data['prioridade']) {

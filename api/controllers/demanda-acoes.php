@@ -14,6 +14,7 @@ require_once __DIR__ . '/../services/acesso-service.php';
 require_once __DIR__ . '/../services/auditoria-service.php';
 require_once __DIR__ . '/../services/lembrete-service.php';
 require_once __DIR__ . '/../services/protocolo-service.php';
+require_once __DIR__ . '/../services/demanda-service.php';
 
 AuthMiddleware::configurarCORS(['POST']);
 
@@ -77,6 +78,13 @@ try {
         exit;
     }
 
+    // Encerrada/cancelada: encaminhar, devolver, repassar ou transferir abriria janelas numa demanda fechada
+    if (in_array($ticket['status'], AcessoService::STATUS_ARQUIVO, true)) {
+        http_response_code(400);
+        echo json_encode(['error' => 'A demanda está encerrada ou cancelada. Reabra-a antes de encaminhar, devolver, repassar ou transferir.']);
+        exit;
+    }
+
     // Todas as ações exigem que o usuário logado enxergue o setor atual da demanda
     // (admin sempre; gestor no próprio setor; usuario só se for o responsável atual).
     $tipo = $user['tipo'];
@@ -103,7 +111,14 @@ try {
     }
 
     $db->beginTransaction();
+    $trava = $db->prepare("SELECT setor_id, agente_id, status FROM tickets WHERE id = ? FOR UPDATE");
+    $trava->execute([$ticket_id]);
+    $ticket = array_merge($ticket, $trava->fetch(PDO::FETCH_ASSOC) ?: []);
+    if (in_array($ticket['status'], AcessoService::STATUS_ARQUIVO, true)) {
+        throw new InvalidArgumentException('A demanda acabou de ser encerrada ou cancelada');
+    }
     $auditoria = new AuditoriaService($db);
+    $pos_commit_atribuicao = null; // [destino_id, era_sem_responsavel] para os e-mails depois do commit
 
     $nome_ator_stmt = $db->prepare("SELECT nome FROM usuarios WHERE id = ?");
     $nome_ator_stmt->execute([$user['id']]);
@@ -141,6 +156,15 @@ try {
         $status_novo = $ticket['status'] === 'novo' ? 'em_atendimento' : $ticket['status'];
         $upd = $db->prepare("UPDATE tickets SET agente_id = :agente_id, atribuido_em = NOW(), status = :status WHERE id = :id");
         $upd->execute([':agente_id' => $destino_id, ':status' => $status_novo, ':id' => $ticket_id]);
+
+        // Encaminhar é a primeira resposta da equipe (SLA de resposta cumprido) e, saindo de "novo",
+        // a troca de status passa pela regra única (histórico, auditoria, SLA)
+        $setor_demanda = $ticket['setor_id'] !== null ? (int) $ticket['setor_id'] : null;
+        if ($status_novo !== $ticket['status']) {
+            DemandaService::efeitosDaMudancaDeStatus($db, $ticket_id, (string) $ticket['status'], $status_novo, (int) $user['id'], $setor_demanda);
+        }
+        DemandaService::marcarPrimeiraResposta($db, $ticket_id, $setor_demanda);
+        $pos_commit_atribuicao = [$destino_id, empty($ticket['agente_id'])];
 
         if ($ticket['agente_id']) {
             $db->prepare("UPDATE ticket_agente_log SET saiu_em = NOW() WHERE ticket_id = ? AND usuario_id = ? AND saiu_em IS NULL")
@@ -183,11 +207,12 @@ try {
             throw new InvalidArgumentException('usuario_id do colega é obrigatório');
         }
 
-        $destino_stmt = $db->prepare("SELECT id, nome, setor_id, ativo FROM usuarios WHERE id = ?");
+        $destino_stmt = $db->prepare("SELECT id, nome, setor_id, tipo, ativo FROM usuarios WHERE id = ?");
         $destino_stmt->execute([$destino_id]);
         $destino = $destino_stmt->fetch(PDO::FETCH_ASSOC);
 
-        if (!$destino || !$destino['ativo'] || (int) $destino['setor_id'] !== (int) $ticket['setor_id']) {
+        if (!$destino || !$destino['ativo'] || !in_array($destino['tipo'], ['operador', 'gestor'], true)
+            || (int) $destino['setor_id'] !== (int) $ticket['setor_id']) {
             throw new InvalidArgumentException('Colega inválido ou fora do setor da demanda');
         }
 
@@ -206,6 +231,7 @@ try {
 
         $auditoria->registrarTicket($ticket_id, $user['id'], 'agente', $responsavel_atual_nome, $destino['nome']);
         $notificar[$destino_id] = "{$nome_ator} repassou a demanda (" . ProtocoloService::rotuloPorId($db, (int) $ticket_id) . ") para você.";
+        $pos_commit_atribuicao = [$destino_id, false];
 
     } else { // transferir_setor
         $setor_destino_id = isset($input['setor_id']) ? (int) $input['setor_id'] : 0;
@@ -291,6 +317,17 @@ try {
             } catch (Exception $e) {
                 error_log('[DEMANDA-ACOES] Erro ao notificar usuário ' . $destino_id . ': ' . $e->getMessage());
             }
+        }
+    }
+
+    // E-mails: "Demanda atribuída para você" ao destinatário e, se a demanda não tinha responsável,
+    // a "Primeira resposta" ao solicitante (cada um respeita o liga/desliga do setor)
+    if ($pos_commit_atribuicao !== null) {
+        try {
+            require_once __DIR__ . '/../services/email-sender.php';
+            (new EmailSender($db))->notificarAtribuicaoTicket($ticket_id, $pos_commit_atribuicao[0], $nome_ator, $pos_commit_atribuicao[1]);
+        } catch (Exception $e) {
+            error_log('[DEMANDA-ACOES] Ação salva; falha ao enviar e-mails: ' . $e->getMessage());
         }
     }
 

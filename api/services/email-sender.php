@@ -964,7 +964,9 @@ class EmailSender {
             $stmt->execute();
             $ticket = $stmt->fetch();
             
-            if (!$ticket || !$ticket['usuario_email']) return false;
+            if (!$ticket) return false;
+            $destino = trim((string) ($ticket['email_solicitante'] ?? '')) ?: (string) $ticket['usuario_email'];
+            if ($destino === '') return false;
             $rotulo = ProtocoloService::rotulo($ticket['protocolo'] ?? null, (int) $ticket_id);
             $numero = ltrim($rotulo, '#');
 
@@ -984,7 +986,7 @@ class EmailSender {
 
             $assunto = "🎫 [" . $rotulo . "] Demanda reaberta - " . $ticket['titulo'];
 
-            return $this->enviarEmail($ticket['usuario_email'], $assunto, $template);
+            return $this->enviarEmail($destino, $assunto, $template);
         } catch (Exception $e) {
             error_log('Erro ao notificar solicitante sobre reabertura: ' . $e->getMessage());
             return false;
@@ -1027,7 +1029,7 @@ class EmailSender {
             }
             
             // Se era sem atribuição, enviar primeira resposta ao solicitante
-            if ($era_sem_atribuicao && $ticket['usuario_email'] && $agente['nome']) {
+            if ($era_sem_atribuicao && ($ticket['email_solicitante'] || $ticket['usuario_email']) && $agente['nome']) {
                 $this->enviarPrimeiraRespostaAoSolicitante($ticket_id, $agente['nome']);
             }
             
@@ -1051,7 +1053,7 @@ class EmailSender {
             $stmt->execute();
             $ticket = $stmt->fetch();
             
-            if (!$ticket || !$ticket['usuario_email']) return false;
+            if (!$ticket || (trim((string) ($ticket['email_solicitante'] ?? '')) === '' && !$ticket['usuario_email'])) return false;
             $rotulo = ProtocoloService::rotulo($ticket['protocolo'] ?? null, (int) $ticket_id);
             $numero = ltrim($rotulo, '#');
 
@@ -1169,12 +1171,12 @@ class EmailSender {
 
     private function registrarPrimeiraResposta($ticket_id) {
         try {
-            // Registrar primeira resposta no SLA
-            $query = "UPDATE ticket_sla SET primeira_resposta_em = NOW() WHERE ticket_id = :ticket_id AND primeira_resposta_em IS NULL";
-            $stmt = $this->db->prepare($query);
-            $stmt->bindParam(':ticket_id', $ticket_id);
-            $stmt->execute();
-            error_log("[SLA] Primeira resposta registrada para ticket #$ticket_id");
+            // Mesma regra da troca de status (DemandaService): só a primeira vez, com o tempo útil decorrido
+            require_once __DIR__ . '/demanda-service.php';
+            $setor = $this->db->prepare("SELECT setor_id FROM tickets WHERE id = ?");
+            $setor->execute([(int) $ticket_id]);
+            $setorId = $setor->fetchColumn();
+            DemandaService::marcarPrimeiraResposta($this->db, (int) $ticket_id, $setorId ? (int) $setorId : null);
         } catch (Exception $e) {
             error_log('[EMAIL] Erro ao registrar primeira resposta no SLA: ' . $e->getMessage());
         }

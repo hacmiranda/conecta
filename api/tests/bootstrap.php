@@ -21,3 +21,5 @@ require_once __DIR__ . '/../services/pesquisa-satisfacao-service.php';
 require_once __DIR__ . '/../services/rede-service.php';
 require_once __DIR__ . '/../services/upload-service.php';
 require_once __DIR__ . '/../services/email-service.php';
+require_once __DIR__ . '/../config/database.php';
+require_once __DIR__ . '/../services/demanda-service.php';
