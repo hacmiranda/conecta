@@ -299,6 +299,7 @@ function mostrarSecao(secaoId) {
         'dashboard': 'btn-nav-dashboard',
         'relatorios': 'btn-nav-relatorios',
         'registro-atividades': 'btn-nav-registro-atividades',
+        'meu-painel': 'btn-nav-meu-painel',
         'ajuda': 'btn-nav-ajuda',
         'config': 'btn-nav-config'
     };
@@ -983,6 +984,9 @@ function aplicarVisibilidadePorPapel(tipo) {
     const itemRegistro = document.getElementById('nav-registro-atividades-item');
     if (itemRegistro) itemRegistro.hidden = !podeRegistrarAtividades();
 
+    // Meu Painel: só quem o METRICA360 reconhece com atendimento externo (consulta assíncrona)
+    if (typeof verificarAcessoMeuPainel === 'function') verificarAcessoMeuPainel();
+
     const menuConfigWrapper = document.getElementById('nav-config-wrapper');
     if (!menuConfigWrapper) return;
 
@@ -1075,6 +1079,8 @@ function restaurarSecaoAtiva() {
         mostrarRelatorios();
     } else if (secaoSalva === 'registro-atividades' && podeRegistrarAtividades()) {
         mostrarRegistroAtividades();
+    } else if (secaoSalva === 'meu-painel') {
+        mostrarMeuPainel();
     } else if (secaoSalva === 'sobre') {
         mostrarSobre();
     } else if (secaoSalva === 'ajuda') {

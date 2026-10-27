@@ -1,0 +1,305 @@
+/*
+ * Meu Painel (envio de pesquisas, veio do METRICA360). Só tokens de style.css; modo escuro por variáveis.
+ */
+:root {
+    --mp-espaco-1: 0.25rem;
+    --mp-espaco-2: 0.5rem;
+    --mp-espaco-3: 0.75rem;
+    --mp-espaco-4: 1rem;
+    --mp-espaco-6: 1.5rem;
+    --mp-fundo: var(--branco);
+    --mp-borda: var(--neutro-200);
+    --mp-texto: var(--neutro-800);
+    --mp-texto-suave: var(--neutro-600);
+    --mp-cabecalho: var(--neutro-100);
+    --mp-destaque: var(--vinho-600);
+    --mp-frase-fundo: var(--laranja-50);
+    --mp-ok-fundo: var(--verde-50);
+    --mp-ok-texto: var(--verde-700);
+    --mp-aguardando-fundo: var(--laranja-50);
+    --mp-aguardando-texto: var(--laranja-texto);
+    --mp-expirado-fundo: var(--neutro-100);
+    --mp-expirado-texto: var(--neutro-600);
+    --mp-estrela: var(--laranja-texto);
+}
+
+body.modo-escuro {
+    --mp-fundo: var(--neutro-800);
+    --mp-borda: var(--neutro-600);
+    --mp-texto: var(--neutro-100);
+    --mp-texto-suave: var(--neutro-200);
+    --mp-cabecalho: var(--neutro-900);
+    --mp-destaque: var(--laranja-500);
+    --mp-frase-fundo: var(--neutro-900);
+    --mp-ok-fundo: var(--neutro-900);
+    --mp-ok-texto: var(--verde-500);
+    --mp-aguardando-fundo: var(--neutro-900);
+    --mp-expirado-fundo: var(--neutro-900);
+    --mp-expirado-texto: var(--neutro-200);
+}
+
+.mp-subtitulo,
+.mp-relogio {
+    color: var(--mp-texto-suave);
+    margin: 0 0 var(--mp-espaco-4);
+}
+
+.mp-relogio {
+    font-size: 0.9rem;
+}
+
+.mp-aviso {
+    color: var(--mp-texto-suave);
+    font-style: italic;
+}
+
+.mp-cartao {
+    background: var(--mp-fundo);
+    color: var(--mp-texto);
+    border: 1px solid var(--mp-borda);
+    border-radius: var(--radius-md);
+    padding: var(--mp-espaco-4);
+    box-shadow: var(--shadow-sm);
+    margin-bottom: var(--mp-espaco-4);
+}
+
+.mp-cartao-titulo {
+    margin: 0 0 var(--mp-espaco-3);
+    font-size: 1.1rem;
+}
+
+.mp-erro {
+    border-left: 4px solid var(--vinho-600);
+}
+
+.mp-frase {
+    margin: 0 0 var(--mp-espaco-4);
+    padding: var(--mp-espaco-3) var(--mp-espaco-4);
+    background: var(--mp-frase-fundo);
+    border-left: 4px solid var(--laranja-500);
+    border-radius: var(--radius-sm);
+    color: var(--mp-texto);
+}
+
+.mp-frase blockquote {
+    margin: 0;
+    font-style: italic;
+}
+
+.mp-frase figcaption {
+    margin-top: var(--mp-espaco-1);
+    color: var(--mp-texto-suave);
+    font-size: 0.9rem;
+}
+
+.mp-indicadores {
+    list-style: none;
+    margin: 0 0 var(--mp-espaco-4);
+    padding: 0;
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(11rem, 1fr));
+    gap: var(--mp-espaco-3);
+}
+
+.mp-indicador {
+    background: var(--mp-fundo);
+    color: var(--mp-texto);
+    border: 1px solid var(--mp-borda);
+    border-top: 4px solid var(--mp-destaque);
+    border-radius: var(--radius-md);
+    padding: var(--mp-espaco-3) var(--mp-espaco-4);
+    display: flex;
+    flex-direction: column;
+    gap: var(--mp-espaco-1);
+    box-shadow: var(--shadow-sm);
+}
+
+.mp-indicador-valor {
+    font-size: 1.9rem;
+    font-weight: 700;
+    line-height: 1.1;
+}
+
+.mp-indicador-rotulo {
+    color: var(--mp-texto-suave);
+    font-size: 0.85rem;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+}
+
+.mp-progresso {
+    width: 100%;
+    height: 0.5rem;
+    accent-color: var(--verde-700);
+}
+
+.mp-grade {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(18rem, 1fr));
+    gap: var(--mp-espaco-4);
+}
+
+.mp-grade .mp-cartao {
+    margin-bottom: var(--mp-espaco-4);
+}
+
+#mp-form input {
+    width: 100%;
+}
+
+.mp-erro-campo {
+    display: block;
+    color: var(--vinho-600);
+    font-size: 0.85rem;
+    margin-top: var(--mp-espaco-1);
+}
+
+.mp-erro-campo[hidden] {
+    display: none;
+}
+
+body.modo-escuro .mp-erro-campo {
+    color: var(--laranja-100);
+}
+
+.mp-enviar {
+    width: 100%;
+}
+
+.mp-passos {
+    margin: 0;
+    padding-left: var(--mp-espaco-6);
+    display: flex;
+    flex-direction: column;
+    gap: var(--mp-espaco-2);
+}
+
+.mp-regra {
+    margin: var(--mp-espaco-3) 0 0;
+    padding: var(--mp-espaco-2) var(--mp-espaco-3);
+    background: var(--mp-cabecalho);
+    border-radius: var(--radius-sm);
+}
+
+.mp-google [class^="elfsight-app-"]:empty {
+    min-height: 3rem;
+}
+
+.mp-hist-cabecalho {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--mp-espaco-3);
+    margin-bottom: var(--mp-espaco-3);
+}
+
+.mp-hist-cabecalho .mp-cartao-titulo {
+    margin: 0;
+}
+
+.mp-abas {
+    flex-wrap: wrap;
+    margin: 0;
+}
+
+.mp-contagem {
+    font-size: 0.8rem;
+    opacity: 0.85;
+}
+
+.mp-tabela-wrap {
+    overflow-x: auto;
+}
+
+.mp-tabela {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.mp-tabela th,
+.mp-tabela td {
+    padding: var(--mp-espaco-2) var(--mp-espaco-3);
+    border-bottom: 1px solid var(--mp-borda);
+    text-align: left;
+    vertical-align: top;
+}
+
+.mp-tabela thead th {
+    background: var(--mp-cabecalho);
+    border-bottom: 2px solid var(--vinho-600);
+}
+
+.mp-selo {
+    display: inline-block;
+    padding: 0 var(--mp-espaco-2);
+    border-radius: 999px;
+    font-size: 0.85rem;
+    font-weight: 600;
+    white-space: nowrap;
+}
+
+.mp-selo--avaliado {
+    background: var(--mp-ok-fundo);
+    color: var(--mp-ok-texto);
+}
+
+.mp-selo--aguardando {
+    background: var(--mp-aguardando-fundo);
+    color: var(--mp-aguardando-texto);
+}
+
+.mp-selo--expirado {
+    background: var(--mp-expirado-fundo);
+    color: var(--mp-expirado-texto);
+}
+
+.mp-selo-origem {
+    display: inline-block;
+    margin-left: var(--mp-espaco-1);
+    padding: 0 var(--mp-espaco-2);
+    border: 1px solid var(--mp-destaque);
+    border-radius: 999px;
+    font-size: 0.75rem;
+    white-space: nowrap;
+}
+
+.mp-estrelas {
+    color: var(--mp-estrela);
+    letter-spacing: 0.05em;
+    white-space: nowrap;
+}
+
+.mp-traco {
+    color: var(--mp-texto-suave);
+}
+
+.mp-paginacao {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--mp-espaco-1);
+    margin-top: var(--mp-espaco-3);
+}
+
+.mp-pagina {
+    min-width: 2.25rem;
+    height: 2.25rem;
+    border: 1px solid var(--mp-borda);
+    background: var(--mp-fundo);
+    color: var(--mp-texto);
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+}
+
+.mp-pagina--atual {
+    background: var(--vinho-600);
+    border-color: var(--vinho-600);
+    color: var(--branco);
+}
+
+.mp-pagina-info,
+.mp-reticencias {
+    color: var(--mp-texto-suave);
+    padding: 0 var(--mp-espaco-2);
+}

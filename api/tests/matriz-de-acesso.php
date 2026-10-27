@@ -368,6 +368,19 @@ try {
     [$c] = req('DELETE', "$cfgAtiv?acao=tipo&id=$tipoRestante", $T['gestorA']);
     verifica('atividade já registrada não pode ser excluída (409)', $c === 409, (string) $c);
 
+    echo "\n[7e] Meu Painel (repassa ao METRICA360 pelo e-mail do usuário logado)\n";
+    $painel = $baseUrl . 'meu-painel.php';
+    [$c, $j] = req('GET', "$painel?acao=acesso", $T['operadorA']);
+    verifica('consulta de acesso responde (200) e e-mail desconhecido não tem acesso', $c === 200 && ($j['atendimento_externo'] ?? true) === false, (string) $c);
+    [$c] = req('GET', $painel, $T['operadorA']);
+    verifica('quem não está no METRICA360 não abre o painel (404, ou 503 sem integração)', in_array($c, [404, 503], true), (string) $c);
+    [$c] = req('POST', $painel, [$T['operadorA'][0], 'csrf-errado'], ['destinatario_nome' => 'zz', 'destinatario_email' => 'zz@example.com']);
+    verifica('enviar convite sem CSRF correto é recusado (403)', $c === 403, (string) $c);
+    [$c] = req('POST', $painel, $T['operadorA'], ['destinatario_nome' => '', 'destinatario_email' => 'invalido']);
+    verifica('convite sem nome/e-mail válido é recusado (400)', $c === 400, (string) $c);
+    [$c] = req('GET', $painel);
+    verifica('sem sessão: 401', $c === 401, (string) $c);
+
     echo "\n[8] Sessão no cookie HttpOnly, com validade\n";
     $emailOperadorA = (string) $db->query("SELECT email FROM usuarios WHERE id = $operadorA")->fetchColumn();
     [$c, $j, $ck] = reqCookie('POST', $baseUrl . 'auth.php', null, null, ['email' => $emailOperadorA, 'senha' => 'Zz@Teste12345']);
