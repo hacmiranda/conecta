@@ -305,6 +305,40 @@ try {
     [$c] = req('DELETE', "$filtros?id=$filtroGlobal", $T['admin']);
     verifica('admin exclui o filtro global (200)', $c === 200, (string) $c);
 
+    echo "\n[7c] Configurações → Atividades (admin: qualquer setor; gestor: só o próprio; operador: nada)\n";
+    $cfgAtiv = $baseUrl . 'atividades-config.php';
+    $regrasOriginaisA = $db->query("SELECT * FROM atividades_config_setor WHERE setor_id = " . (int) $setorA)->fetch(PDO::FETCH_ASSOC) ?: null;
+    [$c] = req('GET', "$cfgAtiv?setor_id=$setorA", $T['operadorA']);
+    verifica('operador não lê a configuração de atividades (403)', $c === 403, (string) $c);
+    [$c] = req('GET', "$cfgAtiv?setor_id=$setorB", $T['gestorA']);
+    verifica('gestor não lê a configuração de outro setor (403)', $c === 403, (string) $c);
+    [$c, $j] = req('POST', "$cfgAtiv?acao=tipos", $T['gestorA'], ['setor_id' => $setorA, 'nomes' => "zz_matriz_ativ_1\nzz_matriz_ativ_2\nzz_matriz_ativ_1"]);
+    verifica('gestor cria atividades no próprio setor, repetida ignorada (201)', $c === 201 && ($j['criadas'] ?? 0) === 2 && ($j['ignoradas'] ?? 0) === 1, (string) $c);
+    [$c] = req('POST', "$cfgAtiv?acao=tipos", $T['gestorA'], ['setor_id' => $setorB, 'nomes' => 'zz_matriz_ativ_b']);
+    verifica('gestor não cria atividade em outro setor (403)', $c === 403, (string) $c);
+    [$c] = req('POST', "$cfgAtiv?acao=tipos", [$T['gestorA'][0], 'csrf-errado'], ['setor_id' => $setorA, 'nomes' => 'zz_matriz_ativ_csrf']);
+    verifica('criar atividade sem CSRF correto é recusado (403)', $c === 403, (string) $c);
+    [$c, $j] = req('GET', "$cfgAtiv?setor_id=$setorA", $T['gestorA']);
+    $tipoMatriz = 0;
+    foreach ($j['tipos'] ?? [] as $t) { if ($t['nome'] === 'zz_matriz_ativ_1') $tipoMatriz = (int) $t['id']; }
+    verifica('gestor lê as atividades do próprio setor (200)', $c === 200 && $tipoMatriz > 0, (string) $c);
+    [$c] = req('PUT', "$cfgAtiv?acao=tipo&id=$tipoMatriz", $T['gestorB'], ['ativo' => false]);
+    verifica('gestor de outro setor não altera a atividade (403)', $c === 403, (string) $c);
+    [$c] = req('PUT', "$cfgAtiv?acao=tipo&id=$tipoMatriz", $T['gestorA'], ['nome' => 'zz_matriz_ativ_2']);
+    verifica('renomear para um nome que já existe no setor é recusado (409)', $c === 409, (string) $c);
+    [$c] = req('PUT', "$cfgAtiv?acao=setor", $T['gestorA'], ['setor_id' => $setorA, 'modo' => 'semanal', 'prazo' => 1, 'entrega_ativa' => true, 'entrega_dias' => []]);
+    verifica('entrega ligada sem nenhum dia é recusada (400)', $c === 400, (string) $c);
+    [$c] = req('PUT', "$cfgAtiv?acao=setor", $T['gestorB'], ['setor_id' => $setorA, 'modo' => 'diario']);
+    verifica('gestor não altera regras de outro setor (403)', $c === 403, (string) $c);
+    [$c] = req('PUT', "$cfgAtiv?acao=usuario&id=$operadorA", $T['gestorB'], ['trabalho_remoto' => true, 'qtd_semana' => 2]);
+    verifica('gestor não altera regras de servidor de outro setor (403)', $c === 403, (string) $c);
+    [$c] = req('PUT', "$cfgAtiv?acao=usuario&id=$operadorA", $T['gestorA'], ['trabalho_remoto' => true, 'qtd_semana' => 2, 'entrega_modo' => 'personalizado', 'entrega_dias' => [1, 3]]);
+    verifica('gestor define as regras de um servidor do setor (200)', $c === 200, (string) $c);
+    [$c] = req('PUT', "$cfgAtiv?acao=usuario&id=$cliente", $T['admin'], ['trabalho_remoto' => true]);
+    verifica('cliente não tem regras de atividade (404)', $c === 404, (string) $c);
+    [$c] = req('DELETE', "$cfgAtiv?acao=tipo&id=$tipoMatriz", $T['gestorA']);
+    verifica('gestor exclui atividade nunca registrada (200)', $c === 200, (string) $c);
+
     echo "\n[8] Sessão no cookie HttpOnly, com validade\n";
     $emailOperadorA = (string) $db->query("SELECT email FROM usuarios WHERE id = $operadorA")->fetchColumn();
     [$c, $j, $ck] = reqCookie('POST', $baseUrl . 'auth.php', null, null, ['email' => $emailOperadorA, 'senha' => 'Zz@Teste12345']);
@@ -353,6 +387,23 @@ try {
     $db->exec("DELETE FROM auditoria_login WHERE email LIKE 'zz_matriz_%'"); // logins de teste da seção [8]
     $db->exec("DELETE FROM filtros_email WHERE termo LIKE 'zz_matriz_%'"); // filtros de e-mail da seção [7b]
     $db->exec("DELETE FROM auditoria WHERE tabela = 'filtros_email' AND (dados_novos LIKE '%zz_matriz_%' OR dados_anteriores LIKE '%zz_matriz_%')");
+    // Registro de Atividades (seção [7c]): registros dos usuários de teste, atividades zz_matriz_ e regras do setor A
+    if ($usuariosCriados) {
+        $idsUsuarios = implode(',', array_filter($usuariosCriados));
+        $db->exec("DELETE FROM registros_atividades WHERE usuario_id IN ($idsUsuarios)");
+        $db->exec("DELETE FROM auditoria WHERE tabela LIKE 'atividades_config_%' AND registro_id IN ($idsUsuarios)");
+    }
+    $db->exec("DELETE FROM atividades_tipos WHERE nome LIKE 'zz_matriz_%'");
+    $db->exec("DELETE FROM auditoria WHERE tabela = 'atividades_tipos' AND (dados_novos LIKE '%zz_matriz_%' OR dados_anteriores LIKE '%zz_matriz_%')");
+    if (isset($regrasOriginaisA)) {
+        $db->prepare("DELETE FROM atividades_config_setor WHERE setor_id = ?")->execute([$setorA]);
+        $db->exec("DELETE FROM auditoria WHERE tabela = 'atividades_config_setor' AND registro_id = " . (int) $setorA . " AND criado_em >= NOW() - INTERVAL 1 HOUR AND usuario_id IN (" . (implode(',', array_filter($usuariosCriados)) ?: '0') . ")");
+        if ($regrasOriginaisA) {
+            $colunas = array_keys($regrasOriginaisA);
+            $db->prepare("INSERT INTO atividades_config_setor (" . implode(',', $colunas) . ") VALUES (" . implode(',', array_fill(0, count($colunas), '?')) . ")")
+               ->execute(array_values($regrasOriginaisA));
+        }
+    }
     if ($usuariosCriados) {
         $idsUsuarios = implode(',', array_filter($usuariosCriados));
         $db->exec("DELETE FROM usuarios WHERE id IN ($idsUsuarios)");

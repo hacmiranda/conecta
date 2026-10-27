@@ -1,0 +1,178 @@
+/*
+ * Configurações → Atividades. Só tokens (style.css); modo escuro por variáveis. Sem hex solto.
+ */
+:root {
+    --ativcfg-espaco-1: 0.25rem;
+    --ativcfg-espaco-2: 0.5rem;
+    --ativcfg-espaco-3: 0.75rem;
+    --ativcfg-espaco-4: 1rem;
+    --ativcfg-espaco-6: 1.5rem;
+    --ativcfg-fundo: var(--branco);
+    --ativcfg-borda: var(--neutro-200);
+    --ativcfg-texto: var(--neutro-800);
+    --ativcfg-texto-suave: var(--neutro-600);
+    --ativcfg-cabecalho: var(--neutro-100);
+}
+
+body.modo-escuro {
+    --ativcfg-fundo: var(--neutro-800);
+    --ativcfg-borda: var(--neutro-600);
+    --ativcfg-texto: var(--neutro-100);
+    --ativcfg-texto-suave: var(--neutro-200);
+    --ativcfg-cabecalho: var(--neutro-900);
+}
+
+.ativcfg-intro {
+    color: var(--ativcfg-texto-suave);
+    margin-bottom: var(--ativcfg-espaco-4);
+    max-width: 60rem;
+}
+
+.ativcfg-abas {
+    flex-wrap: wrap;
+}
+
+.ativcfg-titulo {
+    margin: var(--ativcfg-espaco-6) 0 var(--ativcfg-espaco-3);
+    font-size: 1.1rem;
+    color: var(--ativcfg-texto);
+}
+
+.ativcfg-aviso,
+.ativcfg-dica {
+    color: var(--ativcfg-texto-suave);
+    font-style: italic;
+}
+
+.ativcfg-dica {
+    font-size: 0.85rem;
+}
+
+.ativcfg-form {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-end;
+    gap: var(--ativcfg-espaco-3);
+    padding: var(--ativcfg-espaco-4);
+    background: var(--ativcfg-fundo);
+    border: 1px solid var(--ativcfg-borda);
+    border-radius: var(--radius-md);
+    color: var(--ativcfg-texto);
+}
+
+.ativcfg-form .form-group {
+    margin: 0;
+}
+
+.ativcfg-cresce {
+    flex: 1 1 20rem;
+}
+
+.ativcfg-form textarea {
+    width: 100%;
+    resize: vertical;
+}
+
+.ativcfg-grupo {
+    border: 1px solid var(--ativcfg-borda);
+    border-radius: var(--radius-sm);
+    padding: var(--ativcfg-espaco-2) var(--ativcfg-espaco-3);
+    margin: 0;
+}
+
+.ativcfg-grupo legend {
+    font-weight: 600;
+    padding: 0 var(--ativcfg-espaco-1);
+}
+
+.ativcfg-opcao {
+    display: flex;
+    align-items: center;
+    gap: var(--ativcfg-espaco-2);
+    margin: var(--ativcfg-espaco-1) 0;
+    font-weight: normal;
+}
+
+/* Rádios e caixas de marcar no tamanho natural (o estilo global de input estica para 100%) */
+.ativcfg-opcao input,
+.ativcfg-dia input {
+    width: auto;
+    margin: 0;
+    flex: 0 0 auto;
+}
+
+.ativcfg-opcao {
+    justify-content: flex-start;
+    text-align: left;
+}
+
+.ativcfg-dias {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--ativcfg-espaco-1) var(--ativcfg-espaco-3);
+    border: 0;
+    padding: 0;
+    margin: var(--ativcfg-espaco-1) 0;
+}
+
+.ativcfg-dia {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--ativcfg-espaco-1);
+    font-weight: normal;
+    white-space: nowrap;
+}
+
+.ativcfg-tabela-wrap {
+    overflow-x: auto;
+    margin-top: var(--ativcfg-espaco-3);
+}
+
+.ativcfg-tabela {
+    width: 100%;
+    border-collapse: collapse;
+    background: var(--ativcfg-fundo);
+    color: var(--ativcfg-texto);
+}
+
+.ativcfg-tabela th,
+.ativcfg-tabela td {
+    padding: var(--ativcfg-espaco-2) var(--ativcfg-espaco-3);
+    text-align: left;
+    border-bottom: 1px solid var(--ativcfg-borda);
+    vertical-align: middle;
+}
+
+.ativcfg-tabela thead th {
+    background: var(--ativcfg-cabecalho);
+    border-bottom: 2px solid var(--vinho-600);
+}
+
+.ativcfg-tabela tbody th {
+    font-weight: 600;
+}
+
+.ativcfg-tabela small {
+    color: var(--ativcfg-texto-suave);
+    font-weight: normal;
+}
+
+.ativcfg-ordem {
+    width: 5rem;
+}
+
+.ativcfg-inativo td {
+    opacity: 0.65;
+}
+
+.ativcfg-acoes {
+    white-space: nowrap;
+}
+
+.ativcfg-acoes .btn-small {
+    margin-right: var(--ativcfg-espaco-1);
+}
+
+.ativcfg-acoes .btn-perigo {
+    background: var(--vinho-600);
+}
