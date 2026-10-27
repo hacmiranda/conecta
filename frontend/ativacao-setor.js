@@ -254,7 +254,7 @@ async function carregarLogEmailsProcessadosSetor() {
             return;
         }
 
-        const rotuloTipo = { novo_ticket: '🆕 Nova demanda', comentario: '💬 Comentário', erro: '❌ Erro' };
+        const rotuloTipo = { novo_ticket: '🆕 Nova demanda', comentario: '💬 Comentário', erro: '❌ Erro', ignorado: '🚫 Não abriu demanda' };
 
         container.innerHTML = `
             <div class="config-setor-itens">
@@ -267,6 +267,7 @@ async function carregarLogEmailsProcessadosSetor() {
                         <div style="font-size:0.85rem;color:#666;">
                             De: ${sanitizeHTML(r.email_remetente)} · Caixa: ${sanitizeHTML(r.setor_email_endereco || '—')} · ${sanitizeHTML(rotuloTipo[r.tipo] || r.tipo)}
                             ${r.ticket_id ? ` · Demanda ${numeroDemanda(r)}` : ''}
+                            ${r.tipo === 'ignorado' && r.observacao ? ` · ${sanitizeHTML(r.observacao)}` : ''}
                         </div>
                     </div>
                 `).join('')}

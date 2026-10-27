@@ -1091,6 +1091,8 @@ function restaurarSecaoAtiva() {
                 mostrarCategorias();
             } else if (subSecaoSalva === 'setor-config') {
                 mostrarConfigSetor();
+            } else if (subSecaoSalva === 'filtros-email') {
+                mostrarFiltrosEmail();
             } else if (subSecaoSalva === 'horarios-sla') {
                 mostrarHorariosSLA();
             } else if (subSecaoSalva === 'personalizacao') {
@@ -1109,6 +1111,8 @@ function restaurarSecaoAtiva() {
                 mostrarCategorias();
             } else if (subSecaoSalva === 'setor-config') {
                 mostrarConfigSetor();
+            } else if (subSecaoSalva === 'filtros-email') {
+                mostrarFiltrosEmail();
             } else if (subSecaoSalva === 'auditoria') {
                 mostrarAuditoria();
             } else if (subSecaoSalva === 'horarios-sla') {

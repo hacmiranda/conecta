@@ -242,6 +242,16 @@ function mostrarFluxosEmail() {
                 </div>
             </div>
             
+            <section class="ajuda-filtros-email" aria-labelledby="ajuda-filtros-titulo">
+                <h4 id="ajuda-filtros-titulo"><span aria-hidden="true">🚫</span> E-mails que não abrem demanda</h4>
+                <p>Em <strong>Configurações → Filtros de E-mail</strong>, o administrador e o gestor cadastram textos que, se
+                    aparecerem no <strong>remetente, destinatário, assunto ou corpo</strong> de um e-mail recebido, fazem o sistema
+                    <strong>não abrir demanda</strong> (propagandas, newsletters, avisos automáticos). Cada setor tem os seus
+                    filtros; o administrador também pode cadastrar filtros para todos os setores.</p>
+                <p>A comparação ignora maiúsculas e acentos. Resposta de quem já participa de uma demanda continua virando
+                    comentário. Os e-mails barrados ficam no registro da tela de filtros.</p>
+            </section>
+
             <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; margin-top: 2rem;">
                 <div class="info-box" style="background: linear-gradient(135deg, #fbeceb 0%, #f5d3d0 100%); border-left: 4px solid #a7241c;">
                     <h4 style="color: #a7241c; margin-top: 0; display: flex; align-items: center; gap: 0.5rem;">

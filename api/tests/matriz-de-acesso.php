@@ -244,6 +244,67 @@ try {
     [$c] = req('PUT', $baseUrl . 'notificacoes.php', $T['operadorA'], []);
     verifica('marcar como lidas com CSRF correto (200)', $c === 200, (string) $c);
 
+    echo "\n[7b] Filtros de e-mail (admin: qualquer setor e globais; gestor: só o próprio setor; operador: nada)\n";
+    $filtros = $baseUrl . 'filtros-email.php';
+    $corpoFiltro = fn($setor, string $termo) => ['setor_id' => $setor, 'campo' => 'assunto', 'termo' => $termo, 'observacao' => 'zz teste'];
+    [$c] = req('GET', "$filtros?setor_id=$setorA", $T['operadorA']);
+    verifica('operador não lê os filtros (403)', $c === 403, (string) $c);
+    [$c] = req('POST', $filtros, $T['operadorA'], $corpoFiltro($setorA, 'zz_matriz_op'));
+    verifica('operador não cria filtro (403)', $c === 403, (string) $c);
+    [$c] = req('GET', "$filtros?setor_id=$setorA", $T['gestorA']);
+    verifica('gestor lê os filtros do próprio setor (200)', $c === 200, (string) $c);
+    [$c] = req('GET', "$filtros?setor_id=$setorB", $T['gestorA']);
+    verifica('gestor não lê os filtros de outro setor (403)', $c === 403, (string) $c);
+    [$c] = req('GET', "$filtros?setor_id=global", $T['gestorA']);
+    verifica('gestor não abre a página dos filtros globais (403)', $c === 403, (string) $c);
+    [$c, $j] = req('POST', $filtros, $T['gestorA'], $corpoFiltro($setorA, 'zz_matriz_gestor'));
+    $filtroGestor = (int) ($j['id'] ?? 0);
+    verifica('gestor cria filtro no próprio setor (201)', $c === 201 && $filtroGestor > 0, (string) $c);
+    [$c] = req('POST', $filtros, $T['gestorA'], $corpoFiltro($setorA, 'ZZ_Matriz_Gestor'));
+    verifica('filtro igual (mesmo com outra caixa de letra) é recusado (409)', $c === 409, (string) $c);
+    [$c] = req('POST', $filtros, $T['gestorA'], $corpoFiltro($setorB, 'zz_matriz_cruzado'));
+    verifica('gestor não cria filtro em outro setor (403)', $c === 403, (string) $c);
+    [$c] = req('POST', $filtros, $T['gestorA'], $corpoFiltro('global', 'zz_matriz_global'));
+    verifica('gestor não cria filtro global (403)', $c === 403, (string) $c);
+    [$c] = req('POST', $filtros, $T['gestorA'], $corpoFiltro($setorA, 'ab'));
+    verifica('termo curto demais é recusado (400)', $c === 400, (string) $c);
+    [$c] = req('POST', $filtros, ['token-sem-csrf-valido', 'csrf-errado'], $corpoFiltro($setorA, 'zz_matriz_csrf'));
+    verifica('criar sem sessão/CSRF válidos é recusado (401/403)', in_array($c, [401, 403], true), (string) $c);
+
+    [$c, $j] = req('POST', $filtros, $T['admin'], $corpoFiltro($setorB, 'zz_matriz_admin_b'));
+    $filtroAdminB = (int) ($j['id'] ?? 0);
+    verifica('admin cria filtro em qualquer setor (201)', $c === 201 && $filtroAdminB > 0, (string) $c);
+    [$c, $j] = req('POST', $filtros, $T['admin'], $corpoFiltro('global', 'zz_matriz_global'));
+    $filtroGlobal = (int) ($j['id'] ?? 0);
+    verifica('admin cria filtro global (201)', $c === 201 && $filtroGlobal > 0, (string) $c);
+    [$c, $j] = req('GET', "$filtros?setor_id=$setorA", $T['gestorA']);
+    $globaisVistos = array_column($j['filtros_globais'] ?? [], 'id');
+    verifica('gestor enxerga o filtro global (só leitura)', in_array($filtroGlobal, array_map('intval', $globaisVistos), true) && ($j['pode_editar_globais'] ?? true) === false, (string) $c);
+
+    [$c] = req('PUT', "$filtros?id=$filtroAdminB", $T['gestorA'], ['ativo' => false]);
+    verifica('gestor não altera filtro de outro setor (403)', $c === 403, (string) $c);
+    [$c] = req('PUT', "$filtros?id=$filtroGlobal", $T['gestorA'], ['ativo' => false]);
+    verifica('gestor não altera filtro global (403)', $c === 403, (string) $c);
+    [$c] = req('DELETE', "$filtros?id=$filtroGlobal", $T['gestorA']);
+    verifica('gestor não exclui filtro global (403)', $c === 403, (string) $c);
+    [$c] = req('PUT', "$filtros?id=$filtroGestor", $T['gestorA'], ['ativo' => false, 'observacao' => 'zz desligado']);
+    verifica('gestor liga/desliga e edita o filtro do próprio setor (200)', $c === 200, (string) $c);
+    [$c, $j] = req('POST', "$filtros?acao=testar", $T['gestorA'], ['setor_id' => $setorA, 'assunto' => 'ZZ_matriz_gestor aqui']);
+    verifica('teste com o filtro desligado não barra', $c === 200 && ($j['barrado'] ?? true) === false, (string) $c);
+    req('PUT', "$filtros?id=$filtroGestor", $T['gestorA'], ['ativo' => true]);
+    [$c, $j] = req('POST', "$filtros?acao=testar", $T['gestorA'], ['setor_id' => $setorA, 'assunto' => 'ZZ_matriz_gestor aqui']);
+    verifica('teste com o filtro ligado barra e diz qual', $c === 200 && ($j['barrado'] ?? false) === true && !empty($j['filtro']['descricao']), (string) $c);
+    [$c, $j] = req('POST', "$filtros?acao=testar", $T['gestorA'], ['setor_id' => $setorA, 'assunto' => 'zz_matriz_admin_b']);
+    verifica('filtro de outro setor não vale no teste do setor A', $c === 200 && ($j['barrado'] ?? true) === false, (string) $c);
+    [$c] = req('GET', "$filtros?acao=barrados&setor_id=$setorB", $T['gestorA']);
+    verifica('gestor não vê os e-mails barrados de outro setor (403)', $c === 403, (string) $c);
+    [$c] = req('GET', "$filtros?acao=barrados&setor_id=$setorA", $T['gestorA']);
+    verifica('gestor vê os e-mails barrados do próprio setor (200)', $c === 200, (string) $c);
+    [$c] = req('DELETE', "$filtros?id=$filtroGestor", $T['gestorA']);
+    verifica('gestor exclui o filtro do próprio setor (200)', $c === 200, (string) $c);
+    [$c] = req('DELETE', "$filtros?id=$filtroGlobal", $T['admin']);
+    verifica('admin exclui o filtro global (200)', $c === 200, (string) $c);
+
     echo "\n[8] Sessão no cookie HttpOnly, com validade\n";
     $emailOperadorA = (string) $db->query("SELECT email FROM usuarios WHERE id = $operadorA")->fetchColumn();
     [$c, $j, $ck] = reqCookie('POST', $baseUrl . 'auth.php', null, null, ['email' => $emailOperadorA, 'senha' => 'Zz@Teste12345']);
@@ -290,6 +351,8 @@ try {
     $db->exec("DELETE FROM auditoria WHERE tabela = 'tickets' AND registro_id IN ($idsTickets)");
     $db->exec("DELETE FROM tickets WHERE id IN ($idsTickets)"); // cascata cuida do resto
     $db->exec("DELETE FROM auditoria_login WHERE email LIKE 'zz_matriz_%'"); // logins de teste da seção [8]
+    $db->exec("DELETE FROM filtros_email WHERE termo LIKE 'zz_matriz_%'"); // filtros de e-mail da seção [7b]
+    $db->exec("DELETE FROM auditoria WHERE tabela = 'filtros_email' AND (dados_novos LIKE '%zz_matriz_%' OR dados_anteriores LIKE '%zz_matriz_%')");
     if ($usuariosCriados) {
         $idsUsuarios = implode(',', array_filter($usuariosCriados));
         $db->exec("DELETE FROM usuarios WHERE id IN ($idsUsuarios)");

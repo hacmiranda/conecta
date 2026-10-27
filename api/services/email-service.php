@@ -6,6 +6,7 @@ require_once __DIR__ . '/upload-service.php';
 require_once __DIR__ . '/demanda-service.php';
 require_once __DIR__ . '/protocolo-service.php';
 require_once __DIR__ . '/email-mime.php';
+require_once __DIR__ . '/filtro-email-service.php';
 date_default_timezone_set('America/Sao_Paulo');
 
 class EmailService {
@@ -205,6 +206,7 @@ class EmailService {
         // Texto do e-mail (EmailMime: texto em qualquer nível das partes, charset convertido, HTML sem
         // CSS/scripts e com as quebras de linha)
         $body = EmailMime::corpoTexto($structure, $this->buscadorDeSecoes($inbox, $email_number, $structure));
+        $corpoPuro = $body; // para os filtros de e-mail (antes de truncar e escapar)
         if (mb_strlen($body) > 10000) {
             $body = mb_substr($body, 0, 10000) . "\n\n[CONTEÚDO TRUNCADO]";
         }
@@ -237,6 +239,22 @@ class EmailService {
                 $this->adicionarComentario($ticket_id, $body, $remetente, $anexos_processados);
                 $tipo = 'comentario';
             } else {
+                // Filtros de e-mail do setor: e-mail que coincide não abre demanda (resposta que vira
+                // comentário nunca chega aqui)
+                $filtro = $this->filtroQueBarra([
+                    'remetente'     => trim(($header->from[0]->personal ?? '') . ' ' . $remetente),
+                    'destinatarios' => $this->enderecosDosDestinatarios($header),
+                    'assunto'       => $assunto,
+                    'corpo'         => $corpoPuro,
+                ]);
+                if ($filtro !== null) {
+                    $descricaoFiltro = FiltroEmailService::descrever($filtro);
+                    LogService::info('email-cron', 'Barrado pelo filtro #' . (int) $filtro['id'] . ' (' . $filtro['campo'] . '): ' . self::mascararEmail($remetente));
+                    FiltroEmailService::registrarOcorrencia($this->db, (int) $filtro['id']);
+                    $this->registrarEmailProcessado($message_id, $remetente, $assunto, null, 'ignorado', 'Filtro: ' . mb_substr($descricaoFiltro, 0, 230), (int) $filtro['id']);
+                    $marcarLido();
+                    return;
+                }
                 if ($ticket_id) {
                     $observacao = 'Mencionou a demanda ' . ProtocoloService::rotuloPorId($this->db, (int) $ticket_id) . ', mas ' . $recusa . '; aberta demanda nova.';
                     $body = '<p><em>' . htmlspecialchars($observacao, ENT_QUOTES, 'UTF-8') . '</em></p>' . $body;
@@ -290,6 +308,24 @@ class EmailService {
             }, $lista))));
         }
         return $this->enderecosDoSistema;
+    }
+
+    /**
+     * Filtro de e-mail do setor da caixa (ou global) que barra este e-mail, ou null. Recebe os dados já
+     * lidos (testável sem IMAP). Só deve ser chamado para o que abriria demanda nova.
+     * @param array{remetente: string, destinatarios: array, assunto: string, corpo: string} $email
+     */
+    public function filtroQueBarra(array $email): ?array {
+        return FiltroEmailService::coincide(FiltroEmailService::ativosDaCaixa($this->db, $this->setorAtualId), $email);
+    }
+
+    /** Endereços dos campos Para e Cc do cabeçalho. */
+    private function enderecosDosDestinatarios($header): array {
+        $enderecos = [];
+        foreach (array_merge((array) ($header->to ?? []), (array) ($header->cc ?? [])) as $d) {
+            $enderecos[] = trim(($d->personal ?? '') . ' ' . ($d->mailbox ?? '') . '@' . ($d->host ?? ''));
+        }
+        return $enderecos;
     }
 
     /**
@@ -435,10 +471,10 @@ class EmailService {
         }
     }
 
-    private function registrarEmailProcessado($message_id, $remetente, $assunto, $ticket_id, $tipo, $observacao = null) {
+    private function registrarEmailProcessado($message_id, $remetente, $assunto, $ticket_id, $tipo, $observacao = null, ?int $filtro_email_id = null) {
         try {
-            $query = "INSERT INTO emails_processados (message_id, email_remetente, assunto, ticket_id, setor_email_id, tipo, observacao)
-                      VALUES (:message_id, :remetente, :assunto, :ticket_id, :setor_email_id, :tipo, :observacao)
+            $query = "INSERT INTO emails_processados (message_id, email_remetente, assunto, ticket_id, setor_email_id, filtro_email_id, tipo, observacao)
+                      VALUES (:message_id, :remetente, :assunto, :ticket_id, :setor_email_id, :filtro_email_id, :tipo, :observacao)
                       ON DUPLICATE KEY UPDATE tentativas = tentativas + 1";
             $stmt = $this->db->prepare($query);
             $stmt->bindParam(':message_id', $message_id);
@@ -446,6 +482,7 @@ class EmailService {
             $stmt->bindParam(':assunto', $assunto);
             $stmt->bindParam(':ticket_id', $ticket_id);
             $stmt->bindValue(':setor_email_id', $this->caixaEmailAtualId, $this->caixaEmailAtualId === null ? PDO::PARAM_NULL : PDO::PARAM_INT);
+            $stmt->bindValue(':filtro_email_id', $filtro_email_id, $filtro_email_id === null ? PDO::PARAM_NULL : PDO::PARAM_INT);
             $stmt->bindParam(':tipo', $tipo);
             $stmt->bindValue(':observacao', $observacao);
             $stmt->execute();

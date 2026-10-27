@@ -1,0 +1,183 @@
+/*
+ * Configurações → Filtros de E-mail. Só tokens (style.css / acessibilidade.css); modo escuro por
+ * variáveis. Sem hex solto.
+ */
+:root {
+    --filtros-espaco-1: 0.25rem;
+    --filtros-espaco-2: 0.5rem;
+    --filtros-espaco-3: 0.75rem;
+    --filtros-espaco-4: 1rem;
+    --filtros-espaco-6: 1.5rem;
+    --filtros-fundo: var(--branco);
+    --filtros-borda: var(--neutro-200);
+    --filtros-texto: var(--neutro-800);
+    --filtros-texto-suave: var(--neutro-600);
+    --filtros-cabecalho: var(--neutro-100);
+    --filtros-barrado-fundo: var(--vinho-50);
+    --filtros-barrado-texto: var(--vinho-900);
+    --filtros-passa-fundo: var(--verde-50);
+    --filtros-passa-texto: var(--verde-700);
+}
+
+body.modo-escuro {
+    --filtros-fundo: var(--neutro-800);
+    --filtros-borda: var(--neutro-600);
+    --filtros-texto: var(--neutro-100);
+    --filtros-texto-suave: var(--neutro-200);
+    --filtros-cabecalho: var(--neutro-900);
+    --filtros-barrado-fundo: var(--neutro-900);
+    --filtros-barrado-texto: var(--laranja-100);
+    --filtros-passa-fundo: var(--neutro-900);
+    --filtros-passa-texto: var(--verde-500);
+}
+
+.filtros-intro {
+    color: var(--filtros-texto-suave);
+    margin-bottom: var(--filtros-espaco-4);
+    max-width: 60rem;
+}
+
+.filtros-abas {
+    flex-wrap: wrap;
+}
+
+.filtros-titulo {
+    margin: var(--filtros-espaco-6) 0 var(--filtros-espaco-3);
+    font-size: 1.1rem;
+    color: var(--filtros-texto);
+}
+
+.filtros-titulo small {
+    font-weight: normal;
+    color: var(--filtros-texto-suave);
+}
+
+.filtros-aviso {
+    color: var(--filtros-texto-suave);
+    font-style: italic;
+}
+
+.filtros-form,
+.filtros-teste {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-end;
+    gap: var(--filtros-espaco-3);
+    padding: var(--filtros-espaco-4);
+    background: var(--filtros-fundo);
+    border: 1px solid var(--filtros-borda);
+    border-radius: var(--radius-md);
+}
+
+.filtros-form .form-group,
+.filtros-teste .form-group {
+    margin: 0;
+}
+
+.filtros-termo {
+    flex: 1 1 16rem;
+}
+
+.filtros-obs {
+    flex: 1 1 14rem;
+}
+
+.filtros-teste-corpo {
+    flex: 1 1 100%;
+}
+
+.filtros-teste input,
+.filtros-teste textarea,
+.filtros-form input,
+.filtros-form select {
+    width: 100%;
+}
+
+.filtros-resultado {
+    flex: 1 1 100%;
+    margin: 0;
+    padding: var(--filtros-espaco-2) var(--filtros-espaco-3);
+    border-radius: var(--radius-sm);
+}
+
+.filtros-resultado:empty {
+    display: none;
+}
+
+.filtros-resultado--barrado {
+    background: var(--filtros-barrado-fundo);
+    color: var(--filtros-barrado-texto);
+    border-left: 4px solid var(--vinho-600);
+}
+
+.filtros-resultado--passa {
+    background: var(--filtros-passa-fundo);
+    color: var(--filtros-passa-texto);
+    border-left: 4px solid var(--verde-500);
+}
+
+.filtros-tabela-wrap {
+    overflow-x: auto;
+    margin-top: var(--filtros-espaco-3);
+}
+
+.filtros-tabela {
+    width: 100%;
+    border-collapse: collapse;
+    background: var(--filtros-fundo);
+    color: var(--filtros-texto);
+}
+
+.filtros-tabela th,
+.filtros-tabela td {
+    padding: var(--filtros-espaco-2) var(--filtros-espaco-3);
+    text-align: left;
+    border-bottom: 1px solid var(--filtros-borda);
+    vertical-align: middle;
+}
+
+.filtros-tabela th {
+    background: var(--filtros-cabecalho);
+    border-bottom: 2px solid var(--vinho-600);
+}
+
+.filtros-tabela code {
+    font-size: 0.95em;
+    word-break: break-all;
+}
+
+.filtros-tabela small,
+.filtros-vazio {
+    color: var(--filtros-texto-suave);
+}
+
+.filtro-inativo td {
+    opacity: 0.65;
+}
+
+.filtros-acoes {
+    white-space: nowrap;
+}
+
+.filtros-acoes .btn-small {
+    margin-right: var(--filtros-espaco-1);
+}
+
+.filtros-acoes .btn-perigo {
+    background: var(--vinho-600);
+}
+
+/* Nota na Ajuda → Fluxos de E-mail */
+.ajuda-filtros-email {
+    margin-top: var(--filtros-espaco-6);
+    padding: var(--filtros-espaco-4);
+    background: var(--filtros-fundo);
+    color: var(--filtros-texto);
+    border: 1px solid var(--filtros-borda);
+    border-left: 4px solid var(--vinho-600);
+    border-radius: var(--radius-md);
+}
+
+.ajuda-filtros-email h4 {
+    margin-top: 0;
+}

@@ -22,6 +22,7 @@ require_once __DIR__ . '/../services/rede-service.php';
 require_once __DIR__ . '/../services/upload-service.php';
 require_once __DIR__ . '/../services/email-service.php';
 require_once __DIR__ . '/../services/email-mime.php';
+require_once __DIR__ . '/../services/filtro-email-service.php';
 require_once __DIR__ . '/Apoio/EmlParaEstrutura.php';
 require_once __DIR__ . '/../config/database.php';
 require_once __DIR__ . '/../config/email-config.php';

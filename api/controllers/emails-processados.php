@@ -68,7 +68,7 @@ try {
     $total = (int) $stmtCount->fetch(PDO::FETCH_ASSOC)['total'];
 
     $query = "SELECT ep.id, ep.message_id, ep.email_remetente, ep.assunto, ep.ticket_id, ep.tipo,
-                     ep.processado_em, ep.tentativas,
+                     ep.processado_em, ep.tentativas, ep.observacao,
                      se.id as setor_email_id, se.email as setor_email_endereco,
                      s.id as setor_id, s.nome as setor_nome,
                      t.titulo as ticket_titulo, t.protocolo as ticket_protocolo
