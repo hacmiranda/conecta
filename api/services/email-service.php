@@ -5,6 +5,7 @@ require_once __DIR__ . '/log-service.php';
 require_once __DIR__ . '/upload-service.php';
 require_once __DIR__ . '/demanda-service.php';
 require_once __DIR__ . '/protocolo-service.php';
+require_once __DIR__ . '/email-mime.php';
 date_default_timezone_set('America/Sao_Paulo');
 
 class EmailService {
@@ -97,6 +98,11 @@ class EmailService {
             $mailbox = "{{$host}:{$port}/imap/ssl" . ($validarCertificado ? '' : '/novalidate-cert') . "}INBOX";
             LogService::info('email-cron', "Conectando em: $mailbox");
 
+            // Tempo-limite: servidor travado não segura o cron (e a trava dele) indefinidamente
+            imap_timeout(IMAP_OPENTIMEOUT, 20);
+            imap_timeout(IMAP_READTIMEOUT, 60);
+            imap_timeout(IMAP_WRITETIMEOUT, 60);
+            imap_timeout(IMAP_CLOSETIMEOUT, 20);
             $inbox = @imap_open($mailbox, $username, $password, 0, 3);
 
             if (!$inbox) {
@@ -151,7 +157,7 @@ class EmailService {
             return false;
         }
     }
-    
+
     private function processarEmail($inbox, $email_number, $uid = null) {
         LogService::info('email-cron', "--- Processando Email #$email_number ---");
 
@@ -196,15 +202,9 @@ class EmailService {
             return;
         }
 
-        // Extrair corpo do email (texto ou HTML) e reduzir a texto
-        $body = $this->extrairCorpoEmail($inbox, $email_number, $structure);
-        $body = strip_tags($body);
-        $body = preg_replace('/[A-Za-z0-9+\/]{100,}={0,2}/', '', $body); // Remove blocos base64
-        $body = preg_replace('/Content-Type:.*?\n/i', '', $body); // Remove headers MIME
-        $body = preg_replace('/Content-Transfer-Encoding:.*?\n/i', '', $body);
-        $body = preg_replace('/Content-Disposition:.*?\n/i', '', $body);
-        $body = preg_replace('/Content-Id:.*?\n/i', '', $body);
-        $body = html_entity_decode(trim($body), ENT_QUOTES | ENT_HTML5, 'UTF-8');
+        // Texto do e-mail (EmailMime: texto em qualquer nível das partes, charset convertido, HTML sem
+        // CSS/scripts e com as quebras de linha)
+        $body = EmailMime::corpoTexto($structure, $this->buscadorDeSecoes($inbox, $email_number, $structure));
         if (mb_strlen($body) > 10000) {
             $body = mb_substr($body, 0, 10000) . "\n\n[CONTEÚDO TRUNCADO]";
         }
@@ -234,7 +234,7 @@ class EmailService {
             if ($ticket_id && $recusa === null) {
                 LogService::info('email-cron', 'Resposta à demanda ' . ProtocoloService::rotuloPorId($this->db, (int) $ticket_id));
                 $anexos_processados = $this->processarAnexosEmail($inbox, $email_number);
-                $this->adicionarComentario($ticket_id, $body, $remetente, $anexos_processados, $inbox, $email_number);
+                $this->adicionarComentario($ticket_id, $body, $remetente, $anexos_processados);
                 $tipo = 'comentario';
             } else {
                 if ($ticket_id) {
@@ -243,7 +243,7 @@ class EmailService {
                     LogService::aviso('email-cron', $observacao);
                 }
                 LogService::info('email-cron', 'Criando nova demanda...');
-                $ticket_id = $this->criarTicketPorEmail($assunto, $body, $remetente, $inbox, $email_number);
+                $ticket_id = $this->criarTicketPorEmail($assunto, $body, $remetente, $this->processarAnexosEmail($inbox, $email_number));
                 $tipo = 'novo_ticket';
             }
         } catch (Exception $e) {
@@ -350,6 +350,12 @@ class EmailService {
         }
 
         // Quem recebeu cópia de alguma resposta da demanda
+        $copia = $this->db->prepare("SELECT 1 FROM ticket_copias WHERE ticket_id = ? AND email = ? LIMIT 1");
+        $copia->execute([$ticket_id, $remetente]);
+        if ($copia->fetchColumn()) {
+            return null;
+        }
+        // Cópias registradas antes da tabela ticket_copias (só no texto do histórico)
         $copias = $this->db->prepare("SELECT valor_novo FROM ticket_historico WHERE ticket_id = ? AND acao = 'email_copia'");
         $copias->execute([$ticket_id]);
         foreach ($copias->fetchAll(PDO::FETCH_COLUMN) as $texto) {
@@ -401,16 +407,16 @@ class EmailService {
      */
     private function registrarFalha(string $message_id, string $remetente, string $assunto, string $erro): int {
         try {
-            $sel = $this->db->prepare("SELECT id, tentativas FROM emails_erro WHERE message_id = ? ORDER BY id DESC LIMIT 1");
-            $sel->execute([$message_id]);
+            $sel = $this->db->prepare("SELECT id, tentativas FROM emails_erro WHERE message_id = ? AND setor_email_id <=> ? ORDER BY id DESC LIMIT 1");
+            $sel->execute([$message_id, $this->caixaEmailAtualId]);
             $linha = $sel->fetch(PDO::FETCH_ASSOC);
             if ($linha) {
                 $this->db->prepare("UPDATE emails_erro SET tentativas = tentativas + 1, erro_mensagem = ?, ultima_tentativa = NOW() WHERE id = ?")
                          ->execute([mb_substr($erro, 0, 2000), $linha['id']]);
                 return (int) $linha['tentativas'] + 1;
             }
-            $this->db->prepare("INSERT INTO emails_erro (message_id, email_remetente, assunto, erro_mensagem) VALUES (?, ?, ?, ?)")
-                     ->execute([$message_id, $remetente, $assunto, mb_substr($erro, 0, 2000)]);
+            $this->db->prepare("INSERT INTO emails_erro (message_id, setor_email_id, email_remetente, assunto, erro_mensagem) VALUES (?, ?, ?, ?, ?)")
+                     ->execute([$message_id, $this->caixaEmailAtualId, $remetente, $assunto, mb_substr($erro, 0, 2000)]);
         } catch (Exception $e) {
             error_log('[EMAIL-SERVICE] Não foi possível registrar a falha: ' . $e->getMessage());
         }
@@ -419,17 +425,16 @@ class EmailService {
 
     private function emailJaProcessado($message_id) {
         try {
-            $query = "SELECT id FROM emails_processados WHERE message_id = :message_id";
-            $stmt = $this->db->prepare($query);
-            $stmt->bindParam(':message_id', $message_id);
-            $stmt->execute();
+            // Por caixa: o mesmo e-mail enviado a dois setores abre uma demanda em cada um
+            $stmt = $this->db->prepare("SELECT id FROM emails_processados WHERE message_id = ? AND setor_email_id <=> ?");
+            $stmt->execute([$message_id, $this->caixaEmailAtualId]);
             return $stmt->fetch() !== false;
         } catch (Exception $e) {
             // Se tabela não existe, retornar false
             return false;
         }
     }
-    
+
     private function registrarEmailProcessado($message_id, $remetente, $assunto, $ticket_id, $tipo, $observacao = null) {
         try {
             $query = "INSERT INTO emails_processados (message_id, email_remetente, assunto, ticket_id, setor_email_id, tipo, observacao)
@@ -451,284 +456,138 @@ class EmailService {
         }
     }
 
-    private function criarTicketPorEmail($assunto, $corpo, $remetente, $inbox, $email_number): int {
-            LogService::info('email-cron', 'Iniciando criação de demanda...');
+    /** @param array{validos: array, rejeitados: array} $resultado_anexos já lidos do IMAP (fora da transação) */
+    private function criarTicketPorEmail($assunto, $corpo, $remetente, array $resultado_anexos): int {
 
-            // Buscar ou criar usuário
-            LogService::info('email-cron', 'Buscando/criando usuário para: ' . self::mascararEmail($remetente));
-            $usuario_id = $this->buscarOuCriarUsuario($remetente);
-            LogService::info('email-cron', "Usuário ID: $usuario_id");
+        $corpo_limpo = $corpo;
+        $total_anexos = count($resultado_anexos['validos']);
+        if ($total_anexos > 0) {
+            $corpo_limpo .= "<br><br>📎 " . $total_anexos . " anexo(s) do email foram salvos.";
+        }
+        // Garante UTF-8 válido (o banco recusa sequências inválidas)
+        $corpo_limpo = mb_convert_encoding($corpo_limpo, 'UTF-8', 'UTF-8');
+        $assunto     = mb_convert_encoding($assunto, 'UTF-8', 'UTF-8');
 
-            // Processar anexos e imagens
-            LogService::info('email-cron', 'Processando anexos e imagens...');
-            $resultado_anexos = $this->processarAnexosEmail($inbox, $email_number);
-            
-            // Limpar corpo do email
-            $corpo_limpo = $corpo;
-            
-            // Adicionar nota sobre anexos se houver
-            $total_anexos = count($resultado_anexos['validos']);
-            if ($total_anexos > 0) {
-                $corpo_limpo .= "<br><br>📎 " . $total_anexos . " anexo(s) do email foram salvos.";
+        // Setor: o da caixa que recebeu o e-mail; a caixa global legada cai no setor "Geral"
+        $setor_id = $this->setorAtualId;
+        if (!$setor_id) {
+            $setor_stmt = $this->db->prepare("SELECT id FROM setores WHERE nome = 'Geral' AND ativo = 1 LIMIT 1");
+            $setor_stmt->execute();
+            $setor_id = $setor_stmt->fetchColumn() ?: null;
+        }
+
+        $detalhe_abertura = 'via e-mail';
+        if ($this->caixaEmailAtualId !== null) {
+            $cx = $this->db->prepare("SELECT email FROM setor_emails WHERE id = ?");
+            $cx->execute([$this->caixaEmailAtualId]);
+            $caixa_email = $cx->fetchColumn();
+            if ($caixa_email) {
+                $detalhe_abertura = 'via e-mail (' . $caixa_email . ')';
             }
+        }
 
-            // Safety net: garante UTF-8 válido para evitar erro no banco (ex: emails em iso-8859-1)
-            $corpo_limpo = mb_convert_encoding($corpo_limpo, 'UTF-8', 'UTF-8');
-            $assunto     = mb_convert_encoding($assunto, 'UTF-8', 'UTF-8');
+        // Tudo ou nada: solicitante, demanda, protocolo, SLA, janela do setor, abertura e anexos.
+        // Se algo falhar, nada fica pela metade (o e-mail é tentado de novo na próxima execução).
+        // Usa a transação de quem chama, se houver (testes de integração)
+        $propria = !$this->db->inTransaction();
+        if ($propria) {
+            $this->db->beginTransaction();
+        }
+        UploadService::iniciarLote();
+        try {
+            $usuario_id = $this->buscarOuCriarUsuario($remetente);
 
-            // --- INÍCIO VERIFICAÇÃO EXTRA DE DUPLICIDADE (TICKETS) ---
-            $dup_ticket_query = "SELECT id FROM tickets 
-                               WHERE usuario_id = :usuario_id 
-                               AND titulo = :titulo 
-                               AND descricao = :descricao 
-                               AND criado_em > DATE_SUB(NOW(), INTERVAL 10 MINUTE)";
-            $dup_ticket_stmt = $this->db->prepare($dup_ticket_query);
-            $dup_ticket_stmt->bindParam(':usuario_id', $usuario_id);
-            $dup_ticket_stmt->bindParam(':titulo', $assunto);
-            $dup_ticket_stmt->bindParam(':descricao', $corpo_limpo);
-            $dup_ticket_stmt->execute();
-            
-            $duplicado = $dup_ticket_stmt->fetchColumn();
+            // Mesmo e-mail reprocessado com outro Message-ID (ex.: laço de encaminhamento): mantém a demanda
+            $dup = $this->db->prepare("SELECT id FROM tickets WHERE usuario_id = ? AND titulo = ? AND descricao = ? AND setor_id <=> ?
+                                         AND criado_em > DATE_SUB(NOW(), INTERVAL 10 MINUTE) LIMIT 1");
+            $dup->execute([$usuario_id, $assunto, $corpo_limpo, $setor_id]);
+            $duplicado = $dup->fetchColumn();
             if ($duplicado) {
-                LogService::aviso('email-cron', "Demanda duplicada recente (mesmo assunto, corpo e usuário): mantida a #$duplicado.");
+                if ($propria) {
+                    $this->db->commit();
+                }
+                LogService::aviso('email-cron', "Demanda duplicada recente (mesmo assunto, corpo, usuário e setor): mantida a #$duplicado.");
                 return (int) $duplicado;
             }
-            // --- FIM VERIFICAÇÃO EXTRA DE DUPLICIDADE ---
-            
-            // Determinar setor: o da caixa que recebeu o e-mail; caixa legada global cai no setor "Geral"
-            $setor_id = $this->setorAtualId;
-            if (!$setor_id) {
-                $setor_stmt = $this->db->prepare("SELECT id FROM setores WHERE nome = 'Geral' AND ativo = 1 LIMIT 1");
-                $setor_stmt->execute();
-                $setor_id = $setor_stmt->fetchColumn() ?: null;
-            }
 
-            // Criar ticket
-            LogService::info('email-cron', 'Criando ticket no banco...');
             $protocolo = ProtocoloService::gerar($this->db);
-            $query = "INSERT INTO tickets (protocolo, titulo, descricao, usuario_id, status, prioridade, setor_id)
-                     VALUES (:protocolo, :titulo, :descricao, :usuario_id, 'novo', 'normal', :setor_id)";
-            $stmt = $this->db->prepare($query);
-            $stmt->bindParam(':protocolo', $protocolo);
-            $stmt->bindParam(':titulo', $assunto);
-            $stmt->bindParam(':descricao', $corpo_limpo);
-            $stmt->bindParam(':usuario_id', $usuario_id);
-            $stmt->bindParam(':setor_id', $setor_id);
-            $stmt->execute();
+            $stmt = $this->db->prepare("INSERT INTO tickets (protocolo, titulo, descricao, usuario_id, status, prioridade, setor_id)
+                                        VALUES (?, ?, ?, ?, 'novo', 'normal', ?)");
+            $stmt->execute([$protocolo, $assunto, $corpo_limpo, $usuario_id, $setor_id]);
+            $ticket_id = (int) $this->db->lastInsertId();
 
-            $ticket_id = $this->db->lastInsertId();
-            LogService::info('email-cron', 'Ticket criado: ' . ProtocoloService::rotulo($protocolo, (int) $ticket_id));
+            AcessoService::registrarAbertura($this->db, $ticket_id, $setor_id ? (int) $setor_id : null, (int) $usuario_id, $detalhe_abertura);
 
-            // SLA, janela de setor e evento de abertura (com a caixa de origem, quando houver)
-            $detalhe_abertura = 'via e-mail';
-            if ($this->caixaEmailAtualId !== null) {
-                $cx = $this->db->prepare("SELECT email FROM setor_emails WHERE id = ?");
-                $cx->execute([$this->caixaEmailAtualId]);
-                $caixa_email = $cx->fetchColumn();
-                if ($caixa_email) {
-                    $detalhe_abertura = 'via e-mail (' . $caixa_email . ')';
-                }
-            }
-            AcessoService::registrarAbertura($this->db, (int) $ticket_id, $setor_id ? (int) $setor_id : null, (int) $usuario_id, $detalhe_abertura);
-            
-            // Salvar todos os anexos
             foreach ($resultado_anexos['validos'] as $anexo) {
                 $this->salvarAnexo($ticket_id, $anexo);
-                LogService::info('email-cron', "Anexo salvo: {$anexo['nome']}");
             }
-
-            // Enviar emails
-            LogService::info('email-cron', 'Enviando emails...');
-            error_log("[EMAIL-SERVICE] Iniciando envio de emails para ticket #$ticket_id");
-            
-            try {
-                $sender_path = __DIR__ . '/email-sender.php';
-                error_log("[EMAIL-SERVICE] Tentando incluir: $sender_path");
-                error_log("[EMAIL-SERVICE] Arquivo existe? " . (file_exists($sender_path) ? 'SIM' : 'NAO'));
-                
-                require_once $sender_path;
-                error_log("[EMAIL-SERVICE] EmailSender incluído com sucesso");
-                
-                $emailSender = new EmailSender($this->db);
-                error_log("[EMAIL-SERVICE] Objeto EmailSender criado");
-                
-                // Email para o usuário
-                error_log("[EMAIL-SERVICE] Tentando enviar email de confirmação para usuário");
-                if ($emailSender->enviarEmailNovoTicket($ticket_id, $resultado_anexos['rejeitados'])) {
-                    LogService::info('email-cron', 'Email enviado para o usuário');
-                    error_log("[EMAIL-SERVICE] Email de confirmação enviado com sucesso");
-                } else {
-                    LogService::aviso('email-cron', 'Falha ao enviar email para o usuário');
-                    error_log("[EMAIL-SERVICE] FALHA ao enviar email de confirmação");
-                }
-
-                // Notificação para agentes
-                error_log("[EMAIL-SERVICE] Tentando notificar agentes");
-                if ($emailSender->notificarAgentesNovoTicket($ticket_id)) {
-                    LogService::info('email-cron', 'Agentes notificados');
-                    error_log("[EMAIL-SERVICE] Agentes notificados com sucesso");
-                } else {
-                    LogService::aviso('email-cron', 'Falha ao notificar agentes');
-                    error_log("[EMAIL-SERVICE] FALHA ao notificar agentes");
-                }
-            } catch (Exception $e) {
-                // A demanda já existe: falha de envio não deve reprocessar o e-mail
-                LogService::erro('email-cron', "ERRO ao enviar emails da demanda #$ticket_id: " . $e->getMessage());
+            if ($propria) {
+                $this->db->commit();
             }
+        } catch (Throwable $e) {
+            if ($propria && $this->db->inTransaction()) {
+                $this->db->rollBack();
+            }
+            UploadService::desfazerLote();
+            throw $e instanceof Exception ? $e : new Exception($e->getMessage(), 0, $e);
+        }
+        LogService::info('email-cron', 'Demanda criada: ' . ProtocoloService::rotulo($protocolo, $ticket_id));
 
-            return (int) $ticket_id;
+        // E-mails só depois do commit (a demanda já existe: falha de envio não reprocessa o e-mail)
+        try {
+            require_once __DIR__ . '/email-sender.php';
+            $emailSender = new EmailSender($this->db);
+            if (!$emailSender->enviarEmailNovoTicket($ticket_id, $resultado_anexos['rejeitados'])) {
+                LogService::aviso('email-cron', "Confirmação ao solicitante da demanda #$ticket_id não enfileirada");
+            }
+            if (!$emailSender->notificarAgentesNovoTicket($ticket_id)) {
+                LogService::aviso('email-cron', "Aviso à equipe da demanda #$ticket_id não enfileirado");
+            }
+        } catch (Exception $e) {
+            LogService::erro('email-cron', "ERRO ao enviar emails da demanda #$ticket_id: " . $e->getMessage());
+        }
+
+        return $ticket_id;
     }
-    
+    /**
+     * Conteúdo cru de uma seção da mensagem. FT_PEEK: ler não marca o e-mail como lido (só depois de
+     * processado com sucesso). O e-mail simples (sem partes) é a seção "1" = imap_body.
+     */
+    private function buscadorDeSecoes($inbox, $email_number, $structure): callable {
+        $simples = empty($structure->parts);
+        return function (string $secao) use ($inbox, $email_number, $simples): string {
+            $conteudo = ($simples && $secao === '1')
+                ? imap_body($inbox, $email_number, FT_PEEK)
+                : imap_fetchbody($inbox, $email_number, $secao, FT_PEEK);
+            return (string) $conteudo;
+        };
+    }
+
+    /** Anexos da mensagem, validados pela mesma regra da tela (UploadService): tipo real, 5 arquivos, 20 MB cada. */
     private function processarAnexosEmail($inbox, $email_number) {
         $anexos_validos = [];
         $anexos_rejeitados = [];
-        $tamanho_total = 0;
-        $count_anexos = 0;
-        
+
         $structure = imap_fetchstructure($inbox, $email_number);
-        
-        if (isset($structure->parts)) {
-            $this->processarPartesAnexos($inbox, $email_number, $structure->parts, '', $anexos_validos, $anexos_rejeitados, $tamanho_total, $count_anexos);
+        foreach (EmailMime::anexos($structure, $this->buscadorDeSecoes($inbox, $email_number, $structure)) as $anexo) {
+            $mime_real = UploadService::mimeDoConteudo($anexo['conteudo']);
+            $validacao = UploadService::validar($anexo['nome'], $mime_real, $anexo['tamanho']);
+            if (!$validacao['ok']) {
+                $anexos_rejeitados[] = ['nome' => $anexo['nome'], 'motivo' => $validacao['motivo']];
+                LogService::aviso('email-cron', "[ANEXO] Recusado (seção {$anexo['secao']}): {$validacao['motivo']} ({$validacao['extensao']})");
+                continue;
+            }
+            if (count($anexos_validos) >= UploadService::MAX_ARQUIVOS) {
+                $anexos_rejeitados[] = ['nome' => $anexo['nome'], 'motivo' => 'Máximo 5 arquivos'];
+                continue;
+            }
+            // MIME gravado = o do conteúdo real, não o declarado no e-mail
+            $anexos_validos[] = ['nome' => $anexo['nome'], 'conteudo' => $anexo['conteudo'], 'tamanho' => $anexo['tamanho'], 'tipo' => $mime_real];
         }
-        
-        LogService::info('email-cron', "Total processado: $count_anexos anexos válidos, " . count($anexos_rejeitados) . " rejeitados");
-        
-        return [
-            'validos' => $anexos_validos,
-            'rejeitados' => $anexos_rejeitados
-        ];
+
+        LogService::info('email-cron', 'Anexos: ' . count($anexos_validos) . ' aceito(s), ' . count($anexos_rejeitados) . ' recusado(s)');
+        return ['validos' => $anexos_validos, 'rejeitados' => $anexos_rejeitados];
     }
-    
-    private function processarPartesAnexos($inbox, $email_number, $parts, $prefix, &$anexos_validos, &$anexos_rejeitados, &$tamanho_total, &$count_anexos) {
-        foreach ($parts as $part_number => $part) {
-            $section = $prefix . ($part_number + 1);
-            
-            // Verificar se é anexo ou imagem
-            $is_attachment = false;
-            $filename = '';
-            
-            // Anexo explícito
-            if (isset($part->disposition) && (strtolower($part->disposition) === 'attachment' || strtolower($part->disposition) === 'inline')) {
-                $is_attachment = true;
-            }
-            
-            // Imagem inline (type 5 = IMAGE)
-            if (isset($part->type) && $part->type == 5) {
-                $is_attachment = true;
-            }
-            
-            // Extrair nome do arquivo
-            $filename = $this->extrairNomeArquivo($part);
-            
-            // Se tem filename mas não tem disposition, pode ser anexo
-            if ($filename && !$is_attachment) {
-                $is_attachment = true;
-            }
-            
-            if ($is_attachment) {
-                // Se não tem filename, gerar um
-                if (!$filename) {
-                    if (isset($part->type) && $part->type == 5 && isset($part->subtype)) {
-                        $ext = strtolower($part->subtype);
-                        if ($ext === 'jpeg') $ext = 'jpg';
-                        $filename = 'imagem_' . time() . '_' . rand(1000, 9999) . '.' . $ext;
-                    } else {
-                        // Pular se não conseguir determinar o nome
-                        continue;
-                    }
-                }
-                
-                if ($filename) {
-                    $attachment = imap_fetchbody($inbox, $email_number, $section);
-
-                    // Decodificar anexo
-                    if ($part->encoding == 3) { // Base64
-                        $attachment = base64_decode($attachment);
-                    } elseif ($part->encoding == 4) { // Quoted-printable
-                        $attachment = quoted_printable_decode($attachment);
-                    }
-
-                    $extensao = strtolower(pathinfo($filename, PATHINFO_EXTENSION));
-                    $tamanho = strlen($attachment);
-                    $mime_real = UploadService::mimeDoConteudo($attachment);
-
-                    LogService::info('email-cron', "[ANEXO] Processando anexo (seção $section) | Ext: $extensao | Tamanho: " . round($tamanho/1024, 2) . "KB | Count: $count_anexos");
-
-                    // Validar tipo: a mesma regra da tela (extensão + conteúdo real); ZIP/RAR não entram
-                    $validacao = UploadService::validar($filename, $mime_real, $tamanho);
-                    if (!$validacao['ok']) {
-                        $anexos_rejeitados[] = ['nome' => $filename, 'motivo' => $validacao['motivo']];
-                        LogService::aviso('email-cron', "[ANEXO] REJEITADO - {$validacao['motivo']} ($extensao)");
-                        continue;
-                    }
-
-                    // Validar quantidade
-                    if ($count_anexos >= 5) {
-                        $anexos_rejeitados[] = ['nome' => $filename, 'motivo' => 'Máximo 5 arquivos'];
-                        LogService::aviso('email-cron', "[ANEXO] REJEITADO - Máximo 5 arquivos (atual: $count_anexos)");
-                        continue;
-                    }
-
-                    // Validar tamanho
-                    if ($tamanho_total + $tamanho > 20 * 1024 * 1024) { // 20MB
-                        $anexos_rejeitados[] = ['nome' => $filename, 'motivo' => 'Tamanho excede 20MB'];
-                        LogService::aviso('email-cron', "[ANEXO] REJEITADO - Tamanho excede 20MB (atual: " . round(($tamanho_total + $tamanho)/1024/1024, 2) . "MB)");
-                        continue;
-                    }
-
-                    // Anexo válido (MIME gravado = o conteúdo real, não o deduzido da extensão)
-                    $tipo_mime = $mime_real;
-                    $anexos_validos[] = [
-                        'nome' => $filename,
-                        'conteudo' => $attachment,
-                        'tamanho' => $tamanho,
-                        'tipo' => $tipo_mime
-                    ];
-
-                    $tamanho_total += $tamanho;
-                    $count_anexos++;
-                    LogService::info('email-cron', "[ANEXO] ACEITO | MIME: $tipo_mime");
-                }
-            }
-            
-            // Processar subpartes recursivamente
-            if (isset($part->parts)) {
-                $this->processarPartesAnexos($inbox, $email_number, $part->parts, $section . '.', $anexos_validos, $anexos_rejeitados, $tamanho_total, $count_anexos);
-            }
-        }
-    }
-    
-    private function extrairNomeArquivo($part) {
-        $filename = '';
-        
-        // Tentar dparameters primeiro
-        if (isset($part->dparameters)) {
-            foreach ($part->dparameters as $param) {
-                if (strtolower($param->attribute) === 'filename') {
-                    $filename = $param->value;
-                    break;
-                }
-            }
-        }
-        
-        // Se não encontrou, tentar parameters
-        if (!$filename && isset($part->parameters)) {
-            foreach ($part->parameters as $param) {
-                if (strtolower($param->attribute) === 'name') {
-                    $filename = $param->value;
-                    break;
-                }
-            }
-        }
-        
-        // Decodificar nome do arquivo se estiver em MIME encoded-word
-        if ($filename) {
-            $filename = $this->decodificarTexto($filename);
-        }
-        
-        return $filename;
-    }
-    
     private function salvarAnexo($ticket_id, $anexo, $comentario_id = null) {
         // Mesma gravação dos anexos da tela: nome aleatório no disco (o original, que vem de fora, fica só
         // no banco), permissão 0640. O anexo já foi validado em processarPartesAnexos.
@@ -749,25 +608,25 @@ class EmailService {
         $stmt->bindParam(':email', $email);
         $stmt->execute();
         $usuario = $stmt->fetch();
-        
+
         if ($usuario) {
             return $usuario['id'];
         }
-        
+
         // Criar novo usuário - verificar valores ENUM permitidos
         $nome = explode('@', $email)[0];
         $tipo = 'cliente'; // Valor padrão ENUM: cliente, agente, admin
-        
+
         $query = "INSERT INTO usuarios (nome, email, tipo) VALUES (:nome, :email, :tipo)";
         $stmt = $this->db->prepare($query);
         $stmt->bindParam(':nome', $nome);
         $stmt->bindParam(':email', $email);
         $stmt->bindParam(':tipo', $tipo);
         $stmt->execute();
-        
+
         return $this->db->lastInsertId();
     }
-    
+
     private function extrairTicketId($assunto) {
         // Protocolo único (#CRPRS2026-0001), com ou sem colchetes/RE:/espaços internos. O formato
         // antigo (#00123, número interno de 5 dígitos) não é mais reconhecido: o sistema ainda não
@@ -791,280 +650,110 @@ class EmailService {
         }
         return $id;
     }
-    
-    private function adicionarComentario($ticket_id, $comentario, $email, $anexos_processados = [], $inbox = null, $email_number = null) {
-        LogService::info('email-cron', 'Adicionando comentário à demanda ' . ProtocoloService::rotuloPorId($this->db, (int) $ticket_id));
-        
-        // Verificar se ticket está fechado - se sim, reabrir
-        $reabertaAgora = $this->verificarEReabrirTicket($ticket_id);
-        
-        $usuario_id = $this->buscarOuCriarUsuario($email);
-        
-        // Limpar conteúdo do comentário
+
+    private function adicionarComentario($ticket_id, $comentario, $email, array $anexos_processados = ['validos' => [], 'rejeitados' => []]) {
+        $ticket_id = (int) $ticket_id;
+        LogService::info('email-cron', 'Adicionando comentário à demanda ' . ProtocoloService::rotuloPorId($this->db, $ticket_id));
+
         $comentario = trim($comentario);
         if (mb_strlen($comentario) > 20000) {
             $comentario = mb_substr($comentario, 0, 20000) . "<br>[CONTEÚDO TRUNCADO]";
         }
-        
-        // Adicionar nota sobre anexos
         $total_anexos = count($anexos_processados['validos']);
         if ($total_anexos > 0) {
             $comentario .= "<br><br>📎 " . $total_anexos . " anexo(s) incluído(s) neste comentário.";
         }
-        
-        // --- INÍCIO VERIFICAÇÃO EXTRA DE DUPLICIDADE ---
-        // Verificar se já existe um comentário IDÊNTICO deste usuário neste ticket nos últimos 5 minutos
-        // Isso previne duplicatas caso o Message-ID tenha mudado mas o conteúdo seja o mesmo (ex: loop de email)
-        $duplicado_query = "SELECT id FROM comentarios 
-                          WHERE ticket_id = :ticket_id 
-                          AND usuario_id = :usuario_id 
-                          AND comentario = :comentario 
-                          AND criado_em > DATE_SUB(NOW(), INTERVAL 5 MINUTE)";
-        $duplicado_stmt = $this->db->prepare($duplicado_query);
-        $duplicado_stmt->bindParam(':ticket_id', $ticket_id);
-        $duplicado_stmt->bindParam(':usuario_id', $usuario_id);
-        $duplicado_stmt->bindParam(':comentario', $comentario);
-        $duplicado_stmt->execute();
-        
-        if ($duplicado_stmt->fetch()) {
-            LogService::aviso('email-cron', 'Comentário ignorado: detectado comentário duplicado recente (mesmo conteúdo e usuário).');
-            // Se já existe, não insere novamente.
-            return;
+
+        // Tudo ou nada: reabertura, comentário, anexos e troca de status. Os avisos saem depois do commit.
+        // Usa a transação de quem chama, se houver (testes de integração)
+        $propria = !$this->db->inTransaction();
+        if ($propria) {
+            $this->db->beginTransaction();
         }
-        // --- FIM VERIFICAÇÃO EXTRA DE DUPLICIDADE ---
+        UploadService::iniciarLote();
+        try {
+            $usuario_id = (int) $this->buscarOuCriarUsuario($email);
 
-        // Entra no histórico mostrado ao solicitante quando quem escreveu é o próprio solicitante ou um
-        // cliente copiado; resposta de um membro da equipe por e-mail continua só interna
-        $visivel_stmt = $this->db->prepare("SELECT (u.tipo = 'cliente' OR u.id = t.usuario_id)
-                                            FROM usuarios u JOIN tickets t ON t.id = ? WHERE u.id = ?");
-        $visivel_stmt->execute([(int) $ticket_id, (int) $usuario_id]);
-        $visivel_solicitante = (int) $visivel_stmt->fetchColumn();
-
-        $query = "INSERT INTO comentarios (ticket_id, usuario_id, comentario, visivel_solicitante)
-                 VALUES (:ticket_id, :usuario_id, :comentario, :visivel)";
-        $stmt = $this->db->prepare($query);
-        $stmt->bindParam(':ticket_id', $ticket_id);
-        $stmt->bindParam(':usuario_id', $usuario_id);
-        $stmt->bindParam(':comentario', $comentario);
-        $stmt->bindValue(':visivel', $visivel_solicitante, PDO::PARAM_INT);
-        $stmt->execute();
-        
-        $comentario_id = $this->db->lastInsertId();
-        LogService::info('email-cron', 'Comentário adicionado à demanda ' . ProtocoloService::rotuloPorId($this->db, (int) $ticket_id));
-
-        // Salvar todos os anexos
-        foreach ($anexos_processados['validos'] as $anexo) {
-            $this->salvarAnexo($ticket_id, $anexo, $comentario_id);
-            LogService::info('email-cron', "Anexo salvo: {$anexo['nome']}");
-        }
-        
-        // Notificar sobre novo comentário
-        require_once __DIR__ . '/email-sender.php';
-        $emailSender = new EmailSender($this->db);
-        $emailSender->notificarNovoComentario($ticket_id, $comentario_id);
-        $emailSender->confirmarComentarioParaRemetente($ticket_id, $email, $anexos_processados['rejeitados']);
-
-        // Atualizar status para 'nova_resposta' se não estiver fechado/reaberto agora
-        // Se foi reaberto em verificarEReabrirTicket, o status já é reaberto, então não mudamos para nova_resposta imediatamente (opcional, mas o usuário pediu "Nova Resposta")
-        // Vamos forçar 'nova_resposta' se não estiver fechado, pois é um comentário do solicitante
-        $status_atual_query = "SELECT status, agente_id FROM tickets WHERE id = ?";
-        $st_stmt = $this->db->prepare($status_atual_query);
-        $st_stmt->execute([$ticket_id]);
-        $ticket_atual = $st_stmt->fetch();
-
-        // Se o email é do solicitante (e não do agente), mudar para nova_resposta
-        // Como adicionarComentario é usado pelo IMAP, assume-se que é o solicitante ou terceiro respondendo
-        // Verificar se quem respondeu NÃO é o agente do ticket
-        if ($ticket_atual) {
-            $is_agente = false;
-            if ($ticket_atual['agente_id']) {
-                 $ag_q = "SELECT email FROM usuarios WHERE id = ?";
-                 $ag_s = $this->db->prepare($ag_q);
-                 $ag_s->execute([$ticket_atual['agente_id']]);
-                 $ag_email = $ag_s->fetchColumn();
-                 if ($ag_email === $email) {
-                     $is_agente = true;
-                 }
+            // Trava a demanda: duas caixas (ou dois crons) não reabrem nem comentam ao mesmo tempo
+            $trava = $this->db->prepare("SELECT t.status, t.agente_id, t.usuario_id, u.email AS agente_email
+                                         FROM tickets t LEFT JOIN usuarios u ON u.id = t.agente_id
+                                         WHERE t.id = ? FOR UPDATE");
+            $trava->execute([$ticket_id]);
+            $ticket_atual = $trava->fetch(PDO::FETCH_ASSOC);
+            if (!$ticket_atual) {
+                throw new Exception('Demanda não encontrada');
             }
-            
-            // Só muda status se NÃO for o agente e status não for final
-            if (!$is_agente && !$reabertaAgora && !in_array($ticket_atual['status'], AcessoService::STATUS_ARQUIVO, true)) {
-                if ($ticket_atual['status'] !== 'nova_resposta') {
-                    // Regra única da troca de status: retoma o SLA pausado (ex.: "aguardando resposta"),
-                    // histórico e auditoria. A resposta do solicitante não conta como primeira resposta.
-                    DemandaService::mudarStatus($this->db, (int) $ticket_id, 'nova_resposta', (int) $usuario_id, ['resposta_da_equipe' => false]);
-                    LogService::info('email-cron', "Status atualizado para 'nova_resposta'");
+
+            // Mesmo conteúdo do mesmo usuário nos últimos 5 minutos (ex.: resposta enviada a duas caixas
+            // do sistema, ou laço de e-mail com outro Message-ID): não grava de novo
+            $dup = $this->db->prepare("SELECT id FROM comentarios WHERE ticket_id = ? AND usuario_id = ? AND comentario = ?
+                                         AND criado_em > DATE_SUB(NOW(), INTERVAL 5 MINUTE) LIMIT 1");
+            $dup->execute([$ticket_id, $usuario_id, $comentario]);
+            if ($dup->fetchColumn()) {
+                if ($propria) {
+                    $this->db->commit();
                 }
+                LogService::aviso('email-cron', 'Comentário ignorado: duplicado recente (mesmo conteúdo e usuário).');
+                return;
             }
+
+            // Demanda encerrada que recebe resposta: reabre pela regra única (o SLA volta a contar)
+            $reabertaAgora = in_array($ticket_atual['status'], ['fechado', 'encerrado'], true);
+            if ($reabertaAgora) {
+                DemandaService::mudarStatus($this->db, $ticket_id, 'reaberto', (int) $ticket_atual['usuario_id'], ['resposta_da_equipe' => false]);
+                LogService::info('email-cron', 'Demanda reaberta pela resposta por e-mail');
+            }
+
+            // Entra no histórico mostrado ao solicitante quando quem escreveu é o próprio solicitante ou um
+            // cliente copiado; resposta de um membro da equipe por e-mail continua só interna
+            $visivel_stmt = $this->db->prepare("SELECT (u.tipo = 'cliente' OR u.id = t.usuario_id)
+                                                FROM usuarios u JOIN tickets t ON t.id = ? WHERE u.id = ?");
+            $visivel_stmt->execute([$ticket_id, $usuario_id]);
+            $visivel_solicitante = (int) $visivel_stmt->fetchColumn();
+
+            $this->db->prepare("INSERT INTO comentarios (ticket_id, usuario_id, comentario, visivel_solicitante) VALUES (?, ?, ?, ?)")
+                     ->execute([$ticket_id, $usuario_id, $comentario, $visivel_solicitante]);
+            $comentario_id = (int) $this->db->lastInsertId();
+
+            foreach ($anexos_processados['validos'] as $anexo) {
+                $this->salvarAnexo($ticket_id, $anexo, $comentario_id);
+            }
+
+            // Resposta de fora (não do responsável): "nova resposta", que também retoma o SLA pausado.
+            // Não conta como primeira resposta da equipe.
+            $eh_responsavel = !empty($ticket_atual['agente_email']) && strtolower((string) $ticket_atual['agente_email']) === strtolower((string) $email);
+            if (!$eh_responsavel && !$reabertaAgora
+                && !in_array($ticket_atual['status'], AcessoService::STATUS_ARQUIVO, true)
+                && $ticket_atual['status'] !== 'nova_resposta') {
+                DemandaService::mudarStatus($this->db, $ticket_id, 'nova_resposta', $usuario_id, ['resposta_da_equipe' => false]);
+            }
+
+            if ($propria) {
+                $this->db->commit();
+            }
+        } catch (Throwable $e) {
+            if ($propria && $this->db->inTransaction()) {
+                $this->db->rollBack();
+            }
+            UploadService::desfazerLote();
+            throw $e instanceof Exception ? $e : new Exception($e->getMessage(), 0, $e);
         }
-    }
-    
-    /** Reabre a demanda encerrada que recebeu resposta por e-mail. Devolve true se reabriu agora. */
-    private function verificarEReabrirTicket($ticket_id): bool {
-        // Buscar status atual do ticket
-        $query = "SELECT t.*, u.email as usuario_email FROM tickets t LEFT JOIN usuarios u ON t.usuario_id = u.id WHERE t.id = :ticket_id";
-        $stmt = $this->db->prepare($query);
-        $stmt->bindParam(':ticket_id', $ticket_id);
-        $stmt->execute();
-        $ticket = $stmt->fetch();
-        
-        if ($ticket && ($ticket['status'] === 'fechado' || $ticket['status'] === 'encerrado')) {
-            LogService::info('email-cron', 'Reabrindo ticket fechado...');
-            
-            // Reabre pela regra única: limpa a resolução (o SLA volta a contar), fechado_em/fechado_por,
-            // soma reaberto_contador, reabre as janelas de setor/responsável, histórico e auditoria
-            DemandaService::mudarStatus($this->db, (int) $ticket_id, 'reaberto', (int) $ticket['usuario_id'], ['resposta_da_equipe' => false]);
-            LogService::info('email-cron', 'Ticket reaberto automaticamente');
+        LogService::info('email-cron', 'Comentário adicionado à demanda ' . ProtocoloService::rotuloPorId($this->db, $ticket_id));
 
-            // Enviar notificações
-            try {
-                require_once __DIR__ . '/email-sender.php';
-                $emailSender = new EmailSender($this->db);
-
-                // Notificar solicitante
+        // Avisos depois do commit: falha de envio não desfaz o comentário nem reprocessa o e-mail
+        try {
+            require_once __DIR__ . '/email-sender.php';
+            $emailSender = new EmailSender($this->db);
+            if ($reabertaAgora) {
                 $emailSender->notificarReaberturaParaSolicitante($ticket_id);
-
-                // Notificar agente responsável
                 $emailSender->notificarReaberturaTicket($ticket_id);
-
-                LogService::info('email-cron', 'Notificações de reabertura enviadas');
-            } catch (Exception $e) {
-                LogService::erro('email-cron', 'Erro ao notificar reabertura: ' . $e->getMessage());
             }
-            return true;
+            $emailSender->notificarNovoComentario($ticket_id, $comentario_id);
+            $emailSender->confirmarComentarioParaRemetente($ticket_id, $email, $anexos_processados['rejeitados']);
+        } catch (Exception $e) {
+            LogService::erro('email-cron', "Erro ao enviar os avisos do comentário na demanda #$ticket_id: " . $e->getMessage());
         }
-        return false;
     }
-    
-    private function extrairCorpoEmail($inbox, $email_number, $structure) {
-        $body = '';
-        
-        // Tentar extrair parte HTML (1.2 ou 1)
-        if (isset($structure->parts)) {
-            // Multipart
-            foreach ($structure->parts as $part_number => $part) {
-                // Pular anexos
-                if (isset($part->disposition) && (strtolower($part->disposition) === 'attachment' || strtolower($part->disposition) === 'inline')) {
-                    continue;
-                }
-                
-                // Pular imagens
-                if (isset($part->type) && $part->type == 5) {
-                    continue;
-                }
-                
-                // Buscar texto/html ou text/plain
-                if (isset($part->subtype)) {
-                    if (strtolower($part->subtype) === 'html' || strtolower($part->subtype) === 'plain') {
-                        $section = $part_number + 1;
-                        $body = imap_fetchbody($inbox, $email_number, $section);
-                        
-                        // Decodificar transfer encoding
-                        if (isset($part->encoding)) {
-                            if ($part->encoding == 3) {
-                                $body = base64_decode($body);
-                            } elseif ($part->encoding == 4) {
-                                $body = quoted_printable_decode($body);
-                            }
-                        }
-
-                        // Converter charset para UTF-8 (ex: iso-8859-1 → utf-8)
-                        $body = $this->converterParaUtf8($body, $this->detectarCharset($part));
-
-                        if (!empty($body)) {
-                            // Outlook costuma enviar HTML vazio ou com apenas tags básicas
-                            // Verificar se tem conteúdo real
-                            $check_content = trim(strip_tags($body));
-                            if (!empty($check_content) || strpos($body, '<img') !== false) {
-                                break;
-                            }
-                        }
-                    }
-                }
-                
-                // Processar subpartes
-                if (isset($part->parts) && empty($body)) {
-                    $body = $this->extrairCorpoDeSubpartes($inbox, $email_number, $part->parts, ($part_number + 1) . '.');
-                }
-            }
-        } else {
-            // Email simples
-            $body = imap_body($inbox, $email_number);
-        }
-        if (isset($structure->encoding)) {
-            if ($structure->encoding == 3) {
-                $body = base64_decode($body);
-            } elseif ($structure->encoding == 4) {
-                $body = quoted_printable_decode($body);
-            }
-        }
-
-        // Verificação extra para Base64 não detectado (comum em alguns clientes de email mal formatados)
-        // Se o corpo parece ser um bloco contínuo de Base64 e decodifica para HTML válido
-        if (!empty($body) && !str_contains($body, ' ') && strlen($body) > 50) {
-            $decoded_check = base64_decode($body, true);
-            if ($decoded_check && (str_contains(strtolower($decoded_check), '<html') || str_contains(strtolower($decoded_check), '<div') || str_contains(strtolower($decoded_check), '<body'))) {
-                $body = $decoded_check;
-            }
-        }
-        
-        return $body;
-    }
-    
-    private function extrairCorpoDeSubpartes($inbox, $email_number, $parts, $prefix) {
-        foreach ($parts as $part_number => $part) {
-            // Pular anexos e imagens
-            if (isset($part->disposition) || (isset($part->type) && $part->type == 5)) {
-                continue;
-            }
-            
-            if (isset($part->subtype) && (strtolower($part->subtype) === 'html' || strtolower($part->subtype) === 'plain')) {
-                $section = $prefix . ($part_number + 1);
-                $body = imap_fetchbody($inbox, $email_number, $section);
-                
-                if (isset($part->encoding)) {
-                    if ($part->encoding == 3) {
-                        $body = base64_decode($body);
-                    } elseif ($part->encoding == 4) {
-                        $body = quoted_printable_decode($body);
-                    }
-                }
-
-                // Converter charset para UTF-8
-                $body = $this->converterParaUtf8($body, $this->detectarCharset($part));
-
-                if (!empty($body)) {
-                    return $body;
-                }
-            }
-        }
-        return '';
-    }
-    
-    // Detecta o charset declarado nos parâmetros MIME de uma parte do e-mail
-    private function detectarCharset($part): string {
-        if (isset($part->parameters)) {
-            foreach ($part->parameters as $param) {
-                if (strtolower($param->attribute) === 'charset' && !empty($param->value)) {
-                    return $param->value;
-                }
-            }
-        }
-        return 'UTF-8';
-    }
-
-    // Converte texto de qualquer charset para UTF-8 válido
-    private function converterParaUtf8(string $texto, string $charset = 'UTF-8'): string {
-        $charset = strtoupper(trim($charset));
-        // Normaliza aliases comuns
-        if (in_array($charset, ['UTF-8', 'UTF8', 'UTF_8'])) {
-            // Já é UTF-8 mas garante que sequências inválidas sejam corrigidas
-            return mb_convert_encoding($texto, 'UTF-8', 'UTF-8');
-        }
-        $convertido = @mb_convert_encoding($texto, 'UTF-8', $charset);
-        return ($convertido !== false && $convertido !== '') ? $convertido : $texto;
-    }
-
     private function decodificarTexto($texto) {
         // iconv_mime_decode trata o Q-encoding corretamente ("_" = espaço); mb_decode_mimeheader
         // deixava o "_" no título (ex.: "Teste_de_criação"). Fallback para o método antigo se falhar.

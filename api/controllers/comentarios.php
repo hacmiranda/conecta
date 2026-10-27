@@ -35,7 +35,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'PUT' && isset($_GET['marcar_lido'])) {
     $ticket_id = $_GET['ticket_id'] ?? null;
     // O usuário vem sempre do token; o parâmetro usuario_id da URL é ignorado
     $usuario_id = (int) $user['id'];
-    
+
     if (!$ticket_id) {
         http_response_code(400);
         echo json_encode(['error' => 'ID da demanda é obrigatório']);
@@ -43,16 +43,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'PUT' && isset($_GET['marcar_lido'])) {
     }
 
     AcessoService::exigirLerTicket($db, $user, $ticket_id);
-    
+
     try {
         $query = "DELETE FROM comentarios_nao_lidos WHERE ticket_id = :ticket_id AND usuario_id = :usuario_id";
         $stmt = $db->prepare($query);
         $stmt->bindParam(':ticket_id', $ticket_id);
         $stmt->bindParam(':usuario_id', $usuario_id);
         $stmt->execute();
-        
+
         echo json_encode(['success' => true]);
-        
+
     } catch (Exception $e) {
         http_response_code(500);
         echo json_encode(['error' => 'Erro ao marcar como lido']);
@@ -66,10 +66,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $user = AuthMiddleware::verificarAuth();
     AuthMiddleware::verificarCSRF();
     $usuario_id = (int) $user['id'];
-    
+
     // Verificar se é FormData (com anexos) ou JSON
     $isFormData = isset($_POST['ticket_id']);
-    
+
     if ($isFormData) {
         $ticket_id = $_POST['ticket_id'] ?? null;
         $comentario_raw = $_POST['comentario'] ?? '';
@@ -173,9 +173,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $stmt->bindValue(':interno', $interno ? 1 : 0, PDO::PARAM_INT);
         $stmt->bindValue(':visivel', (!$interno && $enviar_email) ? 1 : 0, PDO::PARAM_INT);
         $stmt->execute();
-        
+
         $comentario_id = $db->lastInsertId();
-        
+
         // === SLA: primeira resposta ===
         // Comentário da equipe enviado ao solicitante cumpre o SLA de resposta (só a primeira vez;
         // mesma regra do DemandaService). Nota interna e comentário sem e-mail não contam.
@@ -186,25 +186,25 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 error_log('[COMENTARIOS] Erro ao marcar a primeira resposta: ' . $e->getMessage());
             }
         }
-        
+
         // Buscar dados do comentário recém-criado
-        $query_comentario = "SELECT c.*, u.nome as autor_nome 
-                            FROM comentarios c 
-                            LEFT JOIN usuarios u ON c.usuario_id = u.id 
+        $query_comentario = "SELECT c.*, u.nome as autor_nome
+                            FROM comentarios c
+                            LEFT JOIN usuarios u ON c.usuario_id = u.id
                             WHERE c.id = :comentario_id";
         $stmt_comentario = $db->prepare($query_comentario);
         $stmt_comentario->bindParam(':comentario_id', $comentario_id);
         $stmt_comentario->execute();
         $comentario_data = $stmt_comentario->fetch(PDO::FETCH_ASSOC);
-        
+
         // Anexos: tipo (extensão + conteúdo real), até 5 arquivos e 20 MB cada, conferidos aqui (UploadService)
         $anexos_recusados = [];
         if ($isFormData && isset($_FILES['anexos'])) {
             $anexos_recusados = UploadService::salvarEnviados($db, $_FILES['anexos'], (int) $ticket_id, (int) $comentario_id)['recusados'];
         }
-        
+
         // Não registrar no histórico - o comentário já aparece na timeline
-        
+
         // Resultado do envio por e-mail ao solicitante (null = não solicitado)
         $email_resultado = null;
         $email_destino = null;
@@ -213,15 +213,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         try {
             require_once __DIR__ . '/../services/email-sender.php';
             $emailSender = new EmailSender($db);
-            
+
             // Buscar dados do ticket
             $query_ticket = "SELECT agente_id FROM tickets WHERE id = ?";
             $stmt_ticket = $db->prepare($query_ticket);
             $stmt_ticket->execute([$ticket_id]);
             $ticket = $stmt_ticket->fetch();
-            
+
             $agentes_notificar = [];
-            
+
             // Buscar tipo do usuário que está comentando
             $query_tipo_autor = "SELECT tipo, nome FROM usuarios WHERE id = ?";
             $stmt_tipo_autor = $db->prepare($query_tipo_autor);
@@ -229,12 +229,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $autor_data = $stmt_tipo_autor->fetch(PDO::FETCH_ASSOC);
             $autor_tipo = $autor_data['tipo'] ?? 'cliente';
             $autor_nome = $autor_data['nome'] ?? 'Usuário';
-            
+
             if ($ticket && $ticket['agente_id']) {
                 // Ticket tem responsável: notificar apenas ele (se não for o autor)
                 if ($ticket['agente_id'] != $usuario_id) {
                     $agentes_notificar[] = $ticket['agente_id'];
-                    
+
                     // --- NOVA LÓGICA: Notificação agente → agente ---
                     // Se o autor é agente/admin comentando em ticket de outro agente:
                     // 1. Mudar status para nova_resposta
@@ -245,7 +245,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         $status_stmt = $db->prepare($status_query);
                         $status_stmt->execute([$ticket_id]);
                         $status_atual = $status_stmt->fetchColumn();
-                        
+
                         if (!in_array($status_atual, array_merge(AcessoService::STATUS_ARQUIVO, ['nova_resposta']), true)) {
                             try {
                                 // Regra única da troca de status: retoma o SLA pausado, histórico, auditoria
@@ -254,7 +254,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                                 error_log("[COMENTARIOS] Erro ao atualizar status: " . $e->getMessage());
                             }
                         }
-                        
+
                         // 2. Enviar e-mail ao agente responsável — nota interna nunca vai por e-mail,
                         // nem para outro agente (só a notificação interna já registrada acima)
                         if (!$interno) {
@@ -277,7 +277,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     'id'
                 );
             }
-            
+
             // Inserir registro e notificação para cada agente
             $msg_notificacao = "Novo comentário na demanda (" . ProtocoloService::rotuloPorId($db, (int) $ticket_id) . ") adicionado por " . ($autor_nome ?? 'Usuário') . ".";
             $notif_query = "INSERT INTO notificacoes (usuario_id, titulo, mensagem, ticket_id) VALUES (?, 'Novo Comentário', ?, ?)";
@@ -285,18 +285,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
             foreach ($agentes_notificar as $agente_id) {
                 // Notificação de Não Lido original
-                $query_nao_lido = "INSERT INTO comentarios_nao_lidos (ticket_id, usuario_id, comentario_id) 
-                                  VALUES (?, ?, ?) 
+                $query_nao_lido = "INSERT INTO comentarios_nao_lidos (ticket_id, usuario_id, comentario_id)
+                                  VALUES (?, ?, ?)
                                   ON DUPLICATE KEY UPDATE comentario_id = ?, criado_em = CURRENT_TIMESTAMP";
                 $stmt_nao_lido = $db->prepare($query_nao_lido);
                 $stmt_nao_lido->execute([$ticket_id, $agente_id, $comentario_id, $comentario_id]);
-                
+
                 // Push Interno
                 if ($agente_id != $usuario_id) {
                     $stmt_notif->execute([$agente_id, $msg_notificacao, $ticket_id]);
                 }
             }
-            
+
             // Enviar email se solicitado
             if ($enviar_email) {
                 $email_resultado = false;
@@ -321,19 +321,30 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     }
 
                     if ($email_resultado && $com_copia) {
+                        // Quem recebeu a cópia pode responder por e-mail (vira comentário): fica registrado
+                        // um por um; o texto da linha do tempo é só para leitura (cabe em 255 caracteres)
+                        $grava_copia = $db->prepare("INSERT INTO ticket_copias (ticket_id, email, comentario_id) VALUES (?, ?, ?)
+                                                     ON DUPLICATE KEY UPDATE comentario_id = VALUES(comentario_id)");
+                        foreach (preg_split('/[,;\s]+/', (string) $com_copia, -1, PREG_SPLIT_NO_EMPTY) as $endereco_copia) {
+                            $grava_copia->execute([$ticket_id, strtolower($endereco_copia), $comentario_id]);
+                        }
+                        $texto_copia = 'Cópia do comentário acima enviada por e-mail para: ' . $com_copia;
+                        if (mb_strlen($texto_copia) > 255) {
+                            $texto_copia = mb_substr($texto_copia, 0, 254) . '…';
+                        }
                         $hist_query = "INSERT INTO ticket_historico (ticket_id, usuario_id, acao, valor_novo) VALUES (?, ?, 'email_copia', ?)";
                         $hist_stmt = $db->prepare($hist_query);
-                        $hist_stmt->execute([$ticket_id, $usuario_id, 'Cópia do comentário acima enviada por e-mail para: ' . $com_copia]);
+                        $hist_stmt->execute([$ticket_id, $usuario_id, $texto_copia]);
                     }
                 } catch (Exception $e) {
                     error_log("Erro ao registrar envio de email no histórico: " . $e->getMessage());
                 }
             }
-            
+
         } catch (Exception $emailError) {
             error_log("Erro no envio de email: " . $emailError->getMessage());
         }
-        
+
         // Buscar anexos do comentário
         $anexos = [];
         try {
@@ -344,10 +355,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         } catch (Exception $e) {
             error_log("Erro ao buscar anexos: " . $e->getMessage());
         }
-        
+
         echo json_encode(['success' => true, 'comentario_id' => $comentario_id, 'comentario' => $comentario_data, 'anexos' => $anexos, 'anexos_recusados' => $anexos_recusados,
             'email_enviado' => $email_resultado, 'email_na_fila' => $email_resultado, 'email_destino' => $email_destino]);
-        
+
     } catch (Exception $e) {
         error_log('Erro ao adicionar comentário: ' . $e->getMessage());
         http_response_code(500);

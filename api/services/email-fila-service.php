@@ -81,6 +81,8 @@ class EmailFilaService {
 
         // Remove da fila o que já saiu há mais de 30 dias (o rastro fica em email_logs)
         $db->exec("DELETE FROM email_fila WHERE status = 'enviado' AND enviado_em < DATE_SUB(NOW(), INTERVAL 30 DAY)");
+        // Desistências também saem depois de 30 dias (já ficaram na linha do tempo e em email_logs)
+        $db->exec("DELETE FROM email_fila WHERE status = 'falha' AND criado_em < DATE_SUB(NOW(), INTERVAL 30 DAY)");
 
         return $resumo;
     }
@@ -89,7 +91,9 @@ class EmailFilaService {
      * Avisa na linha do tempo da demanda que o e-mail não pôde ser entregue.
      */
     private static function registrarFalhaNoHistorico(PDO $db, array $msg, string $erro): void {
-        if (empty($msg['ticket_id']) || !in_array($msg['tipo'], ['resposta', 'comentario', 'encaminhamento'], true)) {
+        // Qualquer e-mail ligado a uma demanda (antes só 3 tipos; confirmação, aviso à equipe e
+        // reabertura que não saíam não deixavam rastro na linha do tempo)
+        if (empty($msg['ticket_id'])) {
             return;
         }
         try {

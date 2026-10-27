@@ -87,6 +87,8 @@ class LembreteService {
             } catch (Exception $e) {
                 $resumo['erros']++;
                 error_log('[LEMBRETES] Erro ao enviar o lembrete #' . $id . ': ' . $e->getMessage());
+                // Não avisou: devolve o lembrete para a próxima execução (antes ficava marcado como enviado)
+                $db->prepare("UPDATE lembretes SET notificado = 0 WHERE id = ?")->execute([$id]);
             }
         }
 

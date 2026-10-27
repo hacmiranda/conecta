@@ -496,6 +496,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $categoria_id = null;
         }
 
+        // Tudo ou nada: protocolo, demanda, SLA, janela do setor, abertura e anexos (antes uma falha no
+        // meio deixava a demanda sem SLA ou sem anexo). E-mails e notificações só depois do commit.
+        $db->beginTransaction();
+        UploadService::iniciarLote();
+
         // Protocolo gerado antes do INSERT da demanda: não usa o id dela, então não interfere
         // no lastInsertId() logo abaixo
         $protocolo = ProtocoloService::gerar($db);
@@ -523,6 +528,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if (isset($_FILES['anexos'])) {
             $anexos_recusados = UploadService::salvarEnviados($db, $_FILES['anexos'], (int) $ticket_id)['recusados'];
         }
+        $db->commit();
         
         // Enviar email de confirmação e Push
         try {
@@ -557,6 +563,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         echo json_encode($ticket);
         
     } catch (Exception $e) {
+        if ($db->inTransaction()) {
+            $db->rollBack();
+            UploadService::desfazerLote();
+        }
         error_log("[ERROR] Erro ao criar ticket: " . $e->getMessage());
         http_response_code(500);
         echo json_encode(['error' => 'Erro ao criar demanda']);

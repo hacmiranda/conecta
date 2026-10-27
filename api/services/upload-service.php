@@ -14,6 +14,23 @@ class UploadService {
     const MAX_ARQUIVOS = 5;
     const MAX_BYTES_ARQUIVO = 20 * 1024 * 1024;
 
+    /** Arquivos gravados desde iniciarLote(): apagados por desfazerLote() quando a transação do banco é desfeita. */
+    private static array $lote = [];
+
+    public static function iniciarLote(): void {
+        self::$lote = [];
+    }
+
+    /** Remove do disco o que foi gravado no lote (a linha em anexos sumiu com o rollback). */
+    public static function desfazerLote(): void {
+        foreach (self::$lote as $caminho) {
+            if (is_file($caminho)) {
+                @unlink($caminho);
+            }
+        }
+        self::$lote = [];
+    }
+
     const TIPOS = [
         'pdf'  => ['application/pdf'],
         'doc'  => ['application/msword', 'application/CDFV2', 'application/x-ole-storage'],
@@ -111,6 +128,7 @@ class UploadService {
                 continue;
             }
             chmod($pasta . $nomeDisco, 0640);
+            self::$lote[] = $pasta . $nomeDisco;
             self::registrar($db, $ticketId, $comentarioId, $arq['nome'], $nomeDisco, $arq['tamanho'], $mime);
             $resultado['salvos']++;
         }
@@ -128,6 +146,7 @@ class UploadService {
             return null;
         }
         chmod($caminho, 0640);
+        self::$lote[] = $caminho;
         self::registrar($db, $ticketId, $comentarioId, basename($nomeOriginal), $nomeDisco, strlen($conteudo), $mime);
         return $nomeDisco;
     }

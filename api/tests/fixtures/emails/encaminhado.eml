@@ -1,0 +1,24 @@
+From: Fulana de Tal <fulana.exemplo@exemplo.com.br>
+To: setor@crprs.org.br
+Subject: Fwd: reclamação
+Message-ID: <amostra-b906be220697038e1708546d64b143a9@exemplo.com.br>
+Date: Mon, 26 Oct 2026 10:00:00 -0300
+MIME-Version: 1.0
+Content-Type: multipart/mixed; boundary="b3"
+
+--b3
+Content-Type: text/plain; charset=UTF-8
+
+Encaminho a mensagem abaixo para análise.
+
+--b3
+Content-Type: message/rfc822
+Content-Disposition: attachment
+
+From: outra@exemplo.com
+Subject: reclamação
+Content-Type: text/plain; charset=UTF-8
+
+Texto interno que não deve virar o corpo.
+
+--b3--

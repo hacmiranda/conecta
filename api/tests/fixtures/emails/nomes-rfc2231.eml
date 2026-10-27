@@ -1,0 +1,38 @@
+From: Fulana de Tal <fulana.exemplo@exemplo.com.br>
+To: setor@crprs.org.br
+Subject: Documentos
+Message-ID: <amostra-71b2ee5ae7a23092389ac5fd6791ff43@exemplo.com.br>
+Date: Mon, 26 Oct 2026 10:00:00 -0300
+MIME-Version: 1.0
+Content-Type: multipart/mixed; boundary="b2"
+
+--b2
+Content-Type: text/plain; charset=UTF-8
+
+Seguem os documentos.
+
+--b2
+Content-Type: application/pdf
+Content-Transfer-Encoding: base64
+Content-Disposition: attachment; filename*=UTF-8''relat%C3%B3rio%20anual.pdf
+
+JVBERi0xLjQKMSAwIG9iajw8L1R5cGUvQ2F0YWxvZz4+ZW5kb2JqCnRyYWlsZXI8PC9Sb290IDEg
+MCBSPj4KJSVFT0YK
+
+--b2
+Content-Type: application/pdf
+Content-Transfer-Encoding: base64
+Content-Disposition: attachment; filename*0*=UTF-8''declara%C3%A7%C3%A3o%20de; filename*1*=%20v%C3%ADnculo.pdf
+
+JVBERi0xLjQKMSAwIG9iajw8L1R5cGUvQ2F0YWxvZz4+ZW5kb2JqCnRyYWlsZXI8PC9Sb290IDEg
+MCBSPj4KJSVFT0YK
+
+--b2
+Content-Type: application/pdf; name="=?UTF-8?B?b2bDrWNpbyBuwrogMy5wZGY=?="
+Content-Transfer-Encoding: base64
+Content-Disposition: attachment
+
+JVBERi0xLjQKMSAwIG9iajw8L1R5cGUvQ2F0YWxvZz4+ZW5kb2JqCnRyYWlsZXI8PC9Sb290IDEg
+MCBSPj4KJSVFT0YK
+
+--b2--

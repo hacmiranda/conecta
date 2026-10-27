@@ -1,0 +1,53 @@
+From: Fulana de Tal <fulana.exemplo@exemplo.com.br>
+To: setor@crprs.org.br
+Subject: Pedido de certidão
+Message-ID: <amostra-c42273700fbd09283892f023a773553a@exemplo.com.br>
+Date: Mon, 26 Oct 2026 10:00:00 -0300
+MIME-Version: 1.0
+Content-Type: multipart/mixed; boundary="_mix_"
+
+--_mix_
+Content-Type: multipart/related; boundary="_rel_"; type="multipart/alternative"
+
+--_rel_
+Content-Type: multipart/alternative; boundary="_alt_"
+
+--_alt_
+Content-Type: text/plain; charset="iso-8859-1"
+Content-Transfer-Encoding: quoted-printable
+
+Bom dia,
+
+Solicito a certid=E3o de regularidade. Segue o comprovante em anexo.
+
+Atenciosamente,
+Fulana
+
+--_alt_
+Content-Type: text/html; charset="iso-8859-1"
+Content-Transfer-Encoding: quoted-printable
+
+<html><head><style>p.MsoNormal{margin:0cm;font-family:"Calibri"}</style></head><body><p class=3D"MsoNormal">Bom dia,</p><p>Solicito a certid=E3o de regularidade.</p><img src=3D"cid:image001.png@01DB"></body></html>
+
+--_alt_--
+
+--_rel_
+Content-Type: image/png; name="image001.png"
+Content-Transfer-Encoding: base64
+Content-ID: <image001.png@01DB>
+Content-Disposition: inline; filename="image001.png"
+
+iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmM
+IQAAAABJRU5ErkJggg==
+
+--_rel_--
+
+--_mix_
+Content-Type: application/pdf; name="comprovante.pdf"
+Content-Transfer-Encoding: base64
+Content-Disposition: attachment; filename="comprovante.pdf"
+
+JVBERi0xLjQKMSAwIG9iajw8L1R5cGUvQ2F0YWxvZz4+ZW5kb2JqCnRyYWlsZXI8PC9Sb290IDEg
+MCBSPj4KJSVFT0YK
+
+--_mix_--
