@@ -279,10 +279,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
             // listas, que o Kanban carrega inteiras; vai um resumo em texto (descricao_resumo)
             $query = "SELECT t.id, t.protocolo, t.titulo, LEFT(t.descricao_texto, 300) as descricao_resumo,
                              t.usuario_id, t.origem_api, t.email_solicitante, t.agente_id, t.atribuido_em,
-                             t.status, t.status_anterior, t.prioridade, t.criado_em, t.atualizado_em,
-                             t.categoria_id, t.setor_id, t.fechado_por, t.fechado_em, t.tempo_primeiro_atendimento,
-                             t.tempo_total_segundos, t.tempo_em_espera_segundos, t.iniciou_espera_em,
-                             t.reaberto_contador, t.mesclada_em, t.sla_vencido, t.excluido_em, t.excluido_por,
+                             t.status, t.prioridade, t.criado_em, t.atualizado_em,
+                             t.categoria_id, t.setor_id, t.fechado_por, t.fechado_em,
+                             t.reaberto_contador, t.mesclada_em, t.excluido_em, t.excluido_por,
                              u.nome as usuario_nome, u.email as usuario_email,
                              a.nome as agente_nome,
                              NULLIF(CONCAT_WS(' - ', c.nome, mc.nome), '') as categoria_nome,
@@ -634,7 +633,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'PUT') {
     $input = json_decode(file_get_contents('php://input'), true) ?? [];
 
     // E-mails e avisos só depois do commit
-    $pos_commit = ['atribuicao' => null, 'encerrado' => false, 'reaberto' => false, 'pesquisa' => false];
+    $pos_commit = ['encerrado' => false, 'reaberto' => false, 'pesquisa' => false];
 
     try {
         $updates = [];
@@ -688,23 +687,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'PUT') {
             }
         }
 
-        // Atribuir/remover responsável é ato de gestão: operador usa as ações de demanda-acoes.php
+        // O responsável não muda pelo PUT: é Encaminhar/Repassar/Devolver (demanda-acoes.php), que registram
+        // o comentário obrigatório, a primeira resposta e os e-mails. O ramo antigo daqui só era chamado por
+        // uma função do frontend que ninguém usava mais (removido na auditoria fase 8).
         if (array_key_exists('agente_id', $input)) {
-            if (!in_array($user['tipo'], ['admin', 'gestor'], true)) {
-                http_response_code(403);
-                echo json_encode(['error' => 'Apenas gestores ou administradores atribuem responsável']);
-                exit;
-            }
-            if (!empty($input['agente_id'])) {
-                $dest = $db->prepare("SELECT setor_id FROM usuarios WHERE id = ? AND ativo = 1 AND tipo IN ('operador','gestor')");
-                $dest->execute([(int) $input['agente_id']]);
-                $destRow = $dest->fetch(PDO::FETCH_ASSOC);
-                if (!$destRow || (int) $destRow['setor_id'] !== (int) $current_data['setor_id']) {
-                    http_response_code(400);
-                    echo json_encode(['error' => 'O responsável precisa ser um usuário ativo do setor da demanda']);
-                    exit;
-                }
-            }
+            http_response_code(400);
+            echo json_encode(['error' => 'Para definir o responsável use Encaminhar, Repassar ou Devolver']);
+            exit;
         }
 
         $db->beginTransaction();
@@ -746,19 +735,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'PUT') {
             $params[':categoria_id'] = $input['categoria_id'] ?: null;
         }
 
-        if (array_key_exists('agente_id', $input)) {
-            $updates[] = 'agente_id = :agente_id';
-            $params[':agente_id'] = $input['agente_id'] ?: null;
-            $updates[] = 'atribuido_em = ' . ($input['agente_id'] ? 'NOW()' : 'NULL');
-
-            // Atribuir responsável a uma demanda "novo" a põe em atendimento
-            if ($input['agente_id'] && $current_data['status'] === 'novo') {
-                $updates[] = 'status = :status_atendimento';
-                $params[':status_atendimento'] = 'em_atendimento';
-                $input['status'] = 'em_atendimento'; // para o histórico
-            }
-        }
-
         if (!empty($updates)) {
             $stmt = $db->prepare("UPDATE tickets SET " . implode(', ', $updates) . " WHERE id = :id");
             $stmt->execute($params);
@@ -771,10 +747,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'PUT') {
             $hist = $db->prepare("INSERT INTO ticket_historico (ticket_id, usuario_id, acao, valor_anterior, valor_novo) VALUES (?, ?, ?, ?, ?)");
 
             if ($mudou_status) {
-                // Se a mesma requisição troca o responsável, a janela dele é aberta mais abaixo
-                $troca_agente = array_key_exists('agente_id', $input) && $input['agente_id'] != $current_data['agente_id'];
                 $marcas = DemandaService::efeitosDaMudancaDeStatus($db, (int) $ticket_id, (string) $current_data['status'],
-                    (string) $input['status'], (int) $usuario_id, $setor_da_demanda, $troca_agente ? ['agente_reaberto' => null] : []);
+                    (string) $input['status'], (int) $usuario_id, $setor_da_demanda);
                 $pos_commit['reaberto'] = $marcas['reaberto'];
                 $pos_commit['encerrado'] = $marcas['encerrado'];
                 $pos_commit['pesquisa'] = $marcas['pesquisa'];
@@ -800,54 +774,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'PUT') {
                 $hist->execute([$ticket_id, $usuario_id, 'categoria', $cat_ant, $cat_nova]);
                 $auditoria->registrarTicket($ticket_id, $usuario_id, 'categoria', $cat_ant, $cat_nova);
             }
-
-            if (array_key_exists('agente_id', $input) && (int) $input['agente_id'] !== (int) $current_data['agente_id']) {
-                $nomeUsuario = function ($id) use ($db) {
-                    if (!$id) {
-                        return 'Não atribuído';
-                    }
-                    $u = $db->prepare("SELECT nome FROM usuarios WHERE id = ?");
-                    $u->execute([(int) $id]);
-                    return $u->fetchColumn() ?: (string) $id;
-                };
-                $agente_ant = $nomeUsuario($current_data['agente_id']);
-                $agente_novo = $nomeUsuario($input['agente_id']);
-                $era_sem_atribuicao = empty($current_data['agente_id']);
-
-                $hist->execute([$ticket_id, $usuario_id, 'atribuicao', $agente_ant, $agente_novo]);
-                $auditoria->registrarTicket($ticket_id, $usuario_id, 'agente', $agente_ant, $agente_novo);
-
-                // Histórico de responsáveis: fecha a janela do anterior e abre a do novo
-                if ($current_data['agente_id']) {
-                    $db->prepare("UPDATE ticket_agente_log SET saiu_em = NOW() WHERE ticket_id = ? AND usuario_id = ? AND saiu_em IS NULL")
-                       ->execute([$ticket_id, $current_data['agente_id']]);
-                }
-                if ($input['agente_id']) {
-                    $db->prepare("INSERT INTO ticket_agente_log (ticket_id, usuario_id) VALUES (?, ?)")
-                       ->execute([$ticket_id, (int) $input['agente_id']]);
-                    $pos_commit['atribuicao'] = ['agente_id' => (int) $input['agente_id'], 'era_sem_atribuicao' => $era_sem_atribuicao];
-                }
-            }
         }
 
         $db->commit();
 
         // === Avisos (fora da transação: falha de e-mail não desfaz a alteração) ===
         try {
-            if ($pos_commit['atribuicao'] || $pos_commit['encerrado'] || $pos_commit['reaberto']) {
+            if ($pos_commit['encerrado'] || $pos_commit['reaberto']) {
                 require_once __DIR__ . '/../services/email-sender.php';
                 $emailSender = new EmailSender($db);
 
-                if ($pos_commit['atribuicao']) {
-                    $autor = $db->prepare("SELECT nome FROM usuarios WHERE id = ?");
-                    $autor->execute([$usuario_id]);
-                    $autor_nome = $autor->fetchColumn() ?: 'Sistema';
-                    $dest_id = $pos_commit['atribuicao']['agente_id'];
-                    $emailSender->notificarAtribuicaoTicket($ticket_id, $dest_id, $autor_nome, $pos_commit['atribuicao']['era_sem_atribuicao']);
-                    $db->prepare("INSERT INTO notificacoes (usuario_id, titulo, mensagem, ticket_id) VALUES (?, ?, ?, ?)")
-                       ->execute([$dest_id, 'Demanda atribuída',
-                           'A demanda (' . ProtocoloService::rotuloPorId($db, (int) $ticket_id) . ') foi atribuída a você por ' . $autor_nome . '.', $ticket_id]);
-                }
                 if ($pos_commit['encerrado']) {
                     $emailSender->notificarFechamentoTicket($ticket_id);
                 }

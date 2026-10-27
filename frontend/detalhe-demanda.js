@@ -1035,24 +1035,6 @@ function validarAntesComentario(ticketId) {
     return true;
 }
 
-// Validações antes de fechar ticket
-function validarAntesFechamento(ticketId) {
-    const ticketAtual = JSON.parse(sessionStorage.getItem('cd_ticketAtual') || '{}');
-
-    // Verificar se ticket tem responsável
-    if (!ticketAtual.agente_id) {
-        mostrarAlert('Atenção', 'Esta demanda não possui responsável. Atribua a demanda antes de fechá-la.');
-        return false;
-    }
-
-    // Verificar se ticket tem categoria
-    if (!ticketAtual.categoria_id) {
-        mostrarAlert('Atenção', 'Esta demanda não possui subcategoria. Defina uma subcategoria antes de fechá-la.');
-        return false;
-    }
-
-    return true;
-}
 
 // Função para enviar comentário e fechar ticket
 function enviarEFecharTicket(ticketId) {

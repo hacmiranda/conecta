@@ -251,13 +251,9 @@ function mostrarDashboardNaTela(dados) {
         criarGraficoPrioridade(dados);
         criarGraficoMensal(dados);
         criarGraficoAgente(dados);
-        criarGraficoResolucao(dados);
         criarGraficoDiaSemana(dados);
         criarGraficoStatusAgente(dados);
-        criarGraficoFunil(dados);
         criarGraficoDiarios30d(dados);
-        criarGraficoStatusMensal(dados);
-        criarGraficoHeatmap(dados);
 
         // Animar itens do dashboard quando visíveis
         setTimeout(() => {

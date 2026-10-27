@@ -40,15 +40,17 @@ RewriteRule ^(.*)$ /conecta/frontend/login.html [L,R=301]
     Header always set Referrer-Policy "strict-origin-when-cross-origin"
 
     # Content Security Policy
-    # Permite: próprio domínio, Google Fonts, CDN do Chart.js/Alpine/Quill,
+    # Permite: próprio domínio, Google Fonts, CDN do Quill/DOMPurify/Cropper,
+    # Sem 'unsafe-eval' desde a auditoria fase 8 (o Alpine.js, que precisava dele, saiu). 'unsafe-inline'
+    # ainda é necessário: há centenas de onclick= e style= no HTML (ver CLAUDE.md, "CSP").
     # Cloudflare Turnstile, imagens inline (data:) para Quill editor
     # frame-ancestors: origens autorizadas a incorporar este módulo em <iframe>.
     # Produção: só 'self'. Acesso por localhost/127.0.0.1 (desenvolvimento): também as origens locais,
     # para o painel agregador de teste. Ao integrar com o painel agregador real, adicionar o domínio
     # de produção nas duas linhas E em CORS_ALLOWED_ORIGINS_* no api/config/.env.
-    Header always set Content-Security-Policy "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' cdn.jsdelivr.net cdnjs.cloudflare.com challenges.cloudflare.com static.cloudflareinsights.com; style-src 'self' 'unsafe-inline' fonts.googleapis.com cdn.jsdelivr.net cdnjs.cloudflare.com; font-src 'self' fonts.gstatic.com; img-src 'self' data: blob:; connect-src 'self' challenges.cloudflare.com cdnjs.cloudflare.com cloudflareinsights.com; frame-src challenges.cloudflare.com blob:; frame-ancestors 'self'; object-src 'none'; base-uri 'self'; form-action 'self';"
+    Header always set Content-Security-Policy "default-src 'self'; script-src 'self' 'unsafe-inline' cdn.jsdelivr.net cdnjs.cloudflare.com challenges.cloudflare.com static.cloudflareinsights.com; style-src 'self' 'unsafe-inline' fonts.googleapis.com cdn.jsdelivr.net cdnjs.cloudflare.com; font-src 'self' fonts.gstatic.com; img-src 'self' data: blob:; connect-src 'self' challenges.cloudflare.com cdnjs.cloudflare.com cloudflareinsights.com; frame-src challenges.cloudflare.com blob:; frame-ancestors 'self'; object-src 'none'; base-uri 'self'; form-action 'self';"
     <If "%{HTTP_HOST} =~ /^(localhost|127\.0\.0\.1)(:\d+)?$/">
-        Header always set Content-Security-Policy "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' cdn.jsdelivr.net cdnjs.cloudflare.com challenges.cloudflare.com static.cloudflareinsights.com; style-src 'self' 'unsafe-inline' fonts.googleapis.com cdn.jsdelivr.net cdnjs.cloudflare.com; font-src 'self' fonts.gstatic.com; img-src 'self' data: blob:; connect-src 'self' challenges.cloudflare.com cdnjs.cloudflare.com cloudflareinsights.com; frame-src challenges.cloudflare.com blob:; frame-ancestors 'self' http://localhost:* http://127.0.0.1:*; object-src 'none'; base-uri 'self'; form-action 'self';"
+        Header always set Content-Security-Policy "default-src 'self'; script-src 'self' 'unsafe-inline' cdn.jsdelivr.net cdnjs.cloudflare.com challenges.cloudflare.com static.cloudflareinsights.com; style-src 'self' 'unsafe-inline' fonts.googleapis.com cdn.jsdelivr.net cdnjs.cloudflare.com; font-src 'self' fonts.gstatic.com; img-src 'self' data: blob:; connect-src 'self' challenges.cloudflare.com cdnjs.cloudflare.com cloudflareinsights.com; frame-src challenges.cloudflare.com blob:; frame-ancestors 'self' http://localhost:* http://127.0.0.1:*; object-src 'none'; base-uri 'self'; form-action 'self';"
     </If>
 
     # HTTPS obrigatório no navegador por 1 ano (só quando a requisição já veio por HTTPS)

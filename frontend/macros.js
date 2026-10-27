@@ -21,19 +21,12 @@ function carregarMacros() {
     lista.innerHTML = '<p>Carregando...</p>';
 
     // Administrador: macros do setor escolhido no cabeçalho (mais as de todos os setores)
-    const xhr = new XMLHttpRequest();
-    xhr.open('GET', typeof urlComSetor === 'function' ? urlComSetor(window.APP_CONFIG.apiBase + 'macros.php') : window.APP_CONFIG.apiBase + 'macros.php', true);
-    setSecurityHeaders(xhr);
-
-    xhr.onload = function () {
-        if (xhr.status === 200) {
-            todasMacros = JSON.parse(xhr.responseText);
-            renderizarListaMacros();
-        } else {
-            lista.innerHTML = '<p>Erro ao carregar macros.</p>';
-        }
-    };
-    xhr.send();
+    Api.get(typeof urlComSetor === 'function' ? urlComSetor('macros.php') : 'macros.php').then(macros => {
+        todasMacros = macros || [];
+        renderizarListaMacros();
+    }).catch(e => {
+        lista.innerHTML = `<p role="alert">${sanitizeHTML(mensagemDeErro(e, 'Erro ao carregar as respostas rápidas.'))}</p>`;
+    });
 }
 
 function renderizarListaMacros() {
@@ -131,28 +124,14 @@ function salvarMacro() {
     // Administrador: a macro nasce no setor escolhido no cabeçalho (sem setor = vale para todos)
     const ctx = window.CabecalhoSetor ? window.CabecalhoSetor.obterSetorContexto() : null;
     if (!id && ctx) payload.setor_id = ctx;
-    const method = id ? 'PUT' : 'POST';
-    const url = id ? `${window.APP_CONFIG.apiBase}macros.php?id=${id}` : window.APP_CONFIG.apiBase + 'macros.php';
-
-    const xhr = new XMLHttpRequest();
-    xhr.open(method, url, true);
-    setSecurityHeaders(xhr);
-    xhr.setRequestHeader('Content-Type', 'application/json');
-
-    xhr.onload = function () {
-        if (xhr.status === 200) {
-            mostrarToast('Sucesso', 'Macro salva com sucesso!', 'success');
-            fecharFormularioMacro();
-            carregarMacros();
-            // Também recarregar o seletor no ticket
-            carregarSeletorMacros();
-        } else {
-            let errorMsg = 'Erro ao salvar macro';
-            try { errorMsg = JSON.parse(xhr.responseText).error; } catch (e) { }
-            mostrarToast('Erro', errorMsg, 'error');
-        }
-    };
-    xhr.send(JSON.stringify(payload));
+    const envio = id ? Api.put(`macros.php?id=${encodeURIComponent(id)}`, payload) : Api.post('macros.php', payload);
+    envio.then(() => {
+        mostrarToast('Sucesso', 'Resposta rápida salva!', 'success');
+        fecharFormularioMacro();
+        carregarMacros();
+        // Também recarregar o seletor no ticket
+        carregarSeletorMacros();
+    }).catch(e => mostrarToast('Erro', mensagemDeErro(e, 'Erro ao salvar a resposta rápida'), 'error'));
 }
 
 function excluirMacro(id) {
@@ -163,23 +142,11 @@ function excluirMacro(id) {
 }
 
 function executarExclusaoMacro(id) {
-
-    const xhr = new XMLHttpRequest();
-    xhr.open('DELETE', `${window.APP_CONFIG.apiBase}macros.php?id=${id}`, true);
-    setSecurityHeaders(xhr);
-
-    xhr.onload = function () {
-        if (xhr.status === 200) {
-            mostrarToast('Sucesso', 'Macro excluída!', 'success');
-            carregarMacros();
-            carregarSeletorMacros();
-        } else {
-            let errorMsg = 'Erro ao excluir macro';
-            try { errorMsg = JSON.parse(xhr.responseText).error; } catch (e) { }
-            mostrarToast('Erro', errorMsg, 'error');
-        }
-    };
-    xhr.send();
+    Api.delete(`macros.php?id=${encodeURIComponent(id)}`).then(() => {
+        mostrarToast('Sucesso', 'Resposta rápida excluída!', 'success');
+        carregarMacros();
+        carregarSeletorMacros();
+    }).catch(e => mostrarToast('Erro', mensagemDeErro(e, 'Erro ao excluir a resposta rápida'), 'error'));
 }
 
 // === INTEGRAÇÃO COM TICKET DETAILS ===
@@ -195,20 +162,15 @@ function carregarSeletorMacros() {
 
     // No atendimento, as macros são as do setor da demanda aberta
     const setorDemanda = typeof setorDaDemandaAtual === 'function' ? setorDaDemandaAtual() : null;
-    const xhr = new XMLHttpRequest();
-    xhr.open('GET', window.APP_CONFIG.apiBase + 'macros.php' + (setorDemanda ? `?setor_id=${setorDemanda}` : ''), true);
-    setSecurityHeaders(xhr);
-
-    xhr.onload = function () {
-        if (xhr.status === 200) {
-            const macros = JSON.parse(xhr.responseText);
-            todasMacros = macros; // Atualiza a global também
-            macros.forEach(m => {
-                seletor.innerHTML += `<option value="${m.id}">${sanitizeHTML(m.titulo)}</option>`;
-            });
-        }
-    };
-    xhr.send();
+    Api.get('macros.php' + (setorDemanda ? `?setor_id=${encodeURIComponent(setorDemanda)}` : '')).then(macros => {
+        todasMacros = macros || []; // Atualiza a global também
+        todasMacros.forEach(m => {
+            const opcao = document.createElement('option');
+            opcao.value = m.id;
+            opcao.textContent = m.titulo;
+            seletor.appendChild(opcao);
+        });
+    }).catch(() => { /* sem respostas rápidas: o seletor fica só com as opções fixas */ });
 }
 
 function aplicarMacroTicket(macroId) {

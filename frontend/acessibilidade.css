@@ -385,3 +385,8 @@ body.modo-escuro .filtro-pill.ativo {
     border-color: var(--vinho-600);
 }
 
+/* Editor da descrição em Nova Demanda (antes com estilo inline) */
+.editor-descricao {
+    height: 250px;
+    background: var(--branco);
+}

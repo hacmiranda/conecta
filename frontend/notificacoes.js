@@ -28,37 +28,21 @@ function _buscarNotificacoes() {
     if (!localStorage.getItem('cd_usuario')) return;
     if (document.hidden) return; // aba escondida: não consulta o servidor à toa
 
-    const xhr = new XMLHttpRequest();
-    xhr.open('GET', window.APP_CONFIG.apiBase + 'notificacoes.php', true);
-    setSecurityHeaders(xhr);
-
-    xhr.onload = function () {
-        if (xhr.status === 200) {
-            try {
-                const data = JSON.parse(xhr.responseText);
-                const usuario = JSON.parse(localStorage.getItem('cd_usuario') || '{}');
-
-                // Administrador: o alerta de falha de e-mail vem na mesma resposta (alerta_email)
-                if (data.alerta_email) {
-                    _mesclarAlertaEmail(data.notificacoes, data.nao_lidas, data.alerta_email);
-                } else {
-                    atualizarBadgeNotificacoes(data.nao_lidas);
-                    renderizarNotificacoes(data.notificacoes);
-                }
-            } catch (e) {
-                console.error('Erro ao processar notificações', e);
-            }
-        } else if (xhr.status === 401) {
-            // Token expirou — para o polling
-            clearInterval(_notificacoesInterval);
+    Api.get('notificacoes.php').then(data => {
+        // Administrador: o alerta de falha de e-mail vem na mesma resposta (alerta_email)
+        if (data.alerta_email) {
+            _mesclarAlertaEmail(data.notificacoes, data.nao_lidas, data.alerta_email);
+        } else {
+            atualizarBadgeNotificacoes(data.nao_lidas);
+            renderizarNotificacoes(data.notificacoes);
         }
-    };
-
-    xhr.onerror = function () {
-        console.warn('Erro de rede ao buscar notificações. Próxima tentativa em 30s.');
-    };
-
-    xhr.send();
+    }).catch(e => {
+        if (e.status === 401) {
+            clearInterval(_notificacoesInterval); // sessão encerrada: para o polling
+        } else if (!e.status) {
+            console.warn('Erro de rede ao buscar notificações. Próxima tentativa em 30s.');
+        }
+    });
 }
 
 // Lê o estado de dispensa do alerta de falha de e-mail salvo no localStorage
@@ -215,30 +199,14 @@ function ligarAcoesNotificacoes() {
         }
     });
 }
+// Marcar uma (id) ou todas como lidas; atualiza o sino logo em seguida
 function marcarNotificacaoLida(id) {
-    const xhr = new XMLHttpRequest();
-    xhr.open('PUT', window.APP_CONFIG.apiBase + 'notificacoes.php?id=' + id, true);
-    setSecurityHeaders(xhr);
-
-    xhr.onload = function () {
-        if (xhr.status === 200) {
-            _buscarNotificacoes(); // Atualiza badge e lista imediatamente
-        }
-    };
-    xhr.send();
+    Api.put('notificacoes.php?id=' + encodeURIComponent(id)).then(_buscarNotificacoes).catch(() => { });
 }
 
 function marcarTodasComoLidas() {
-    const xhr = new XMLHttpRequest();
-    xhr.open('PUT', window.APP_CONFIG.apiBase + 'notificacoes.php', true);
-    setSecurityHeaders(xhr);
-
-    xhr.onload = function () {
-        if (xhr.status === 200) {
-            _buscarNotificacoes(); // Atualiza badge e lista imediatamente
-        }
-    };
-    xhr.send();
+    Api.put('notificacoes.php').then(_buscarNotificacoes)
+        .catch(e => mostrarToast('Erro', mensagemDeErro(e, 'Não foi possível marcar as notificações como lidas.'), 'error'));
 }
 
 function abrirDetalhesNotificacao(notifId, ticketId) {
@@ -263,21 +231,13 @@ function excluirTodasNotificacoes() {
 }
 
 function executarExclusaoNotificacoes() {
-    const xhr = new XMLHttpRequest();
-    xhr.open('DELETE', window.APP_CONFIG.apiBase + 'notificacoes.php', true);
-    setSecurityHeaders(xhr);
-
-    xhr.onload = function () {
-        if (xhr.status === 200) {
-            // Limpar lista imediatamente; SSE atualizará o badge
-            const lista = document.getElementById('lista-notificacoes');
-            if (lista) {
-                lista.innerHTML = '<p class="notificacoes-vazio">Nenhuma notificação encontrada.</p>';
-            }
-            atualizarBadgeNotificacoes(0);
+    Api.delete('notificacoes.php').then(() => {
+        const lista = document.getElementById('lista-notificacoes');
+        if (lista) {
+            lista.innerHTML = '<p class="notificacoes-vazio">Nenhuma notificação encontrada.</p>';
         }
-    };
-    xhr.send();
+        atualizarBadgeNotificacoes(0);
+    }).catch(e => mostrarToast('Erro', mensagemDeErro(e, 'Não foi possível excluir as notificações.'), 'error'));
 }
 
 // Interceptar o carregamento do usuário para inicar as notificações

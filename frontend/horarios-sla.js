@@ -1,14 +1,5 @@
 ﻿// Funções para gerenciar horários úteis e feriados (expediente e feriados são de cada setor)
 
-// Extrai a mensagem de erro enviada pelo servidor (ou usa o texto padrão)
-function mensagemErroServidor(xhr, padrao) {
-    try {
-        return JSON.parse(xhr.responseText).error || padrao;
-    } catch (e) {
-        return padrao;
-    }
-}
-
 // Nome do setor cujo expediente está sendo exibido (próprio setor ou o escolhido pelo admin)
 function nomeSetorDoExpediente() {
     const usuario = JSON.parse(localStorage.getItem('cd_usuario') || '{}');
@@ -32,38 +23,16 @@ function mostrarHorariosSLA() {
     }, 10);
 }
 
+// Expediente e feriados do setor (do usuário, ou o escolhido pelo admin no cabeçalho), juntos
 function carregarHorariosSLA() {
-    const xhr = new XMLHttpRequest();
-    xhr.open('GET', urlComSetor(window.APP_CONFIG.apiBase + 'horarios-sla.php'), true);
-    setSecurityHeaders(xhr);
-    
-    xhr.onload = function() {
-        if (xhr.status === 200) {
-            const horarios = JSON.parse(xhr.responseText);
-            carregarFeriados(horarios);
-        } else {
-            document.getElementById('config-content').innerHTML = '<p>Erro ao carregar horários.</p>';
-        }
-    };
-    
-    xhr.send();
-}
-
-function carregarFeriados(horarios) {
-    const xhr = new XMLHttpRequest();
-    xhr.open('GET', urlComSetor(window.APP_CONFIG.apiBase + 'horarios-sla.php?feriados=1'), true);
-    setSecurityHeaders(xhr);
-    
-    xhr.onload = function() {
-        if (xhr.status === 200) {
-            const feriados = JSON.parse(xhr.responseText);
-            mostrarHorariosEFeriados(horarios, feriados);
-        } else {
-            document.getElementById('config-content').innerHTML = '<p>Erro ao carregar feriados.</p>';
-        }
-    };
-    
-    xhr.send();
+    Promise.all([
+        Api.get(urlComSetor('horarios-sla.php')),
+        Api.get(urlComSetor('horarios-sla.php?feriados=1')),
+    ]).then(([horarios, feriados]) => mostrarHorariosEFeriados(horarios || [], feriados || []))
+      .catch(e => {
+          document.getElementById('config-content').innerHTML =
+              `<p role="alert">${sanitizeHTML(mensagemDeErro(e, 'Erro ao carregar horários e feriados.'))}</p>`;
+      });
 }
 
 function mostrarHorariosEFeriados(horarios, feriados) {
@@ -204,26 +173,10 @@ function salvarHorario(dia) {
     const ativo = document.getElementById(`ativo-${dia}`).checked;
     const inicio = document.getElementById(`inicio-${dia}`).value + ':00';
     const fim = document.getElementById(`fim-${dia}`).value + ':00';
-    
-    const xhr = new XMLHttpRequest();
-    xhr.open('PUT', urlComSetor(window.APP_CONFIG.apiBase + 'horarios-sla.php'), true);
-    xhr.setRequestHeader('Content-Type', 'application/json');
-    setSecurityHeaders(xhr);
-    
-    xhr.onload = function() {
-        if (xhr.status === 200) {
-            mostrarToast('Sucesso', 'Horário atualizado com sucesso!', 'success');
-        } else {
-            mostrarAlert('Erro', mensagemErroServidor(xhr, 'Erro ao atualizar horário'));
-        }
-    };
-    
-    xhr.send(JSON.stringify({
-        dia_semana: dia,
-        hora_inicio: inicio,
-        hora_fim: fim,
-        ativo: ativo
-    }));
+
+    Api.put(urlComSetor('horarios-sla.php'), { dia_semana: dia, hora_inicio: inicio, hora_fim: fim, ativo: ativo })
+        .then(() => mostrarToast('Sucesso', 'Horário atualizado com sucesso!', 'success'))
+        .catch(e => mostrarAlert('Erro', mensagemDeErro(e, 'Erro ao atualizar horário')));
 }
 
 function mostrarFormFeriado() {
@@ -243,58 +196,35 @@ function salvarFeriado() {
     const data = document.getElementById('data-feriado').value;
     const descricao = document.getElementById('descricao-feriado').value;
     const recorrente = document.getElementById('recorrente-feriado').checked;
-    
+
     if (!data || !descricao) {
         mostrarAlert('Erro', 'Preencha todos os campos obrigatórios');
         return;
     }
-    
-    const xhr = new XMLHttpRequest();
-    xhr.open('POST', urlComSetor(window.APP_CONFIG.apiBase + 'horarios-sla.php'), true);
-    xhr.setRequestHeader('Content-Type', 'application/json');
-    setSecurityHeaders(xhr);
-    
-    xhr.onload = function() {
-        if (xhr.status === 200) {
-            mostrarToast('Sucesso', 'Feriado cadastrado com sucesso!', 'success');
-            cancelarFormFeriado();
-            mostrarHorariosSLA();
-        } else {
-            mostrarAlert('Erro', mensagemErroServidor(xhr, 'Erro ao cadastrar feriado'));
-        }
-    };
-    
-    const campoTodos = document.getElementById('todos-setores-feriado');
 
-    xhr.send(JSON.stringify({
+    const campoTodos = document.getElementById('todos-setores-feriado');
+    Api.post(urlComSetor('horarios-sla.php'), {
         data: data,
         descricao: descricao,
         recorrente: recorrente,
         todos_setores: campoTodos ? campoTodos.checked : false
-    }));
+    }).then(() => {
+        mostrarToast('Sucesso', 'Feriado cadastrado com sucesso!', 'success');
+        cancelarFormFeriado();
+        mostrarHorariosSLA();
+    }).catch(e => mostrarAlert('Erro', mensagemDeErro(e, 'Erro ao cadastrar feriado')));
 }
 
 function excluirFeriado(id) {
     mostrarConfirm(
         'Excluir Feriado',
         'Tem certeza que deseja excluir este feriado?',
-        function(confirmado) {
+        function (confirmado) {
             if (!confirmado) return;
-            
-            const xhr = new XMLHttpRequest();
-            xhr.open('DELETE', urlComSetor(`${window.APP_CONFIG.apiBase}horarios-sla.php?id=${id}`), true);
-            setSecurityHeaders(xhr);
-            
-            xhr.onload = function() {
-                if (xhr.status === 200) {
-                    mostrarToast('Sucesso', 'Feriado excluído com sucesso!', 'success');
-                    mostrarHorariosSLA();
-                } else {
-                    mostrarAlert('Erro', mensagemErroServidor(xhr, 'Erro ao excluir feriado'));
-                }
-            };
-            
-            xhr.send();
+            Api.delete(urlComSetor(`horarios-sla.php?id=${encodeURIComponent(id)}`)).then(() => {
+                mostrarToast('Sucesso', 'Feriado excluído com sucesso!', 'success');
+                mostrarHorariosSLA();
+            }).catch(e => mostrarAlert('Erro', mensagemDeErro(e, 'Erro ao excluir feriado')));
         }
     );
 }

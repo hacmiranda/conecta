@@ -152,15 +152,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
         $stmt->execute();
         $dashboard['ticketsPorMacrocategoria'] = $stmt->fetchAll();
 
-        // Taxa de resolução (abertos vs fechados) - excluindo cancelados da conta total
-        $query = "SELECT
-                    SUM(CASE WHEN t.status IN ($CONCLUIDOS_SQL) THEN 1 ELSE 0 END) as fechados,
-                    SUM(CASE WHEN t.status NOT IN ($EM_ANDAMENTO_SQL) THEN 1 ELSE 0 END) as abertos
-                  FROM tickets t WHERE t.status != 'cancelado' AND t.mesclada_em IS NULL{$filtroT}";
-        $stmt = $db->prepare($query);
-        $stmt->execute();
-        $dashboard['taxa_resolucao'] = $stmt->fetch();
-
         // Tickets acumulados por mês (últimos 12 meses) - excluindo cancelados
         $query = "SELECT DATE_FORMAT(t.criado_em, '%Y-%m') as mes, COUNT(*) as total
                   FROM tickets t
@@ -207,22 +198,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
             'concluidos' => $sla_data['concluidos'],
             'taxa_conclusao' => $sla_data['total'] > 0 ? round(($sla_data['concluidos'] / $sla_data['total']) * 100, 1) : 0
         ];
-
-        // Funil de conversão (exclui encerrado e cancelado)
-        $query = "SELECT t.status, COUNT(*) as total FROM tickets t WHERE t.status NOT IN ($ARQUIVO_SQL){$filtroT} GROUP BY t.status";
-        $stmt = $db->prepare($query);
-        $stmt->execute();
-        $funil_data = $stmt->fetchAll();
-        $dashboard['funil_conversao'] = [];
-        $aguardando_total = 0;
-        foreach ($funil_data as $row) {
-            if (in_array($row['status'], AcessoService::GRUPO_AGUARDANDO, true)) {
-                $aguardando_total += $row['total'];
-            } else {
-                $dashboard['funil_conversao'][$row['status']] = $row['total'];
-            }
-        }
-        $dashboard['funil_conversao']['aguardando'] = $aguardando_total;
 
         // First Contact Resolution (FCR)
         $query = "SELECT
@@ -309,26 +284,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
         $stmt = $db->prepare($query);
         $stmt->execute();
         $dashboard['diarios_30d'] = $stmt->fetchAll(PDO::FETCH_ASSOC);
-
-        // Status empilhado por mês (ano atual), excluindo cancelados
-        $query = "SELECT MONTH(t.criado_em) as mes, t.status, COUNT(*) as total
-                  FROM tickets t
-                  WHERE YEAR(t.criado_em) = YEAR(NOW()) AND t.status != 'cancelado'{$filtroT}
-                  GROUP BY MONTH(t.criado_em), t.status
-                  ORDER BY mes, t.status";
-        $stmt = $db->prepare($query);
-        $stmt->execute();
-        $dashboard['status_por_mes'] = $stmt->fetchAll(PDO::FETCH_ASSOC);
-
-        // Heatmap: dia da semana × hora do dia (excluindo cancelados)
-        $query = "SELECT DAYOFWEEK(t.criado_em) as dia, HOUR(t.criado_em) as hora, COUNT(*) as total
-                  FROM tickets t
-                  WHERE t.status != 'cancelado'{$filtroT}
-                  GROUP BY DAYOFWEEK(t.criado_em), HOUR(t.criado_em)
-                  ORDER BY dia, hora";
-        $stmt = $db->prepare($query);
-        $stmt->execute();
-        $dashboard['heatmap_dia_hora'] = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
         echo json_encode($dashboard);
 

@@ -183,54 +183,13 @@ function formatarNomePrioridade(prioridade) {
     return prioridade.charAt(0).toUpperCase() + prioridade.slice(1).toLowerCase();
 }
 
-// Carregar status disponíveis
+// Status e prioridades ativos no setor (Api.*: rejeita com Error com .status/.dados, como o resto)
 function carregarStatusDisponiveis(setorId) {
-    return new Promise((resolve, reject) => {
-        const xhr = new XMLHttpRequest();
-        const filtro = setorId ? `?setor_id=${setorId}` : '';
-        xhr.open('GET', window.APP_CONFIG.apiBase + 'ticket-status.php' + filtro, true);
-        setSecurityHeaders(xhr);
-
-        xhr.onload = function () {
-            if (xhr.status === 200) {
-                const status = JSON.parse(xhr.responseText);
-                resolve(status);
-            } else {
-                reject('Erro ao carregar status');
-            }
-        };
-
-        xhr.onerror = function () {
-            reject('Erro de conexão');
-        };
-
-        xhr.send();
-    });
+    return Api.get('ticket-status.php' + (setorId ? `?setor_id=${encodeURIComponent(setorId)}` : ''));
 }
 
-// Carregar prioridades disponíveis
 function carregarPrioridadesDisponiveis(setorId) {
-    return new Promise((resolve, reject) => {
-        const xhr = new XMLHttpRequest();
-        const filtro = setorId ? `?setor_id=${setorId}` : '';
-        xhr.open('GET', window.APP_CONFIG.apiBase + 'prioridades.php' + filtro, true);
-        setSecurityHeaders(xhr);
-
-        xhr.onload = function () {
-            if (xhr.status === 200) {
-                const prioridades = JSON.parse(xhr.responseText);
-                resolve(prioridades);
-            } else {
-                reject('Erro ao carregar prioridades');
-            }
-        };
-
-        xhr.onerror = function () {
-            reject('Erro de conexão');
-        };
-
-        xhr.send();
-    });
+    return Api.get('prioridades.php' + (setorId ? `?setor_id=${encodeURIComponent(setorId)}` : ''));
 }
 
 // Modal de seleção com descrição

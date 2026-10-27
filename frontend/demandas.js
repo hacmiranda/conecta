@@ -99,7 +99,7 @@ function removerAnexo(index) {
 // Formulário de novo ticket - VERSÃO COM XMLHttpRequest
 document.getElementById('form-ticket').addEventListener('submit', function (e) {
     e.preventDefault();
-    // O Alpine.js agora espelha a propriedade content do quillInstance automaticamente para o input.value invisível "descricao"
+    // O editor (editor-descricao.js) mantém o campo oculto "descricao" sempre com o HTML digitado
 
     const titulo = document.getElementById('titulo').value;
     const descricao = document.getElementById('descricao').value;
@@ -843,18 +843,8 @@ function limparFormularioTicket() {
     // Limpar campos específicos
     document.getElementById('titulo').value = '';
     document.getElementById('descricao').value = '';
-    // Limpar editor isolado via Dispatch no Alpine (se for o formulário da main SPA)
-    // O editor é um componente Alpine (Quill): usa o clearEditor() dele, que esvazia o texto, o estado
-    // e o campo oculto. (Antes procurava a propriedade __x, que só existe no Alpine 2 — o Alpine 3 em
-    // uso nunca limpava.) Sem Alpine, limpa o Quill direto.
-    const nodoEditor = document.getElementById('editor-descricao');
-    const componente = nodoEditor ? nodoEditor.closest('[x-data]') : null;
-    if (componente && window.Alpine && typeof window.Alpine.$data === 'function') {
-        window.Alpine.$data(componente).clearEditor();
-    } else if (nodoEditor) {
-        const area = nodoEditor.querySelector('.ql-editor');
-        if (area) area.innerHTML = '';
-    }
+    // Esvazia o editor da descrição e o campo oculto (editor-descricao.js)
+    if (window.EditorDescricao) window.EditorDescricao.limpar();
     const campoDescricao = document.getElementById('descricao');
     if (campoDescricao) campoDescricao.value = '';
 
@@ -1168,14 +1158,6 @@ function executarMerge() {
     );
 }
 
-// Função para ir para lista de tickets
-function irParaTickets() {
-    localStorage.removeItem('cd_ticketAtivo');
-    localStorage.removeItem('cd_secaoAtiva');
-    mostrarSecao('tickets');
-    salvarSecaoAtiva('tickets');
-    carregarTickets();
-}
 
 // Cancelar criação de novo ticket
 function cancelarNovoTicket() {

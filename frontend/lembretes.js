@@ -2,17 +2,9 @@
 // O envio é feito pelo agendador do servidor (api/cron/verificar-lembretes.php).
 
 function carregarLembretes(ticketId) {
-    const xhr = new XMLHttpRequest();
-    xhr.open('GET', `${window.APP_CONFIG.apiBase}lembretes.php?ticket_id=${encodeURIComponent(ticketId)}`, true);
-    setSecurityHeaders(xhr);
-
-    xhr.onload = function () {
-        if (xhr.status === 200) {
-            mostrarLembretes(JSON.parse(xhr.responseText));
-        }
-    };
-
-    xhr.send();
+    Api.get(`lembretes.php?ticket_id=${encodeURIComponent(ticketId)}`)
+        .then(lembretes => mostrarLembretes(lembretes || []))
+        .catch(() => { /* sem lembretes visíveis: a lista fica como está */ });
 }
 
 function mostrarLembretes(lembretes) {
@@ -68,17 +60,8 @@ function setorDaDemandaAtual() {
 
 function mostrarModalLembrete(ticketId) {
     const setorId = setorDaDemandaAtual();
-    const xhr = new XMLHttpRequest();
-    xhr.open('GET', window.APP_CONFIG.apiBase + 'agentes.php' + (setorId ? `?setor_id=${setorId}` : ''), true);
-    setSecurityHeaders(xhr);
-
-    xhr.onload = function () {
-        if (xhr.status !== 200) {
-            mostrarAlert('Erro', 'Não foi possível carregar a equipe do setor.');
-            return;
-        }
-
-        const agentes = JSON.parse(xhr.responseText)
+    Api.get('agentes.php' + (setorId ? `?setor_id=${encodeURIComponent(setorId)}` : '')).then(lista => {
+        const agentes = (lista || [])
             .filter(agente => !setorId || Number(agente.setor_id) === setorId);
 
         let opcoesAgentes = '<option value="">Responsável da demanda (ou gestores do setor)</option>';
@@ -153,43 +136,22 @@ function mostrarModalLembrete(ticketId) {
             if (modalFooter) modalFooter.style.display = 'flex';
             delete window.submeterLembreteTemp;
         };
-    };
-
-    xhr.send();
+    }).catch(e => mostrarAlert('Erro', mensagemDeErro(e, 'Não foi possível carregar a equipe do setor.')));
 }
 
 function criarLembrete(ticketId, data, hora, descricao, agenteId) {
     mostrarLoader();
-
-    const xhr = new XMLHttpRequest();
-    xhr.open('POST', window.APP_CONFIG.apiBase + 'lembretes.php', true);
-    xhr.setRequestHeader('Content-Type', 'application/json');
-    setSecurityHeaders(xhr);
-
-    xhr.onload = function () {
-        ocultarLoader();
-        if (xhr.status === 200) {
-            mostrarToast('Sucesso', 'Lembrete criado com sucesso!', 'success');
-            carregarLembretes(ticketId);
-        } else {
-            let mensagem = 'Erro ao criar lembrete';
-            try { mensagem = JSON.parse(xhr.responseText).error || mensagem; } catch (e) { /* resposta sem JSON */ }
-            mostrarAlert('Erro', mensagem);
-        }
-    };
-
-    xhr.onerror = function () {
-        ocultarLoader();
-        mostrarAlert('Erro', 'Falha de conexão ao criar o lembrete.');
-    };
-
-    xhr.send(JSON.stringify({
+    Api.post('lembretes.php', {
         ticket_id: ticketId,
         data_lembrete: data,
         hora_lembrete: hora,
         descricao: descricao,
         agente_id: agenteId
-    }));
+    }).then(() => {
+        mostrarToast('Sucesso', 'Lembrete criado com sucesso!', 'success');
+        carregarLembretes(ticketId);
+    }).catch(e => mostrarAlert('Erro', mensagemDeErro(e, 'Erro ao criar lembrete')))
+      .finally(() => ocultarLoader());
 }
 
 function excluirLembrete(lembreteId) {
@@ -199,23 +161,11 @@ function excluirLembrete(lembreteId) {
         function (confirmado) {
             if (!confirmado) return;
 
-            const xhr = new XMLHttpRequest();
-            xhr.open('DELETE', `${window.APP_CONFIG.apiBase}lembretes.php?id=${encodeURIComponent(lembreteId)}`, true);
-            setSecurityHeaders(xhr);
-
-            xhr.onload = function () {
-                if (xhr.status === 200) {
-                    mostrarToast('Sucesso', 'Lembrete excluído!', 'success');
-                    const ticketId = JSON.parse(sessionStorage.getItem('cd_ticketAtual')).id;
-                    carregarLembretes(ticketId);
-                } else {
-                    let mensagem = 'Erro ao excluir lembrete';
-                    try { mensagem = JSON.parse(xhr.responseText).error || mensagem; } catch (e) { /* resposta sem JSON */ }
-                    mostrarAlert('Erro', mensagem);
-                }
-            };
-
-            xhr.send();
+            Api.delete(`lembretes.php?id=${encodeURIComponent(lembreteId)}`).then(() => {
+                mostrarToast('Sucesso', 'Lembrete excluído!', 'success');
+                const ticketId = JSON.parse(sessionStorage.getItem('cd_ticketAtual')).id;
+                carregarLembretes(ticketId);
+            }).catch(e => mostrarAlert('Erro', mensagemDeErro(e, 'Erro ao excluir lembrete')));
         }
     );
 }

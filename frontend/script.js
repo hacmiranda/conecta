@@ -179,87 +179,9 @@ async function atualizarListaSeMudou() {
 }
 
 // ======================================================
-// 📧 ALERTA DE FALHAS DE E-MAIL
+// 📧 LOG DE E-MAILS (aberto pelo aviso de falha no sino)
 // ======================================================
-const EMAIL_ALERT_INTERVAL = 5 * 60 * 1000; // Checar a cada 5 minutos
-const EMAIL_ALERT_DISMISSED = 'emailAlertDismissedAt';
-
-function iniciarMonitoramentoEmailFalhas() {
-    // Só o administrador configura e-mail (Setores/Configurar e-mail): só ele pode agir
-    // sobre a falha, então só ele é avisado (gestor/operador não têm o que fazer aqui).
-    const usuario = JSON.parse(localStorage.getItem('cd_usuario') || '{}');
-    if (usuario.tipo !== 'admin') return;
-
-    verificarFalhasEmail(); // verificação imediata
-    setInterval(verificarFalhasEmail, EMAIL_ALERT_INTERVAL);
-}
-
-function verificarFalhasEmail() {
-    const xhr = new XMLHttpRequest();
-    xhr.open('GET', window.APP_CONFIG.apiBase + 'email-alert.php', true);
-    setSecurityHeaders(xhr);
-
-    xhr.onload = function () {
-        if (xhr.status !== 200) return;
-        try {
-            const dados = JSON.parse(xhr.responseText);
-            if (dados.falhas_24h > 0) {
-                exibirAlertaEmailFalha(dados.falhas_24h, dados.ultima_falha);
-            } else {
-                ocultarAlertaEmailFalha();
-            }
-        } catch (e) { /* silencioso */ }
-    };
-
-    xhr.send();
-}
-
-function exibirAlertaEmailFalha(quantidade, ultimaFalha) {
-    // Badge no botão Configurações
-    const badge = document.getElementById('email-falha-badge');
-    if (badge) {
-        badge.textContent = quantidade > 99 ? '99+' : quantidade;
-        badge.style.display = 'inline-flex';
-        badge.title = `${quantidade} falha(s) de e-mail nas últimas 24h`;
-    }
-
-    // Banner: respeitar dismiss (não mostrar se o agente já fechou nas últimas 4h)
-    const dismissedAt = localStorage.getItem(EMAIL_ALERT_DISMISSED);
-    const agoraDismiss = Date.now();
-    if (dismissedAt && (agoraDismiss - parseInt(dismissedAt)) < 4 * 60 * 60 * 1000) {
-        return; // ainda dentro da janela de silêncio
-    }
-
-    const banner = document.getElementById('email-falha-banner');
-    const msg = document.getElementById('email-falha-banner-msg');
-    if (!banner || !msg) return;
-
-    let texto = `⚠️ ${quantidade} falha(s) no envio de e-mail detectada(s) nas últimas 24h.`;
-    if (ultimaFalha) {
-        const dt = new Date(ultimaFalha).toLocaleString('pt-BR');
-        texto += ` Última ocorrência: ${dt}.`;
-    }
-    msg.textContent = texto;
-    banner.style.display = 'flex';
-}
-
-function ocultarAlertaEmailFalha() {
-    const badge = document.getElementById('email-falha-badge');
-    if (badge) badge.style.display = 'none';
-
-    const banner = document.getElementById('email-falha-banner');
-    if (banner) banner.style.display = 'none';
-}
-
-function fecharBannerEmailFalha() {
-    const banner = document.getElementById('email-falha-banner');
-    if (banner) banner.style.display = 'none';
-    // Guardar timestamp do dismiss — não mostra novamente por 4 horas
-    localStorage.setItem(EMAIL_ALERT_DISMISSED, Date.now().toString());
-}
-
 function irParaLogEmails() {
-    fecharBannerEmailFalha();
     mostrarSecao('config');
     // Esperar seção de config renderizar, depois abrir Auditoria > log emails
     setTimeout(() => {
@@ -469,138 +391,55 @@ function atribuirTicket(ticketId, setorId) {
     }
     const filtroSetor = setorId ? `?setor_id=${encodeURIComponent(setorId)}` : '';
 
-    const xhr = new XMLHttpRequest();
-    xhr.open('GET', window.APP_CONFIG.apiBase + 'agentes.php' + filtroSetor, true);
-    setSecurityHeaders(xhr);
+    Api.get('agentes.php' + filtroSetor).then(equipe => {
+        if (!equipe || equipe.length === 0) {
+            mostrarAlert('Sem operadores', 'Não há operadores ativos neste setor para receber a demanda.');
+            return;
+        }
 
-    xhr.onload = function () {
-        if (xhr.status === 200) {
-            const equipe = JSON.parse(xhr.responseText);
-
-            if (equipe.length === 0) {
-                mostrarAlert('Sem operadores', 'Não há operadores ativos neste setor para receber a demanda.');
-                return;
+        mostrarSelect(
+            'Encaminhar a Operador',
+            'Selecione quem vai atender a demanda:',
+            equipe,
+            function (escolhido) {
+                if (!escolhido) return;
+                pedirComentarioEExecutar(
+                    ticketId, 'atribuir', { usuario_id: escolhido.id },
+                    'Encaminhar a Operador',
+                    `Registre o encaminhamento para ${escolhido.nome}:`,
+                    `Demanda encaminhada para ${sanitizeHTML(escolhido.nome)}!`
+                );
             }
-
-            mostrarSelect(
-                'Encaminhar a Operador',
-                'Selecione quem vai atender a demanda:',
-                equipe,
-                function (escolhido) {
-                    if (!escolhido) return;
-                    pedirComentarioEExecutar(
-                        ticketId, 'atribuir', { usuario_id: escolhido.id },
-                        'Encaminhar a Operador',
-                        `Registre o encaminhamento para ${escolhido.nome}:`,
-                        `Demanda encaminhada para ${sanitizeHTML(escolhido.nome)}!`
-                    );
-                }
-            );
-        } else {
-            mostrarAlert('Erro', 'Erro ao carregar a equipe do setor');
-        }
-    };
-
-    xhr.onerror = function () {
-        mostrarAlert('Erro', 'Erro de conexão');
-    };
-
-    xhr.send();
+        );
+    }).catch(e => mostrarAlert('Erro', mensagemDeErro(e, 'Erro ao carregar a equipe do setor')));
 }
 
-// Confirmar atribuição do ticket
-function confirmarAtribuicao(ticketId, agenteId, agenteNome) {
-    mostrarConfirm(
-        'Confirmar Atribuição',
-        `Atribuir demanda para ${agenteNome}?`,
-        function (confirmado) {
-            if (!confirmado) return;
-
-            executarAtribuicao(ticketId, agenteId, agenteNome);
-        }
-    );
+// Mensagem de erro de uma chamada Api.*: a do servidor (e.dados.error); sem resposta do servidor
+// (rede), avisa a conexão; senão, o texto padrão de quem chamou
+function mensagemDeErro(e, padrao) {
+    if (e && e.dados && e.dados.error) return e.dados.error;
+    if (e && !e.status) return 'Não foi possível conectar ao servidor. Verifique a conexão.';
+    return padrao;
 }
 
-// Executar atribuição do ticket
-function executarAtribuicao(ticketId, agenteId, agenteNome) {
-    // Buscar status atual do ticket
-    const ticketAtual = ticketsAtuais.find(t => t.id === ticketId);
-    const usuario = JSON.parse(localStorage.getItem('cd_usuario'));
-    const dados = {
-        agente_id: agenteId,
-        atribuido_por: usuario ? usuario.id : 1
-    };
 
-    // NÃO enviar status - o backend gerencia automaticamente
-    // Se ticket está "novo", backend muda para "em_atendimento"
-
-    mostrarLoader();
-
-    const xhr = new XMLHttpRequest();
-    xhr.open('PUT', `${window.APP_CONFIG.apiBase}tickets.php?id=${ticketId}`, true);
-    xhr.setRequestHeader('Content-Type', 'application/json');
-
-    // Adicionar token de autenticação
-    setSecurityHeaders(xhr);
-
-    xhr.onload = function () {
-        ocultarLoader();
-        if (xhr.status === 200) {
-            // Recarregar lista de tickets
-            carregarTickets();
-
-            // Se estiver na página de detalhes, recarregar detalhes
-            const ticketAtivo = localStorage.getItem('cd_ticketAtivo');
-            if (ticketAtivo && parseInt(ticketAtivo) === ticketId) {
-                setTimeout(() => verDetalhes(ticketId), 300);
-            }
-
-            const mensagem = dados.status ?
-                `Demanda atribuída para ${agenteNome} e status alterado para "Em atendimento"!` :
-                `Demanda atribuída para ${agenteNome} com sucesso!`;
-
-            mostrarToast('Sucesso', mensagem, 'success');
-        } else {
-            ocultarLoader();
-            mostrarAlert('Erro', 'Erro ao atribuir demanda');
-        }
-    };
-
-    xhr.send(JSON.stringify(dados));
-}
 
 // ==== Fase 2: Atribuição, Devolução, Repasse e Transferência de Setor ====
 
 function executarAcaoDemanda(ticketId, acao, extra, comentario, mensagemSucesso) {
     mostrarLoader();
 
-    const xhr = new XMLHttpRequest();
-    xhr.open('POST', `${window.APP_CONFIG.apiBase}demanda-acoes.php`, true);
-    xhr.setRequestHeader('Content-Type', 'application/json');
-    setSecurityHeaders(xhr);
-
-    xhr.onload = function () {
-        ocultarLoader();
-        if (xhr.status === 200) {
+    Api.post('demanda-acoes.php', Object.assign({ ticket_id: ticketId, acao: acao, comentario: comentario }, extra || {}))
+        .then(() => {
             mostrarToast('Sucesso', mensagemSucesso || 'Ação registrada com sucesso!', 'success');
             carregarTickets();
             const ticketAtivo = localStorage.getItem('cd_ticketAtivo');
             if (ticketAtivo && parseInt(ticketAtivo) === ticketId) {
                 setTimeout(() => verDetalhes(ticketId), 300);
             }
-        } else {
-            let mensagemErro = 'Erro ao executar ação';
-            try { mensagemErro = JSON.parse(xhr.responseText).error || mensagemErro; } catch (e) { }
-            mostrarAlert('Erro', mensagemErro);
-        }
-    };
-
-    xhr.onerror = function () {
-        ocultarLoader();
-        mostrarAlert('Erro', 'Erro de conexão');
-    };
-
-    xhr.send(JSON.stringify(Object.assign({ ticket_id: ticketId, acao: acao, comentario: comentario }, extra || {})));
+        })
+        .catch(e => mostrarAlert('Erro', mensagemDeErro(e, 'Erro ao executar ação')))
+        .finally(() => ocultarLoader());
 }
 
 function pedirComentarioEExecutar(ticketId, acao, extra, tituloPrompt, mensagemPrompt, mensagemSucesso) {
@@ -681,72 +520,40 @@ function alterarCategoria(ticketId) {
     const setorId = obterSetorIdDoTicket(ticketId);
     const filtroSetor = setorId ? `?setor_id=${setorId}` : '';
 
-    const xhr = new XMLHttpRequest();
-    xhr.open('GET', window.APP_CONFIG.apiBase + 'categorias.php' + filtroSetor, true);
-    setSecurityHeaders(xhr);
+    Api.get('categorias.php' + filtroSetor).then(lista => {
+        // Mostra "Subcategoria - Categoria": o nome sozinho pode se repetir entre categorias
+        const categorias = (lista || []).map(cat => Object.assign({}, cat, { nome: rotuloSubcategoria(cat) }));
 
-    xhr.onload = function () {
-        if (xhr.status === 200) {
-            // Mostra "Subcategoria - Categoria": o nome sozinho pode se repetir entre categorias
-            const categorias = JSON.parse(xhr.responseText)
-                .map(cat => Object.assign({}, cat, { nome: rotuloSubcategoria(cat) }));
-
-            mostrarSelect(
-                'Alterar Subcategoria',
-                'Selecione a nova subcategoria da demanda:',
-                categorias,
-                function (categoriaEscolhida) {
-                    if (categoriaEscolhida) {
-                        executarAlteracaoCategoria(ticketId, categoriaEscolhida.id);
-                    }
+        mostrarSelect(
+            'Alterar Subcategoria',
+            'Selecione a nova subcategoria da demanda:',
+            categorias,
+            function (categoriaEscolhida) {
+                if (categoriaEscolhida) {
+                    executarAlteracaoCategoria(ticketId, categoriaEscolhida.id);
                 }
-            );
-        } else {
-            mostrarAlert('Erro', 'Erro ao carregar subcategorias');
-        }
-    };
-
-    xhr.send();
+            }
+        );
+    }).catch(e => mostrarAlert('Erro', mensagemDeErro(e, 'Erro ao carregar subcategorias')));
 }
 
 // Executar alteração de categoria
 function executarAlteracaoCategoria(ticketId, categoriaId) {
     mostrarLoader();
 
-    const xhr = new XMLHttpRequest();
-    xhr.open('PUT', `${window.APP_CONFIG.apiBase}tickets.php?id=${ticketId}`, true);
-    xhr.setRequestHeader('Content-Type', 'application/json');
-
-    // Adicionar token de autenticação
-    setSecurityHeaders(xhr);
-
-    xhr.onload = function () {
-        ocultarLoader();
-        if (xhr.status === 200) {
-            // Recarregar lista de tickets
+    // (sem conexão, o loader antigo ficava na tela: o onerror não o fechava)
+    Api.put(`tickets.php?id=${encodeURIComponent(ticketId)}`, { categoria_id: categoriaId })
+        .then(() => {
             carregarTickets();
-
             // Se estiver na página de detalhes, recarregar detalhes
             const ticketAtivo = localStorage.getItem('cd_ticketAtivo');
             if (ticketAtivo && parseInt(ticketAtivo) === ticketId) {
                 setTimeout(() => verDetalhes(ticketId), 300);
             }
-
             mostrarToast('Sucesso', 'Subcategoria alterada com sucesso!', 'success');
-        } else {
-            ocultarLoader();
-            // Mensagem do servidor, nunca o JSON cru
-            let erroServidor = '';
-            try { erroServidor = (JSON.parse(xhr.responseText) || {}).error || ''; } catch (e) { /* resposta não é JSON */ }
-            mostrarAlert('Erro', sanitizeHTML(erroServidor || 'Erro ao alterar subcategoria.'));
-        }
-    };
-
-    xhr.onerror = function () {
-        mostrarAlert('Erro', 'Erro de conexão ao alterar subcategoria');
-    };
-
-    xhr.send(JSON.stringify({ categoria_id: categoriaId }));
+        })
+        .catch(e => mostrarAlert('Erro', mensagemDeErro(e, 'Erro ao alterar subcategoria.')))
+        .finally(() => ocultarLoader());
 }
 
 // Alterar prioridade do ticket
@@ -1020,6 +827,8 @@ function restaurarModalPrompt() {
     } else {
         rodape.innerHTML = _rodapePromptOriginal;
     }
+    rodape.style.display = ''; // lembretes e usuários escondem o rodapé
+    rodape.hidden = false;
     const campo = document.getElementById('modal-prompt-input');
     campo.style.display = '';
     campo.hidden = false;
@@ -1194,75 +1003,31 @@ function executarExclusaoTicket(ticketId, callback) {
     const ticketAtual = JSON.parse(sessionStorage.getItem('cd_ticketAtual') || '{}');
     const isTicketFechado = ticketAtual.status === 'encerrado' || ticketAtual.status === 'cancelado';
 
-    // Validar se ticket tem responsável (REMOVIDO: permitir exclusão sem responsável)
-    /*
-    if (!ticketAtual.agente_id) {
-        mostrarAlert('Atenção', 'Esta demanda não possui responsável. Atribua a demanda antes de excluí-la.');
-        return;
-    }
-    */
-
-    // Validar se ticket tem categoria (REMOVIDO: permitir exclusão sem categoria)
-    /*
-    if (!ticketAtual.categoria_id) {
-        mostrarAlert('Atenção', 'Esta demanda não possui subcategoria. Defina uma subcategoria antes de excluí-la.');
-        return;
-    }
-    */
-
-    const xhr = new XMLHttpRequest();
-    xhr.open('DELETE', `${window.APP_CONFIG.apiBase}tickets.php?id=${ticketId}`, true);
-
-    // Adicionar token de autenticação
-    setSecurityHeaders(xhr);
-
-    xhr.onload = function () {
-        if (xhr.status === 200) {
-            const row = document.querySelector(`tr[data-ticket-id="${ticketId}"]`);
-            if (row) {
-                row.classList.add('ticket-removendo');
-            }
-
-            mostrarToast('Sucesso', 'Demanda enviada para a lixeira.', 'success');
-
-            // Aguardar um pouco e redirecionar
-            setTimeout(() => {
-                if (callback) {
-                    callback();
-                } else {
-                    // Limpar dados e ir para lista apropriada
-                    localStorage.removeItem('cd_ticketAtivo');
-                    sessionStorage.removeItem('cd_ticketAtual');
-
-                    if (isTicketFechado) {
-                        mostrarTicketsFechados();
-                    } else {
-                        mostrarTicketsComAtualizacao();
-                    }
-                }
-            }, 500);
-        } else {
-            const response = JSON.parse(xhr.responseText);
-            mostrarAlert('Erro', response.error || 'Erro ao remover demanda');
+    Api.delete(`tickets.php?id=${encodeURIComponent(ticketId)}`).then(() => {
+        const row = document.querySelector(`tr[data-ticket-id="${ticketId}"]`);
+        if (row) {
+            row.classList.add('ticket-removendo');
         }
-    };
 
-    xhr.onerror = function () {
-        mostrarAlert('Erro', 'Erro de conexão');
-    };
+        mostrarToast('Sucesso', 'Demanda enviada para a lixeira.', 'success');
 
-    xhr.send();
-}
+        // Aguardar um pouco e redirecionar
+        setTimeout(() => {
+            if (callback) {
+                callback();
+            } else {
+                // Limpar dados e ir para lista apropriada
+                localStorage.removeItem('cd_ticketAtivo');
+                sessionStorage.removeItem('cd_ticketAtual');
 
-// Função para obter ícone da prioridade
-function obterIconePrioridade(prioridade) {
-    const icones = {
-        'baixa': '⬇️',
-        'normal': '➡️',
-        'alta': '⬆️',
-        'urgente': '🔥'
-    };
-    return icones[prioridade] || '➡️';
+                if (isTicketFechado) {
+                    mostrarTicketsFechados();
+                } else {
+                    mostrarTicketsComAtualizacao();
+                }
+            }
+        }, 500);
+    }).catch(e => mostrarAlert('Erro', mensagemDeErro(e, 'Erro ao remover demanda')));
 }
 
 // Restaurar seção ativa após reload
@@ -1589,7 +1354,7 @@ function mostrarSobre() {
                 <div style="background: var(--bg-card, #fff); border-radius: 10px; padding: 1.2rem 1.4rem; box-shadow: var(--shadow-sm, 0 1px 4px rgba(0,0,0,0.08)); border-left: 4px solid #f89327;">
                     <div style="font-size: 1.4rem; margin-bottom: 0.4rem;">🛠️</div>
                     <div style="font-size: 0.75rem; text-transform: uppercase; color: var(--text-secondary, #666); letter-spacing: 0.8px; margin-bottom: 0.2rem;">Stack Tecnológica</div>
-                    <div style="font-size: 0.95rem; font-weight: 600; color: var(--text-primary, #333);">PHP 8.2 · MySQL · Vanilla JS · Alpine.js · Quill.js</div>
+                    <div style="font-size: 0.95rem; font-weight: 600; color: var(--text-primary, #333);">PHP 8.2 · MySQL · Vanilla JS · Quill.js</div>
                 </div>
                 <div style="background: var(--bg-card, #fff); border-radius: 10px; padding: 1.2rem 1.4rem; box-shadow: var(--shadow-sm, 0 1px 4px rgba(0,0,0,0.08)); border-left: 4px solid #28a745;">
                     <div style="font-size: 1.4rem; margin-bottom: 0.4rem;">📅</div>
@@ -1710,7 +1475,7 @@ function mostrarSobre() {
             <!-- Rodapé -->
             <div style="text-align: center; padding: 1.5rem; font-size: 0.82rem; color: var(--text-secondary, #888); border-top: 1px solid var(--border-color, #ddd6cd); margin-top: 0.5rem;">
                 Conecta CRPRS v3.0 &mdash; Desenvolvido para o Conselho Regional de Psicologia do Rio Grande do Sul (CRPRS)<br>
-                <span style="opacity: 0.7;">PHP 8.2 · MySQL · Vanilla JS · Alpine.js · Quill.js · Chart.js</span>
+                <span style="opacity: 0.7;">PHP 8.2 · MySQL · Vanilla JS · Quill.js</span>
             </div>
 
         </div>

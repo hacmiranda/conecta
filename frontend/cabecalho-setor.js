@@ -71,19 +71,9 @@
         const seletor = document.getElementById('seletor-setor');
         if (!caixa || !seletor) return;
 
-        const xhr = new XMLHttpRequest();
-        xhr.open('GET', window.APP_CONFIG.apiBase + 'setores.php', true);
-        if (typeof setSecurityHeaders === 'function') setSecurityHeaders(xhr);
-
-        xhr.onload = function () {
-            if (xhr.status !== 200) return;
-
-            let setores = [];
-            try {
-                setores = JSON.parse(xhr.responseText);
-            } catch (e) {
-                return;
-            }
+        // Sem a lista (erro ou sem conexão) o seletor só não aparece, como antes
+        Api.get('setores.php').then(function (resposta) {
+            const setores = Array.isArray(resposta) ? resposta : [];
 
             const salvo = obterSetorContexto();
             seletor.innerHTML = '';
@@ -110,7 +100,7 @@
             }
 
             caixa.hidden = false;
-        };
+        }).catch(function () { /* seletor fica escondido */ });
 
         seletor.addEventListener('change', function () {
             try {
@@ -123,7 +113,6 @@
             recarregarSecaoAtiva();
         });
 
-        xhr.send();
     }
 
     function iniciar() {

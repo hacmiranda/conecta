@@ -50,7 +50,7 @@
 }
 
 body {
-    font-family: Arial, sans-serif;
+    font-family: 'Inter', 'Segoe UI', sans-serif;
     background-color: var(--cinza);
     color: #333;
 }
@@ -774,7 +774,7 @@ select {
     border: 1px solid #ddd;
     border-radius: 4px;
     font-size: 1rem;
-    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif !important;
+    font-family: 'Inter', 'Segoe UI', sans-serif !important;
 }
 
 /* Botões */
@@ -1734,7 +1734,7 @@ select {
 
 /* Textarea de comentários */
 #novo-comentario {
-    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif !important;
+    font-family: 'Inter', 'Segoe UI', sans-serif !important;
     font-size: 1rem !important;
     line-height: 1.4 !important;
 }

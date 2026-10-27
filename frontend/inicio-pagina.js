@@ -1,8 +1,7 @@
 /**
  * Script de início de página: roda no ponto exato onde ficava o <script> inline do
  * index.html (Fase 9 das melhorias adiadas — tirar scripts inline para poder apertar a
- * Content-Security-Policy no futuro). Comportamento idêntico, só movido para arquivo externo;
- * `toggleMenuUsuario`/`logout` são funções legadas vazias, mantidas como estavam.
+ * Content-Security-Policy no futuro). Comportamento idêntico, só movido para arquivo externo.
  */
 
 // Verificar se está logado
@@ -27,9 +26,6 @@ if (!usuario) {
     }
 }
 
-function toggleMenuUsuario() {
-    // Função legada - removida
-}
 
 // Fechar menu ao clicar fora
 document.addEventListener('click', function (e) {
@@ -77,6 +73,4 @@ function fecharNavDropdown(name) {
     if (btn) btn.setAttribute('aria-expanded', 'false');
 }
 
-function logout() {
-    // Função legada - usar fazerLogout() do script.js
-}
+
