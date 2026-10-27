@@ -298,6 +298,7 @@ function mostrarSecao(secaoId) {
         'lixeira': 'btn-nav-lixeira',
         'dashboard': 'btn-nav-dashboard',
         'relatorios': 'btn-nav-relatorios',
+        'registro-atividades': 'btn-nav-registro-atividades',
         'ajuda': 'btn-nav-ajuda',
         'config': 'btn-nav-config'
     };
@@ -964,6 +965,12 @@ function selecionarModal(opcao) {
 
 // === CONTROLE DE VISIBILIDADE POR PAPEL ===
 
+// Registro de Atividades (veio do METRICA360): só gestor/operador com setor
+function podeRegistrarAtividades() {
+    const u = JSON.parse(localStorage.getItem('cd_usuario') || '{}');
+    return (u.tipo === 'gestor' || u.tipo === 'operador') && !!u.setor_id;
+}
+
 // Mostra/oculta o menu Configurações e seus itens conforme o papel do usuário logado.
 // admin: vê tudo. gestor: vê só "Gerenciar Usuários" (escopado ao próprio setor).
 // usuario/cliente: menu Configurações fica oculto por completo.
@@ -971,6 +978,10 @@ function aplicarVisibilidadePorPapel(tipo) {
     // Lixeira: somente administrador
     const itemLixeira = document.getElementById('nav-lixeira-item');
     if (itemLixeira) itemLixeira.hidden = tipo !== 'admin';
+
+    // Registro de Atividades: gestor e operador vinculados a um setor
+    const itemRegistro = document.getElementById('nav-registro-atividades-item');
+    if (itemRegistro) itemRegistro.hidden = !podeRegistrarAtividades();
 
     const menuConfigWrapper = document.getElementById('nav-config-wrapper');
     if (!menuConfigWrapper) return;
@@ -1062,6 +1073,8 @@ function restaurarSecaoAtiva() {
         mostrarLixeira();
     } else if (secaoSalva === 'relatorios') {
         mostrarRelatorios();
+    } else if (secaoSalva === 'registro-atividades' && podeRegistrarAtividades()) {
+        mostrarRegistroAtividades();
     } else if (secaoSalva === 'sobre') {
         mostrarSobre();
     } else if (secaoSalva === 'ajuda') {

@@ -177,7 +177,10 @@ try {
         if ($entregaAtiva && $dias === '') erroAtividades(400, 'Selecione ao menos um dia de entrega');
         if ($dias === '') $dias = PrazoAtividadeService::DIAS_PADRAO;
         $inicio = dataOuNull($corpo['entrega_inicio'] ?? null);
-        $base = dataOuNull($corpo['data_base'] ?? null);
+        // Entrega ligada sem data: cobra a partir de hoje (regra do METRICA360; senão o histórico inteiro vira atraso)
+        if ($entregaAtiva && $inicio === null) $inicio = date('Y-m-d');
+        // Sem data base: cobra a partir de hoje (o Conecta começou sem o histórico do METRICA360)
+        $base = dataOuNull($corpo['data_base'] ?? null) ?? date('Y-m-d');
 
         $db->prepare("
             INSERT INTO atividades_config_setor (setor_id, modo_controle_remoto, prazo_dias_atraso, entrega_ativa, entrega_dias, entrega_inicio, data_base, atualizado_por)
@@ -231,6 +234,9 @@ try {
             ON DUPLICATE KEY UPDATE trabalho_remoto = VALUES(trabalho_remoto), qtd_dias_remoto_semana = VALUES(qtd_dias_remoto_semana),
                 entrega_dias = VALUES(entrega_dias), entrega_inicio = VALUES(entrega_inicio), atualizado_por = VALUES(atualizado_por)")
            ->execute([$usuarioId, $remoto, $qtd, $entregaDias, $entregaInicio, $user['id']]);
+        // Setor ainda sem regras: cria com a data base de hoje, para a cota nova não cobrar o passado
+        $db->prepare("INSERT IGNORE INTO atividades_config_setor (setor_id, data_base, atualizado_por) VALUES (?, ?, ?)")
+           ->execute([(int) $alvo['setor_id'], date('Y-m-d'), $user['id']]);
         $db->prepare("DELETE FROM atividades_dias_remotos WHERE usuario_id = ?")->execute([$usuarioId]);
         $ins = $db->prepare("INSERT INTO atividades_dias_remotos (usuario_id, dia_semana) VALUES (?, ?)");
         foreach ($diasRemotos as $d) $ins->execute([$usuarioId, $d]);

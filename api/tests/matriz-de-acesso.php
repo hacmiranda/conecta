@@ -339,6 +339,35 @@ try {
     [$c] = req('DELETE', "$cfgAtiv?acao=tipo&id=$tipoMatriz", $T['gestorA']);
     verifica('gestor exclui atividade nunca registrada (200)', $c === 200, (string) $c);
 
+    echo "\n[7d] Registro de Atividades (cada um só os próprios relatórios)\n";
+    $reg = $baseUrl . 'registro-atividades.php';
+    [, $j] = req('GET', "$cfgAtiv?setor_id=$setorA", $T['gestorA']);
+    $tipoRestante = 0;
+    foreach ($j['tipos'] ?? [] as $t) { if ($t['nome'] === 'zz_matriz_ativ_2') $tipoRestante = (int) $t['id']; }
+    [$c] = req('GET', $reg, $T['admin']);
+    verifica('admin (sem setor) não tem Registro de Atividades (403)', $c === 403, (string) $c);
+    [$c, $j] = req('GET', "$reg?data=2026-01-05", $T['operadorA']);
+    $regA = (int) ($j['registro']['id'] ?? 0);
+    verifica('operador abre o próprio dia e o rascunho é criado (200)', $c === 200 && $regA > 0 && ($j['registro']['status'] ?? '') === 'rascunho', (string) $c);
+    [$c] = req('GET', "$reg?acao=itens&id=$regA", $T['operadorA2']);
+    verifica('outro operador não lê os itens do relatório (403)', $c === 403, (string) $c);
+    [$c] = req('PUT', "$reg?id=$regA", $T['operadorA2'], ['itens' => [['atividade_tipo_id' => $tipoRestante, 'quantidade' => 5]]]);
+    verifica('outro operador não altera o relatório (403)', $c === 403, (string) $c);
+    [$c] = req('PUT', "$reg?id=$regA", [$T['operadorA'][0], 'csrf-errado'], ['itens' => []]);
+    verifica('salvar sem CSRF correto é recusado (403)', $c === 403, (string) $c);
+    [$c] = req('PUT', "$reg?id=$regA", $T['operadorA'], ['itens' => [['atividade_tipo_id' => $tipoRestante, 'quantidade' => 5, 'observacao' => 'zz']]]);
+    verifica('operador salva o próprio rascunho (200)', $c === 200, (string) $c);
+    [$c] = req('POST', "$reg?acao=finalizar&id=$regA", $T['operadorA'], ['itens' => [['atividade_tipo_id' => $tipoRestante, 'quantidade' => 5]], 'modalidade' => 'remoto']);
+    verifica('operador envia o relatório (200)', $c === 200, (string) $c);
+    [$c] = req('PUT', "$reg?id=$regA", $T['operadorA'], ['itens' => [['atividade_tipo_id' => $tipoRestante, 'quantidade' => 9]]]);
+    verifica('relatório enviado não aceita alteração (409)', $c === 409, (string) $c);
+    [$c] = req('POST', "$reg?acao=favorito", $T['operadorA'], ['atividade_tipo_id' => $tipoRestante]);
+    verifica('favoritar atividade do próprio setor (200)', $c === 200, (string) $c);
+    [$c] = req('POST', "$reg?acao=favorito", $T['gestorB'], ['atividade_tipo_id' => $tipoRestante]);
+    verifica('favoritar atividade de outro setor é recusado (404)', $c === 404, (string) $c);
+    [$c] = req('DELETE', "$cfgAtiv?acao=tipo&id=$tipoRestante", $T['gestorA']);
+    verifica('atividade já registrada não pode ser excluída (409)', $c === 409, (string) $c);
+
     echo "\n[8] Sessão no cookie HttpOnly, com validade\n";
     $emailOperadorA = (string) $db->query("SELECT email FROM usuarios WHERE id = $operadorA")->fetchColumn();
     [$c, $j, $ck] = reqCookie('POST', $baseUrl . 'auth.php', null, null, ['email' => $emailOperadorA, 'senha' => 'Zz@Teste12345']);
@@ -391,11 +420,12 @@ try {
     if ($usuariosCriados) {
         $idsUsuarios = implode(',', array_filter($usuariosCriados));
         $db->exec("DELETE FROM registros_atividades WHERE usuario_id IN ($idsUsuarios)");
+        $db->exec("DELETE FROM auditoria WHERE tabela = 'registros_atividades' AND usuario_id IN ($idsUsuarios)");
         $db->exec("DELETE FROM auditoria WHERE tabela LIKE 'atividades_config_%' AND registro_id IN ($idsUsuarios)");
     }
     $db->exec("DELETE FROM atividades_tipos WHERE nome LIKE 'zz_matriz_%'");
     $db->exec("DELETE FROM auditoria WHERE tabela = 'atividades_tipos' AND (dados_novos LIKE '%zz_matriz_%' OR dados_anteriores LIKE '%zz_matriz_%')");
-    if (isset($regrasOriginaisA)) {
+    if (array_key_exists('regrasOriginaisA', get_defined_vars())) {
         $db->prepare("DELETE FROM atividades_config_setor WHERE setor_id = ?")->execute([$setorA]);
         $db->exec("DELETE FROM auditoria WHERE tabela = 'atividades_config_setor' AND registro_id = " . (int) $setorA . " AND criado_em >= NOW() - INTERVAL 1 HOUR AND usuario_id IN (" . (implode(',', array_filter($usuariosCriados)) ?: '0') . ")");
         if ($regrasOriginaisA) {

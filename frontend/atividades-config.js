@@ -128,7 +128,7 @@ function montarRegrasSetorCfg(s) {
                 <input type="number" id="ativcfg-prazo" min="0" max="15" value="${Number(s.prazo)}">
             </div>
             <div class="form-group">
-                <label for="ativcfg-base">Cobrar a partir de (opcional)</label>
+                <label for="ativcfg-base">Cobrar a partir de (vazio = hoje)</label>
                 <input type="date" id="ativcfg-base" value="${sanitizeHTML(s.data_base || '')}">
             </div>
             <fieldset class="ativcfg-grupo ativcfg-cresce">
@@ -136,7 +136,7 @@ function montarRegrasSetorCfg(s) {
                 <label class="ativcfg-opcao"><input type="checkbox" id="ativcfg-entrega-ativa"${s.entrega_ativa ? ' checked' : ''}> Cobrar entrega nos dias:</label>
                 ${caixasDiasCfg('ativcfg-entrega-dias', s.entrega_dias, 'Dias de entrega do setor')}
                 <div class="form-group">
-                    <label for="ativcfg-entrega-inicio">A partir de</label>
+                    <label for="ativcfg-entrega-inicio">A partir de (vazio = hoje)</label>
                     <input type="date" id="ativcfg-entrega-inicio" value="${sanitizeHTML(s.entrega_inicio || '')}">
                 </div>
             </fieldset>

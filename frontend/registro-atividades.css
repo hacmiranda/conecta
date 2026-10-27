@@ -1,0 +1,545 @@
+/*
+ * Registro de Atividades (veio do METRICA360). Só tokens de style.css; modo escuro por variáveis.
+ * Texto laranja usa --laranja-texto; foco pelo anel global (--foco-anel).
+ */
+:root {
+    --ra-espaco-1: 0.25rem;
+    --ra-espaco-2: 0.5rem;
+    --ra-espaco-3: 0.75rem;
+    --ra-espaco-4: 1rem;
+    --ra-espaco-6: 1.5rem;
+    --ra-fundo: var(--branco);
+    --ra-borda: var(--neutro-200);
+    --ra-texto: var(--neutro-800);
+    --ra-texto-suave: var(--neutro-600);
+    --ra-cabecalho: var(--neutro-100);
+    --ra-preenchida: var(--verde-50);
+    --ra-atrasado-fundo: var(--vinho-50);
+    --ra-atrasado-texto: var(--vinho-900);
+    --ra-pendente-fundo: var(--laranja-50);
+    --ra-pendente-texto: var(--laranja-texto);
+    --ra-ok-fundo: var(--verde-50);
+    --ra-ok-texto: var(--verde-700);
+    --ra-barra: var(--neutro-200);
+    --ra-barra-max: var(--laranja-500);
+    --ra-estrela: var(--neutro-600);
+    --ra-estrela-ativa: var(--laranja-500);
+}
+
+body.modo-escuro {
+    --ra-fundo: var(--neutro-800);
+    --ra-borda: var(--neutro-600);
+    --ra-texto: var(--neutro-100);
+    --ra-texto-suave: var(--neutro-200);
+    --ra-cabecalho: var(--neutro-900);
+    --ra-preenchida: var(--neutro-900);
+    --ra-atrasado-fundo: var(--neutro-900);
+    --ra-atrasado-texto: var(--laranja-100);
+    --ra-pendente-fundo: var(--neutro-900);
+    --ra-pendente-texto: var(--laranja-texto);
+    --ra-ok-fundo: var(--neutro-900);
+    --ra-ok-texto: var(--verde-500);
+    --ra-barra: var(--neutro-600);
+    --ra-estrela: var(--neutro-200);
+}
+
+.ra-subtitulo {
+    color: var(--ra-texto-suave);
+    margin: 0 0 var(--ra-espaco-4);
+}
+
+.ra-relogio {
+    color: var(--ra-texto-suave);
+    font-size: 0.9rem;
+    margin: 0 0 var(--ra-espaco-4);
+}
+
+.ra-aviso {
+    color: var(--ra-texto-suave);
+    font-style: italic;
+}
+
+.ra-colunas {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(16rem, 22rem);
+    gap: var(--ra-espaco-6);
+    align-items: start;
+}
+
+.ra-colunas--sem-historico {
+    grid-template-columns: minmax(0, 1fr);
+}
+
+.ra-principal {
+    display: flex;
+    flex-direction: column;
+    gap: var(--ra-espaco-3);
+    min-width: 0;
+}
+
+.ra-cartao {
+    background: var(--ra-fundo);
+    color: var(--ra-texto);
+    border: 1px solid var(--ra-borda);
+    border-radius: var(--radius-md);
+    padding: var(--ra-espaco-4);
+    box-shadow: var(--shadow-sm);
+}
+
+.ra-cartao-cabecalho {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--ra-espaco-3);
+    margin-bottom: var(--ra-espaco-3);
+}
+
+.ra-cartao-titulo {
+    margin: 0;
+    font-size: 1.1rem;
+    flex: 1 1 auto;
+}
+
+.ra-cartao-titulo small {
+    font-weight: normal;
+    color: var(--ra-texto-suave);
+    font-size: 0.85rem;
+}
+
+.ra-contagem {
+    color: var(--ra-ok-texto);
+    font-weight: 600;
+}
+
+/* Faixas de aviso (pendência, rascunho, enviado, restaurar) */
+.ra-pendencias {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: var(--ra-espaco-2);
+}
+
+.ra-faixa {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: flex-start;
+    gap: var(--ra-espaco-2) var(--ra-espaco-3);
+    padding: var(--ra-espaco-2) var(--ra-espaco-3);
+    border-radius: var(--radius-sm);
+    border-left: 4px solid var(--ra-borda);
+    background: var(--ra-fundo);
+    color: var(--ra-texto);
+}
+
+.ra-faixa--atrasado {
+    background: var(--ra-atrasado-fundo);
+    color: var(--ra-atrasado-texto);
+    border-left-color: var(--vinho-600);
+}
+
+.ra-faixa--pendente,
+.ra-faixa--restaurar {
+    background: var(--ra-pendente-fundo);
+    color: var(--ra-pendente-texto);
+    border-left-color: var(--laranja-500);
+}
+
+.ra-faixa--enviado {
+    background: var(--ra-ok-fundo);
+    color: var(--ra-ok-texto);
+    border-left-color: var(--verde-500);
+}
+
+.ra-faixa--rascunho {
+    border-left-color: var(--vinho-600);
+}
+
+.ra-faixa[hidden] {
+    display: none;
+}
+
+.ra-faixa > .btn-small,
+.ra-faixa-acoes {
+    margin-left: auto;
+}
+
+.ra-faixa-acoes {
+    display: flex;
+    gap: var(--ra-espaco-2);
+}
+
+.ra-barra-data {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: var(--ra-espaco-3);
+}
+
+.ra-dica {
+    margin: 0;
+    color: var(--ra-texto-suave);
+    flex: 1 1 18rem;
+}
+
+.ra-campo-data {
+    margin: 0;
+}
+
+.ra-modalidade {
+    border: 1px solid var(--ra-borda);
+    border-radius: var(--radius-md);
+    padding: var(--ra-espaco-2) var(--ra-espaco-4);
+    margin: 0;
+    background: var(--ra-fundo);
+    color: var(--ra-texto);
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--ra-espaco-4);
+}
+
+.ra-modalidade legend {
+    font-weight: 600;
+    padding: 0 var(--ra-espaco-1);
+}
+
+.ra-modalidade-opcao {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--ra-espaco-2);
+    font-weight: normal;
+}
+
+.ra-modalidade-opcao input {
+    width: auto;
+    margin: 0;
+}
+
+.ra-modalidade-fixa {
+    margin: 0;
+}
+
+.ra-busca {
+    margin: 0 0 var(--ra-espaco-3);
+}
+
+.ra-busca input {
+    width: 100%;
+}
+
+/* Tabela de atividades */
+.ra-tabela-wrap {
+    overflow-x: auto;
+}
+
+.ra-tabela {
+    width: 100%;
+    border-collapse: collapse;
+    color: var(--ra-texto);
+}
+
+.ra-tabela th,
+.ra-tabela td {
+    padding: var(--ra-espaco-2) var(--ra-espaco-3);
+    border-bottom: 1px solid var(--ra-borda);
+    text-align: left;
+    vertical-align: middle;
+}
+
+.ra-tabela thead th {
+    background: var(--ra-cabecalho);
+    border-bottom: 2px solid var(--vinho-600);
+}
+
+.ra-tabela tbody th {
+    font-weight: normal;
+}
+
+.ra-preenchida {
+    background: var(--ra-preenchida);
+}
+
+.ra-nome {
+    display: flex;
+    align-items: center;
+    gap: var(--ra-espaco-2);
+}
+
+.ra-estrela {
+    background: none;
+    border: 0;
+    padding: var(--ra-espaco-1);
+    font-size: 1.25rem;
+    line-height: 1;
+    color: var(--ra-estrela);
+    cursor: pointer;
+    border-radius: var(--radius-sm);
+}
+
+.ra-estrela--ativa {
+    color: var(--ra-estrela-ativa);
+}
+
+.ra-contador {
+    display: inline-flex;
+    align-items: center;
+    border: 1px solid var(--ra-borda);
+    border-radius: var(--radius-sm);
+    overflow: hidden;
+}
+
+.ra-passo {
+    background: var(--ra-cabecalho);
+    color: var(--ra-texto);
+    border: 0;
+    width: 2.25rem;
+    height: 2.25rem;
+    font-size: 1.1rem;
+    cursor: pointer;
+}
+
+.ra-qtd {
+    width: 4.5rem;
+    border: 0;
+    border-left: 1px solid var(--ra-borda);
+    border-right: 1px solid var(--ra-borda);
+    text-align: center;
+    height: 2.25rem;
+    margin: 0;
+    border-radius: 0;
+}
+
+.ra-nota {
+    background: none;
+    border: 1px solid var(--ra-borda);
+    border-radius: var(--radius-sm);
+    padding: var(--ra-espaco-1) var(--ra-espaco-2);
+    cursor: pointer;
+    color: var(--ra-texto);
+}
+
+.ra-nota--com {
+    border-color: var(--laranja-500);
+}
+
+.ra-linha-obs td {
+    padding-top: 0;
+}
+
+.ra-obs {
+    width: 100%;
+}
+
+.ra-divisor td {
+    font-size: 0.8rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--ra-texto-suave);
+    background: var(--ra-cabecalho);
+}
+
+.ra-selo-qtd {
+    display: inline-block;
+    min-width: 2rem;
+    text-align: center;
+    padding: 0 var(--ra-espaco-2);
+    border-radius: 999px;
+    background: var(--verde-700);
+    color: var(--branco);
+    font-weight: 600;
+}
+
+.ra-traco {
+    color: var(--ra-texto-suave);
+}
+
+.ra-acoes {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--ra-espaco-3);
+    margin-top: var(--ra-espaco-4);
+}
+
+.ra-acoes-botoes {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--ra-espaco-2);
+}
+
+.ra-autosave {
+    margin: 0;
+    color: var(--ra-texto-suave);
+    display: flex;
+    align-items: center;
+    gap: var(--ra-espaco-2);
+}
+
+.ra-ponto {
+    width: 0.6rem;
+    height: 0.6rem;
+    border-radius: 50%;
+    background: var(--ra-borda);
+    display: inline-block;
+}
+
+.ra-ponto--salvo {
+    background: var(--verde-500);
+}
+
+.ra-ponto--pendente,
+.ra-ponto--salvando {
+    background: var(--laranja-500);
+}
+
+.ra-ponto--falha {
+    background: var(--vinho-600);
+}
+
+.ra-vazio {
+    display: flex;
+    flex-direction: column;
+    gap: var(--ra-espaco-2);
+    text-align: center;
+}
+
+/* Histórico */
+.ra-historico {
+    position: sticky;
+    top: var(--ra-espaco-4);
+}
+
+.ra-grafico-titulo {
+    margin: var(--ra-espaco-3) 0 var(--ra-espaco-2);
+    color: var(--ra-texto-suave);
+    font-size: 0.85rem;
+}
+
+.ra-grafico {
+    list-style: none;
+    margin: 0 0 var(--ra-espaco-4);
+    padding: 0;
+    display: flex;
+    align-items: flex-end;
+    gap: var(--ra-espaco-2);
+    height: 8rem;
+}
+
+.ra-grafico-coluna {
+    flex: 1 1 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: flex-end;
+    height: 100%;
+}
+
+.ra-grafico-barra {
+    width: 100%;
+    max-width: 2.5rem;
+    height: var(--ra-altura, 6%);
+    background: var(--ra-barra);
+    border-radius: var(--radius-sm) var(--radius-sm) 0 0;
+    transition: height 0.4s ease;
+}
+
+.ra-grafico-barra--max {
+    background: var(--ra-barra-max);
+}
+
+.ra-grafico-rotulo {
+    font-size: 0.75rem;
+    margin-top: var(--ra-espaco-1);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    color: var(--ra-texto-suave);
+}
+
+.ra-hist-lista {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+}
+
+.ra-hist-item {
+    border-top: 1px solid var(--ra-borda);
+}
+
+.ra-hist-botao {
+    width: 100%;
+    background: none;
+    border: 0;
+    padding: var(--ra-espaco-2) 0;
+    text-align: left;
+    color: var(--ra-texto);
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    cursor: pointer;
+}
+
+.ra-hist-data {
+    font-weight: 600;
+}
+
+.ra-hist-total,
+.ra-hist-enviado {
+    font-size: 0.8rem;
+    color: var(--ra-texto-suave);
+}
+
+.ra-hist-detalhes {
+    padding-bottom: var(--ra-espaco-2);
+}
+
+.ra-hist-itens {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    font-size: 0.9rem;
+}
+
+.ra-hist-itens li {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    gap: var(--ra-espaco-2);
+    padding: var(--ra-espaco-1) 0;
+}
+
+.ra-hist-itens small {
+    flex: 1 1 100%;
+    color: var(--ra-texto-suave);
+}
+
+/* Rótulo longo no menu: quebra em duas linhas em vez de cortar */
+#btn-nav-registro-atividades .nav-label {
+    white-space: normal;
+    line-height: 1.2;
+}
+
+/* Resumo do envio no modal de confirmação (texto com quebras de linha) */
+#modal-confirm-message.ra-quebra-linhas {
+    white-space: pre-line;
+}
+
+@media (max-width: 900px) {
+    .ra-colunas {
+        grid-template-columns: minmax(0, 1fr);
+    }
+
+    .ra-historico {
+        position: static;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .ra-grafico-barra {
+        transition: none;
+    }
+}
