@@ -15,6 +15,7 @@ require_once __DIR__ . '/../config/environment.php';
 require_once __DIR__ . '/notificacao-email-service.php';
 require_once __DIR__ . '/protocolo-service.php';
 require_once __DIR__ . '/log-service.php';
+require_once __DIR__ . '/metrica360-client.php';
 
 class PesquisaSatisfacaoService {
     const CODIGO_EMAIL = 'sol_pesquisa_satisfacao';
@@ -92,7 +93,7 @@ class PesquisaSatisfacaoService {
             return $resumo;
         }
         $postar ??= function (array $corpo) use ($url, $chave): array {
-            return self::postar($url . '/api/integracao/convite', $chave, $corpo);
+            return self::postar($url, $chave, $corpo);
         };
 
         // Junto, o estado atual da demanda: o pedido pode ter deixado de valer desde que foi registrado
@@ -263,24 +264,7 @@ class PesquisaSatisfacaoService {
 
     /** POST JSON ao METRICA360 (sem cliente HTTP no projeto: curl, como api/config/turnstile.php). */
     private static function postar(string $url, string $chave, array $corpo): array {
-        $ch = curl_init($url);
-        curl_setopt_array($ch, [
-            CURLOPT_POST           => true,
-            CURLOPT_POSTFIELDS     => json_encode($corpo, JSON_UNESCAPED_UNICODE),
-            CURLOPT_HTTPHEADER     => ['Content-Type: application/json', 'Accept: application/json', 'X-API-KEY: ' . $chave],
-            CURLOPT_RETURNTRANSFER => true,
-            CURLOPT_CONNECTTIMEOUT => 5,
-            CURLOPT_TIMEOUT        => 10,
-            CURLOPT_SSL_VERIFYPEER => true,
-            CURLOPT_SSL_VERIFYHOST => 2,
-            CURLOPT_FOLLOWLOCATION => false,
-        ]);
-        $resposta = curl_exec($ch);
-        $http = $resposta === false ? 0 : (int) curl_getinfo($ch, CURLINFO_HTTP_CODE);
-        if ($resposta === false) {
-            error_log('[PESQUISA SATISFACAO] Falha de conexão com o METRICA360: ' . curl_error($ch));
-        }
-        curl_close($ch);
-        return ['http' => $http, 'corpo' => $resposta === false ? '' : (string) $resposta];
+        $r = (new Metrica360Client($url, $chave))->post('/api/integracao/convite', $corpo);
+        return ['http' => $r['http'], 'corpo' => $r['corpo']];
     }
 }
