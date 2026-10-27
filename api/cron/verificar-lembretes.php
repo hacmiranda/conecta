@@ -25,6 +25,8 @@ try {
         if ($resumo['enviados'] || $resumo['cancelados'] || $resumo['erros']) {
             cronLog('lembretes-cron.log', $linha);
         }
+        // Notificações do sino já lidas há mais de 90 dias (a tabela crescia sem limite)
+        $db_lembretes->exec("DELETE FROM notificacoes WHERE lida = 1 AND criado_em < DATE_SUB(NOW(), INTERVAL 90 DAY)");
     }
 } catch (Exception $e) {
     error_log('[CRON LEMBRETES] Erro: ' . $e->getMessage());

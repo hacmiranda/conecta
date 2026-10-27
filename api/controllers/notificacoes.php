@@ -29,10 +29,19 @@ try {
         $stmtCount = $conn->prepare("SELECT COUNT(*) FROM notificacoes WHERE usuario_id = ? AND lida = 0");
         $stmtCount->execute([$usuario_id]);
 
-        echo json_encode([
+        $resposta = [
             'notificacoes' => $notificacoes,
             'nao_lidas' => (int) $stmtCount->fetchColumn(),
-        ]);
+        ];
+        // Falhas de envio de e-mail nas últimas 24 h, para o administrador (o único que pode agir sobre
+        // elas). Antes o sino fazia uma segunda chamada (email-alert.php) a cada 30 s, e gestor/operador
+        // recebiam 403 nela.
+        if (($user['tipo'] ?? '') === 'admin') {
+            $falhas = $conn->query("SELECT COUNT(*) AS falhas_24h, MAX(enviado_em) AS ultima_falha FROM email_logs
+                                    WHERE status = 'falha' AND enviado_em >= DATE_SUB(NOW(), INTERVAL 24 HOUR)")->fetch(PDO::FETCH_ASSOC);
+            $resposta['alerta_email'] = ['falhas_24h' => (int) ($falhas['falhas_24h'] ?? 0), 'ultima_falha' => $falhas['ultima_falha'] ?? null];
+        }
+        echo json_encode($resposta);
     } elseif ($method === 'PUT') {
         // Marcar uma (?id=) ou todas como lidas
         if (isset($_GET['id'])) {

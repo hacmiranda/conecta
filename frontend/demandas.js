@@ -228,8 +228,9 @@ async function carregarPaginaServidor() {
     }
 }
 
-async function carregarTickets() {
-    mostrarSkeletonTickets();
+// semEsqueleto: recarga automática (atualizarListaSeMudou), sem piscar a lista
+async function carregarTickets(semEsqueleto = false) {
+    if (!semEsqueleto) mostrarSkeletonTickets();
     if (usaPaginacaoServidor()) {
         carregarPaginaServidor();
         return;
@@ -395,7 +396,7 @@ function filtrarEMostrarTickets(tickets) {
     if (termoBusca) {
         filtrados = filtrados.filter(t =>
             (t.titulo || '').toLowerCase().includes(termoBusca) ||
-            (t.descricao || '').toLowerCase().includes(termoBusca) ||
+            (t.descricao_resumo || '').toLowerCase().includes(termoBusca) ||
             (t.usuario_nome || '').toLowerCase().includes(termoBusca)
         );
     }

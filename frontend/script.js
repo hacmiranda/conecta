@@ -144,6 +144,41 @@ function ativarTrocaObrigatoriaSenha() {
 
 
 // ======================================================
+// 🔄 ATUALIZAÇÃO AUTOMÁTICA DAS LISTAS
+// ======================================================
+// Antes a lista era baixada e redesenhada inteira a cada minuto (o Kanban com todas as demandas),
+// mesmo com a aba escondida, tirando o foco e a rolagem de quem estava usando; o Arquivo ainda
+// voltava para a página 1. Agora: só com a aba visível, sem modal aberto e sem alguém digitando
+// na tela; pergunta ao servidor uma assinatura curta (tickets.php?assinatura=1) e só recarrega,
+// sem o esqueleto de carregamento e na mesma página, se ela mudou.
+const _assinaturaLista = {};
+
+async function atualizarListaSeMudou() {
+    if (document.hidden) return;
+    const secao = document.querySelector('.secao.active');
+    if (!secao || (secao.id !== 'tickets' && secao.id !== 'fechados')) return;
+    if (document.getElementById('modal-overlay')?.classList.contains('show')) return;
+    const ativo = document.activeElement;
+    if (ativo && secao.contains(ativo) && ativo.matches('input, textarea, select, [contenteditable="true"]')) return;
+
+    const escopo = secao.id === 'tickets' ? 'abertas' : (typeof escopoArquivoAtual !== 'undefined' ? escopoArquivoAtual : 'arquivo');
+    const chave = secao.id + ':' + escopo;
+    try {
+        const { assinatura } = await Api.get(urlComSetor('tickets.php?escopo=' + encodeURIComponent(escopo) + '&assinatura=1'));
+        const anterior = _assinaturaLista[chave];
+        _assinaturaLista[chave] = assinatura;
+        if (anterior === undefined || anterior === assinatura) return; // primeira leitura ou nada mudou
+        if (secao.id === 'tickets') {
+            carregarTickets(true);
+        } else {
+            carregarPaginaFechadosServidor();
+        }
+    } catch (e) {
+        // Falha de rede: tenta de novo no próximo minuto
+    }
+}
+
+// ======================================================
 // 📧 ALERTA DE FALHAS DE E-MAIL
 // ======================================================
 const EMAIL_ALERT_INTERVAL = 5 * 60 * 1000; // Checar a cada 5 minutos
@@ -1457,17 +1492,8 @@ document.addEventListener('DOMContentLoaded', function () {
     carregarCategorias();
     popularPrioridadesFormNovo();
 
-    // Atualizar lista de tickets a cada 1 minuto
-    setInterval(() => {
-        const secaoAtiva = document.querySelector('.secao.active');
-        if (secaoAtiva && (secaoAtiva.id === 'tickets' || secaoAtiva.id === 'fechados')) {
-            if (secaoAtiva.id === 'tickets') {
-                carregarTickets();
-            } else {
-                carregarTicketsFechados();
-            }
-        }
-    }, 60000); // 60 segundos
+    // Atualizar a lista a cada 1 minuto, só se algo mudou (atualizarListaSeMudou)
+    setInterval(atualizarListaSeMudou, 60000);
 
     // Configurar busca avançada
     configurarBuscaAvancada();

@@ -511,9 +511,9 @@ class EmailService {
             }
 
             $protocolo = ProtocoloService::gerar($this->db);
-            $stmt = $this->db->prepare("INSERT INTO tickets (protocolo, titulo, descricao, usuario_id, status, prioridade, setor_id)
-                                        VALUES (?, ?, ?, ?, 'novo', 'normal', ?)");
-            $stmt->execute([$protocolo, $assunto, $corpo_limpo, $usuario_id, $setor_id]);
+            $stmt = $this->db->prepare("INSERT INTO tickets (protocolo, titulo, descricao, descricao_texto, usuario_id, status, prioridade, setor_id)
+                                        VALUES (?, ?, ?, ?, ?, 'novo', 'normal', ?)");
+            $stmt->execute([$protocolo, $assunto, $corpo_limpo, HtmlSanitizer::textoParaBusca($corpo_limpo), $usuario_id, $setor_id]);
             $ticket_id = (int) $this->db->lastInsertId();
 
             AcessoService::registrarAbertura($this->db, $ticket_id, $setor_id ? (int) $setor_id : null, (int) $usuario_id, $detalhe_abertura);

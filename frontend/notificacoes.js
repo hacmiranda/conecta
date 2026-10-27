@@ -14,12 +14,19 @@ function inciarNotificacoes() {
     // Busca imediata ao iniciar
     _buscarNotificacoes();
 
-    // Polling a cada 30 segundos
+    // Polling a cada 30 segundos (só com a aba visível; ao voltar para a aba, busca na hora)
     _notificacoesInterval = setInterval(_buscarNotificacoes, 30000);
+    if (!window._notificacoesVisibilidade) {
+        window._notificacoesVisibilidade = true;
+        document.addEventListener('visibilitychange', () => {
+            if (!document.hidden && _notificacoesInterval) _buscarNotificacoes();
+        });
+    }
 }
 
 function _buscarNotificacoes() {
     if (!localStorage.getItem('cd_usuario')) return;
+    if (document.hidden) return; // aba escondida: não consulta o servidor à toa
 
     const xhr = new XMLHttpRequest();
     xhr.open('GET', window.APP_CONFIG.apiBase + 'notificacoes.php', true);
@@ -31,9 +38,9 @@ function _buscarNotificacoes() {
                 const data = JSON.parse(xhr.responseText);
                 const usuario = JSON.parse(localStorage.getItem('cd_usuario') || '{}');
 
-                // Para a equipe e administradores, incluir alertas de falha de e-mail no sino
-                if (['operador', 'gestor', 'admin'].includes(usuario.tipo)) {
-                    _mesclarAlertaEmail(data.notificacoes, data.nao_lidas);
+                // Administrador: o alerta de falha de e-mail vem na mesma resposta (alerta_email)
+                if (data.alerta_email) {
+                    _mesclarAlertaEmail(data.notificacoes, data.nao_lidas, data.alerta_email);
                 } else {
                     atualizarBadgeNotificacoes(data.nao_lidas);
                     renderizarNotificacoes(data.notificacoes);
@@ -63,61 +70,41 @@ function _getEmailFalhaDispensa() {
     }
 }
 
-// Consulta email-alert.php e injeta alerta de falhas no topo da lista de notificações
-function _mesclarAlertaEmail(notificacoes, naoLidas) {
-    const xhr = new XMLHttpRequest();
-    xhr.open('GET', window.APP_CONFIG.apiBase + 'email-alert.php', true);
-    setSecurityHeaders(xhr);
+// Injeta o alerta de falhas de e-mail (alerta_email de notificacoes.php) no topo da lista
+function _mesclarAlertaEmail(notificacoes, naoLidas, dados) {
+    let todas = notificacoes;
+    let total = naoLidas;
 
-    xhr.onload = function () {
-        let todas = notificacoes;
-        let total = naoLidas;
+    if (dados && dados.falhas_24h > 0) {
+        const ultimaFalha = dados.ultima_falha || '';
+        const dispensada = _getEmailFalhaDispensa();
 
-        if (xhr.status === 200) {
-            try {
-                const dados = JSON.parse(xhr.responseText);
-                if (dados.falhas_24h > 0) {
-                    const ultimaFalha = dados.ultima_falha || '';
-                    const dispensada = _getEmailFalhaDispensa();
+        // Se o usuário excluiu e não há falhas mais recentes, não exibe
+        const foiExcluida = dispensada.excluida && ultimaFalha <= dispensada.excluida;
+        // Se o usuário marcou como lida e não há falhas mais recentes, exibe como lida
+        const foiLida = dispensada.lida && ultimaFalha <= dispensada.lida;
 
-                    // Se o usuário excluiu e não há falhas mais recentes, não exibe
-                    const foiExcluida = dispensada.excluida && ultimaFalha <= dispensada.excluida;
-                    // Se o usuário marcou como lida e não há falhas mais recentes, exibe como lida
-                    const foiLida = dispensada.lida && ultimaFalha <= dispensada.lida;
-
-                    if (!foiExcluida) {
-                        const dt = ultimaFalha
-                            ? new Date(ultimaFalha).toLocaleString('pt-BR')
-                            : '';
-                        todas = [{
-                            id: '__email_falha__',
-                            titulo: `⚠️ Falhas no envio de e-mail (${dados.falhas_24h})`,
-                            mensagem: `${dados.falhas_24h} falha(s) nas últimas 24h.${dt ? ' Última: ' + dt : ''} Clique para ver o log.`,
-                            lida: foiLida ? 1 : 0,
-                            ticket_id: null,
-                            criado_em: ultimaFalha || new Date().toISOString(),
-                            _tipo: 'email_falha',
-                            _ultima_falha: ultimaFalha
-                        }, ...notificacoes];
-                        if (!foiLida) total = naoLidas + 1;
-                    }
-                }
-            } catch (e) { /* silencioso */ }
+        if (!foiExcluida) {
+            const dt = ultimaFalha
+                ? new Date(ultimaFalha).toLocaleString('pt-BR')
+                : '';
+            todas = [{
+                id: '__email_falha__',
+                titulo: `⚠️ Falhas no envio de e-mail (${dados.falhas_24h})`,
+                mensagem: `${dados.falhas_24h} falha(s) nas últimas 24h.${dt ? ' Última: ' + dt : ''} Clique para ver o log.`,
+                lida: foiLida ? 1 : 0,
+                ticket_id: null,
+                criado_em: ultimaFalha || new Date().toISOString(),
+                _tipo: 'email_falha',
+                _ultima_falha: ultimaFalha
+            }, ...notificacoes];
+            if (!foiLida) total = naoLidas + 1;
         }
+    }
 
-        atualizarBadgeNotificacoes(total);
-        renderizarNotificacoes(todas);
-    };
-
-    xhr.onerror = function () {
-        // Se falhar a consulta de e-mail, renderiza apenas as notificações normais
-        atualizarBadgeNotificacoes(naoLidas);
-        renderizarNotificacoes(notificacoes);
-    };
-
-    xhr.send();
+    atualizarBadgeNotificacoes(total);
+    renderizarNotificacoes(todas);
 }
-
 // Marca o alerta de falha de e-mail como lido (persiste no localStorage)
 function _marcarEmailFalhaLida(ultimaFalha) {
     const dispensada = _getEmailFalhaDispensa();

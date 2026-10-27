@@ -60,9 +60,30 @@ class HtmlSanitizer {
         if ($html === '') {
             return '';
         }
-        // data: só é aceito para imagens (bloqueia links data:text/html)
-        $limpo = self::purifier()->purify($html);
+        // Imagem corrompida faz o Purifier (exif_imagetype) emitir aviso do PHP, que sairia antes do JSON
+        // da resposta: vai para o log, e a imagem inválida é descartada normalmente
+        set_error_handler(function (int $nivel, string $msg) {
+            error_log('[HtmlSanitizer] ' . $msg);
+            return true;
+        }, E_WARNING | E_NOTICE);
+        try {
+            // data: só é aceito para imagens (bloqueia links data:text/html)
+            $limpo = self::purifier()->purify($html);
+        } finally {
+            restore_error_handler();
+        }
         return preg_replace('/(<a\b[^>]*\bhref=")data:[^"]*"/i', '$1#"', $limpo);
+    }
+
+    /**
+     * Texto puro de um HTML, para a busca e o resumo das listas (tickets.descricao_texto): sem tags nem
+     * imagens (o base64 delas não entra), entidades decodificadas, espaços normalizados, até $maximo.
+     */
+    public static function textoParaBusca(?string $html, int $maximo = 5000): string {
+        $html = preg_replace('#<(img|style|script)\b[^>]*>(.*?</\1>)?#is', ' ', (string) $html);
+        $texto = html_entity_decode(strip_tags(preg_replace('/<[^>]*>/', ' ', $html)), ENT_QUOTES | ENT_HTML5, 'UTF-8');
+        $texto = trim(preg_replace('/\s+/u', ' ', str_replace("\u{00A0}", ' ', $texto)) ?? '');
+        return mb_substr($texto, 0, $maximo);
     }
 
     /**

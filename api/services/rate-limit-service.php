@@ -17,7 +17,7 @@ class RateLimitService {
 
     private static function db(): PDO {
         if (self::$db === null) {
-            self::$db = (new Database())->getConnection();
+            self::$db = (new Database())->getConnectionPropria(); // fora da transação da requisição
         }
         return self::$db;
     }

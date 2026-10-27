@@ -121,7 +121,7 @@ function listarTicketsPaginado(PDO $db, string $selectCompleto, array $where, ar
         $numero = '%' . ltrim(str_replace('#', '', $busca), '0') . '%';
         // Protocolo: aceita "CRPRS2026-0001", "2026-0001" ou só "0001" (sem o "#")
         $protocoloBusca = '%' . str_replace(['\\', '%', '_'], ['\\\\', '\\%', '\\_'], ltrim($busca, '#')) . '%';
-        $filtros[] = "(t.titulo LIKE :b1 OR t.descricao LIKE :b2 OR u.nome LIKE :b3 OR t.email_solicitante LIKE :b4
+        $filtros[] = "(t.titulo LIKE :b1 OR t.descricao_texto LIKE :b2 OR u.nome LIKE :b3 OR t.email_solicitante LIKE :b4
                        OR (:b6 <> '%%' AND CAST(t.id AS CHAR) LIKE :b5) OR t.protocolo LIKE :b7)";
         $pf[':b1'] = $pf[':b2'] = $pf[':b3'] = $pf[':b4'] = $termo;
         $pf[':b5'] = $numero;
@@ -275,7 +275,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
             $arquivados = "'" . implode("','", AcessoService::STATUS_ARQUIVO) . "'";
             $setor_escopo = AcessoService::setorEscopo($user);
 
-            $query = "SELECT t.*,
+            // Colunas explícitas: a descrição (HTML, com imagens em base64 de vários MB) não vai nas
+            // listas, que o Kanban carrega inteiras; vai um resumo em texto (descricao_resumo)
+            $query = "SELECT t.id, t.protocolo, t.titulo, LEFT(t.descricao_texto, 300) as descricao_resumo,
+                             t.usuario_id, t.origem_api, t.email_solicitante, t.agente_id, t.atribuido_em,
+                             t.status, t.status_anterior, t.prioridade, t.criado_em, t.atualizado_em,
+                             t.categoria_id, t.setor_id, t.fechado_por, t.fechado_em, t.tempo_primeiro_atendimento,
+                             t.tempo_total_segundos, t.tempo_em_espera_segundos, t.iniciou_espera_em,
+                             t.reaberto_contador, t.mesclada_em, t.sla_vencido, t.excluido_em, t.excluido_por,
                              u.nome as usuario_nome, u.email as usuario_email,
                              a.nome as agente_nome,
                              NULLIF(CONCAT_WS(' - ', c.nome, mc.nome), '') as categoria_nome,
@@ -390,6 +397,23 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
             if ($escopo !== 'lixeira') {
                 array_unshift($where, "t.excluido_em IS NULL");
             }
+            // ?assinatura=1: resumo curto do que o usuário vê nesta visão (demandas, alterações, comentários
+            // não lidos, lembretes). A tela compara a cada minuto e só recarrega a lista se mudou.
+            if (isset($_GET['assinatura'])) {
+                $p = $params;
+                unset($p[':usuario_id']); // só a junção de não lidos usa
+                $stmt = $db->prepare("SELECT COUNT(*) AS n, COALESCE(BIT_XOR(CRC32(CONCAT(t.id, '|', t.atualizado_em, '|', t.status, '|', COALESCE(t.agente_id, 0)))), 0) AS x
+                                      FROM tickets t WHERE " . implode(' AND ', $where ?: ['1 = 1']));
+                $stmt->execute($p);
+                $visiveis = $stmt->fetch(PDO::FETCH_NUM);
+                $stmt = $db->prepare("SELECT COUNT(*), COALESCE(MAX(criado_em), '') FROM comentarios_nao_lidos WHERE usuario_id = ?");
+                $stmt->execute([$usuario_logado_id]);
+                $naoLidos = $stmt->fetch(PDO::FETCH_NUM);
+                $lembretes = $db->query("SELECT COUNT(*), COALESCE(MAX(id), 0) FROM lembretes WHERE notificado = 0 AND cancelado_em IS NULL")->fetch(PDO::FETCH_NUM);
+                echo json_encode(['assinatura' => sha1(implode('|', array_merge($visiveis, $naoLidos, $lembretes)))]);
+                exit;
+            }
+
             // Paginação, busca, filtros, ordenação e contadores no servidor (?pagina=N).
             // Sem "pagina", a lista inteira é devolvida como antes (Kanban, integrações).
             if (isset($_GET['pagina'])) {
@@ -505,12 +529,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         // no lastInsertId() logo abaixo
         $protocolo = ProtocoloService::gerar($db);
 
-        $query = "INSERT INTO tickets (protocolo, titulo, descricao, usuario_id, email_solicitante, prioridade, categoria_id, setor_id, status) VALUES (:protocolo, :titulo, :descricao, :usuario_id, :email_solicitante, :prioridade, :categoria_id, :setor_id, 'novo')";
+        $query = "INSERT INTO tickets (protocolo, titulo, descricao, descricao_texto, usuario_id, email_solicitante, prioridade, categoria_id, setor_id, status) VALUES (:protocolo, :titulo, :descricao, :descricao_texto, :usuario_id, :email_solicitante, :prioridade, :categoria_id, :setor_id, 'novo')";
 
         $stmt = $db->prepare($query);
         $stmt->bindParam(':protocolo', $protocolo);
         $stmt->bindParam(':titulo', $titulo);
         $stmt->bindParam(':descricao', $descricao);
+        $stmt->bindValue(':descricao_texto', HtmlSanitizer::textoParaBusca($descricao));
         $stmt->bindParam(':usuario_id', $user['id']);
         $stmt->bindParam(':email_solicitante', $email_solicitante);
         $stmt->bindParam(':prioridade', $prioridade);

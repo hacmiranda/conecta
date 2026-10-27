@@ -23,6 +23,10 @@ class DemandaService {
                           VALUES (?, ?, 'exclusao', NULL, 'Enviada para a lixeira')")
                ->execute([(int) $ticket['id'], $autorId]);
             LembreteService::cancelarPendentes($db, (int) $ticket['id'], 'Demanda excluída');
+            // E-mails ainda na fila sobre a demanda excluída não saem mais
+            $db->prepare("UPDATE email_fila SET status = 'falha', erro = 'Cancelado: demanda enviada para a lixeira'
+                          WHERE ticket_id = ? AND status = 'pendente'")
+               ->execute([(int) $ticket['id']]);
             $db->commit();
         } catch (Exception $e) {
             if ($db->inTransaction()) {

@@ -26,4 +26,12 @@ final class HtmlSanitizerTest extends TestCase {
         $this->assertStringNotContainsString('script', $limpo);
         $this->assertStringNotContainsString('onclick', $limpo);
     }
+
+    public function test_texto_para_busca_tira_imagens_e_tags(): void {
+        $base64 = str_repeat('QUJD', 5000);
+        $html = '<p>Pedido de <strong>certid&atilde;o</strong></p><img src="data:image/png;base64,' . $base64 . '"><style>.x{}</style><div>Fulana&nbsp;Silva</div>';
+        // Antes a busca varria o base64 das imagens (e casava com qualquer sequência de letras dele)
+        $this->assertSame('Pedido de certidão Fulana Silva', HtmlSanitizer::textoParaBusca($html));
+        $this->assertSame(10, mb_strlen(HtmlSanitizer::textoParaBusca(str_repeat('a ', 50), 10)));
+    }
 }

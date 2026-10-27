@@ -81,7 +81,7 @@ function filtrarEMostrarTicketsFechados(ticketsBase) {
     if (termoBusca) {
         filtrados = filtrados.filter(t =>
             (t.titulo || '').toLowerCase().includes(termoBusca) ||
-            (t.descricao || '').toLowerCase().includes(termoBusca) ||
+            (t.descricao_resumo || '').toLowerCase().includes(termoBusca) ||
             (t.usuario_nome || '').toLowerCase().includes(termoBusca)
         );
     }

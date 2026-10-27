@@ -555,6 +555,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'DELETE') {
             ['tabela' => 'tickets',               'colunas' => ['usuario_id', 'agente_id', 'fechado_por'], 'msg' => 'demandas'],
             ['tabela' => 'comentarios',            'colunas' => ['usuario_id'],                             'msg' => 'comentários'],
             ['tabela' => 'ticket_historico',       'colunas' => ['usuario_id'],                             'msg' => 'histórico'],
+            ['tabela' => 'ticket_agente_log',      'colunas' => ['usuario_id'],                             'msg' => 'atendimento de demandas'],
 ];
 
         foreach ($tabelas as $t) {

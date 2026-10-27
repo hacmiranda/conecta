@@ -236,13 +236,14 @@ try {
 
     // 3. Gerar o Ticket com Status Novo Mapeado para API
     $protocolo = ProtocoloService::gerar($db);
-    $query = "INSERT INTO tickets (protocolo, titulo, descricao, usuario_id, origem_api, chave_idempotencia, email_solicitante, prioridade, categoria_id, setor_id, status)
-              VALUES (:protocolo, :titulo, :descricao, :usuario_id, :origem_api, :chave, :email_solicitante, :prioridade, :categoria_id, :setor_id, 'novo')";
+    $query = "INSERT INTO tickets (protocolo, titulo, descricao, descricao_texto, usuario_id, origem_api, chave_idempotencia, email_solicitante, prioridade, categoria_id, setor_id, status)
+              VALUES (:protocolo, :titulo, :descricao, :descricao_texto, :usuario_id, :origem_api, :chave, :email_solicitante, :prioridade, :categoria_id, :setor_id, 'novo')";
     $stmt = $db->prepare($query);
     $stmt->execute([
         ':protocolo' => $protocolo,
         ':titulo' => $titulo,
         ':descricao' => $descricao_final, // Conteúdo carimbado pela Flag
+        ':descricao_texto' => HtmlSanitizer::textoParaBusca($descricao_final),
         ':usuario_id' => $usuario_id,
         ':origem_api' => $origem,
         ':chave' => $chave_idempotencia,
