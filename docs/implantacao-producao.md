@@ -90,6 +90,39 @@ cabeçalho `X-Cron-Key: <valor>` (o parâmetro `?key=` na URL não é mais aceit
 - [ ] HTTPS ativo e `Secure`/`HttpOnly`/`SameSite=Strict` confirmados nos cookies de sessão (se usados) e nos headers de segurança (`X-Frame-Options`, `Content-Security-Policy` etc.)
 - [ ] Backup automático do banco agendado (fora do escopo deste sistema, mas necessário)
 
+## 7. Registro de Atividades e Meu Painel (vindos do METRICA360, 27/10/2026)
+
+A "Área do Funcionário" do METRICA360 passou para o Conecta. **A ordem importa**, porque os dois sistemas
+dependem um do outro:
+
+1. **METRICA360 primeiro, ramo `melhorias-auditoria-2026-10`** (commit "API de integração para o Meu Painel
+   e o Cruzamento"): rotas `/api/integracao/funcionario`, `/painel`, `/convite-manual` e `/satisfacao`.
+   Exige `INTEGRACAO_CONECTA_API_KEY` no `.env` dele (a mesma da pesquisa de satisfação). A Área do
+   Funcionário de lá **continua no ar** nesta etapa.
+2. **Conecta**: publicar o código e rodar `php database/migrar.php` (aplica a 38). Conferir no `.env`
+   `METRICA360_URL_PROD` e `METRICA360_API_KEY_PROD`. O `.htaccess` novo libera o widget do Google
+   Reviews (Elfsight) na CSP.
+3. **Configurar cada setor** em Configurações → Atividades (admin ou gestor): cadastrar as atividades
+   (dá para colar várias, uma por linha), as regras de prazo do setor e as de cada servidor. Sem
+   "Cobrar a partir de", a cobrança começa no dia em que as regras são salvas. **O Conecta começa sem os
+   tipos de atividade do METRICA360**: copiar a lista de cada setor de lá (Configurações → Atividades do
+   METRICA360) antes do passo 6.
+4. **Conferir os e-mails**: o "Meu Painel" só aparece para quem tem, no METRICA360, o **mesmo e-mail** do
+   Conecta e "Faz atendimento externo" marcado.
+5. **Avisar os servidores**: o registro de atividades e o envio de pesquisas agora são feitos dentro do
+   Conecta (menus "Registro de Atividades" e "Meu Painel").
+6. **Por último, METRICA360 ramo `remover-area-funcionario`**: tira a Área do Funcionário e as telas de
+   atividades de lá (as rotas antigas passam a dar 404). Depois, **com backup completo do banco**, rodar
+   `migrations/2026_10_27_remover_area_funcionario.sql` (copia para `bkp_2026_10_27_*` e apaga as tabelas
+   e colunas de atividades; é destrutivo e não repete).
+
+Conferência depois da implantação:
+- [ ] Gestor/operador vê "Registro de Atividades"; registra, salva rascunho e envia um dia de teste
+- [ ] Admin/gestor vê o grupo "Atividades" (painel, relatório, ausências, cruzamento) e o CSV abre no Excel com acentos
+- [ ] Um servidor com atendimento externo vê "Meu Painel", com indicadores e histórico; envio de convite chega por e-mail
+- [ ] Widget do Google Reviews carrega sem erro de CSP no console
+- [ ] `php api/tests/matriz-de-acesso.php` (seções 7c a 7f) limpo, se rodado em homologação
+
 ## Pendências técnicas conhecidas (não bloqueiam a implantação)
 
 - **`firebase/php-jwt`**: alerta de segurança baixo (`CVE-2025-45769`, versões < 7.0.0; o projeto
