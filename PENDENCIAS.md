@@ -40,7 +40,7 @@ Plano: `C:\Users\hugo.miranda\.claude\plans\1-quero-continuar-iterative-quasar.m
 
 - [x] Fase 1 — decisões nos documentos
 - [x] Fase 2 — papéis novos no backend (migração 39: `coordenador`, `supervisor`, `coordenador_geral`, `usuario_setores`, `atendimento_externo`)
-- [ ] Fase 3 — papéis novos no frontend (somente leitura, seletor de setores, tela de usuários)
+- [x] Fase 3 — papéis novos no frontend (somente leitura, seletor de setores, tela de usuários)
 - [ ] Fase 4 — migração 40 (tabelas `pesquisa_*`) e `database/importar-metrica360.php` (ensaio revisado por você antes de `--executar`)
 - [ ] Fase 5 — backend do módulo (convites, avaliações, painéis, página pública)
 - [ ] Fase 6 — telas do grupo "Satisfação" e Configurações → Pesquisa de satisfação

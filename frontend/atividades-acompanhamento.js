@@ -17,7 +17,7 @@ const acompFiltros = { relatorio: { p: 1 }, historico: {}, cruzamento: {} };
 
 function podeAcompanharAtividades() {
     const u = JSON.parse(localStorage.getItem('cd_usuario') || '{}');
-    return u.tipo === 'admin' || u.tipo === 'gestor';
+    return Papeis.administraSetor(u) || Papeis.visaoTotal(u); // gestão e perfis de consulta (estes não abonam)
 }
 
 function mostrarAcompanhamentoAtividades(tela) {
@@ -66,6 +66,12 @@ function rotuloPendencia(p) {
 // Botões de abonar / remover abono de uma pendência (Painel e Relatório)
 function botoesPendencia(usuarioId, nome, p) {
     const data = p.data || p.semana_ini;
+    // Perfil de consulta (coordenador geral, supervisor): só vê a situação, sem abonar
+    if (Papeis.somenteLeitura()) {
+        return p.status === 'abonado'
+            ? `<span class="acomp-chip acomp-chip--abonado" title="${sanitizeHTML(p.justificativa || '')}">Abonado: ${sanitizeHTML(rotuloPendencia(p))}</span>`
+            : `<span class="acomp-chip acomp-chip--atrasado">Atrasado: ${sanitizeHTML(rotuloPendencia(p))}</span>`;
+    }
     if (p.status === 'abonado') {
         return `<span class="acomp-chip acomp-chip--abonado" title="${sanitizeHTML(p.justificativa || '')}">Abonado: ${sanitizeHTML(rotuloPendencia(p))}</span>
             <button type="button" class="acomp-mini" data-acao="remover-abono" data-id="${Number(p.abono_id)}"

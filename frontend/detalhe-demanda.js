@@ -237,11 +237,13 @@ function gerarAcoesDemandaHTML(ticket) {
     const demandaEncerrada = ['encerrado', 'fechado', 'cancelado'].includes(ticket.status);
     if (demandaEncerrada) return '';
 
+    if (Papeis.somenteLeitura(usuario)) return ''; // perfil de consulta: sem ações
+
     const ehResponsavelAtual = ticket.agente_id && ticket.agente_id == usuario.id;
     const setorDaDemanda = ticket.setor_id ? Number(ticket.setor_id) : 'null';
     const botoes = [];
 
-    if (usuario.tipo === 'gestor' || usuario.tipo === 'admin') {
+    if (Papeis.administraSetor(usuario)) {
         botoes.push(`<button class="btn-primary btn-acao-encaminhar" onclick="atribuirTicket(${ticket.id}, ${setorDaDemanda})">👤 Encaminhar a Operador</button>`);
     }
 
@@ -250,7 +252,7 @@ function gerarAcoesDemandaHTML(ticket) {
         botoes.push(`<button class="btn-primary btn-acao-repassar" onclick="repassarParaColega(${ticket.id})">🔁 Repassar a Colega</button>`);
     }
 
-    if (usuario.tipo === 'gestor' || usuario.tipo === 'admin' || (usuario.tipo === 'operador' && ehResponsavelAtual)) {
+    if (Papeis.administraSetor(usuario) || (usuario.tipo === 'operador' && ehResponsavelAtual)) {
         botoes.push(`<button class="btn-primary btn-acao-transferir" onclick="transferirParaSetor(${ticket.id}, ${setorDaDemanda})">🏢 Transferir para Outro Setor</button>`);
     }
 
@@ -378,6 +380,8 @@ function mostrarDetalhesTicket(ticket) {
             <button class="btn-excluir" onclick="excluirDefinitivo(${Number(ticket.id)})" style="margin-left: 1rem; background-color: var(--vermelho);">🗑️ Excluir definitivamente</button>`;
     } else if (ticket.acesso_historico) {
         faixaAviso = `<div class="faixa-aviso-demanda" role="status">👁️ Você está vendo o <strong>histórico</strong> desta demanda, que passou pelo seu atendimento. Ela está hoje no setor <strong>${sanitizeHTML(ticket.setor_nome || '—')}</strong>${ticket.agente_nome ? ' com <strong>' + sanitizeHTML(ticket.agente_nome) + '</strong>' : ' sem responsável'}. Somente leitura.</div>`;
+    } else if (ticket.perfil_consulta) {
+        faixaAviso = `<div class="aviso-perfil-consulta" role="status">👁️ <strong>Perfil de consulta:</strong> você acompanha esta demanda, sem alterar nem comentar.</div>`;
     } else if (ticket.somente_leitura) {
         faixaAviso = `<div class="faixa-aviso-demanda" role="status">👁️ Você pode acompanhar esta demanda e comentar, mas só o responsável ou a gestão do setor altera status, prioridade e responsável.</div>`;
     } else {
@@ -385,7 +389,7 @@ function mostrarDetalhesTicket(ticket) {
             `<button class="btn-reabrir" onclick="reabrirTicket(${ticket.id})" style="margin-left: 1rem; background-color: #28a745;">🔄 Reabrir</button>` : ''}
             <button class="btn-excluir" onclick="excluirTicket(${ticket.id})" style="margin-left: 1rem; background-color: var(--vermelho);">🗑️ Excluir</button>`;
     }
-    const classeAcesso = (ticket.na_lixeira || ticket.acesso_historico) ? 'detalhe-somente-leitura detalhe-sem-comentar'
+    const classeAcesso = (ticket.na_lixeira || ticket.acesso_historico || ticket.perfil_consulta) ? 'detalhe-somente-leitura detalhe-sem-comentar'
         : (ticket.somente_leitura ? 'detalhe-somente-leitura' : '');
 
     detalhesDiv.innerHTML = `
@@ -1023,7 +1027,7 @@ function validarAntesComentario(ticketId) {
     const usuario = JSON.parse(localStorage.getItem('cd_usuario'));
 
     // Se for funcionário interno (operador/gestor/admin)
-    if (['operador', 'gestor', 'admin'].includes(usuario.tipo)) {
+    if (Papeis.equipe(usuario)) {
         // Verificar se ticket tem responsável
         if (!ticketAtual.agente_id) {
             mostrarAlert('Atenção', 'Esta demanda não possui responsável. Atribua a demanda antes de adicionar comentários.');

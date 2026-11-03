@@ -276,7 +276,7 @@ function prepararFiltroArquivo() {
 
     const u = JSON.parse(localStorage.getItem('cd_usuario') || '{}');
     const opcoes = [];
-    if (u.tipo === 'gestor' || u.tipo === 'admin') {
+    if (Papeis.administraSetor(u) || Papeis.visaoTotal(u)) {
         opcoes.push({ valor: 'arquivo', texto: 'Encerradas e canceladas' });
         opcoes.push({ valor: 'transferidas', texto: 'Transferidas para outros setores' });
     } else if (u.tipo === 'operador') {

@@ -125,10 +125,10 @@ document.getElementById('form-ticket').addEventListener('submit', function (e) {
     formData.append('titulo', titulo);
     formData.append('descricao', descricao);
     formData.append('prioridade', prioridade || 'normal');
-    // Admin: abre a demanda no setor escolhido no cabeçalho (os demais usam o próprio setor)
+    // Admin e coordenador: abrem a demanda no setor escolhido no cabeçalho (os demais usam o próprio setor)
     const setorContexto = window.CabecalhoSetor ? window.CabecalhoSetor.obterSetorContexto() : null;
     const usuarioCriador = JSON.parse(localStorage.getItem('cd_usuario') || '{}');
-    if (usuarioCriador.tipo === 'admin' && setorContexto) {
+    if ((usuarioCriador.tipo === 'admin' || usuarioCriador.tipo === 'coordenador') && setorContexto) {
         formData.append('setor_id', setorContexto);
     }
     if (categoria_id) {
@@ -577,11 +577,13 @@ function allowDropKanban(ev) {
 }
 
 function dragKanban(ev) {
+    if (Papeis.somenteLeitura()) { ev.preventDefault(); return; }
     ev.dataTransfer.setData("ticketId", ev.currentTarget.dataset.id);
 }
 
 function dropKanban(ev) {
     ev.preventDefault();
+    if (Papeis.somenteLeitura()) return;
     const ticketId = ev.dataTransfer.getData("ticketId");
     let colTarget = ev.target.closest('.kanban-coluna');
 
@@ -724,10 +726,10 @@ function mostrarTicketsNaTela(tickets) {
                 </td>
                 <td data-label="Solicitante">${solicitante}${emailExibir}</td>
                 ${exibirColunaSetor(false) ? `<td data-label="Setor">${sanitizeHTML(ticket.setor_nome || '-')}</td>` : ''}
-                <td data-label="Responsável"><span class="status ${ticket.agente_nome ? 'atribuido' : 'nao-atribuido'} ${modoMergeAtivo ? '' : 'clickable'}" ${modoMergeAtivo ? '' : `onclick="event.stopPropagation(); atribuirTicket(${ticket.id}, ${ticket.setor_id ? Number(ticket.setor_id) : 'null'})" title="Clique para atribuir"`}>${sanitizeHTML(ticket.agente_nome || 'Não atribuído')}</span>${(ticket.agente_nome && ticket.atribuido_em) ? `<small class="ticket-data-hora">desde ${dataDoBanco(ticket.atribuido_em).toLocaleDateString('pt-BR')}</small>` : ''}</td>
-                <td data-label="Subcategoria"><span class="status categoria ${ticket.categoria_nome ? '' : 'sem-categoria'} ${modoMergeAtivo ? '' : 'clickable'}" ${modoMergeAtivo ? '' : `onclick="event.stopPropagation(); alterarCategoria(${ticket.id})" title="Clique para alterar"`}>${sanitizeHTML(ticket.categoria_nome || 'Sem subcategoria')}</span></td>
-                <td data-label="Status"><span class="status ${ticket.status} ${modoMergeAtivo ? '' : 'clickable'}" ${modoMergeAtivo ? '' : `onclick="event.stopPropagation(); alterarStatus(${ticket.id}, ${ticket.setor_id || 'null'})"`} title="Clique para alterar">${window.STATUS_CONFIG && window.STATUS_CONFIG[ticket.status] ? window.STATUS_CONFIG[ticket.status].nome : (typeof formatarNomeStatus === 'function' ? formatarNomeStatus(ticket.status) : ticket.status)}</span></td>
-                <td data-label="Prioridade"><span class="status prioridade ${ticket.prioridade || 'normal'} ${modoMergeAtivo ? '' : 'clickable'}" ${modoMergeAtivo ? '' : `onclick="event.stopPropagation(); alterarPrioridade(${ticket.id})" title="Clique para alterar"`}>${typeof formatarNomePrioridade === 'function' ? formatarNomePrioridade(ticket.prioridade) : (ticket.prioridade ? ticket.prioridade.charAt(0).toUpperCase() + ticket.prioridade.slice(1).toLowerCase() : 'Normal')}</span></td>
+                <td data-label="Responsável"><span class="status ${ticket.agente_nome ? 'atribuido' : 'nao-atribuido'} ${(modoMergeAtivo || Papeis.somenteLeitura()) ? '' : 'clickable'}" ${(modoMergeAtivo || Papeis.somenteLeitura()) ? '' : `onclick="event.stopPropagation(); atribuirTicket(${ticket.id}, ${ticket.setor_id ? Number(ticket.setor_id) : 'null'})" title="Clique para atribuir"`}>${sanitizeHTML(ticket.agente_nome || 'Não atribuído')}</span>${(ticket.agente_nome && ticket.atribuido_em) ? `<small class="ticket-data-hora">desde ${dataDoBanco(ticket.atribuido_em).toLocaleDateString('pt-BR')}</small>` : ''}</td>
+                <td data-label="Subcategoria"><span class="status categoria ${ticket.categoria_nome ? '' : 'sem-categoria'} ${(modoMergeAtivo || Papeis.somenteLeitura()) ? '' : 'clickable'}" ${(modoMergeAtivo || Papeis.somenteLeitura()) ? '' : `onclick="event.stopPropagation(); alterarCategoria(${ticket.id})" title="Clique para alterar"`}>${sanitizeHTML(ticket.categoria_nome || 'Sem subcategoria')}</span></td>
+                <td data-label="Status"><span class="status ${ticket.status} ${(modoMergeAtivo || Papeis.somenteLeitura()) ? '' : 'clickable'}" ${(modoMergeAtivo || Papeis.somenteLeitura()) ? '' : `onclick="event.stopPropagation(); alterarStatus(${ticket.id}, ${ticket.setor_id || 'null'})"`} title="Clique para alterar">${window.STATUS_CONFIG && window.STATUS_CONFIG[ticket.status] ? window.STATUS_CONFIG[ticket.status].nome : (typeof formatarNomeStatus === 'function' ? formatarNomeStatus(ticket.status) : ticket.status)}</span></td>
+                <td data-label="Prioridade"><span class="status prioridade ${ticket.prioridade || 'normal'} ${(modoMergeAtivo || Papeis.somenteLeitura()) ? '' : 'clickable'}" ${(modoMergeAtivo || Papeis.somenteLeitura()) ? '' : `onclick="event.stopPropagation(); alterarPrioridade(${ticket.id})" title="Clique para alterar"`}>${typeof formatarNomePrioridade === 'function' ? formatarNomePrioridade(ticket.prioridade) : (ticket.prioridade ? ticket.prioridade.charAt(0).toUpperCase() + ticket.prioridade.slice(1).toLowerCase() : 'Normal')}</span></td>
             </tr>
         `;
     });

@@ -1,6 +1,6 @@
 /**
- * Gerenciamento de Usuários, em duas abas: "Equipe" (admin, gestor, operador —
- * acessam o sistema) e "Solicitantes" (tipo "cliente", só visível para admin;
+ * Gerenciamento de Usuários, em duas abas: "Equipe" (admin, coordenador geral, supervisor,
+ * coordenador, gestor e operador — acessam o sistema) e "Solicitantes" (tipo "cliente", só visível para admin;
  * nunca têm acesso ao sistema, aqui é só consulta/edição de cadastro). Extraído
  * de script.js na Fase 12 (onda 2 da divisão por domínio); abas separadas na
  * Fase 5 das melhorias adiadas (antes misturadas numa lista só).
@@ -75,11 +75,8 @@ function navegarAbasUsuarios(event, abaAtualId) {
 }
 
 function rotuloTipoUsuario(tipo) {
-    if (tipo === 'admin') return 'Administrador';
-    if (tipo === 'gestor') return 'Gestor';
-    if (tipo === 'operador' || !tipo) return 'Operador';
     if (tipo === 'cliente') return 'Solicitante externo (sem acesso ao sistema)';
-    return tipo;
+    return Papeis.rotulo(tipo || 'operador');
 }
 
 // Admin redefine a senha de qualquer membro da equipe; gestor, só dos operadores do setor
@@ -97,7 +94,7 @@ function gerarCardUsuario(usuario, usuarioLogado, ehAdmin) {
             <div class="usuario-info">
                 <h4>${sanitizeHTML(usuario.nome)} ${!statusAtivo ? '<span style="color: #dc3545;">(Inativo)</span>' : ''}</h4>
                 <p>${sanitizeHTML(usuario.email)}${usuario.username ? ` · <code>${sanitizeHTML(usuario.username)}</code>` : ''}</p>
-                <p><strong>Papel:</strong> ${tipoExibicao}${usuario.cargo ? ` · <strong>Cargo:</strong> ${sanitizeHTML(usuario.cargo)}` : ''}${usuario.setor_nome ? ` · <strong>Setor:</strong> ${sanitizeHTML(usuario.setor_nome)}` : ''}</p>
+                <p><strong>Papel:</strong> ${tipoExibicao}${usuario.cargo ? ` · <strong>Cargo:</strong> ${sanitizeHTML(usuario.cargo)}` : ''}${usuario.setor_nome ? ` · <strong>Setor:</strong> ${sanitizeHTML(usuario.setor_nome)}` : ''}${(usuario.setores_adicionais || []).length ? ` · <strong>Setores adicionais:</strong> ${usuario.setores_adicionais.map(s => sanitizeHTML(s.nome)).join(', ')}` : ''}${usuario.atendimento_externo ? ' · <strong>Atendimento externo</strong>' : ''}</p>
                 <p><strong>Criado:</strong> ${dataDoBanco(usuario.criado_em).toLocaleDateString('pt-BR')}</p>
             </div>
             <div class="usuario-acoes">
@@ -148,42 +145,112 @@ function mostrarListaUsuarios(usuarios, setores) {
     `;
 }
 
-function gerarPainelEquipe(usuarios, setores, usuarioLogado, ehAdmin) {
-    // Separar por papel (tratar vazio como usuário comum, por segurança de exibição)
-    const admins = usuarios.filter(u => u.tipo === 'admin');
-    const gestores = usuarios.filter(u => u.tipo === 'gestor');
-    const usuariosComuns = usuarios.filter(u => u.tipo === 'operador' || u.tipo === '' || !u.tipo);
+// Papéis na ordem em que aparecem na lista, com o título de cada grupo
+const GRUPOS_EQUIPE_USUARIOS = [
+    ['admin', '👑 Administradores'],
+    ['coordenador_geral', '🧩 Coordenação Geral'],
+    ['supervisor', '🔎 Supervisão'],
+    ['coordenador', '🗂️ Coordenadores'],
+    ['gestor', '🧭 Gestores'],
+    ['operador', '👥 Operadores']
+];
 
+// Quem já coordena cada setor (principal ou adicional), para o admin não dar o mesmo setor a dois coordenadores
+function coordenadorDeCadaSetor() {
+    const mapa = {};
+    usuariosCacheAtual.filter(u => u.tipo === 'coordenador' && (u.ativo === 1 || u.ativo === '1')).forEach(u => {
+        if (u.setor_id) mapa[String(u.setor_id)] = { id: Number(u.id), nome: u.nome };
+        (u.setores_adicionais || []).forEach(s => { mapa[String(s.id)] = { id: Number(u.id), nome: u.nome }; });
+    });
+    return mapa;
+}
+
+// Caixas de seleção dos setores adicionais de um coordenador (só o admin vê)
+function caixasSetoresAdicionais(setores, selecionados, usuarioId) {
+    const marcados = new Set((selecionados || []).map(String));
+    const ocupados = coordenadorDeCadaSetor();
+    return setores.map(s => {
+        const dono = ocupados[String(s.id)];
+        const ocupadoPorOutro = dono && Number(dono.id) !== Number(usuarioId || 0);
+        return `<label class="caixa-setor-adicional">
+            <input type="checkbox" name="setor-adicional" value="${Number(s.id)}" ${marcados.has(String(s.id)) ? 'checked' : ''} ${ocupadoPorOutro ? 'disabled' : ''}>
+            ${sanitizeHTML(s.nome)}${ocupadoPorOutro ? ` <small>(coordenador(a): ${sanitizeHTML(dono.nome)})</small>` : ''}
+        </label>`;
+    }).join('');
+}
+
+// Mostra os setores adicionais só quando o perfil escolhido é Coordenador
+function atualizarCamposPerfilUsuario(idSelect, idGrupo) {
+    const seletor = document.getElementById(idSelect);
+    const grupo = document.getElementById(idGrupo);
+    if (grupo && seletor) grupo.hidden = seletor.value !== 'coordenador';
+}
+
+function opcoesPerfilUsuario(ehAdmin, atual) {
+    const tipos = ehAdmin ? ['operador', 'gestor', 'coordenador', 'supervisor', 'coordenador_geral', 'admin'] : ['operador'];
+    return tipos.map(t => `<option value="${t}" ${t === atual ? 'selected' : ''}>${Papeis.rotulo(t)}</option>`).join('');
+}
+
+// Campos que só o admin preenche: setores adicionais do coordenador e atendimento externo
+function camposSoAdminUsuario(prefixo, setores, usuario) {
+    const extras = ((usuario && usuario.setores_adicionais) || []).map(s => s.id);
+    return `
+        <div class="form-group" id="${prefixo}grupo-setores-adicionais" ${usuario && usuario.tipo === 'coordenador' ? '' : 'hidden'}>
+            <fieldset class="fieldset-setores-adicionais">
+                <legend>Setores adicionais do coordenador (além do setor principal)</legend>
+                <div class="caixas-setores-adicionais">${caixasSetoresAdicionais(setores, extras, usuario ? usuario.id : null)}</div>
+                <small>Cada setor tem um único coordenador.</small>
+            </fieldset>
+        </div>
+        <div class="form-group">
+            <label class="switch-label">
+                <span class="switch"><input type="checkbox" id="${prefixo}atendimento-externo" ${usuario && usuario.atendimento_externo ? 'checked' : ''}><span class="slider"></span></span>
+                <span>Faz atendimento externo (pode enviar pesquisas de satisfação no Meu Painel)</span>
+            </label>
+        </div>`;
+}
+
+// Lê os campos que só o admin preenche (vazio quando a tela não os mostra)
+function lerCamposSoAdminUsuario(prefixo, tipo) {
+    const externo = document.getElementById(`${prefixo}atendimento-externo`);
+    const dados = {};
+    if (externo) {
+        dados.atendimento_externo = externo.checked;
+        dados.setores_adicionais = tipo === 'coordenador'
+            ? Array.from(document.querySelectorAll(`#${prefixo}grupo-setores-adicionais input[name="setor-adicional"]:checked`)).map(c => Number(c.value))
+            : [];
+    }
+    return dados;
+}
+
+function gerarPainelEquipe(usuarios, setores, usuarioLogado, ehAdmin) {
+    // Separar por papel (tratar vazio como operador, por segurança de exibição)
     let secoes = '';
-    if (admins.length > 0) {
-        secoes += `<h3>👑 Administradores (${admins.length})</h3><div class="usuarios-grid">${admins.map(u => gerarCardUsuario(u, usuarioLogado, ehAdmin)).join('')}</div>`;
-    }
-    if (gestores.length > 0) {
-        secoes += `<h3>🧭 Gestores (${gestores.length})</h3><div class="usuarios-grid">${gestores.map(u => gerarCardUsuario(u, usuarioLogado, ehAdmin)).join('')}</div>`;
-    }
-    if (usuariosComuns.length > 0) {
-        secoes += `<h3>👥 Operadores (${usuariosComuns.length})</h3><div class="usuarios-grid">${usuariosComuns.map(u => gerarCardUsuario(u, usuarioLogado, ehAdmin)).join('')}</div>`;
-    }
+    GRUPOS_EQUIPE_USUARIOS.forEach(([papel, titulo]) => {
+        const grupo = usuarios.filter(u => u.tipo === papel || (papel === 'operador' && !u.tipo));
+        if (grupo.length > 0) {
+            secoes += `<h3>${titulo} (${grupo.length})</h3><div class="usuarios-grid">${grupo.map(u => gerarCardUsuario(u, usuarioLogado, ehAdmin)).join('')}</div>`;
+        }
+    });
     if (!secoes) {
         secoes = '<p>Nenhum usuário da equipe encontrado.</p>';
     }
 
-    // Opções de papel: gestor só pode cadastrar "usuario"; admin pode tudo
-    const opcoesTipo = ehAdmin
-        ? `<option value="operador">Operador</option>
-           <option value="gestor">Gestor</option>
-           <option value="admin">Administrador</option>`
-        : `<option value="operador">Operador</option>`;
+    // Opções de papel: gestor e coordenador só cadastram operadores; admin pode tudo
+    const opcoesTipo = opcoesPerfilUsuario(ehAdmin, 'operador');
 
-    // Setor só é escolhido pelo admin — gestor fica travado no próprio setor no backend
-    const campoSetor = ehAdmin ? `
+    // Setor: o admin escolhe entre todos; o coordenador, entre os seus; gestor fica travado no próprio setor (backend)
+    const setoresEscolha = ehAdmin ? setores : (Papeis.setores(usuarioLogado) || []);
+    const campoSetor = (ehAdmin || setoresEscolha.length > 1) ? `
                     <div class="form-group">
                         <label for="setor-usuario">Setor:</label>
                         <select id="setor-usuario">
-                            <option value="">Nenhum (obrigatório para Operador/Gestor)</option>
-                            ${setores.map(s => `<option value="${s.id}">${sanitizeHTML(s.nome)}</option>`).join('')}
+                            <option value="">${ehAdmin ? 'Nenhum (obrigatório, menos para Administrador)' : 'Escolha o setor'}</option>
+                            ${setoresEscolha.map(s => `<option value="${s.id}">${sanitizeHTML(s.nome)}</option>`).join('')}
                         </select>
                     </div>` : '';
+
+    const camposAdmin = ehAdmin ? camposSoAdminUsuario('', setores, null) : '';
 
     return `
         <button onclick="toggleFormUsuario()" class="btn-primary" style="margin-bottom: 1rem;">
@@ -217,12 +284,13 @@ function gerarPainelEquipe(usuarios, setores, usuarioLogado, ehAdmin) {
                 <div class="form-row">
                     <div class="form-group">
                         <label for="tipo-usuario">Perfil:</label>
-                        <select id="tipo-usuario">
+                        <select id="tipo-usuario" onchange="atualizarCamposPerfilUsuario('tipo-usuario', 'grupo-setores-adicionais')">
                             ${opcoesTipo}
                         </select>
                     </div>
                     ${campoSetor}
                 </div>
+                ${camposAdmin}
                 <div class="form-row">
                     <div class="form-group">
                         <label for="senha-usuario">Senha inicial:</label>
@@ -310,8 +378,8 @@ async function criarUsuario(event) {
     const senha = document.getElementById('senha-usuario').value;
     const senhaConfirmacao = document.getElementById('senha-confirmacao-usuario').value;
 
-    if ((tipo === 'operador' || tipo === 'gestor') && campoSetor && !setor_id) {
-        mostrarAlert('Erro', 'Selecione um setor para os perfis Operador/Gestor.');
+    if (tipo !== 'admin' && campoSetor && !setor_id) {
+        mostrarAlert('Erro', 'Selecione o setor de lotação (obrigatório para todos os perfis, menos Administrador).');
         return;
     }
 
@@ -327,7 +395,7 @@ async function criarUsuario(event) {
     }
 
     try {
-        await Api.post('usuarios.php', { nome, username, email, cargo, tipo, setor_id, senha });
+        await Api.post('usuarios.php', Object.assign({ nome, username, email, cargo, tipo, setor_id, senha }, lerCamposSoAdminUsuario('', tipo)));
         mostrarToast('Sucesso', 'Usuário criado com sucesso!', 'success');
         document.getElementById('form-usuario').reset();
         carregarUsuarios();
@@ -378,19 +446,18 @@ function mostrarFormularioEdicaoUsuario(usuario, setores) {
     const opcoesTipo = ehSolicitante
         ? `<option value="cliente" selected>Solicitante externo (sem acesso ao sistema)</option>`
         : ehAdmin
-            ? `<option value="operador" ${usuario.tipo === 'operador' ? 'selected' : ''}>Operador</option>
-           <option value="gestor" ${usuario.tipo === 'gestor' ? 'selected' : ''}>Gestor</option>
-           <option value="admin" ${usuario.tipo === 'admin' ? 'selected' : ''}>Administrador</option>`
+            ? opcoesPerfilUsuario(true, usuario.tipo)
             : `<option value="operador" selected>Operador</option>`;
 
     const campoSetor = (ehAdmin && !ehSolicitante) ? `
         <div class="form-group">
             <label for="edit-setor">Setor:</label>
             <select id="edit-setor">
-                <option value="">Nenhum (obrigatório para Operador/Gestor)</option>
+                <option value="">Nenhum (obrigatório, menos para Administrador)</option>
                 ${setores.map(s => `<option value="${s.id}" ${String(usuario.setor_id) === String(s.id) ? 'selected' : ''}>${sanitizeHTML(s.nome)}</option>`).join('')}
             </select>
         </div>` : '';
+    const camposAdmin = (ehAdmin && !ehSolicitante) ? camposSoAdminUsuario('edit-', setores, usuario) : '';
 
     const content = `
         <div class="form-group">
@@ -407,11 +474,12 @@ function mostrarFormularioEdicaoUsuario(usuario, setores) {
         </div>
         <div class="form-group">
             <label for="edit-tipo">Perfil:</label>
-            <select id="edit-tipo" ${(ehAdmin && !ehSolicitante) ? '' : 'disabled'}>
+            <select id="edit-tipo" ${(ehAdmin && !ehSolicitante) ? '' : 'disabled'} onchange="atualizarCamposPerfilUsuario('edit-tipo', 'edit-grupo-setores-adicionais')">
                 ${opcoesTipo}
             </select>
         </div>
         ${campoSetor}
+        ${camposAdmin}
     `;
 
     document.getElementById('modal-prompt-message').innerHTML = content;
@@ -430,13 +498,13 @@ function mostrarFormularioEdicaoUsuario(usuario, setores) {
             const campoSetorEl = document.getElementById('edit-setor');
             const setor_id = campoSetorEl ? campoSetorEl.value : null;
 
-            if ((tipo === 'operador' || tipo === 'gestor') && campoSetorEl && !setor_id) {
-                mostrarAlert('Erro', 'Selecione um setor para os perfis Operador/Gestor.');
+            if (tipo !== 'admin' && tipo !== 'cliente' && campoSetorEl && !setor_id) {
+                mostrarAlert('Erro', 'Selecione o setor de lotação (obrigatório para todos os perfis, menos Administrador).');
                 return;
             }
 
             if (nome && tipo) {
-                executarEdicaoUsuario(usuario.id, nome, usuario.email, tipo, username, cargo, setor_id);
+                executarEdicaoUsuario(usuario.id, nome, usuario.email, tipo, username, cargo, setor_id, lerCamposSoAdminUsuario('edit-', tipo));
             }
         }
 
@@ -446,9 +514,9 @@ function mostrarFormularioEdicaoUsuario(usuario, setores) {
     };
 }
 
-async function executarEdicaoUsuario(usuarioId, nome, email, tipo, username, cargo, setor_id) {
+async function executarEdicaoUsuario(usuarioId, nome, email, tipo, username, cargo, setor_id, extras) {
     try {
-        const resposta = await Api.put(`usuarios.php/${usuarioId}`, { nome, email, tipo, username, cargo, setor_id });
+        const resposta = await Api.put(`usuarios.php/${usuarioId}`, Object.assign({ nome, email, tipo, username, cargo, setor_id }, extras || {}));
         carregarUsuarios();
         const devolvidas = (resposta && resposta.demandas_devolvidas) || 0;
         mostrarToast('Sucesso', devolvidas > 0

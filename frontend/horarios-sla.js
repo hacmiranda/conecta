@@ -3,10 +3,11 @@
 // Nome do setor cujo expediente está sendo exibido (próprio setor ou o escolhido pelo admin)
 function nomeSetorDoExpediente() {
     const usuario = JSON.parse(localStorage.getItem('cd_usuario') || '{}');
-    if (usuario.tipo !== 'admin') return usuario.setor_nome || '';
+    if (!Papeis.variosSetores(usuario)) return usuario.setor_nome || '';
     const seletor = document.getElementById('seletor-setor');
     if (seletor && seletor.value) return seletor.options[seletor.selectedIndex].textContent;
-    return 'Geral (nenhum setor escolhido no cabeçalho)';
+    // Coordenador sem escolha usa o setor principal; admin, o Geral
+    return usuario.tipo === 'coordenador' ? (usuario.setor_nome || '') : 'Geral (nenhum setor escolhido no cabeçalho)';
 }
 
 function mostrarHorariosSLA() {

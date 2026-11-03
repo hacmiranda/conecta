@@ -247,7 +247,7 @@ function inicializarAvatar() {
     setEl('header-avatar-iniciais', iniciais);
     setEl('header-avatar-iniciais-sm', iniciais);
     setEl('header-avatar-nome', nome.split(' ')[0]); // primeiro nome no botão
-    setEl('header-avatar-role', 'Perfil: ' + (tipo === 'admin' ? 'Administrador' : tipo === 'gestor' ? 'Gestor' : 'Operador'));
+    setEl('header-avatar-role', 'Perfil: ' + Papeis.rotulo(tipo));
     const elCargo = document.getElementById('header-avatar-cargo');
     if (elCargo) {
         elCargo.textContent = cargo;
@@ -346,8 +346,8 @@ function mostrarSecao(secaoId) {
     } else if (secaoId === 'config') {
         // Verificar se é admin ou gestor
         const usuario = JSON.parse(localStorage.getItem('cd_usuario'));
-        if (usuario.tipo !== 'admin' && usuario.tipo !== 'gestor') {
-            mostrarAlert('Acesso Negado', 'Apenas administradores e gestores podem acessar as configurações.', function () {
+        if (!Papeis.administraSetor(usuario)) {
+            mostrarAlert('Acesso Negado', 'Apenas administradores, coordenadores e gestores podem acessar as configurações.', function () {
                 mostrarSecao('tickets');
             });
             return;
@@ -374,7 +374,7 @@ function urlComSetor(url) {
 // em que a demanda está em outro setor/com outra pessoa.
 function exibirColunaSetor(emArquivo) {
     const u = JSON.parse(localStorage.getItem('cd_usuario') || '{}');
-    if (u.tipo === 'admin') return true;
+    if (Papeis.variosSetores(u)) return true; // admin, visão total ou coordenador com mais de um setor
     return !!emArquivo && escopoArquivoAtual !== 'arquivo';
 }
 
@@ -408,8 +408,8 @@ function mostrarSkeletonTickets(idContainer = 'lista-tickets') {
 // Usa demanda-acoes.php (comentário obrigatório + histórico) em vez do PUT direto.
 function atribuirTicket(ticketId, setorId) {
     const usuarioLogado = JSON.parse(localStorage.getItem('cd_usuario') || '{}');
-    if (usuarioLogado.tipo !== 'gestor' && usuarioLogado.tipo !== 'admin') {
-        return; // operadores não distribuem demandas
+    if (!Papeis.administraSetor(usuarioLogado)) {
+        return; // operadores e perfis de consulta não distribuem demandas
     }
 
     // O setor vem da própria demanda (o admin não pertence a um setor)
@@ -499,6 +499,7 @@ function obterSetorIdDoTicket(ticketId) {
 }
 
 function alterarStatus(ticketId, setorId) {
+    if (Papeis.somenteLeitura()) return; // perfil de consulta: o servidor também recusa
     if (setorId === undefined || setorId === null) {
         setorId = obterSetorIdDoTicket(ticketId);
     }
@@ -545,6 +546,7 @@ function alterarStatus(ticketId, setorId) {
 
 // Alterar categoria do ticket
 function alterarCategoria(ticketId) {
+    if (Papeis.somenteLeitura()) return;
     const setorId = obterSetorIdDoTicket(ticketId);
     const filtroSetor = setorId ? `?setor_id=${setorId}` : '';
 
@@ -586,6 +588,7 @@ function executarAlteracaoCategoria(ticketId, categoriaId) {
 
 // Alterar prioridade do ticket
 function alterarPrioridade(ticketId, setorId) {
+    if (Papeis.somenteLeitura()) return;
     if (setorId === undefined || setorId === null) {
         setorId = obterSetorIdDoTicket(ticketId);
     }
@@ -982,27 +985,30 @@ function selecionarModal(opcao) {
 
 // === CONTROLE DE VISIBILIDADE POR PAPEL ===
 
-// Registro de Atividades (veio do METRICA360): só gestor/operador com setor
+// Registro de Atividades (veio do METRICA360): toda a equipe com setor de lotação, menos o administrador
 function podeRegistrarAtividades() {
-    const u = JSON.parse(localStorage.getItem('cd_usuario') || '{}');
-    return (u.tipo === 'gestor' || u.tipo === 'operador') && !!u.setor_id;
+    return Papeis.registraAtividades();
 }
 
 // Mostra/oculta o menu Configurações e seus itens conforme o papel do usuário logado.
 // admin: vê tudo. gestor: vê só "Gerenciar Usuários" (escopado ao próprio setor).
 // usuario/cliente: menu Configurações fica oculto por completo.
 function aplicarVisibilidadePorPapel(tipo) {
+    const perfil = { tipo: tipo };
+    // Coordenador geral e supervisor só consultam: a classe esconde os botões de alteração (o servidor também recusa)
+    document.body.classList.toggle('papel-somente-leitura', Papeis.somenteLeitura(perfil));
+
     // Lixeira: somente administrador
     const itemLixeira = document.getElementById('nav-lixeira-item');
     if (itemLixeira) itemLixeira.hidden = tipo !== 'admin';
 
-    // Registro de Atividades: gestor e operador vinculados a um setor
+    // Registro de Atividades: equipe vinculada a um setor (menos o administrador)
     const itemRegistro = document.getElementById('nav-registro-atividades-item');
     if (itemRegistro) itemRegistro.hidden = !podeRegistrarAtividades();
 
-    // Acompanhamento das atividades: admin e gestor
+    // Acompanhamento das atividades: gestão do setor e visão total
     const itemAcomp = document.getElementById('nav-atividades-item');
-    if (itemAcomp) itemAcomp.hidden = !(tipo === 'admin' || tipo === 'gestor');
+    if (itemAcomp) itemAcomp.hidden = !(Papeis.administraSetor(perfil) || Papeis.visaoTotal(perfil));
 
     // Meu Painel: só quem o METRICA360 reconhece com atendimento externo (consulta assíncrona)
     if (typeof verificarAcessoMeuPainel === 'function') verificarAcessoMeuPainel();
@@ -1015,9 +1021,9 @@ function aplicarVisibilidadePorPapel(tipo) {
         return;
     }
 
-    if (tipo === 'gestor') {
+    if (Papeis.gestao(perfil)) {
         menuConfigWrapper.style.display = '';
-        // Gestor: Usuários, Categorias, Ativação por Setor, Horários e Feriados e Personalização
+        // Gestor e coordenador: Usuários, Categorias, Ativação por Setor, Horários e Feriados e Personalização
         // (somente leitura). Setores, Configurar e-mail e Auditoria são exclusivos do admin.
         const itensAdminApenas = ['btn-config-setores', 'btn-config-email', 'btn-config-auditoria'];
         itensAdminApenas.forEach(id => {
@@ -1122,10 +1128,10 @@ function restaurarSecaoAtiva() {
         }
     } else if (secaoSalva === 'config') {
         const usuario = JSON.parse(localStorage.getItem('cd_usuario'));
-        if (usuario.tipo !== 'admin' && usuario.tipo !== 'gestor') {
+        if (!Papeis.administraSetor(usuario)) {
             mostrarSecao('tickets');
             carregarTickets();
-        } else if (usuario.tipo === 'gestor') {
+        } else if (Papeis.gestao(usuario)) {
             // Gestor: Usuários, Categorias, Ativação por Setor, Horários e Feriados e Personalização (leitura)
             mostrarSecao('config');
             if (subSecaoSalva === 'categorias') {
@@ -1260,7 +1266,9 @@ async function atualizarUsuarioDoServidor(guardado) {
         const resposta = await Api.get('me.php');
         const atual = resposta && resposta.usuario;
         if (!atual) return;
-        const mudou = atual.tipo !== guardado.tipo || String(atual.setor_id ?? '') !== String(guardado.setor_id ?? '');
+        const idsSetores = (u) => JSON.stringify(Papeis.setores(u) === null ? null : Papeis.setores(u).map(x => Number(x.id)));
+        const mudou = atual.tipo !== guardado.tipo || String(atual.setor_id ?? '') !== String(guardado.setor_id ?? '')
+            || idsSetores(atual) !== idsSetores(guardado) || !!atual.atendimento_externo !== !!guardado.atendimento_externo;
         localStorage.setItem('cd_usuario', JSON.stringify(Object.assign({}, guardado, atual)));
         if (mudou) {
             window.location.reload();
@@ -1348,7 +1356,7 @@ document.addEventListener('DOMContentLoaded', function () {
     const naoMostrar = localStorage.getItem('cd_naoMostrarDicas') === 'true';
     const jaViuTutorial = localStorage.getItem('cd_tutorialCompleto') === 'true';
 
-    if (!naoMostrar && jaViuTutorial && dadosUsuario && ['operador', 'gestor', 'admin'].includes(dadosUsuario.tipo)) {
+    if (!naoMostrar && jaViuTutorial && dadosUsuario && Papeis.equipe(dadosUsuario)) {
         setTimeout(() => {
             mostrarDicas();
         }, 2000);

@@ -26,15 +26,18 @@ function mostrarFiltrosEmail() {
 async function carregarPaginaFiltrosEmail() {
     const content = document.getElementById('config-content');
     const usuario = JSON.parse(localStorage.getItem('cd_usuario') || '{}');
-    const ehAdmin = usuario.tipo === 'admin';
+    // Abas por setor: admin (mais a aba dos filtros globais) e coordenador com mais de um setor
+    const ehAdmin = Papeis.variosSetores(usuario);
+    const ehAdminReal = Papeis.admin(usuario);
     content.innerHTML = '<p class="filtros-aviso">Carregando...</p>';
 
     try {
         if (ehAdmin) {
-            filtrosSetoresLista = (await Api.get('setores.php')).filter(s => Number(s.ativo) === 1);
+            const doUsuario = Papeis.setores(usuario);
+            filtrosSetoresLista = (doUsuario === null ? await Api.get('setores.php') : doUsuario).filter(s => s.ativo === undefined || Number(s.ativo) === 1);
             const salvo = localStorage.getItem('cd_filtrosEmailSetor');
-            const existe = salvo === 'global' || filtrosSetoresLista.some(s => String(s.id) === salvo);
-            filtrosSetorAtual = existe ? salvo : (filtrosSetoresLista[0] ? String(filtrosSetoresLista[0].id) : 'global');
+            const existe = (ehAdminReal && salvo === 'global') || filtrosSetoresLista.some(s => String(s.id) === salvo);
+            filtrosSetorAtual = existe ? salvo : (filtrosSetoresLista[0] ? String(filtrosSetoresLista[0].id) : (ehAdminReal ? 'global' : ''));
         } else {
             filtrosSetoresLista = [];
             filtrosSetorAtual = String(usuario.setor_id || '');
@@ -54,7 +57,7 @@ async function carregarPaginaFiltrosEmail() {
 function montarEsqueletoFiltros(ehAdmin) {
     const abas = ehAdmin ? `
         <div class="abas-usuarios filtros-abas" role="tablist" aria-label="Setores">
-            ${[{ id: 'global', nome: '🌐 Todos os setores' }, ...filtrosSetoresLista.map(s => ({ id: String(s.id), nome: s.nome }))].map(s => `
+            ${[...(Papeis.admin() ? [{ id: 'global', nome: '🌐 Todos os setores' }] : []), ...filtrosSetoresLista.map(s => ({ id: String(s.id), nome: s.nome }))].map(s => `
                 <button type="button" role="tab" class="aba-usuarios-btn" id="aba-filtros-${sanitizeHTML(s.id)}"
                     data-acao="aba" data-setor="${sanitizeHTML(s.id)}" aria-controls="painel-filtros"
                     aria-selected="${s.id === filtrosSetorAtual}" tabindex="${s.id === filtrosSetorAtual ? '0' : '-1'}">${sanitizeHTML(s.nome)}</button>`).join('')}

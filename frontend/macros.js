@@ -42,7 +42,7 @@ function renderizarListaMacros() {
     todasMacros.forEach(macro => {
         // Edita/exclui: o autor, o gestor do setor da macro ou o administrador
         const podeEditar = usuarioLogado.tipo === 'admin' || macro.usuario_id == usuarioLogado.id
-            || (usuarioLogado.tipo === 'gestor' && macro.setor_id && macro.setor_id == usuarioLogado.setor_id);
+            || (Papeis.gestao(usuarioLogado) && macro.setor_id && Papeis.temSetor(macro.setor_id, usuarioLogado));
 
         html += `
             <div style="background: #fff; padding: 1rem; border-radius: 8px; margin-bottom: 0.5rem; border: 1px solid #ddd; display: flex; justify-content: space-between; align-items: flex-start;">

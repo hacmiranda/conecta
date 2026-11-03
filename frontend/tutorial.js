@@ -379,7 +379,7 @@ function reiniciarTutorial() {
 setTimeout(() => {
     const usuario = JSON.parse(localStorage.getItem('cd_usuario'));
     // Com troca de senha pendente, o tutorial espera o próximo carregamento
-    if (usuario && !usuario.trocar_senha && (['operador', 'gestor', 'admin'].includes(usuario.tipo))) {
+    if (usuario && !usuario.trocar_senha && Papeis.equipe(usuario)) {
         iniciarTutorial();
     }
 }, 2000);

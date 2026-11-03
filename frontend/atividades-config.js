@@ -23,11 +23,13 @@ function mostrarAtividadesConfig() {
 async function carregarPaginaAtividadesConfig() {
     const content = document.getElementById('config-content');
     const usuario = JSON.parse(localStorage.getItem('cd_usuario') || '{}');
-    const ehAdmin = usuario.tipo === 'admin';
+    // Abas por setor: admin (todos os setores) e coordenador com mais de um setor (os dele)
+    const ehAdmin = Papeis.variosSetores(usuario);
     content.innerHTML = '<p class="ativcfg-aviso">Carregando...</p>';
     try {
         if (ehAdmin) {
-            ativCfgSetores = (await Api.get('setores.php')).filter(s => Number(s.ativo) === 1);
+            const doUsuario = Papeis.setores(usuario);
+            ativCfgSetores = (doUsuario === null ? await Api.get('setores.php') : doUsuario).filter(s => s.ativo === undefined || Number(s.ativo) === 1);
             const salvo = localStorage.getItem('cd_atividadesConfigSetor');
             ativCfgSetorAtual = ativCfgSetores.some(s => String(s.id) === salvo) ? salvo : (ativCfgSetores[0] ? String(ativCfgSetores[0].id) : '');
         } else {
@@ -151,7 +153,7 @@ function montarUsuariosCfg(usuarios, setor) {
     const diario = setor.modo === 'diario';
     const linhas = usuarios.map(u => `
         <tr data-usuario="${u.id}">
-            <th scope="row">${sanitizeHTML(u.nome)}<br><small>${u.tipo === 'gestor' ? 'Gestor' : 'Operador'}</small></th>
+            <th scope="row">${sanitizeHTML(u.nome)}<br><small>${Papeis.rotulo(u.tipo)}</small></th>
             <td><label class="switch"><input type="checkbox" role="switch" name="remoto" aria-label="${sanitizeHTML(u.nome)} faz trabalho remoto"
                 ${u.trabalho_remoto ? 'checked' : ''}><span class="slider"></span></label></td>
             <td>${diario

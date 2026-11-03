@@ -9,8 +9,8 @@ const usuario = JSON.parse(localStorage.getItem('cd_usuario') || 'null');
 if (!usuario) {
     window.location.href = './login.html';
 } else {
-    // Esconder configurações para quem não é administrador
-    if (usuario.tipo !== 'admin') {
+    // Esconder configurações para quem não administra setor (admin, gestor e coordenador mantêm o menu)
+    if (!(usuario.tipo === 'admin' || usuario.tipo === 'gestor' || usuario.tipo === 'coordenador')) {
         const btnConfig = document.querySelector('button[onclick="mostrarSecao(\'config\')"]');
         if (btnConfig) {
             btnConfig.style.display = 'none';

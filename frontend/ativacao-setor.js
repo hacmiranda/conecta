@@ -23,9 +23,11 @@ async function mostrarConfigSetor() {
 
     const usuario = JSON.parse(localStorage.getItem('cd_usuario') || '{}');
 
-    if (usuario.tipo === 'admin') {
+    if (Papeis.variosSetores(usuario)) {
         try {
-            const setores = await Api.get('setores.php');
+            // Admin: todos os setores; coordenador com vários setores: os dele
+            const doUsuario = Papeis.setores(usuario);
+            const setores = doUsuario === null ? await Api.get('setores.php') : doUsuario;
             renderizarPainelConfigSetor(setores, setores[0] ? setores[0].id : null);
         } catch (e) {
             content.innerHTML = '<p>Erro ao carregar setores.</p>';
@@ -38,7 +40,7 @@ async function mostrarConfigSetor() {
 function renderizarPainelConfigSetor(setores, setorInicialId) {
     const content = document.getElementById('config-content');
     const usuario = JSON.parse(localStorage.getItem('cd_usuario') || '{}');
-    const ehAdmin = usuario.tipo === 'admin';
+    const ehAdmin = Papeis.variosSetores(usuario); // mostra o seletor de setor
 
     setorConfigAtual = setorInicialId;
     abaConfigSetorAtiva = 'status';

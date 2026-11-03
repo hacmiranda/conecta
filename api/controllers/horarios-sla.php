@@ -33,11 +33,16 @@ function setorDeLeitura(PDO $db, array $user): int {
 }
 
 /**
- * Setor em que a escrita acontece: gestor sempre no próprio setor; admin no setor informado
+ * Setor em que a escrita acontece: gestor no próprio setor; coordenador em um dos seus; admin no setor informado
  * (corpo ou ?setor_id). Encerra com 400 se o admin não indicou nenhum.
  */
 function setorDeEscritaHorario(array $user, array $input): int {
     if (($user['tipo'] ?? '') !== 'admin') {
+        // Coordenador pode escolher qualquer um dos seus setores; os demais ficam no próprio
+        $escolhido = $input['setor_id'] ?? ($_GET['setor_id'] ?? null);
+        if (($user['tipo'] ?? '') === 'coordenador' && is_numeric($escolhido) && AcessoService::temAcessoAoSetor($user, (int) $escolhido)) {
+            return (int) $escolhido;
+        }
         return (int) ($user['setor_id'] ?? 0);
     }
     $pedido = $input['setor_id'] ?? ($_GET['setor_id'] ?? null);
@@ -55,9 +60,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET' && isset($_GET['mapa'])) {
     try {
         $filtro = '';
         $params = [];
-        if (($user['tipo'] ?? '') !== 'admin') {
-            $filtro = ' WHERE setor_id = ?';
-            $params[] = (int) ($user['setor_id'] ?? 0);
+        // Visão total (admin, coordenador geral, supervisor): todos os setores; os demais, os seus
+        $meusSetores = AcessoService::setoresDoUsuario($user);
+        if ($meusSetores !== null) {
+            $filtro = ' WHERE ' . AcessoService::filtroSetorSql('setor_id', $meusSetores);
         }
 
         $mapa = [];

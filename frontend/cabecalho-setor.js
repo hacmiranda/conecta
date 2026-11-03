@@ -1,10 +1,11 @@
 /**
  * Cabeçalho do Conecta CRPRS: nome do setor logo abaixo de "Conecta CRPRS" e,
- * para o administrador, o seletor de setor que define o contexto das telas
+ * para quem enxerga mais de um setor (administrador, coordenador geral, supervisor e coordenador
+ * com setores adicionais), o seletor de setor que define o contexto das telas
  * (painel, Arquivo, Dashboard, Relatórios e Configurações).
  *
- * Gestor e operador veem apenas o nome do próprio setor — o servidor sempre
- * limita o que eles enxergam, independentemente do que o navegador enviar.
+ * Gestor, operador e coordenador de um setor só veem o nome do próprio setor — o servidor
+ * sempre limita o que cada um enxerga, independentemente do que o navegador enviar.
  */
 (function () {
     'use strict';
@@ -27,24 +28,27 @@
         }
     }
 
-    // Setor do contexto atual: do próprio usuário, ou o escolhido pelo admin (null = todos)
+    // Setor do contexto atual: do próprio usuário, ou o escolhido no seletor (null = todos os que ele enxerga)
     function obterSetorContexto() {
         const usuario = lerUsuario();
         if (!usuario) return null;
-        if (usuario.tipo !== 'admin') {
+        if (!Papeis.variosSetores(usuario)) {
             return usuario.setor_id ? Number(usuario.setor_id) : null;
         }
         let salvo = null;
         try {
             salvo = localStorage.getItem(CHAVE_CONTEXTO);
         } catch (e) { }
-        return salvo ? Number(salvo) : null;
+        const escolhido = salvo ? Number(salvo) : null;
+        // Coordenador: o setor guardado precisa ser um dos dele (o servidor também confere)
+        if (escolhido !== null && !Papeis.temSetor(escolhido, usuario)) return null;
+        return escolhido;
     }
 
-    // Acrescenta setor_id à URL quando o admin escolheu um setor
+    // Acrescenta setor_id à URL quando foi escolhido um setor no seletor
     function anexarSetor(url) {
         const usuario = lerUsuario();
-        if (!usuario || usuario.tipo !== 'admin') return url;
+        if (!usuario || !Papeis.variosSetores(usuario)) return url;
         const setor = obterSetorContexto();
         if (setor === null) return url;
         return url + (url.indexOf('?') === -1 ? '?' : '&') + 'setor_id=' + encodeURIComponent(setor);
@@ -66,13 +70,19 @@
         }));
     }
 
-    function montarSeletorAdmin() {
+    function montarSeletor() {
         const caixa = document.getElementById('cabecalho-setor-seletor');
         const seletor = document.getElementById('seletor-setor');
         if (!caixa || !seletor) return;
 
+        const usuario = lerUsuario();
+        const listaDoUsuario = Papeis.setores(usuario); // null = visão total (todos os setores ativos)
+        const fonte = listaDoUsuario === null
+            ? Api.get('setores.php')
+            : Promise.resolve(listaDoUsuario.map(function (s) { return { id: s.id, nome: s.nome, ativo: 1 }; }));
+
         // Sem a lista (erro ou sem conexão) o seletor só não aparece, como antes
-        Api.get('setores.php').then(function (resposta) {
+        fonte.then(function (resposta) {
             const setores = Array.isArray(resposta) ? resposta : [];
 
             const salvo = obterSetorContexto();
@@ -80,7 +90,7 @@
 
             const todos = document.createElement('option');
             todos.value = '';
-            todos.textContent = 'Todos os setores';
+            todos.textContent = listaDoUsuario === null ? 'Todos os setores' : 'Todos os meus setores';
             seletor.appendChild(todos);
 
             setores.filter(function (s) { return Number(s.ativo) === 1; }).forEach(function (s) {
@@ -119,8 +129,8 @@
         const usuario = lerUsuario();
         if (!usuario) return;
 
-        if (usuario.tipo === 'admin') {
-            montarSeletorAdmin();
+        if (Papeis.variosSetores(usuario)) {
+            montarSeletor();
             return;
         }
 

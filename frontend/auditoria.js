@@ -469,7 +469,7 @@ async function carregarUsuariosFiltroAudit() {
     try {
         const usuarios = await Api.get('usuarios.php');
         // Filtrar apenas funcionários internos (ativos e inativos)
-        todosUsuariosAudit = usuarios.filter(u => ['operador', 'gestor', 'admin'].includes(u.tipo));
+        todosUsuariosAudit = usuarios.filter(u => Papeis.equipe(u));
         configurarBuscaUsuarioAudit();
     } catch (e) {
         // comportamento original: silencioso em erro
