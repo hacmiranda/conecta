@@ -21,16 +21,13 @@ Nada abaixo foi definido neste roteiro — são escolhas de implantação, não 
   `docs/especificacoes/PROMPT_INTEGRACAO_SISTEMA_SATELITE.md` (este é usado por sistemas
   satélites que consomem `abrir_chamado.php` — avisar quem mantém esses sistemas sobre a nova
   URL quando o caminho `/conecta` entrar no ar).
-- **Subdomínio próprio (auditoria 01/11/2026, SEG-01, achado alto; ainda não decidido).** Em
-  `https://crp07.org.br/conecta` o Conecta divide a origem com o METRICA360 e o site: um XSS em
-  qualquer um deles pode chamar a API do Conecta como o usuário logado e ler o `cd_csrf_token` do
-  `localStorage` (o cookie HttpOnly só impede o roubo do token). A recomendação é publicar em
-  `https://conecta.crp07.org.br`. Se for decidido, mudam juntos: DNS e certificado; `base_url`
-  (`environment.php` / `BASE_URL_PROD`) e `CORS_ALLOWED_ORIGINS_PROD`; `rootBase`/`apiBase` em
-  `frontend/app-config.js`; o `Path=/conecta` do cookie (`AuthMiddleware::definirCookieSessao`, que
-  pode passar a `__Host-conecta_sessao`, sem `Path` nem `Domain`); a URL dos crons no cron-job.org;
-  o `SSO_AUDIENCE_PROD`; e o aviso aos sistemas satélites. **Decidir antes de avisar os satélites**,
-  para não trocar a URL duas vezes.
+- **Subdomínio próprio (auditoria 01/11/2026, SEG-01): decidido em 03/11/2026 — NÃO.** O Conecta
+  fica em subpasta (`https://crp07.org.br/conecta`), sem DNS nem certificado novos; `base_url`, cookie
+  (`Path=/conecta`), CORS e URL dos crons ficam como estão. O risco de mesma origem com o site
+  institucional foi aceito (o METRICA360 deixa de ser um sistema à parte: vira o módulo "Satisfação"
+  do Conecta). `https://crp07.org.br/metrica360` passará a redirecionar (301) para `/conecta/`.
+  Se um dia for preciso mudar, a lista do que muda junto está no histórico do Git deste arquivo
+  (commits anteriores a 03/11/2026).
 - **E-mail de cada setor.** As caixas IMAP/SMTP de setor (`setor_emails`) são cadastradas pela
   tela "Configurar e-mail" depois do primeiro deploy — não há nada a migrar aqui, mas alguém
   precisa cadastrá-las antes dos setores dependerem de e-mail.
@@ -139,6 +136,13 @@ Ao empacotar o deploy, deixar de fora:
 - `api/config/.env` local (o servidor tem o seu, com as chaves `*_PROD`)
 
 ## 7. Registro de Atividades e Meu Painel (vindos do METRICA360, 27/10/2026)
+
+> **Substituído em 03/11/2026.** O METRICA360 inteiro será absorvido pelo Conecta (módulo "Satisfação",
+> mesmo banco, login único). Os passos 1, 4 e 6 abaixo (API do METRICA360, mesmo e-mail nos dois
+> sistemas, script destrutivo `remover_area_funcionario.sql`) **deixam de valer** assim que a fase 8 do
+> plano for concluída; o roteiro novo (importação de pessoas e setores com `database/importar-metrica360.php`,
+> migração 40 e redirecionamento de `/metrica360`) será escrito aqui no fim do trabalho. Os passos 2, 3 e 5
+> (migração, configurar atividades por setor, avisar os servidores) continuam valendo.
 
 A "Área do Funcionário" do METRICA360 passou para o Conecta. **A ordem importa**, porque os dois sistemas
 dependem um do outro:

@@ -2,6 +2,8 @@
 
 Como levar o METRICA360 para dentro do Conecta: o mesmo banco de dados, a hospedagem dentro do diretório do Conecta e um login só. O documento termina com um plano em fases.
 
+> **Decisão de 03/11/2026 (leia antes do resto).** Como nenhum dos dois sistemas está em produção e os convites/avaliações do METRICA360 local são dados de teste, o usuário escolheu ir **direto para a Fase I9**, sem as etapas intermediárias (I4 a I8): o METRICA360 deixa de existir como sistema e suas telas viram o módulo "Satisfação" do Conecta, no `db_conecta`, com tabelas `pesquisa_*` (não `m360_*`), login único (o do Conecta) e papéis novos (`coordenador`, `supervisor`, `coordenador_geral`, `operador` no lugar de `atendente`). O endereço continua sendo a subpasta `/conecta` (SEG-01: sem subdomínio). Vêm só pessoas, setores e configurações; nenhum convite, avaliação ou auditoria. O plano executado está nas fases 1 a 8 do plano de trabalho de 03/11/2026 e é resumido no `CLAUDE.md`. Este relatório continua válido como análise de riscos.
+
 **Só leitura.** Nenhum código, configuração, banco ou pasta foi alterado. O único arquivo criado no projeto é este documento. No MySQL só rodaram `SELECT`, `SHOW` e `EXPLAIN`, numa sessão aberta como somente leitura.
 
 **Base examinada:**

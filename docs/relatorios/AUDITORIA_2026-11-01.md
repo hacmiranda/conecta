@@ -656,7 +656,7 @@ Execução feita entre 01 e 03/11/2026, sem commit. O detalhe, arquivo por arqui
 
 | Achado | Status | Observação |
 |---|---|---|
-| SEG-01 | Aguarda aprovação | Infraestrutura. Documentado em `docs/implantacao-producao.md` §1, com a lista do que muda junto |
+| SEG-01 | Decidido em 03/11/2026: **fica em subpasta** (`crp07.org.br/conecta`) | O usuário optou por não usar subdomínio. O METRICA360 será absorvido pelo Conecta (ver nota no topo de `INTEGRACAO_METRICA360_CONECTA_2026-11-01.md`), o que elimina um dos dois sistemas que dividiam a origem; resta o site institucional. Risco aceito |
 | SEG-02 | Aguarda aprovação | CSP e aparência |
 | SEG-03 | Corrigido | `EmailFilaService::marcarEnviado()` apaga o corpo de `recuperacao_senha`; teste `EmailFilaTest` |
 | SEG-04 | Corrigido | `celulaCsv()` em `script.js`, nas 3 exportações, e BOM em todas |
