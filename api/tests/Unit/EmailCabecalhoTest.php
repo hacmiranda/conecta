@@ -38,7 +38,7 @@ final class EmailCabecalhoTest extends TestCase {
 
     public function test_todos_os_modelos_ao_solicitante_usam_o_cabecalho_padrao(): void {
         $modelos = glob(__DIR__ . '/../../../backend/email-template*.html');
-        $this->assertCount(7, $modelos);
+        $this->assertCount(8, $modelos); // 7 de demanda + o convite da pesquisa de satisfação
         foreach ($modelos as $arquivo) {
             $this->assertMatchesRegularExpression('/\{\{CABECALHO:[^}]+\}\}/', (string) file_get_contents($arquivo), basename($arquivo));
         }

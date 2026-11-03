@@ -401,18 +401,24 @@ try {
     [$c] = req('GET', "$acomp?acao=historico&data_ini=2024-01-01&data_fim=2026-12-31", $T['admin']);
     verifica('período maior que um ano é recusado (400)', $c === 400, (string) $c);
 
-    echo "\n[7e] Meu Painel (repassa ao METRICA360 pelo e-mail do usuário logado)\n";
+    echo "\n[7e] Meu Painel (só com atendimento externo; dados do módulo Satisfação)\n";
     $painel = $baseUrl . 'meu-painel.php';
     [$c, $j] = req('GET', "$painel?acao=acesso", $T['operadorA']);
-    verifica('consulta de acesso responde (200) e e-mail desconhecido não tem acesso', $c === 200 && ($j['atendimento_externo'] ?? true) === false, (string) $c);
+    verifica('consulta de acesso responde (200) e sem atendimento externo não tem acesso', $c === 200 && ($j['atendimento_externo'] ?? true) === false, (string) $c);
     [$c] = req('GET', $painel, $T['operadorA']);
-    verifica('quem não está no METRICA360 não abre o painel (404, ou 503 sem integração)', in_array($c, [404, 503], true), (string) $c);
+    verifica('sem atendimento externo o painel é recusado (403)', $c === 403, (string) $c);
+    $db->exec("UPDATE usuarios SET atendimento_externo = 1 WHERE id = $operadorA");
+    [$c, $j] = req('GET', "$painel?acao=acesso", $T['operadorA']);
+    verifica('com atendimento externo o acesso é liberado', $c === 200 && ($j['atendimento_externo'] ?? false) === true, (string) $c);
+    [$c, $j] = req('GET', $painel, $T['operadorA']);
+    verifica('com atendimento externo o painel abre (200)', $c === 200 && isset($j['indicadores'], $j['historico']), (string) $c);
     [$c] = req('POST', $painel, [$T['operadorA'][0], 'csrf-errado'], ['destinatario_nome' => 'zz', 'destinatario_email' => 'zz@example.com']);
     verifica('enviar convite sem CSRF correto é recusado (403)', $c === 403, (string) $c);
     [$c] = req('POST', $painel, $T['operadorA'], ['destinatario_nome' => '', 'destinatario_email' => 'invalido']);
     verifica('convite sem nome/e-mail válido é recusado (400)', $c === 400, (string) $c);
     [$c] = req('GET', $painel);
     verifica('sem sessão: 401', $c === 401, (string) $c);
+    $db->exec("UPDATE usuarios SET atendimento_externo = 0 WHERE id = $operadorA");
 
     echo "\n[9] Papéis de coordenação: coordenador (vários setores), supervisor e coordenador geral (só consulta)\n";
     $coordenadorId = criarUsuario($db, 'zz Coordenador', 'coordenador', $setorA);
@@ -507,6 +513,104 @@ try {
     [$c] = req('GET', $baseUrl . "tickets.php?id=$demandaB", $T['coordenador']);
     verifica('com o setor adicional liberado, o coordenador volta a ler (200)', $c === 200, (string) $c);
 
+    echo "\n[10] Módulo Satisfação (avaliações, convites, triagem, configuração e página pública)\n";
+    // Convites com avaliação: um no setor A, um no setor B e um sem setor
+    $conviteIds = [];
+    $criarConvite = function (?int $setor, int $nota) use ($db, $operadorA, &$conviteIds): array {
+        $token = bin2hex(random_bytes(32));
+        $db->prepare("INSERT INTO pesquisa_convites (usuario_id, setor_id, destinatario_nome, destinatario_email, token) VALUES (?, ?, 'zz', ?, ?)")
+           ->execute([$operadorA, $setor, 'zz_matriz_' . bin2hex(random_bytes(3)) . '@exemplo.com', $token]);
+        $id = (int) $db->lastInsertId();
+        $conviteIds[] = $id;
+        $db->prepare("INSERT INTO pesquisa_avaliacoes (convite_id, nota, comentario, status) VALUES (?, ?, 'zz_matriz comentario', 'pendente')")->execute([$id, $nota]);
+        return [$id, (int) $db->lastInsertId(), $token];
+    };
+    [, $avA] = $criarConvite($setorA, 5);
+    [, $avB] = $criarConvite($setorB, 2);
+    [, $avSem] = $criarConvite(null, 3);
+    $pp = $baseUrl . 'pesquisa-painel.php';
+    $tri = $baseUrl . 'pesquisa-triagem.php';
+
+    foreach (['gestorA' => 'gestor', 'operadorA' => 'operador'] as $chave => $rotulo) {
+        [$c] = req('GET', "$pp?acao=resumo", $T[$chave]);
+        verifica("$rotulo não vê o módulo Satisfação (403)", $c === 403, (string) $c);
+        [$c] = req('PUT', "$tri?id=$avA", $T[$chave], ['status' => 'resolvido']);
+        verifica("$rotulo não faz triagem (403)", $c === 403, (string) $c);
+    }
+    [$c] = req('GET', "$pp?acao=resumo");
+    verifica('sem sessão: 401', $c === 401, (string) $c);
+
+    $idsDe = fn($j) => array_column($j['itens'] ?? [], 'id');
+    foreach (['admin' => 'admin', 'supervisor' => 'supervisor', 'coordGeral' => 'coordenador geral'] as $chave => $rotulo) {
+        [$c, $j] = req('GET', "$pp?acao=lista&busca=zz_matriz", $T[$chave]);
+        verifica("$rotulo vê as avaliações de todos os setores", $c === 200 && in_array($avA, $idsDe($j)) && in_array($avB, $idsDe($j)) && in_array($avSem, $idsDe($j)), (string) $c);
+        [$c, $j] = req('GET', "$pp?acao=lista&busca=zz_matriz&setor_id=$setorB", $T[$chave]);
+        verifica("$rotulo escolhe o setor B no cabeçalho e só vê o B", $c === 200 && $idsDe($j) === [$avB], (string) $c);
+        [$c] = req('GET', "$pp?acao=resumo", $T[$chave]);
+        verifica("$rotulo abre o resumo (200)", $c === 200, (string) $c);
+        [$c] = req('GET', $baseUrl . 'pesquisa-convites.php', $T[$chave]);
+        verifica("$rotulo abre o histórico de convites (200)", $c === 200, (string) $c);
+        [$c] = req('GET', $baseUrl . 'pesquisa-setores.php', $T[$chave]);
+        verifica("$rotulo abre o Painel de Setores (200)", $c === 200, (string) $c);
+    }
+    foreach (['supervisor' => 'supervisor', 'coordGeral' => 'coordenador geral'] as $chave => $rotulo) {
+        [$c] = req('PUT', "$tri?id=$avA", $T[$chave], ['status' => 'em_tratativa', 'anotacao' => 'zz_matriz nota']);
+        verifica("$rotulo faz a triagem (exceção da regra de consulta) (200)", $c === 200, (string) $c);
+        [$c] = req('PUT', $baseUrl . 'pesquisa-config.php?acao=regras', $T[$chave], ['quarentena_dias' => 3]);
+        verifica("$rotulo não altera a configuração da pesquisa (403)", $c === 403, (string) $c);
+    }
+    $status = $db->query("SELECT status FROM pesquisa_avaliacoes WHERE id = $avA")->fetchColumn();
+    verifica('a triagem gravou o novo status', $status === 'em_tratativa', (string) $status);
+    [$c] = req('PUT', "$tri?id=$avA", $T['supervisor'], ['status' => 'inventado']);
+    verifica('status inválido na triagem é recusado (400)', $c === 400, (string) $c);
+    [$c] = req('PUT', "$tri?id=999999999", $T['supervisor'], ['status' => 'resolvido']);
+    verifica('avaliação inexistente: 404', $c === 404, (string) $c);
+
+    // Coordenador (setor A principal + B adicional, como na seção [9]): vê e trata os dele, não trata avaliação sem setor
+    [$c, $j] = req('GET', "$pp?acao=lista&busca=zz_matriz", $T['coordenador']);
+    verifica('coordenador vê as avaliações dos seus setores e não as sem setor', $c === 200 && in_array($avA, $idsDe($j)) && in_array($avB, $idsDe($j)) && !in_array($avSem, $idsDe($j)), (string) $c);
+    [$c] = req('GET', "$pp?acao=lista&setor_id=999999", $T['coordenador']);
+    verifica('coordenador pedindo setor que não é dele é recusado (403)', $c === 403, (string) $c);
+    [$c] = req('PUT', "$tri?id=$avB", $T['coordenador'], ['status' => 'resolvido']);
+    verifica('coordenador trata avaliação do setor adicional (200)', $c === 200, (string) $c);
+    [$c] = req('PUT', "$tri?id=$avSem", $T['coordenador'], ['status' => 'resolvido']);
+    verifica('coordenador não trata avaliação de fora dos seus setores (403)', $c === 403, (string) $c);
+    [$c] = req('PUT', "$tri?id=$avA", [$T['coordenador'][0], 'csrf-errado'], ['status' => 'resolvido']);
+    verifica('triagem sem CSRF correto é recusada (403)', $c === 403, (string) $c);
+
+    // Configuração da pesquisa: só o administrador
+    $cfg = $baseUrl . 'pesquisa-config.php';
+    [$c] = req('GET', $cfg, $T['admin']);
+    verifica('admin abre a configuração da pesquisa (200)', $c === 200, (string) $c);
+    [$c] = req('GET', $cfg, $T['coordenador']);
+    verifica('coordenador não abre a configuração da pesquisa (403)', $c === 403, (string) $c);
+    [$c] = req('PUT', "$cfg?acao=regras", $T['admin'], ['quarentena_dias' => 0]);
+    verifica('regra fora do limite é recusada (400)', $c === 400, (string) $c);
+    [$c] = req('PUT', $baseUrl . 'pesquisa-setores.php', $T['coordenador'], ['setor_id' => $setorA, 'pesquisa_painel' => 0]);
+    verifica('coordenador não liga/desliga setor no painel (403)', $c === 403, (string) $c);
+
+    // Página pública: sem sessão, só o token
+    $pub = $baseUrl . 'pesquisa-publica.php';
+    [$c, $j] = req('GET', "$pub?t=" . str_repeat('0', 64));
+    verifica('token desconhecido: situação inválida, sem dados (200)', $c === 200 && ($j['situacao'] ?? '') === 'invalido' && !isset($j['servidor']), (string) $c);
+    [$c] = req('POST', $pub, null, ['token' => str_repeat('0', 64), 'nota' => 5]);
+    verifica('avaliar com token desconhecido é recusado (404)', $c === 404, (string) $c);
+    $tokenValido = bin2hex(random_bytes(32));
+    $db->prepare("INSERT INTO pesquisa_convites (usuario_id, setor_id, destinatario_nome, destinatario_email, token) VALUES (?, ?, 'zz', ?, ?)")
+       ->execute([$operadorA, $setorA, 'zz_matriz_pub@exemplo.com', $tokenValido]);
+    $conviteIds[] = (int) $db->lastInsertId();
+    [$c, $j] = req('GET', "$pub?t=$tokenValido");
+    verifica('token válido: abre o formulário (200)', $c === 200 && ($j['situacao'] ?? '') === 'ok', (string) $c);
+    [$c] = req('POST', $pub, null, ['token' => $tokenValido, 'nota' => 9]);
+    verifica('nota inválida é recusada (422)', $c === 422, (string) $c);
+    [$c, $j] = req('POST', $pub, null, ['token' => $tokenValido, 'nota' => 5, 'comentario' => 'zz_matriz ótimo']);
+    verifica('avaliação registrada (200) com o tipo positivo', $c === 200 && ($j['tipo'] ?? '') === 'positivo', (string) $c);
+    [$c] = req('POST', $pub, null, ['token' => $tokenValido, 'nota' => 1]);
+    verifica('o mesmo link não vale duas vezes (409)', $c === 409, (string) $c);
+    [$c, $j] = req('GET', "$pub?t=$tokenValido");
+    verifica('depois de avaliar o link mostra "já avaliado"', ($j['situacao'] ?? '') === 'ja_avaliado', (string) $c);
+    verifica('a avaliação não guarda IP do cidadão', count($db->query("SHOW COLUMNS FROM pesquisa_avaliacoes LIKE 'ip%'")->fetchAll()) === 0);
+
     echo "\n[8] Sessão no cookie HttpOnly, com validade\n";
     $emailOperadorA = (string) $db->query("SELECT email FROM usuarios WHERE id = $operadorA")->fetchColumn();
     [$c, $j, $ck] = reqCookie('POST', $baseUrl . 'auth.php', null, null, ['email' => $emailOperadorA, 'senha' => 'Zz@Teste12345']);
@@ -574,6 +678,11 @@ try {
                ->execute(array_values($regrasOriginaisA));
         }
     }
+    if (!empty($conviteIds)) {
+        $db->exec('DELETE FROM pesquisa_convites WHERE id IN (' . implode(',', array_filter($conviteIds)) . ')'); // a cascata leva as avaliações
+    }
+    $db->exec("DELETE FROM pesquisa_convites WHERE destinatario_email LIKE 'zz_matriz_%'");
+    $db->exec("DELETE FROM auditoria WHERE tabela = 'pesquisa_avaliacoes' AND criado_em >= NOW() - INTERVAL 1 HOUR");
     if ($usuariosCriados) {
         $idsUsuarios = implode(',', array_filter($usuariosCriados));
         // Seção [9]: usuários criados/alterados pela API deixam rastro na auditoria

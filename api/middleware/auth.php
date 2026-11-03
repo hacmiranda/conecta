@@ -351,6 +351,19 @@ class AuthMiddleware {
     }
 
     /**
+     * Módulo Satisfação (avaliações, convites, painel de setores): administrador, coordenador geral,
+     * supervisor e coordenador. Gestor e operador recebem 403.
+     */
+    public static function verificarSatisfacao(array $user): void {
+        $tipo = $user['tipo'] ?? '';
+        if (!$user || !in_array($tipo, ['admin', 'coordenador_geral', 'supervisor', 'coordenador'], true)) {
+            http_response_code(403);
+            echo json_encode(['error' => 'Acesso negado ao módulo Satisfação.']);
+            exit;
+        }
+    }
+
+    /**
      * Verifica se o usuário pertence ao setor informado.
      * Administrador (e os papéis de consulta de visão total) sempre retornam true; o coordenador
      * vale para o setor principal e para os adicionais.

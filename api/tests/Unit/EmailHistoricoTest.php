@@ -106,6 +106,8 @@ final class EmailHistoricoTest extends TestCase {
 
     public function test_todos_os_modelos_ao_solicitante_tem_o_marcador(): void {
         $modelos = glob(__DIR__ . '/../../../backend/email-template*.html');
+        // O convite da pesquisa de satisfação não é sobre uma demanda em andamento: não leva o histórico
+        $modelos = array_filter($modelos, fn($m) => basename($m) !== 'email-template-pesquisa-convite.html');
         $this->assertCount(7, $modelos);
         foreach ($modelos as $arquivo) {
             $this->assertStringContainsString('{{DEMANDA_E_HISTORICO}}', (string) file_get_contents($arquivo), basename($arquivo));

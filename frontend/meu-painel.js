@@ -199,7 +199,7 @@ function montarHistoricoMeuPainel(h) {
     const linhas = h.itens.map(c => `
         <tr>
             <td>${sanitizeHTML(dataRelativaMeuPainel(c.enviado_em))}
-                ${c.origem === 'conecta' ? `<span class="mp-selo-origem" title="Enviado automaticamente pelo Conecta ao encerrar a demanda">Conecta${c.protocolo ? ' · #' + sanitizeHTML(c.protocolo) : ''}</span>` : ''}</td>
+                ${c.origem === 'demanda' ? `<span class="mp-selo-origem" title="Enviado automaticamente ao encerrar a demanda">Demanda${c.protocolo ? ' · #' + sanitizeHTML(c.protocolo) : ''}</span>` : ''}</td>
             <td>${situacao[c.situacao] || situacao.aguardando}</td>
             <td>${c.nota ? `<span class="mp-estrelas" aria-label="${Number(c.nota)} de 5 estrelas">${'★'.repeat(c.nota)}${'☆'.repeat(5 - c.nota)}</span>` : '<span class="mp-traco">—</span>'}</td>
             <td>${c.comentario ? sanitizeHTML(c.comentario) : '<span class="mp-traco">—</span>'}</td>

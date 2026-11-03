@@ -19,7 +19,7 @@ require_once __DIR__ . '/../services/acesso-service.php';
 require_once __DIR__ . '/../services/auditoria-service.php';
 require_once __DIR__ . '/../services/html-sanitizer.php';
 require_once __DIR__ . '/../services/atividades-acompanhamento-service.php';
-require_once __DIR__ . '/../services/metrica360-client.php';
+require_once __DIR__ . '/../services/pesquisa-painel-service.php';
 
 $acao = $_GET['acao'] ?? '';
 $ehCsv = str_starts_with($acao, 'csv-');
@@ -149,24 +149,9 @@ try {
         $alvo = usuarioDoEscopo($servico, $setorId, $usuarioId);
         $atividades = $servico->atividadesDoUsuario($usuarioId, $ini, $fim);
 
-        // Satisfação: no METRICA360, pelo e-mail do servidor
-        $satisfacao = null;
-        $avisoSatisfacao = null;
-        $r = (new Metrica360Client())->get('/api/integracao/satisfacao', ['email' => $alvo['email'], 'inicio' => $ini, 'fim' => $fim]);
-        $status = $r['dados']['status'] ?? '';
-        if ($r['http'] === 200 && $status === 'ok') {
-            $satisfacao = $r['dados'];
-            unset($satisfacao['status']);
-            foreach ($satisfacao['comentarios'] as &$c) {
-                $c['comment'] = trim((string) preg_replace('/\s*\[Categorias:[^\]]*\]/i', '', (string) $c['comment']));
-            }
-            unset($c);
-        } elseif ($status === 'sem_funcionario') {
-            $avisoSatisfacao = 'Este servidor não está cadastrado no METRICA360 com o mesmo e-mail: não há notas a cruzar.';
-        } else {
-            $avisoSatisfacao = 'O METRICA360 não respondeu agora: a parte de satisfação não pôde ser carregada.';
-        }
-
+        // Satisfação: as notas das avaliações recebidas pelos convites enviados por este servidor (módulo Satisfação)
+        $satisfacao = PesquisaPainelService::satisfacaoDoServidor($db, $usuarioId, $ini, $fim);
+        $avisoSatisfacao = $satisfacao['total_convites'] === 0 ? 'Este servidor não enviou convites de avaliação neste período: não há notas a cruzar.' : null;
         if ($ehCsv) {
             $satPorDia = [];
             foreach ($satisfacao['serie_diaria'] ?? [] as $d) $satPorDia[$d['data_dia']] = $d;

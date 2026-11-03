@@ -1,12 +1,13 @@
 <?php
 /**
- * Pesquisa de satisfação pelo METRICA360.
+ * Pesquisa de satisfação ao fim de uma demanda (módulo Satisfação do Conecta).
  *
  * Quando a demanda de um solicitante externo (e-mail fora dos domínios internos, padrão crprs.org.br)
  * chega pela primeira vez a resolvido/encerrado, registrar() grava um pedido em pesquisa_satisfacao.
- * processarFila() (chamado por api/cron/enviar-fila.php) entrega o pedido ao METRICA360
- * (POST {METRICA360_URL}/api/integracao/convite, cabeçalho X-API-KEY). Daí em diante é tudo com o
- * METRICA360: e-mail ao solicitante, quarentena, validade do link, reenvio, notas e painéis.
+ * processarFila() (chamado por api/cron/enviar-fila.php) cria o convite de avaliação
+ * (PesquisaConviteService: quarentena, token, e-mail na fila de envio), atribuído ao responsável da
+ * demanda (ou a quem a encerrou). A fila de pedidos existe para o gatilho nunca atrapalhar a troca de
+ * status e para repetir se o e-mail não puder ser enfileirado.
  *
  * Uma pesquisa por demanda (ticket_id único). A mesclagem e o cancelamento não disparam.
  * Pode ser desligada por setor: código sol_pesquisa_satisfacao do NotificacaoEmailService.
@@ -15,7 +16,7 @@ require_once __DIR__ . '/../config/environment.php';
 require_once __DIR__ . '/notificacao-email-service.php';
 require_once __DIR__ . '/protocolo-service.php';
 require_once __DIR__ . '/log-service.php';
-require_once __DIR__ . '/metrica360-client.php';
+require_once __DIR__ . '/pesquisa-convite-service.php';
 
 class PesquisaSatisfacaoService {
     const CODIGO_EMAIL = 'sol_pesquisa_satisfacao';
@@ -55,7 +56,7 @@ class PesquisaSatisfacaoService {
                 return false;
             }
 
-            // Nome: o do dono da demanda, se o destinatário for ele; senão, o METRICA360 usa o início do e-mail
+            // Nome: o do dono da demanda, se o destinatário for ele; senão, sai do início do e-mail
             $nome = strcasecmp($destino, (string) ($t['usuario_email'] ?? '')) === 0 ? (string) $t['usuario_nome'] : '';
 
             $ins = $db->prepare("INSERT IGNORE INTO pesquisa_satisfacao
@@ -77,28 +78,21 @@ class PesquisaSatisfacaoService {
     }
 
     /**
-     * Entrega ao METRICA360 os pedidos pendentes cuja hora chegou.
+     * Cria o convite dos pedidos pendentes cuja hora chegou.
+     *
+     * @param callable|null $enviarConvite (usuarioId, nome, e-mail, origem, desfazerSeFalhar): array — troca o envio nos testes
      * @return array{enviados:int, nao_enviados:int, pendentes:int, falhas:int}
      */
-    public static function processarFila(PDO $db, int $lote = 20, ?callable $postar = null): array {
+    public static function processarFila(PDO $db, int $lote = 20, ?callable $enviarConvite = null): array {
         $resumo = ['enviados' => 0, 'nao_enviados' => 0, 'pendentes' => 0, 'falhas' => 0];
 
-        $url = rtrim((string) Environment::get('metrica360_url', ''), '/');
-        $chave = (string) Environment::get('metrica360_api_key', '');
-        if ($postar === null && ($url === '' || $chave === '')) {
-            $qtd = (int) $db->query("SELECT COUNT(*) FROM pesquisa_satisfacao WHERE status = 'pendente'")->fetchColumn();
-            if ($qtd > 0) {
-                LogService::aviso(self::CANAL_LOG, "{$qtd} pedido(s) aguardando: METRICA360_URL/METRICA360_API_KEY não configurados no .env");
-            }
-            return $resumo;
-        }
-        $postar ??= function (array $corpo) use ($url, $chave): array {
-            return self::postar($url, $chave, $corpo);
-        };
+        $enviarConvite ??= fn(int $usuarioId, string $nome, string $email, array $origem, bool $desfazer) =>
+            (new PesquisaConviteService($db))->enviar($usuarioId, $nome, $email, $origem, $desfazer);
 
         // Junto, o estado atual da demanda: o pedido pode ter deixado de valer desde que foi registrado
         $stmt = $db->prepare("SELECT p.*, t.status AS demanda_status, t.excluido_em AS demanda_excluida,
-                                     t.mesclada_em AS demanda_mesclada, t.setor_id AS demanda_setor
+                                     t.mesclada_em AS demanda_mesclada, t.setor_id AS demanda_setor,
+                                     t.agente_id AS demanda_agente, t.fechado_por AS demanda_fechado_por
                               FROM pesquisa_satisfacao p
                               LEFT JOIN tickets t ON t.id = p.ticket_id
                               WHERE p.status = 'pendente' AND p.proxima_tentativa_em <= NOW()
@@ -113,23 +107,33 @@ class PesquisaSatisfacaoService {
                 continue;
             }
 
-            // Sem responsável nem quem encerrou: não há a quem atribuir a nota no METRICA360
-            if (trim((string) ($p['responsavel_email'] ?? '')) === '') {
+            // A nota vai para o responsável da demanda; sem responsável, para quem a encerrou
+            $usuarioId = (int) ($p['demanda_agente'] ?: $p['demanda_fechado_por']);
+            if ($usuarioId <= 0) {
                 self::finalizar($db, (int) $p['id'], 'sem_funcionario', (int) $p['tentativas'], 'Demanda sem responsável');
                 $resumo['nao_enviados']++;
                 continue;
             }
 
-            $resposta = $postar([
-                'chave_integracao'   => 'conecta:' . (int) $p['ticket_id'],
-                'protocolo'          => ProtocoloService::rotulo($p['protocolo'], (int) $p['ticket_id']),
-                'destinatario_email' => $p['destinatario_email'],
-                'destinatario_nome'  => (string) ($p['destinatario_nome'] ?? ''),
-                'responsavel_email'  => (string) ($p['responsavel_email'] ?? ''),
-                'setor_nome'         => (string) ($p['setor_nome'] ?? ''),
-            ]);
             $tentativa = (int) $p['tentativas'] + 1;
-            $resultado = self::interpretarResposta((int) $resposta['http'], (string) ($resposta['corpo'] ?? ''));
+            try {
+                $resposta = $enviarConvite(
+                    $usuarioId,
+                    self::nomeParaConvite((string) ($p['destinatario_nome'] ?? ''), (string) $p['destinatario_email']),
+                    (string) $p['destinatario_email'],
+                    [
+                        'origem'           => 'demanda',
+                        'ticket_id'        => (int) $p['ticket_id'],
+                        'protocolo'        => ProtocoloService::rotulo($p['protocolo'], (int) $p['ticket_id']),
+                        'chave_integracao' => 'demanda:' . (int) $p['ticket_id'],
+                        'setor_id'         => $p['demanda_setor'] !== null ? (int) $p['demanda_setor'] : null,
+                    ],
+                    true
+                );
+                $resultado = self::interpretarResultado((string) ($resposta['status'] ?? ''));
+            } catch (Throwable $e) {
+                $resultado = ['status' => 'tentar_de_novo', 'erro' => 'Erro ao criar o convite: ' . $e->getMessage()];
+            }
 
             if ($resultado['status'] === 'tentar_de_novo') {
                 if ($tentativa >= self::MAX_TENTATIVAS) {
@@ -152,7 +156,7 @@ class PesquisaSatisfacaoService {
                 self::registrarNoHistorico($db, (int) $p['ticket_id']);
                 $resumo['enviados']++;
             } else {
-                // quarentena / sem_funcionario / falha (pedido recusado): fica registrado, sem nova tentativa
+                // quarentena: fica registrado, sem nova tentativa
                 LogService::info(self::CANAL_LOG, "Demanda #{$p['ticket_id']}: pesquisa não enviada ({$resultado['status']})");
                 $resumo['nao_enviados']++;
             }
@@ -161,28 +165,28 @@ class PesquisaSatisfacaoService {
     }
 
     /**
-     * Traduz a resposta do METRICA360 em status da fila. Função pura (testável).
-     * @return array{status:string, erro:?string}  status: enviado | quarentena | sem_funcionario | falha | tentar_de_novo
+     * Traduz o resultado de PesquisaConviteService::enviar() em status da fila. Função pura (testável).
+     * @return array{status:string, erro:?string}  status: enviado | quarentena | tentar_de_novo
      */
-    public static function interpretarResposta(int $http, string $corpo): array {
-        $dados = json_decode($corpo, true);
-        $status = is_array($dados) ? (string) ($dados['status'] ?? '') : '';
+    public static function interpretarResultado(string $status): array {
+        return match ($status) {
+            'enviado', 'ja_existe' => ['status' => 'enviado', 'erro' => null],
+            'quarentena'           => ['status' => 'quarentena', 'erro' => null],
+            default                => ['status' => 'tentar_de_novo', 'erro' => $status === 'falha_email'
+                                          ? 'Não foi possível enfileirar o e-mail do convite'
+                                          : 'Resultado inesperado ao criar o convite (' . ($status ?: 'vazio') . ')'],
+        };
+    }
 
-        if (($http === 201 || $http === 200) && in_array($status, ['enviado', 'ja_existe'], true)) {
-            return ['status' => 'enviado', 'erro' => null];
+    /** Nome para o convite: o informado ou, sem ele, o início do e-mail ("maria.silva@x" → "Maria Silva"). Função pura. */
+    public static function nomeParaConvite(string $nome, string $email): string {
+        $nome = trim($nome);
+        if ($nome !== '') {
+            return mb_substr($nome, 0, 150);
         }
-        if ($http === 200 && $status === 'quarentena') {
-            return ['status' => 'quarentena', 'erro' => null];
-        }
-        if ($http === 422 && $status === 'sem_funcionario') {
-            return ['status' => 'sem_funcionario', 'erro' => 'Responsável sem cadastro no METRICA360'];
-        }
-        // Pedido recusado de forma definitiva (dados inválidos, chave errada): não adianta repetir
-        if (in_array($http, [400, 401, 403, 404, 405, 422], true)) {
-            return ['status' => 'falha', 'erro' => "METRICA360 recusou o pedido (HTTP {$http}" . ($status !== '' ? ", {$status}" : '') . ')'];
-        }
-        // Fora do ar, tempo esgotado, 429, 5xx, resposta inesperada: tenta de novo mais tarde
-        return ['status' => 'tentar_de_novo', 'erro' => $http === 0 ? 'METRICA360 inacessível' : "METRICA360 respondeu HTTP {$http}" . ($status !== '' ? " ({$status})" : '')];
+        $inicio = trim((string) strstr($email, '@', true));
+        $nome = ucwords(trim((string) preg_replace('/[._\-]+/', ' ', $inicio)));
+        return $nome !== '' ? mb_substr($nome, 0, 150) : 'Solicitante';
     }
 
     /**
@@ -246,7 +250,7 @@ class PesquisaSatisfacaoService {
            ->execute([$status, $tentativas, $erro !== null ? mb_substr($erro, 0, 255) : null, $id]);
     }
 
-    /** Linha do tempo da demanda: autor = responsável (ou quem encerrou), a quem a nota é atribuída no METRICA360. */
+    /** Linha do tempo da demanda: autor = responsável (ou quem encerrou), a quem a nota é atribuída. */
     private static function registrarNoHistorico(PDO $db, int $ticketId): void {
         try {
             $stmt = $db->prepare("SELECT COALESCE(agente_id, fechado_por, usuario_id) FROM tickets WHERE id = ?");
@@ -256,15 +260,9 @@ class PesquisaSatisfacaoService {
                 return;
             }
             $db->prepare("INSERT INTO ticket_historico (ticket_id, usuario_id, acao, valor_novo) VALUES (?, ?, 'pesquisa_satisfacao', ?)")
-               ->execute([$ticketId, (int) $autor, 'Pesquisa de satisfação enviada ao solicitante pelo METRICA360']);
+               ->execute([$ticketId, (int) $autor, 'Pesquisa de satisfação enviada ao solicitante']);
         } catch (Throwable $e) {
             error_log('[PESQUISA SATISFACAO] Erro ao registrar no histórico: ' . $e->getMessage());
         }
-    }
-
-    /** POST JSON ao METRICA360 (sem cliente HTTP no projeto: curl, como api/config/turnstile.php). */
-    private static function postar(string $url, string $chave, array $corpo): array {
-        $r = (new Metrica360Client($url, $chave))->post('/api/integracao/convite', $corpo);
-        return ['http' => $r['http'], 'corpo' => $r['corpo']];
     }
 }
