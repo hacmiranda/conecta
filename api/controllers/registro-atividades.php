@@ -14,6 +14,7 @@ header('Content-Type: application/json');
 
 require_once __DIR__ . '/../config/database.php';
 require_once __DIR__ . '/../middleware/auth.php';
+require_once __DIR__ . '/../services/acesso-service.php';
 require_once __DIR__ . '/../services/auditoria-service.php';
 require_once __DIR__ . '/../services/registro-atividade-service.php';
 require_once __DIR__ . '/../services/prazo-atividade-service.php';
@@ -40,8 +41,8 @@ function erroRegistro(int $codigo, string $mensagem): void {
 
 $usuarioId = (int) $user['id'];
 $setorId = isset($user['setor_id']) && $user['setor_id'] !== null ? (int) $user['setor_id'] : 0;
-if (!in_array($user['tipo'] ?? '', ['gestor', 'operador'], true) || $setorId <= 0) {
-    erroRegistro(403, 'O Registro de Atividades é para gestores e operadores vinculados a um setor.');
+if (!in_array($user['tipo'] ?? '', AcessoService::PAPEIS_REGISTRAM_ATIVIDADES, true) || $setorId <= 0) {
+    erroRegistro(403, 'O Registro de Atividades é para a equipe vinculada a um setor (o administrador não registra).');
 }
 
 $db = (new Database())->getConnection();

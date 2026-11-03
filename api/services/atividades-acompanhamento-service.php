@@ -1,10 +1,11 @@
 <?php
 require_once __DIR__ . '/prazo-atividade-service.php';
+require_once __DIR__ . '/acesso-service.php';
 
 /**
  * Acompanhamento do Registro de Atividades (admin/gestor): Painel de Atividades, Relatório, Histórico de
  * ausências e Cruzamento de dados. Porte das consultas de RegistroAtividadeModel e CruzamentoDadosModel do
- * METRICA360 (27/10/2026). Entram gestores e operadores ativos. $setorId null = todos os setores (admin).
+ * METRICA360 (27/10/2026). Entram a equipe que registra atividades (AcessoService::PAPEIS_REGISTRAM_ATIVIDADES). $setorId: null = todos os setores; int = um setor; int[] = vários (coordenador).
  */
 class AtividadesAcompanhamentoService {
 
@@ -44,20 +45,35 @@ class AtividadesAcompanhamentoService {
         return ['flat', '='];
     }
 
-    /** Gestores e operadores ativos do escopo, com setor. */
-    public function usuariosDoEscopo(?int $setorId): array {
+    /** Normaliza o escopo: null/0 = todos os setores; int = um; int[] = vários. @return int[]|null */
+    public static function escopo(int|array|null $setorId): ?array {
+        if (is_array($setorId)) return array_values(array_map('intval', $setorId));
+        return $setorId ? [(int) $setorId] : null;
+    }
+
+    /** Lista SQL dos papéis que registram atividades (valores fixos do código). */
+    private static function tiposSql(): string {
+        return AcessoService::listaSql(AcessoService::PAPEIS_REGISTRAM_ATIVIDADES);
+    }
+
+    /** " AND coluna IN (...)" do escopo; vazio quando o escopo é todos os setores. */
+    private static function andSetor(string $coluna, int|array|null $setorId): string {
+        $escopo = self::escopo($setorId);
+        return $escopo === null ? '' : ' AND ' . AcessoService::filtroSetorSql($coluna, $escopo);
+    }
+
+    /** Equipe que registra atividades (ativos) do escopo, com setor. */
+    public function usuariosDoEscopo(int|array|null $setorId): array {
         $sql = "SELECT u.id, u.nome, u.email, u.setor_id, s.nome AS setor_nome
                 FROM usuarios u JOIN setores s ON s.id = u.setor_id
-                WHERE u.ativo = 1 AND u.tipo IN ('gestor', 'operador')" . ($setorId ? " AND u.setor_id = ?" : "") . "
+                WHERE u.ativo = 1 AND u.tipo IN (" . self::tiposSql() . ")" . self::andSetor('u.setor_id', $setorId) . "
                 ORDER BY s.nome, u.nome";
-        $stmt = $this->db->prepare($sql);
-        $stmt->execute($setorId ? [$setorId] : []);
-        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+        return $this->db->query($sql)->fetchAll(PDO::FETCH_ASSOC);
     }
 
     // ── Painel de Atividades ────────────────────────────────────────────────────
 
-    public function painel(?int $setorId, ?string $hoje = null): array {
+    public function painel(int|array|null $setorId, ?string $hoje = null): array {
         $hoje ??= date('Y-m-d');
         $p = self::periodos($hoje);
 
@@ -70,11 +86,10 @@ class AtividadesAcompanhamentoService {
                    COUNT(CASE WHEN r.data_referencia BETWEEN ? AND ? THEN 1 END) AS mes_ant
             FROM usuarios u
             LEFT JOIN registros_atividades r ON r.usuario_id = u.id AND r.status = 'enviado'
-            WHERE u.ativo = 1 AND u.tipo IN ('gestor', 'operador') AND u.setor_id IS NOT NULL" . ($setorId ? " AND u.setor_id = ?" : "") . "
+            WHERE u.ativo = 1 AND u.tipo IN (" . self::tiposSql() . ") AND u.setor_id IS NOT NULL" . self::andSetor('u.setor_id', $setorId) . "
             GROUP BY u.id");
         $params = [$p['sem_atual_ini'], $p['sem_atual_fim'], $p['sem_ant_ini'], $p['sem_ant_fim'],
                    $p['mes_atual_ini'], $p['mes_atual_fim'], $p['mes_ant_ini'], $p['mes_ant_fim']];
-        if ($setorId) $params[] = $setorId;
         $stmt->execute($params);
         $contagens = [];
         foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $c) $contagens[(int) $c['id']] = $c;
@@ -128,10 +143,11 @@ class AtividadesAcompanhamentoService {
     // ── Relatório ───────────────────────────────────────────────────────────────
 
     /** WHERE dos relatórios enviados (servidores ativos do escopo). @return array{0:string,1:array} */
-    private function filtros(?int $setorId, ?int $usuarioId, string $ini, string $fim, string $modalidade): array {
-        $conds = ["r.status = 'enviado'", "u.tipo IN ('gestor', 'operador')"];
+    private function filtros(int|array|null $setorId, ?int $usuarioId, string $ini, string $fim, string $modalidade): array {
+        $conds = ["r.status = 'enviado'", 'u.tipo IN (' . self::tiposSql() . ')'];
         $params = [];
-        if ($setorId) { $conds[] = 'u.setor_id = ?'; $params[] = $setorId; }
+        $escopo = self::escopo($setorId);
+        if ($escopo !== null) { $conds[] = AcessoService::filtroSetorSql('u.setor_id', $escopo); }
         if ($usuarioId) { $conds[] = 'r.usuario_id = ?'; $params[] = $usuarioId; }
         if ($ini !== '') { $conds[] = 'r.data_referencia >= ?'; $params[] = $ini; }
         if ($fim !== '') { $conds[] = 'r.data_referencia <= ?'; $params[] = $fim; }
@@ -142,7 +158,7 @@ class AtividadesAcompanhamentoService {
         return [implode(' AND ', $conds), $params];
     }
 
-    public function relatorio(?int $setorId, ?int $usuarioId, string $ini, string $fim, string $modalidade, int $pagina, int $porPagina = self::POR_PAGINA): array {
+    public function relatorio(int|array|null $setorId, ?int $usuarioId, string $ini, string $fim, string $modalidade, int $pagina, int $porPagina = self::POR_PAGINA): array {
         [$where, $params] = $this->filtros($setorId, $usuarioId, $ini, $fim, $modalidade);
         $base = "FROM registros_atividades r JOIN usuarios u ON u.id = r.usuario_id LEFT JOIN setores s ON s.id = u.setor_id WHERE $where";
 
@@ -201,7 +217,7 @@ class AtividadesAcompanhamentoService {
     }
 
     /** Relatório com itens preenchidos; null se não existe ou está fora do setor pedido. */
-    public function detalhe(int $registroId, ?int $setorId): ?array {
+    public function detalhe(int $registroId, int|array|null $setorId): ?array {
         $stmt = $this->db->prepare("
             SELECT r.id, r.data_referencia, r.enviado_em, r.status, COALESCE(r.modalidade, 'remoto') AS modalidade,
                    u.nome AS usuario_nome, u.setor_id, s.nome AS setor_nome
@@ -209,7 +225,8 @@ class AtividadesAcompanhamentoService {
             WHERE r.id = ? AND r.status = 'enviado'");
         $stmt->execute([$registroId]);
         $r = $stmt->fetch(PDO::FETCH_ASSOC);
-        if (!$r || ($setorId && (int) $r['setor_id'] !== $setorId)) return null;
+        $escopoDetalhe = self::escopo($setorId);
+        if (!$r || ($escopoDetalhe !== null && !in_array((int) $r['setor_id'], $escopoDetalhe, true))) return null;
         $stmt = $this->db->prepare("
             SELECT t.nome AS atividade_nome, i.quantidade, i.observacao
             FROM registros_atividades_itens i JOIN atividades_tipos t ON t.id = i.atividade_tipo_id
@@ -222,7 +239,7 @@ class AtividadesAcompanhamentoService {
     // ── Pendências do escopo (alerta do relatório) ─────────────────────────────
 
     /** Pendências atrasadas e abonadas dos últimos 60 dias, por servidor. */
-    public function pendenciasDoEscopo(?int $setorId, ?string $hoje = null): array {
+    public function pendenciasDoEscopo(int|array|null $setorId, ?string $hoje = null): array {
         $hoje ??= date('Y-m-d');
         $inicio = (new DateTimeImmutable($hoje))->modify('-60 days')->format('Y-m-d');
         $lista = [];
@@ -242,8 +259,8 @@ class AtividadesAcompanhamentoService {
      * Ausências por servidor no período (porte de historicoAusencias do METRICA360). Pendência ainda
      * dentro do prazo ('pendente') não conta como ausência.
      */
-    public function historicoAusencias(?int $setorId, string $ini, string $fim): array {
-        $setores = $setorId ? [$setorId] : array_map('intval', $this->db->query("SELECT id FROM setores ORDER BY nome")->fetchAll(PDO::FETCH_COLUMN));
+    public function historicoAusencias(int|array|null $setorId, string $ini, string $fim): array {
+        $setores = self::escopo($setorId) ?? array_map('intval', $this->db->query("SELECT id FROM setores ORDER BY nome")->fetchAll(PDO::FETCH_COLUMN));
         $nomes = $this->db->query("SELECT id, nome FROM setores")->fetchAll(PDO::FETCH_KEY_PAIR);
         $iniSemana = (new DateTimeImmutable($ini))->modify('Monday this week')->format('Y-m-d');
         $fimSemana = (new DateTimeImmutable($fim))->modify('Sunday this week')->format('Y-m-d');

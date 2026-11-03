@@ -603,8 +603,10 @@ class EmailService {
 
         // Equipe interna ativa do setor atual da demanda (ou administradores)
         $equipe = $this->db->prepare("SELECT 1 FROM usuarios WHERE LOWER(email) = ? AND ativo = 1
-                                      AND (tipo = 'admin' OR (tipo IN ('operador','gestor') AND setor_id = ?)) LIMIT 1");
-        $equipe->execute([$remetente, (int) $ticket['setor_id']]);
+                                      AND (tipo = 'admin'
+                                           OR (tipo IN ('operador','gestor','coordenador') AND setor_id = ?)
+                                           OR (tipo = 'coordenador' AND id IN (SELECT usuario_id FROM usuario_setores WHERE setor_id = ?))) LIMIT 1");
+        $equipe->execute([$remetente, (int) $ticket['setor_id'], (int) $ticket['setor_id']]);
         if ($equipe->fetchColumn()) {
             return null;
         }

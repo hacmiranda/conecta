@@ -1,4 +1,5 @@
 <?php
+require_once __DIR__ . '/acesso-service.php';
 /**
  * Prazos do Registro de Atividades: quais dias/semanas um servidor deveria ter enviado relatório e não enviou.
  * Porte fiel do PrazoRemotoModel + EntregaRelatorio do METRICA360 (27/10/2026), com uma diferença: os
@@ -408,7 +409,7 @@ class PrazoAtividadeService {
         $stmt = $this->db->prepare("
             SELECT u.id, u.nome
             FROM usuarios u LEFT JOIN atividades_config_usuario c ON c.usuario_id = u.id
-            WHERE u.setor_id = ? AND u.ativo = 1 AND u.tipo IN ('gestor', 'operador')
+            WHERE u.setor_id = ? AND u.ativo = 1 AND u.tipo IN (" . AcessoService::listaSql(AcessoService::PAPEIS_REGISTRAM_ATIVIDADES) . ")
               AND (COALESCE(c.trabalho_remoto, 1) = 1
                    OR c.entrega_dias <> ''
                    OR (c.entrega_dias IS NULL AND ? = 1))

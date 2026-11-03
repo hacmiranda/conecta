@@ -51,7 +51,7 @@ try {
     $db = (new Database())->getConnection();
 
     $stmt = $db->prepare("SELECT id, nome, email FROM usuarios
-                          WHERE email = :email AND ativo = 1 AND tipo IN ('operador', 'gestor', 'admin')");
+                          WHERE email = :email AND ativo = 1 AND tipo IN ('operador', 'gestor', 'coordenador', 'supervisor', 'coordenador_geral', 'admin')");
     $stmt->execute([':email' => $email]);
     $usuario = $stmt->fetch(PDO::FETCH_ASSOC);
 

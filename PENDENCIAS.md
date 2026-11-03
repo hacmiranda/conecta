@@ -39,7 +39,7 @@ Detalhes e motivos: `docs/relatorios/AUDITORIA_2026-11-01.md` (seção 7), `docs
 Plano: `C:\Users\hugo.miranda\.claude\plans\1-quero-continuar-iterative-quasar.md`. Um commit por fase.
 
 - [x] Fase 1 — decisões nos documentos
-- [ ] Fase 2 — papéis novos no backend (migração 39: `coordenador`, `supervisor`, `coordenador_geral`, `usuario_setores`, `atendimento_externo`)
+- [x] Fase 2 — papéis novos no backend (migração 39: `coordenador`, `supervisor`, `coordenador_geral`, `usuario_setores`, `atendimento_externo`)
 - [ ] Fase 3 — papéis novos no frontend (somente leitura, seletor de setores, tela de usuários)
 - [ ] Fase 4 — migração 40 (tabelas `pesquisa_*`) e `database/importar-metrica360.php` (ensaio revisado por você antes de `--executar`)
 - [ ] Fase 5 — backend do módulo (convites, avaliações, painéis, página pública)

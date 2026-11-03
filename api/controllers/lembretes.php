@@ -99,8 +99,9 @@ try {
         // Destinatário opcional: operador/gestor ativo do setor da demanda
         $agenteId = !empty($data['agente_id']) ? (int) $data['agente_id'] : null;
         if ($agenteId !== null) {
-            $dest = $db->prepare("SELECT 1 FROM usuarios WHERE id = ? AND ativo = 1 AND tipo IN ('operador','gestor') AND setor_id = ?");
-            $dest->execute([$agenteId, (int) $ticket['setor_id']]);
+            $dest = $db->prepare("SELECT 1 FROM usuarios WHERE id = ? AND ativo = 1 AND tipo IN ('operador','gestor','coordenador')
+                                  AND (setor_id = ? OR id IN (SELECT usuario_id FROM usuario_setores WHERE setor_id = ?))");
+            $dest->execute([$agenteId, (int) $ticket['setor_id'], (int) $ticket['setor_id']]);
             if (!$dest->fetchColumn()) {
                 http_response_code(400);
                 echo json_encode(['error' => 'O destinatário precisa ser da equipe do setor da demanda']);
@@ -145,7 +146,7 @@ try {
         // Autor do lembrete, ou quem gere o setor da demanda (gestor do setor / admin)
         $ticket = AcessoService::carregarTicketOuFalhar($db, $lembrete['ticket_id']);
         $ehAutor = (int) $lembrete['criado_por'] === (int) $user['id'] && AcessoService::podeVerTicket($user, $ticket);
-        $ehGestao = in_array($user['tipo'], ['gestor', 'admin'], true) && AcessoService::podeOperarTicket($user, $ticket);
+        $ehGestao = (AcessoService::ehGestao($user) || $user['tipo'] === 'admin') && AcessoService::podeOperarTicket($user, $ticket);
         if (!$ehAutor && !$ehGestao) {
             http_response_code(403);
             echo json_encode(['error' => 'Você não pode excluir este lembrete']);

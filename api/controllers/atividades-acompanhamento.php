@@ -33,7 +33,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
 }
 
 $user = AuthMiddleware::verificarAuth();
-AuthMiddleware::verificarGestor($user); // admin e gestor; operador recebe 403
+AuthMiddleware::verificarLeituraGestao($user); // gestão e visão total; operador recebe 403 (as escritas da visão total caem na trava central)
 $metodo = $_SERVER['REQUEST_METHOD'];
 if (in_array($metodo, ['POST', 'DELETE'], true)) {
     AuthMiddleware::verificarCSRF();
@@ -67,11 +67,11 @@ function periodo(string $iniPadrao, string $fimPadrao): array {
 
 $db = (new Database())->getConnection();
 $servico = new AtividadesAcompanhamentoService($db);
-$setorId = AcessoService::setorEscopo($user);
-if (($user['tipo'] ?? '') !== 'admin' && !$setorId) erroAcomp(403, 'Você não está vinculado a um setor.');
+$setorId = AcessoService::escopoSetores($user); // null = todos; lista = um ou mais setores
+if ($setorId === []) erroAcomp(403, 'Você não está vinculado a um setor.');
 
 /** Servidor do escopo (ou 403). */
-function usuarioDoEscopo(AtividadesAcompanhamentoService $s, ?int $setorId, int $id): array {
+function usuarioDoEscopo(AtividadesAcompanhamentoService $s, int|array|null $setorId, int $id): array {
     foreach ($s->usuariosDoEscopo($setorId) as $u) {
         if ((int) $u['id'] === $id) return $u;
     }

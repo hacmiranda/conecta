@@ -649,7 +649,7 @@ class EmailSender {
 
             // Assinatura de quem respondeu, dentro do card (só no e-mail; não fica gravada no comentário).
             // Gestor/operador: o próprio setor (ou o da demanda, se vazio); admin, que não tem setor: o da demanda.
-            if (in_array($dados['autor_tipo'] ?? '', ['admin', 'gestor', 'operador'], true)) {
+            if (in_array($dados['autor_tipo'] ?? '', ['admin', 'coordenador', 'gestor', 'operador'], true)) {
                 $setor_assinatura = $dados['autor_tipo'] === 'admin'
                     ? (string) ($dados['demanda_setor'] ?? '')
                     : ((string) ($dados['autor_setor'] ?? '') ?: (string) ($dados['demanda_setor'] ?? ''));

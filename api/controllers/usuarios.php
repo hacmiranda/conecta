@@ -50,11 +50,84 @@ function gerarUsernameUnico(PDO $db, string $nomeCompleto): string {
 }
 
 /**
- * Papéis que quem está logado pode atribuir: admin (admin, gestor, operador); gestor (operador).
+ * Papéis que quem está logado pode atribuir: admin (todos, menos solicitante); gestor e coordenador (operador).
  * Solicitante externo (cliente) nunca é cadastrado por aqui.
  */
 function papeisPermitidos(array $user): array {
-    return $user['tipo'] === 'admin' ? ['admin', 'gestor', 'operador'] : ['operador'];
+    return $user['tipo'] === 'admin'
+        ? ['admin', 'coordenador_geral', 'supervisor', 'coordenador', 'gestor', 'operador']
+        : ['operador'];
+}
+
+/** Todo papel de equipe, menos o administrador, tem um setor de lotação (o Registro de Atividades depende dele). */
+function papelExigeSetor(string $tipo): bool {
+    return $tipo !== 'admin' && $tipo !== 'cliente';
+}
+
+/**
+ * Nome do coordenador que já responde pelo setor (como principal ou adicional), ou null se está livre.
+ * Cada setor tem no máximo um coordenador. `$exceto` é o usuário que está sendo salvo.
+ */
+function coordenadorDoSetor(PDO $db, int $setorId, int $exceto = 0): ?string {
+    $stmt = $db->prepare("SELECT u.nome FROM usuarios u
+                          WHERE u.tipo = 'coordenador' AND u.id <> ? AND u.ativo = 1
+                            AND (u.setor_id = ? OR u.id IN (SELECT usuario_id FROM usuario_setores WHERE setor_id = ?))
+                          LIMIT 1");
+    $stmt->execute([$exceto, $setorId, $setorId]);
+    $nome = $stmt->fetchColumn();
+    return $nome === false ? null : (string) $nome;
+}
+
+function exigirSetorSemCoordenador(PDO $db, int $setorId, int $usuarioId): void {
+    $outro = coordenadorDoSetor($db, $setorId, $usuarioId);
+    if ($outro !== null) {
+        http_response_code(409);
+        echo json_encode(['error' => 'Este setor já tem coordenador(a): ' . $outro . '. Cada setor tem apenas um(a).']);
+        exit;
+    }
+}
+
+/** Setores adicionais já gravados para o coordenador. @return int[] */
+function setoresAdicionaisDe(PDO $db, int $usuarioId): array {
+    $stmt = $db->prepare("SELECT setor_id FROM usuario_setores WHERE usuario_id = ? ORDER BY criado_em");
+    $stmt->execute([$usuarioId]);
+    return array_map('intval', $stmt->fetchAll(PDO::FETCH_COLUMN));
+}
+
+/**
+ * Lê e valida a lista `setores_adicionais` enviada pelo admin: ids de setores ativos, sem repetir nem
+ * incluir o principal, e sem coordenador em outro lugar. Encerra com 400/409 se algo não servir.
+ *
+ * @return int[]
+ */
+function validarSetoresAdicionais(PDO $db, $valor, ?int $principal, int $usuarioId): array {
+    $ids = [];
+    foreach ((array) $valor as $v) {
+        $id = (int) $v;
+        if ($id > 0 && $id !== (int) $principal && !in_array($id, $ids, true)) {
+            $ids[] = $id;
+        }
+    }
+    $existe = $db->prepare("SELECT 1 FROM setores WHERE id = ? AND ativo = 1");
+    foreach ($ids as $id) {
+        $existe->execute([$id]);
+        if (!$existe->fetchColumn()) {
+            http_response_code(400);
+            echo json_encode(['error' => 'Setor adicional inválido ou inativo']);
+            exit;
+        }
+        exigirSetorSemCoordenador($db, $id, $usuarioId);
+    }
+    return $ids;
+}
+
+/** Troca os setores adicionais do coordenador (apaga os antigos e grava os novos). */
+function gravarSetoresAdicionais(PDO $db, int $usuarioId, array $ids, int $autorId): void {
+    $db->prepare("DELETE FROM usuario_setores WHERE usuario_id = ?")->execute([$usuarioId]);
+    $ins = $db->prepare("INSERT INTO usuario_setores (usuario_id, setor_id, criado_por) VALUES (?, ?, ?)");
+    foreach ($ids as $id) {
+        $ins->execute([$usuarioId, $id, $autorId]);
+    }
 }
 
 /**
@@ -76,7 +149,7 @@ function exigirAdministrarUsuario(array $user, array $alvo): void {
     }
     if ($alvo['tipo'] !== 'operador' || !AuthMiddleware::mesmoSetor($user, $alvo['setor_id'] !== null ? (int) $alvo['setor_id'] : null)) {
         http_response_code(403);
-        echo json_encode(['error' => 'Gestores só administram operadores do próprio setor']);
+        echo json_encode(['error' => 'Gestores e coordenadores só administram operadores dos próprios setores']);
         exit;
     }
 }
@@ -181,13 +254,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
                 $params[':setor_id'] = (int) $_GET['setor_id'];
             }
         } else {
-            // Gestor: sempre restrito ao próprio setor
-            $where[] = 'u.setor_id = :setor_id';
-            $params[':setor_id'] = $user['setor_id'];
+            // Gestor: o próprio setor; coordenador: os seus setores (principal e adicionais)
+            $where[] = AcessoService::filtroSetorSql('u.setor_id', AcessoService::setoresDoUsuario($user) ?? []);
         }
 
         $sql = "SELECT u.id, u.nome, u.username, u.email, u.tipo, u.cargo, u.setor_id, u.ativo, u.avatar, u.criado_em,
-                       s.nome as setor_nome
+                       u.atendimento_externo, s.nome as setor_nome
                 FROM usuarios u
                 LEFT JOIN setores s ON s.id = u.setor_id";
         if ($where) {
@@ -197,7 +269,24 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
 
         $stmt = $db->prepare($sql);
         $stmt->execute($params);
-        echo json_encode($stmt->fetchAll());
+        $lista = $stmt->fetchAll();
+
+        // Setores adicionais dos coordenadores da lista (nome incluso, para a tela de edição)
+        $coordenadores = array_map(fn($u) => (int) $u['id'], array_filter($lista, fn($u) => $u['tipo'] === 'coordenador'));
+        $extrasPorUsuario = [];
+        if ($coordenadores) {
+            $linhas = $db->query("SELECT us.usuario_id, s.id, s.nome FROM usuario_setores us JOIN setores s ON s.id = us.setor_id
+                                  WHERE us.usuario_id IN (" . implode(',', $coordenadores) . ") ORDER BY us.criado_em")->fetchAll(PDO::FETCH_ASSOC);
+            foreach ($linhas as $l) {
+                $extrasPorUsuario[(int) $l['usuario_id']][] = ['id' => (int) $l['id'], 'nome' => $l['nome']];
+            }
+        }
+        foreach ($lista as &$linha) {
+            $linha['atendimento_externo'] = (int) $linha['atendimento_externo'] === 1;
+            $linha['setores_adicionais'] = $extrasPorUsuario[(int) $linha['id']] ?? [];
+        }
+        unset($linha);
+        echo json_encode($lista);
     } catch (Exception $e) {
         http_response_code(500);
         echo json_encode(['error' => 'Erro ao buscar usuários']);
@@ -231,7 +320,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
     if (!in_array($tipo, papeisPermitidos($user), true)) {
         http_response_code(403);
-        echo json_encode(['error' => $user['tipo'] === 'gestor' ? 'Gestores só podem cadastrar usuários com papel "operador"' : 'Papel inválido']);
+        echo json_encode(['error' => $user['tipo'] !== 'admin' ? 'Gestores e coordenadores só podem cadastrar usuários com papel "operador"' : 'Papel inválido']);
         exit;
     }
 
@@ -248,24 +337,38 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         exit;
     }
 
-    // Gestor só pode criar usuários comuns dentro do próprio setor
-    if ($user['tipo'] === 'gestor') {
-        if (!in_array($tipo, ['operador'], true)) {
+    // Gestor só cria operadores no próprio setor; coordenador, nos seus setores (padrão: o principal)
+    if (AcessoService::ehGestao($user)) {
+        if ($tipo !== 'operador') {
             http_response_code(403);
-            echo json_encode(['error' => 'Gestores só podem cadastrar usuários com papel "operador"']);
+            echo json_encode(['error' => 'Gestores e coordenadores só podem cadastrar usuários com papel "operador"']);
             exit;
         }
-        $setor_id = $user['setor_id'];
+        if ($user['tipo'] === 'coordenador' && $setor_id !== null && AcessoService::temAcessoAoSetor($user, $setor_id)) {
+            // mantém o setor escolhido, que é um dos dele
+        } else {
+            $setor_id = $user['setor_id'];
+        }
     }
     if ($tipo === 'admin') {
         $setor_id = null; // administrador não pertence a setor
     }
 
-    if (in_array($tipo, ['operador', 'gestor'], true) && empty($setor_id)) {
+    if (papelExigeSetor($tipo) && empty($setor_id)) {
         http_response_code(400);
-        echo json_encode(['error' => 'Setor é obrigatório para os papéis operador/gestor']);
+        echo json_encode(['error' => 'Informe o setor de lotação (obrigatório para todos os papéis, menos administrador)']);
         exit;
     }
+
+    // Coordenador: um por setor; setores adicionais só o admin define
+    $setores_adicionais = [];
+    if ($tipo === 'coordenador') {
+        exigirSetorSemCoordenador($db, (int) $setor_id, 0);
+        if ($user['tipo'] === 'admin') {
+            $setores_adicionais = validarSetoresAdicionais($db, $input['setores_adicionais'] ?? [], (int) $setor_id, 0);
+        }
+    }
+    $atendimento_externo = ($user['tipo'] === 'admin' && !empty($input['atendimento_externo'])) ? 1 : 0;
 
     try {
         $check_query = "SELECT id FROM usuarios WHERE email = :email";
@@ -294,8 +397,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $senha_hash = SenhaService::hash($senha);
 
         // trocar_senha = 1: a senha inicial é trocada pelo próprio usuário no primeiro acesso
-        $query = "INSERT INTO usuarios (nome, username, email, tipo, cargo, setor_id, senha, trocar_senha)
-                  VALUES (:nome, :username, :email, :tipo, :cargo, :setor_id, :senha, 1)";
+        $db->beginTransaction();
+        $query = "INSERT INTO usuarios (nome, username, email, tipo, cargo, setor_id, atendimento_externo, senha, trocar_senha)
+                  VALUES (:nome, :username, :email, :tipo, :cargo, :setor_id, :atendimento_externo, :senha, 1)";
         $stmt = $db->prepare($query);
         $stmt->bindParam(':nome', $nome);
         $stmt->bindParam(':username', $username);
@@ -303,13 +407,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $stmt->bindParam(':tipo', $tipo);
         $stmt->bindParam(':cargo', $cargo);
         $stmt->bindParam(':setor_id', $setor_id);
+        $stmt->bindParam(':atendimento_externo', $atendimento_externo);
         $stmt->bindParam(':senha', $senha_hash);
         $stmt->execute();
 
         $usuario_id = $db->lastInsertId();
+        if ($setores_adicionais) {
+            gravarSetoresAdicionais($db, (int) $usuario_id, $setores_adicionais, (int) $user['id']);
+        }
+        $db->commit();
 
         $auditoria = new AuditoriaService($db);
-        $auditoria->registrar($user['id'], 'criar_usuario', 'usuarios', $usuario_id, null, json_encode(['nome' => $nome, 'email' => $email, 'tipo' => $tipo, 'setor_id' => $setor_id]));
+        $auditoria->registrar($user['id'], 'criar_usuario', 'usuarios', $usuario_id, null, json_encode(['nome' => $nome, 'email' => $email, 'tipo' => $tipo, 'setor_id' => $setor_id, 'setores_adicionais' => $setores_adicionais, 'atendimento_externo' => $atendimento_externo]));
 
         $select_query = "SELECT id, nome, username, email, tipo, cargo, setor_id, avatar, criado_em FROM usuarios WHERE id = :id";
         $select_stmt = $db->prepare($select_query);
@@ -317,6 +426,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $select_stmt->execute();
         echo json_encode($select_stmt->fetch());
     } catch (Exception $e) {
+        if ($db->inTransaction()) {
+            $db->rollBack();
+        }
         error_log('[USUARIOS POST] Erro: ' . $e->getMessage());
         http_response_code(500);
         echo json_encode(['error' => 'Erro ao criar usuário']);
@@ -336,7 +448,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'PUT') {
     $input = json_decode(file_get_contents('php://input'), true);
 
     // Confirma que o alvo pertence ao setor do gestor (admin passa direto)
-    $alvo_stmt = $db->prepare("SELECT nome, username, email, tipo, cargo, setor_id, ativo FROM usuarios WHERE id = ?");
+    $alvo_stmt = $db->prepare("SELECT nome, username, email, tipo, cargo, setor_id, ativo, atendimento_externo FROM usuarios WHERE id = ?");
     $alvo_stmt->execute([$usuario_id]);
     $alvo = $alvo_stmt->fetch(PDO::FETCH_ASSOC);
 
@@ -346,16 +458,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'PUT') {
         exit;
     }
 
-    if ($user['tipo'] === 'gestor' && !AuthMiddleware::mesmoSetor($user, $alvo['setor_id'])) {
+    if (AcessoService::ehGestao($user) && !AuthMiddleware::mesmoSetor($user, $alvo['setor_id'] !== null ? (int) $alvo['setor_id'] : null)) {
         http_response_code(403);
-        echo json_encode(['error' => 'Você só pode editar usuários do próprio setor']);
+        echo json_encode(['error' => 'Você só pode editar usuários dos próprios setores']);
         exit;
     }
 
-    // Gestor administra apenas operadores: não edita (nem rebaixa) outros gestores, admins ou a si mesmo
-    if ($user['tipo'] === 'gestor' && $alvo['tipo'] !== 'operador') {
+    // Gestor e coordenador administram apenas operadores: não editam (nem rebaixam) gestores, coordenadores, admins ou a si mesmos
+    if (AcessoService::ehGestao($user) && $alvo['tipo'] !== 'operador') {
         http_response_code(403);
-        echo json_encode(['error' => 'Gestores só podem editar usuários com papel de operador']);
+        echo json_encode(['error' => 'Gestores e coordenadores só podem editar usuários com papel de operador']);
         exit;
     }
 
@@ -441,21 +553,41 @@ if ($_SERVER['REQUEST_METHOD'] === 'PUT') {
         // edição de dados de um solicitante externo (sem mudar o papel)
     } elseif (!in_array($tipo, papeisPermitidos($user), true)) {
         http_response_code(403);
-        echo json_encode(['error' => $user['tipo'] === 'gestor' ? 'Gestores não podem alterar o papel para gestor/admin' : 'Papel inválido']);
+        echo json_encode(['error' => $user['tipo'] !== 'admin' ? 'Você não pode alterar o papel para um acima de operador' : 'Papel inválido']);
         exit;
     }
 
-    // Gestor não pode mudar o setor do usuário
-    if ($user['tipo'] === 'gestor') {
+    // Gestor e coordenador não mudam o setor do usuário
+    if (AcessoService::ehGestao($user)) {
         $setor_id = $alvo['setor_id'];
     }
     if ($tipo === 'admin') {
         $setor_id = null; // administrador não pertence a setor
     }
-    if (in_array($tipo, ['operador', 'gestor'], true) && empty($setor_id)) {
+    if (papelExigeSetor($tipo) && empty($setor_id)) {
         http_response_code(400);
-        echo json_encode(['error' => 'Setor é obrigatório para os papéis operador/gestor']);
+        echo json_encode(['error' => 'Informe o setor de lotação (obrigatório para todos os papéis, menos administrador)']);
         exit;
+    }
+
+    // Coordenador: um por setor (principal e adicionais). Os adicionais só o admin altera;
+    // fora de um coordenador não há setores adicionais
+    $extras_antes = $alvo['tipo'] === 'coordenador' ? setoresAdicionaisDe($db, $usuario_id) : [];
+    $extras_depois = $extras_antes;
+    if ($tipo !== 'coordenador') {
+        $extras_depois = [];
+    } else {
+        exigirSetorSemCoordenador($db, (int) $setor_id, $usuario_id);
+        if ($user['tipo'] === 'admin' && array_key_exists('setores_adicionais', $input)) {
+            $extras_depois = validarSetoresAdicionais($db, $input['setores_adicionais'], (int) $setor_id, $usuario_id);
+        } else {
+            // O principal mudou para um setor que já era adicional: ele deixa de ser adicional
+            $extras_depois = array_values(array_diff($extras_depois, [(int) $setor_id]));
+        }
+    }
+    $atendimento_externo = (int) ($alvo['atendimento_externo'] ?? 0);
+    if ($user['tipo'] === 'admin' && array_key_exists('atendimento_externo', $input)) {
+        $atendimento_externo = !empty($input['atendimento_externo']) ? 1 : 0;
     }
     if ($alvo['tipo'] === 'admin' && $tipo !== 'admin' && outrosAdminsAtivos($db, $usuario_id) === 0) {
         http_response_code(400);
@@ -477,7 +609,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'PUT') {
 
     try {
         $db->beginTransaction();
-        $query = "UPDATE usuarios SET nome = :nome, username = :username, email = :email, tipo = :tipo, cargo = :cargo, setor_id = :setor_id WHERE id = :id";
+        $query = "UPDATE usuarios SET nome = :nome, username = :username, email = :email, tipo = :tipo, cargo = :cargo, setor_id = :setor_id, atendimento_externo = :atendimento_externo WHERE id = :id";
         $stmt = $db->prepare($query);
         $stmt->bindParam(':nome', $nome);
         $stmt->bindParam(':username', $username);
@@ -485,18 +617,41 @@ if ($_SERVER['REQUEST_METHOD'] === 'PUT') {
         $stmt->bindParam(':tipo', $tipo);
         $stmt->bindParam(':cargo', $cargo);
         $stmt->bindParam(':setor_id', $setor_id);
+        $stmt->bindParam(':atendimento_externo', $atendimento_externo);
         $stmt->bindParam(':id', $usuario_id);
         $stmt->execute();
 
-        // Mudou de setor (ou passou a admin): as demandas abertas dele no setor antigo voltam para o setor
+        // Setores adicionais do coordenador (só muda se o conjunto mudou)
+        sort($extras_antes);
+        $extras_novos = $extras_depois;
+        sort($extras_novos);
+        if ($extras_antes !== $extras_novos) {
+            gravarSetoresAdicionais($db, $usuario_id, $extras_depois, (int) $user['id']);
+        }
+
+        // As demandas abertas dele nos setores que perdeu voltam para o setor. Quem deixou de poder
+        // atender (virou admin, supervisor ou coordenador geral) devolve todas.
         $devolvidas = 0;
-        if ((string) $alvo['setor_id'] !== (string) $setor_id) {
-            $devolvidas = AcessoService::devolverDemandasDoResponsavel($db, $usuario_id, (int) $user['id'], 'responsável mudou de setor');
+        $setores_antes = array_values(array_unique(array_filter(array_merge(
+            [(int) $alvo['setor_id']], $alvo['tipo'] === 'coordenador' ? $extras_antes : []))));
+        $setores_depois = array_values(array_unique(array_filter(array_merge(
+            [(int) $setor_id], $tipo === 'coordenador' ? $extras_depois : []))));
+        if (!in_array($tipo, AcessoService::PAPEIS_ATENDEM, true)) {
+            if ($setores_antes) {
+                $devolvidas = AcessoService::devolverDemandasDoResponsavel($db, $usuario_id, (int) $user['id'], 'responsável mudou de setor');
+            }
+        } else {
+            foreach (array_diff($setores_antes, $setores_depois) as $setor_perdido) {
+                $devolvidas += AcessoService::devolverDemandasDoResponsavel($db, $usuario_id, (int) $user['id'], 'responsável mudou de setor', (int) $setor_perdido);
+            }
         }
         $db->commit();
 
         $auditoria = new AuditoriaService($db);
-        $auditoria->registrar($user['id'], 'atualizar_usuario','usuarios', $usuario_id, json_encode($alvo), json_encode(['nome' => $nome, 'username' => $username, 'email' => $email, 'tipo' => $tipo, 'cargo' => $cargo, 'setor_id' => $setor_id]));
+        $auditoria->registrar($user['id'], 'atualizar_usuario','usuarios', $usuario_id, json_encode($alvo), json_encode(['nome' => $nome, 'username' => $username, 'email' => $email, 'tipo' => $tipo, 'cargo' => $cargo, 'setor_id' => $setor_id, 'atendimento_externo' => $atendimento_externo]));
+        if ($extras_antes !== $extras_novos) {
+            $auditoria->registrar($user['id'], 'alterar_setores_coordenador', 'usuarios', $usuario_id, json_encode($extras_antes), json_encode($extras_novos));
+        }
 
         echo json_encode(['success' => true, 'demandas_devolvidas' => $devolvidas]);
     } catch (Exception $e) {

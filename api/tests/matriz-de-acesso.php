@@ -414,6 +414,99 @@ try {
     [$c] = req('GET', $painel);
     verifica('sem sessão: 401', $c === 401, (string) $c);
 
+    echo "\n[9] Papéis de coordenação: coordenador (vários setores), supervisor e coordenador geral (só consulta)\n";
+    $coordenadorId = criarUsuario($db, 'zz Coordenador', 'coordenador', $setorA);
+    $supervisorId  = criarUsuario($db, 'zz Supervisor', 'supervisor', $setorA);
+    $coordGeralId  = criarUsuario($db, 'zz Coordenador Geral', 'coordenador_geral', $setorA);
+    $usuariosCriados = array_merge($usuariosCriados, [$coordenadorId, $supervisorId, $coordGeralId]);
+    $db->prepare('INSERT INTO usuario_setores (usuario_id, setor_id) VALUES (?, ?)')->execute([$coordenadorId, $setorB]);
+    $T['coordenador'] = tokenDe($db, $coordenadorId);
+    $T['supervisor']  = tokenDe($db, $supervisorId);
+    $T['coordGeral']  = tokenDe($db, $coordGeralId);
+    $usuarios = $baseUrl . 'usuarios.php';
+
+    foreach (['supervisor' => 'supervisor', 'coordGeral' => 'coordenador geral'] as $chave => $rotulo) {
+        [$c] = req('GET', $baseUrl . "tickets.php?id=$demandaB", $T[$chave]);
+        verifica("$rotulo lê a demanda de qualquer setor (200)", $c === 200, (string) $c);
+        [$c, $j] = req('GET', $baseUrl . 'tickets.php?escopo=abertas', $T[$chave]);
+        $ids = array_column($j ?? [], 'id');
+        verifica("$rotulo vê as demandas abertas de todos os setores", $c === 200 && in_array($demandaA, $ids) && in_array($demandaB, $ids), (string) $c);
+        [$c] = req('PUT', $baseUrl . "tickets.php?id=$demandaA", $T[$chave], ['prioridade' => 'alta']);
+        verifica("$rotulo não altera demanda (403)", $c === 403, (string) $c);
+        [$c] = req('DELETE', $baseUrl . "tickets.php?id=$demandaA", $T[$chave]);
+        verifica("$rotulo não exclui demanda (403)", $c === 403, (string) $c);
+        [$c] = req('POST', $baseUrl . 'comentarios.php', $T[$chave], ['ticket_id' => $demandaB, 'comentario' => '<p>zz</p>']);
+        verifica("$rotulo não comenta (403)", $c === 403, (string) $c);
+        [$c] = req('POST', $baseUrl . 'demanda-acoes.php', $T[$chave], ['ticket_id' => $demandaB, 'acao' => 'atribuir', 'usuario_id' => $operadorA]);
+        verifica("$rotulo não encaminha demanda (403)", $c === 403, (string) $c);
+        [$c, $j] = req('GET', $baseUrl . 'tickets.php?id=' . $demandaB, $T[$chave]);
+        verifica("$rotulo recebe o aviso de perfil de consulta no detalhe", $c === 200 && ($j['perfil_consulta'] ?? false) === true && ($j['somente_leitura'] ?? false) === true, (string) $c);
+        [$c] = req('GET', $baseUrl . 'dashboard.php', $T[$chave]);
+        verifica("$rotulo abre o dashboard (200)", $c === 200, (string) $c);
+        [$c] = req('GET', $baseUrl . 'atividades-acompanhamento.php?acao=painel', $T[$chave]);
+        verifica("$rotulo abre o Painel de Atividades (200)", $c === 200, (string) $c);
+        [$c] = req('POST', $baseUrl . 'atividades-acompanhamento.php?acao=abonar', $T[$chave], ['usuario_id' => $operadorA, 'data' => '2026-01-07', 'tipo' => 'entrega', 'justificativa' => 'zz_matriz abono']);
+        verifica("$rotulo não abona pendência (403)", $c === 403, (string) $c);
+        [$c] = req('GET', $usuarios, $T[$chave]);
+        verifica("$rotulo não administra usuários (403)", $c === 403, (string) $c);
+        [$c] = req('GET', $baseUrl . 'tickets.php?escopo=lixeira', $T[$chave]);
+        verifica("$rotulo não acessa a lixeira (403)", $c === 403, (string) $c);
+        [$c] = req('GET', $baseUrl . 'registro-atividades.php?data=2026-01-06', $T[$chave]);
+        verifica("$rotulo registra as próprias atividades (200)", $c === 200, (string) $c);
+    }
+    [$c] = req('POST', $usuarios, $T['supervisor'], ['nome' => 'zz x', 'email' => 'zz_matriz_x@teste.local', 'tipo' => 'operador', 'senha' => 'Zz@Teste12345', 'setor_id' => $setorA]);
+    verifica('supervisor não cria usuário (403)', $c === 403, (string) $c);
+
+    // Coordenador: setor principal A + adicional B
+    [$c] = req('GET', $baseUrl . "tickets.php?id=$demandaA", $T['coordenador']);
+    verifica('coordenador lê a demanda do setor principal (200)', $c === 200, (string) $c);
+    [$c] = req('GET', $baseUrl . "tickets.php?id=$demandaB", $T['coordenador']);
+    verifica('coordenador lê a demanda do setor adicional (200)', $c === 200, (string) $c);
+    [$c] = req('PUT', $baseUrl . "tickets.php?id=$demandaB", $T['coordenador'], ['prioridade' => 'alta']);
+    verifica('coordenador altera a demanda do setor adicional (200)', $c === 200, (string) $c);
+    [$c, $j] = req('GET', $baseUrl . 'tickets.php?escopo=abertas', $T['coordenador']);
+    $ids = array_column($j ?? [], 'id');
+    verifica('coordenador vê as demandas dos dois setores sem escolher', $c === 200 && in_array($demandaA, $ids) && in_array($demandaB, $ids), (string) $c);
+    [$c, $j] = req('GET', $baseUrl . "tickets.php?escopo=abertas&setor_id=$setorB", $T['coordenador']);
+    $ids = array_column($j ?? [], 'id');
+    verifica('coordenador escolhe o setor B no cabeçalho e só vê o B', $c === 200 && in_array($demandaB, $ids) && !in_array($demandaA, $ids), (string) $c);
+    [$c] = req('GET', $baseUrl . 'tickets.php?escopo=abertas&setor_id=999999', $T['coordenador']);
+    verifica('coordenador pedindo um setor que não é dele é recusado (403)', $c === 403, (string) $c);
+    [$c] = req('GET', $baseUrl . 'atividades-acompanhamento.php?acao=painel', $T['coordenador']);
+    verifica('coordenador abre o Painel de Atividades (200)', $c === 200, (string) $c);
+    [$c] = req('POST', $usuarios, $T['coordenador'], ['nome' => 'zz Gestor Novo', 'email' => 'zz_matriz_g@teste.local', 'tipo' => 'gestor', 'senha' => 'Zz@Teste12345', 'setor_id' => $setorA]);
+    verifica('coordenador não cria gestor, só operador (403)', $c === 403, (string) $c);
+    [$c, $j] = req('POST', $usuarios, $T['coordenador'], ['nome' => 'zz Operador do B', 'email' => 'zz_matriz_opb@teste.local', 'tipo' => 'operador', 'senha' => 'Zz@Teste12345', 'setor_id' => $setorB]);
+    $opB = (int) ($j['id'] ?? 0);
+    if ($opB) { $usuariosCriados[] = $opB; }
+    verifica('coordenador cria operador no setor adicional (200)', $c === 200 && $opB > 0 && (int) ($j['setor_id'] ?? 0) === (int) $setorB, (string) $c);
+    [$c] = req('PUT', $usuarios . '/' . $gestorA, $T['coordenador'], ['nome' => 'zz x', 'email' => 'zz_matriz_ga@teste.local', 'tipo' => 'operador', 'setor_id' => $setorA]);
+    verifica('coordenador não edita um gestor (403)', $c === 403, (string) $c);
+
+    // Um setor tem um coordenador só (principal ou adicional)
+    [$c, $j] = req('POST', $usuarios, $T['admin'], ['nome' => 'zz Coordenador 2', 'email' => 'zz_matriz_c2@teste.local', 'tipo' => 'coordenador', 'senha' => 'Zz@Teste12345', 'setor_id' => $setorA]);
+    verifica('segundo coordenador no mesmo setor principal é recusado (409)', $c === 409, (string) $c);
+    [$c] = req('POST', $usuarios, $T['admin'], ['nome' => 'zz Coordenador 3', 'email' => 'zz_matriz_c3@teste.local', 'tipo' => 'coordenador', 'senha' => 'Zz@Teste12345', 'setor_id' => $setorB]);
+    verifica('coordenador num setor que já é adicional de outro é recusado (409)', $c === 409, (string) $c);
+    [$c] = req('POST', $usuarios, $T['gestorA'], ['nome' => 'zz Sup', 'email' => 'zz_matriz_sup@teste.local', 'tipo' => 'supervisor', 'senha' => 'Zz@Teste12345', 'setor_id' => $setorA]);
+    verifica('gestor não cria supervisor (403)', $c === 403, (string) $c);
+
+    // O admin libera/retira setores adicionais; ao retirar, a demanda aberta do coordenador volta ao setor
+    $demandaDoCoord = criarDemanda($db, 'zz demanda do coordenador no setor B', $setorB, $coordenadorId);
+    $ticketsCriados[] = $demandaDoCoord;
+    [$c] = req('PUT', $usuarios . '/' . $coordenadorId, $T['admin'], ['nome' => 'zz Coordenador', 'email' => (string) $db->query("SELECT email FROM usuarios WHERE id = $coordenadorId")->fetchColumn(),
+        'tipo' => 'coordenador', 'setor_id' => $setorA, 'setores_adicionais' => []]);
+    verifica('admin retira o setor adicional do coordenador (200)', $c === 200, (string) $c);
+    $agenteDepois = $db->query("SELECT agente_id FROM tickets WHERE id = $demandaDoCoord")->fetchColumn();
+    verifica('a demanda aberta dele no setor retirado voltou para o setor', $agenteDepois === null || $agenteDepois === false, (string) $agenteDepois);
+    [$c] = req('GET', $baseUrl . "tickets.php?id=$demandaB", $T['coordenador']);
+    verifica('sem o setor adicional, o coordenador não lê mais a demanda dele (403)', $c === 403, (string) $c);
+    [$c] = req('PUT', $usuarios . '/' . $coordenadorId, $T['admin'], ['nome' => 'zz Coordenador', 'email' => (string) $db->query("SELECT email FROM usuarios WHERE id = $coordenadorId")->fetchColumn(),
+        'tipo' => 'coordenador', 'setor_id' => $setorA, 'setores_adicionais' => [$setorB]]);
+    verifica('admin libera de novo o setor adicional (200)', $c === 200, (string) $c);
+    [$c] = req('GET', $baseUrl . "tickets.php?id=$demandaB", $T['coordenador']);
+    verifica('com o setor adicional liberado, o coordenador volta a ler (200)', $c === 200, (string) $c);
+
     echo "\n[8] Sessão no cookie HttpOnly, com validade\n";
     $emailOperadorA = (string) $db->query("SELECT email FROM usuarios WHERE id = $operadorA")->fetchColumn();
     [$c, $j, $ck] = reqCookie('POST', $baseUrl . 'auth.php', null, null, ['email' => $emailOperadorA, 'senha' => 'Zz@Teste12345']);
@@ -483,6 +576,8 @@ try {
     }
     if ($usuariosCriados) {
         $idsUsuarios = implode(',', array_filter($usuariosCriados));
+        // Seção [9]: usuários criados/alterados pela API deixam rastro na auditoria
+        $db->exec("DELETE FROM auditoria WHERE tabela = 'usuarios' AND registro_id IN ($idsUsuarios)");
         $db->exec("DELETE FROM usuarios WHERE id IN ($idsUsuarios)");
     }
     echo "  dados de teste removidos.\n";

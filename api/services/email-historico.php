@@ -1,4 +1,5 @@
 <?php
+require_once __DIR__ . '/acesso-service.php';
 /**
  * Seção "Histórico das Interações" dos e-mails ao solicitante (a demanda registrada + a conversa, numa lista só).
  *
@@ -116,7 +117,7 @@ class EmailHistorico {
         $html .= '<div style="padding:2px 16px 12px;">';
 
         foreach ($mensagens as $m) {
-            $equipe = in_array($m['tipo'] ?? '', ['admin', 'gestor', 'operador'], true) && (int) $m['usuario_id'] !== $idSolicitante;
+            $equipe = in_array($m['tipo'] ?? '', AcessoService::PAPEIS_EQUIPE, true) && (int) $m['usuario_id'] !== $idSolicitante;
             $papel = $equipe ? 'CRPRS' : ((int) $m['usuario_id'] === $idSolicitante ? 'Solicitante' : 'Participante');
             $anexos = empty($m['anexos']) ? '' : '<div style="padding-top:4px;font-size:12px;color:#5f5852;">Anexos: '
                 . implode(', ', array_map($e, $m['anexos'])) . '</div>';

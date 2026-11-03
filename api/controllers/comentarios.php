@@ -185,7 +185,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         // === SLA: primeira resposta ===
         // Comentário da equipe enviado ao solicitante cumpre o SLA de resposta (só a primeira vez;
         // mesma regra do DemandaService). Nota interna e comentário sem e-mail não contam.
-        if (!$interno && $enviar_email && in_array($user['tipo'] ?? '', ['operador', 'gestor', 'admin'], true)) {
+        if (!$interno && $enviar_email && in_array($user['tipo'] ?? '', ['operador', 'gestor', 'coordenador', 'admin'], true)) {
             DemandaService::marcarPrimeiraResposta($db, (int) $ticket_id, $setorDemanda);
         }
 
@@ -219,7 +219,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         // Membro da equipe comentando na demanda de outro responsável: status "nova_resposta" (regra única
         // da troca de status: retoma o SLA pausado, histórico, auditoria), dentro da transação
         $comentario_de_outro_agente = $ticket && $ticket['agente_id'] && $ticket['agente_id'] != $usuario_id
-            && in_array($autor_tipo, ['operador', 'gestor', 'admin'], true);
+            && in_array($autor_tipo, ['operador', 'gestor', 'coordenador', 'admin'], true);
         if ($comentario_de_outro_agente
             && !in_array($ticket['status'], array_merge(AcessoService::STATUS_ARQUIVO, ['nova_resposta']), true)) {
             DemandaService::mudarStatus($db, (int) $ticket_id, 'nova_resposta', (int) $usuario_id);

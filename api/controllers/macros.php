@@ -41,8 +41,8 @@ function podeGerirMacro(array $user, array $macro): bool {
     if ((int) $macro['usuario_id'] === (int) $user['id']) {
         return true;
     }
-    return ($user['tipo'] ?? '') === 'gestor' && $macro['setor_id'] !== null
-        && (int) $macro['setor_id'] === (int) ($user['setor_id'] ?? 0);
+    return AcessoService::ehGestao($user) && $macro['setor_id'] !== null
+        && AcessoService::temAcessoAoSetor($user, (int) $macro['setor_id']);
 }
 
 $method = $_SERVER['REQUEST_METHOD'];
@@ -57,7 +57,7 @@ if ($method === 'GET') {
                   LEFT JOIN setores s ON m.setor_id = s.id";
         $params = [];
         $escopo = AcessoService::setorEscopo($user);
-        if ($escopo !== null || !$is_admin) {
+        if ($escopo !== null || !AcessoService::ehVisaoTotal($user)) {
             $query .= " WHERE (m.setor_id = :setor OR m.setor_id IS NULL)";
             $params[':setor'] = $escopo ?? 0;
         }
@@ -85,6 +85,9 @@ if ($method === 'POST') {
         try {
             // Setor da macro: o do autor; admin escolhe (vazio = todos os setores)
             $setor_macro = $user['setor_id'] ?? null;
+            if ($user['tipo'] === 'coordenador') {
+                $setor_macro = AcessoService::setorEscopo($user) ?? $setor_macro; // um dos seus setores
+            }
             if ($is_admin) {
                 $setor_macro = !empty($data->setor_id) ? (int) $data->setor_id : null;
                 if ($setor_macro !== null) {

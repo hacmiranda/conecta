@@ -55,7 +55,7 @@ try {
     $stmt = $db->prepare("SELECT t.id, t.usuario_id FROM tokens_recuperacao t
                           INNER JOIN usuarios u ON u.id = t.usuario_id
                           WHERE t.token = ? AND t.usado = 0 AND t.expira_em > NOW()
-                            AND u.ativo = 1 AND u.tipo IN ('operador', 'gestor', 'admin')");
+                            AND u.ativo = 1 AND u.tipo IN ('operador', 'gestor', 'coordenador', 'supervisor', 'coordenador_geral', 'admin')");
     $stmt->execute([hash('sha256', $token)]);
     $tokenData = $stmt->fetch(PDO::FETCH_ASSOC);
 

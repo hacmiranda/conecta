@@ -206,9 +206,17 @@ class AuthMiddleware {
             require_once __DIR__ . '/../config/database.php';
             $database = new Database();
             $db = $database->getConnection();
-            $stmt = $db->prepare("SELECT nome, tipo, setor_id, ativo, token_versao, trocar_senha FROM usuarios WHERE id = ?");
+            $stmt = $db->prepare("SELECT nome, tipo, setor_id, ativo, token_versao, trocar_senha, atendimento_externo FROM usuarios WHERE id = ?");
             $stmt->execute([(int) ($payload['id'] ?? 0)]);
             $atual = $stmt->fetch(PDO::FETCH_ASSOC);
+
+            // Setores adicionais do coordenador (o principal está em usuarios.setor_id)
+            $extras = [];
+            if ($atual && $atual['tipo'] === 'coordenador') {
+                $ext = $db->prepare("SELECT setor_id FROM usuario_setores WHERE usuario_id = ?");
+                $ext->execute([(int) $payload['id']]);
+                $extras = array_map('intval', $ext->fetchAll(PDO::FETCH_COLUMN));
+            }
 
             $revogada = false;
             if (!empty($payload['jti'])) {
@@ -241,6 +249,8 @@ class AuthMiddleware {
         $payload['tipo']         = $atual['tipo'];
         $payload['setor_id']     = $atual['setor_id'] !== null ? (int) $atual['setor_id'] : null;
         $payload['trocar_senha'] = (int) $atual['trocar_senha'] === 1;
+        $payload['setores_extras'] = $extras;
+        $payload['atendimento_externo'] = (int) $atual['atendimento_externo'] === 1;
 
         $script = basename($_SERVER['SCRIPT_FILENAME'] ?? '');
         if ($payload['trocar_senha'] && !in_array($script, self::LIBERADOS_TROCA_SENHA, true)) {
@@ -248,8 +258,36 @@ class AuthMiddleware {
             echo json_encode(['error' => 'Troque sua senha para continuar.', 'trocar_senha' => true]);
             exit;
         }
+
+        // Trava central dos papéis de consulta (coordenador geral e supervisor): nenhuma escrita,
+        // a não ser as poucas que são do próprio usuário ou a triagem das avaliações
+        if (in_array($atual['tipo'], ['coordenador_geral', 'supervisor'], true)
+            && !in_array($_SERVER['REQUEST_METHOD'] ?? 'GET', ['GET', 'HEAD', 'OPTIONS'], true)) {
+            $liberados = self::ESCRITAS_LIBERADAS_SOMENTE_LEITURA;
+            $metodo = $_SERVER['REQUEST_METHOD'];
+            if (!isset($liberados[$script]) || !in_array($metodo, $liberados[$script], true)) {
+                http_response_code(403);
+                echo json_encode(['error' => 'Seu perfil é somente de consulta: não é possível alterar dados.', 'somente_leitura' => true]);
+                exit;
+            }
+        }
         return $payload;
     }
+
+    /**
+     * Escritas que os papéis de consulta (coordenador geral e supervisor) podem fazer: as do próprio
+     * usuário (sair, senha, foto, notificações lidas, registro das próprias atividades), marcar os
+     * comentários como lidos (PUT) e a triagem das avaliações da pesquisa de satisfação.
+     */
+    const ESCRITAS_LIBERADAS_SOMENTE_LEITURA = [
+        'logout.php'             => ['POST'],
+        'alterar-senha.php'      => ['POST', 'PUT'],
+        'avatar.php'             => ['POST', 'PUT', 'DELETE'],
+        'notificacoes.php'       => ['PUT', 'DELETE'],
+        'comentarios.php'        => ['PUT'],
+        'registro-atividades.php' => ['POST', 'PUT', 'DELETE'],
+        'pesquisa-triagem.php'   => ['PUT'],
+    ];
 
     /**
      * Encerra a sessão atual (botão "Sair"): o identificador do token passa a ser recusado.
@@ -292,23 +330,34 @@ class AuthMiddleware {
      */
     public static function verificarGestor(array $user): void {
         $tipo = $user['tipo'] ?? '';
-        if (!$user || ($tipo !== 'gestor' && $tipo !== 'admin')) {
+        if (!$user || !in_array($tipo, ['gestor', 'coordenador', 'admin'], true)) {
             http_response_code(403);
-            echo json_encode(['error' => 'Acesso negado. Apenas gestores ou administradores.']);
+            echo json_encode(['error' => 'Acesso negado. Apenas gestores, coordenadores ou administradores.']);
+            exit;
+        }
+    }
+
+    /**
+     * Leitura de painéis de gestão (dashboard, relatórios, grupo Atividades): gestão de setor e
+     * os papéis de consulta de visão total. As escritas desses papéis já caem na trava central.
+     */
+    public static function verificarLeituraGestao(array $user): void {
+        $tipo = $user['tipo'] ?? '';
+        if (!$user || !in_array($tipo, ['gestor', 'coordenador', 'admin', 'coordenador_geral', 'supervisor'], true)) {
+            http_response_code(403);
+            echo json_encode(['error' => 'Acesso negado.']);
             exit;
         }
     }
 
     /**
      * Verifica se o usuário pertence ao setor informado.
-     * Administrador sempre retorna true (enxerga todos os setores).
+     * Administrador (e os papéis de consulta de visão total) sempre retornam true; o coordenador
+     * vale para o setor principal e para os adicionais.
      */
     public static function mesmoSetor(array $user, ?int $setorId): bool {
-        if (($user['tipo'] ?? '') === 'admin') {
-            return true;
-        }
-        $setorUsuario = $user['setor_id'] ?? null;
-        return $setorUsuario !== null && $setorId !== null && (int) $setorUsuario === (int) $setorId;
+        require_once __DIR__ . '/../services/acesso-service.php';
+        return AcessoService::temAcessoAoSetor($user, $setorId);
     }
 
     /**

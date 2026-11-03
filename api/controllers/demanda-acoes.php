@@ -95,7 +95,7 @@ try {
         echo json_encode(['error' => 'Você não tem acesso a esta demanda']);
         exit;
     }
-    if ($tipo === 'gestor' && !$mesmoSetorAtual) {
+    if (AcessoService::ehGestao($user) && !$mesmoSetorAtual) {
         http_response_code(403);
         echo json_encode(['error' => 'Esta demanda não pertence ao seu setor']);
         exit;
@@ -146,8 +146,8 @@ try {
 
         // O destinatário precisa ser operador/gestor ativo do setor da DEMANDA (vale também para o admin)
         if (!$destino || !$destino['ativo']
-            || !in_array($destino['tipo'], ['operador', 'gestor'], true)
-            || (int) $destino['setor_id'] !== (int) $ticket['setor_id']) {
+            || !in_array($destino['tipo'], AcessoService::PAPEIS_ATENDEM, true)
+            || !AcessoService::usuarioDoSetor($db, $destino, (int) $ticket['setor_id'])) {
             throw new InvalidArgumentException('Destinatário inválido ou fora do setor da demanda');
         }
 
@@ -211,8 +211,8 @@ try {
         $destino_stmt->execute([$destino_id]);
         $destino = $destino_stmt->fetch(PDO::FETCH_ASSOC);
 
-        if (!$destino || !$destino['ativo'] || !in_array($destino['tipo'], ['operador', 'gestor'], true)
-            || (int) $destino['setor_id'] !== (int) $ticket['setor_id']) {
+        if (!$destino || !$destino['ativo'] || !in_array($destino['tipo'], AcessoService::PAPEIS_ATENDEM, true)
+            || !AcessoService::usuarioDoSetor($db, $destino, (int) $ticket['setor_id'])) {
             throw new InvalidArgumentException('Colega inválido ou fora do setor da demanda');
         }
 

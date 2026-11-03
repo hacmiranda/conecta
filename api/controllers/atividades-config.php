@@ -16,6 +16,7 @@ header('Content-Type: application/json');
 
 require_once __DIR__ . '/../config/database.php';
 require_once __DIR__ . '/../middleware/auth.php';
+require_once __DIR__ . '/../services/acesso-service.php';
 require_once __DIR__ . '/../services/auditoria-service.php';
 require_once __DIR__ . '/../services/html-sanitizer.php';
 require_once __DIR__ . '/../services/prazo-atividade-service.php';
@@ -27,7 +28,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
 }
 
 $user = AuthMiddleware::verificarAuth();
-AuthMiddleware::verificarGestor($user); // admin e gestor; operador recebe 403
+AuthMiddleware::verificarGestor($user); // admin, gestor e coordenador; operador recebe 403
 $metodo = $_SERVER['REQUEST_METHOD'];
 $acao = $_GET['acao'] ?? '';
 
@@ -79,7 +80,7 @@ try {
         $tipos = array_map(fn($t) => ['id' => (int) $t['id'], 'nome' => $t['nome'], 'ativo' => (int) $t['ativo'] === 1,
             'ordem' => (int) $t['ordem'], 'em_uso' => (int) $t['em_uso'] === 1], $stmt->fetchAll(PDO::FETCH_ASSOC));
 
-        $stmt = $db->prepare("SELECT id, nome, tipo FROM usuarios WHERE setor_id = ? AND ativo = 1 AND tipo IN ('gestor', 'operador') ORDER BY nome");
+        $stmt = $db->prepare("SELECT id, nome, tipo FROM usuarios WHERE setor_id = ? AND ativo = 1 AND tipo IN (" . AcessoService::listaSql(AcessoService::PAPEIS_REGISTRAM_ATIVIDADES) . ") ORDER BY nome");
         $stmt->execute([$setorId]);
         $usuarios = [];
         foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $u) {
@@ -200,7 +201,7 @@ try {
     // ── Regras de um servidor ────────────────────────────────────────────────
     if ($metodo === 'PUT' && $acao === 'usuario') {
         $usuarioId = (int) ($_GET['id'] ?? 0);
-        $stmt = $db->prepare("SELECT id, nome, setor_id, tipo FROM usuarios WHERE id = ? AND tipo IN ('gestor', 'operador')");
+        $stmt = $db->prepare("SELECT id, nome, setor_id, tipo FROM usuarios WHERE id = ? AND tipo IN (" . AcessoService::listaSql(AcessoService::PAPEIS_REGISTRAM_ATIVIDADES) . ")");
         $stmt->execute([$usuarioId]);
         $alvo = $stmt->fetch(PDO::FETCH_ASSOC);
         if (!$alvo || !$alvo['setor_id']) erroAtividades(404, 'Servidor não encontrado');

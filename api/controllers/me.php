@@ -10,6 +10,7 @@
 header('Content-Type: application/json');
 require_once __DIR__ . '/../config/database.php';
 require_once __DIR__ . '/../middleware/auth.php';
+require_once __DIR__ . '/../services/acesso-service.php';
 
 AuthMiddleware::configurarCORS(['GET']);
 if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
@@ -25,7 +26,7 @@ $user = AuthMiddleware::verificarAuth();
 
 try {
     $db = (new Database())->getConnection();
-    $stmt = $db->prepare("SELECT u.id, u.nome, u.email, u.tipo, u.avatar, u.cargo, u.setor_id, u.trocar_senha, s.nome AS setor_nome
+    $stmt = $db->prepare("SELECT u.id, u.nome, u.email, u.tipo, u.avatar, u.cargo, u.setor_id, u.trocar_senha, u.atendimento_externo, s.nome AS setor_nome
                           FROM usuarios u LEFT JOIN setores s ON s.id = u.setor_id WHERE u.id = ?");
     $stmt->execute([(int) $user['id']]);
     $usuario = $stmt->fetch(PDO::FETCH_ASSOC);
@@ -44,6 +45,9 @@ try {
         'cargo'        => $usuario['cargo'] ?? null,
         'setor_id'     => $usuario['setor_id'] !== null ? (int) $usuario['setor_id'] : null,
         'setor_nome'   => $usuario['setor_nome'] ?? null,
+        'setores'      => AcessoService::setoresComNome($db, $usuario),
+        'somente_leitura' => AcessoService::ehSomenteLeitura($usuario),
+        'atendimento_externo' => (int) ($usuario['atendimento_externo'] ?? 0) === 1,
         'trocar_senha' => (int) ($usuario['trocar_senha'] ?? 0) === 1,
     ]], JSON_UNESCAPED_UNICODE);
 } catch (Throwable $e) {

@@ -2,13 +2,151 @@
 /**
  * Regras centrais de acesso às demandas (isolamento por setor e por papel).
  *
- * Papéis: admin (tudo), gestor (demandas do próprio setor), operador (demandas em que
+ * Papéis: admin (tudo), coordenador_geral e supervisor (veem tudo, só leitura), coordenador
+ * (como gestor, em vários setores), gestor (demandas do próprio setor), operador (demandas em que
  * é o responsável ou que ele mesmo abriu) e cliente (somente as próprias).
  * Toda leitura/escrita de demanda deve passar por aqui, para a regra existir em um só lugar.
  */
 require_once __DIR__ . '/protocolo-service.php';
 
 class AcessoService {
+
+    /** Papéis que veem todos os setores */
+    const PAPEIS_VISAO_TOTAL = ['admin', 'coordenador_geral', 'supervisor'];
+
+    /** Papéis de consulta: veem tudo e não alteram nada (a trava central está em AuthMiddleware) */
+    const PAPEIS_SOMENTE_LEITURA = ['coordenador_geral', 'supervisor'];
+
+    /** Papéis de gestão de setor (gestor de um setor; coordenador de um ou mais) */
+    const PAPEIS_GESTAO = ['gestor', 'coordenador'];
+
+    /** Papéis que podem ser responsáveis por uma demanda e entram nas listas de equipe */
+    const PAPEIS_ATENDEM = ['operador', 'gestor', 'coordenador'];
+
+    /** Toda a equipe interna (tudo menos cliente) */
+    const PAPEIS_EQUIPE = ['admin', 'coordenador_geral', 'supervisor', 'coordenador', 'gestor', 'operador'];
+
+    /** Quem registra as próprias atividades (precisa ter setor de lotação); admin não registra */
+    const PAPEIS_REGISTRAM_ATIVIDADES = ['coordenador_geral', 'supervisor', 'coordenador', 'gestor', 'operador'];
+
+    /** Quem entra no módulo Satisfação (o gestor e o operador não) */
+    const PAPEIS_SATISFACAO = ['admin', 'coordenador_geral', 'supervisor', 'coordenador'];
+
+    public static function ehVisaoTotal(array $user): bool {
+        return in_array($user['tipo'] ?? '', self::PAPEIS_VISAO_TOTAL, true);
+    }
+
+    public static function ehSomenteLeitura(array $user): bool {
+        return in_array($user['tipo'] ?? '', self::PAPEIS_SOMENTE_LEITURA, true);
+    }
+
+    /** Gestor ou coordenador (o administrador não conta: ele é tratado à parte em todas as regras) */
+    public static function ehGestao(array $user): bool {
+        return in_array($user['tipo'] ?? '', self::PAPEIS_GESTAO, true);
+    }
+
+    /**
+     * Setores a que o usuário pertence: null = todos (visão total); coordenador = principal + adicionais
+     * (`setores_extras`, lidos do banco a cada requisição por AuthMiddleware); demais = só o próprio.
+     *
+     * @return int[]|null
+     */
+    public static function setoresDoUsuario(array $user): ?array {
+        if (self::ehVisaoTotal($user)) {
+            return null;
+        }
+        $ids = [];
+        if (isset($user['setor_id']) && $user['setor_id'] !== null && (int) $user['setor_id'] > 0) {
+            $ids[] = (int) $user['setor_id'];
+        }
+        if (($user['tipo'] ?? '') === 'coordenador') {
+            foreach ((array) ($user['setores_extras'] ?? []) as $extra) {
+                if ((int) $extra > 0) {
+                    $ids[] = (int) $extra;
+                }
+            }
+        }
+        return array_values(array_unique($ids));
+    }
+
+    /**
+     * Setores do usuário com nome, para o navegador montar o seletor do cabeçalho:
+     * null = todos (visão total); lista com [{id, nome}] nos demais casos.
+     * Lê do banco (login e me.php); no restante do código o payload já traz `setores_extras`.
+     *
+     * @param array $usuario linha de `usuarios` com id, tipo e setor_id
+     * @return array<int, array{id:int, nome:string}>|null
+     */
+    public static function setoresComNome(PDO $db, array $usuario): ?array {
+        if (self::ehVisaoTotal($usuario)) {
+            return null;
+        }
+        $ids = [];
+        if (!empty($usuario['setor_id'])) {
+            $ids[] = (int) $usuario['setor_id'];
+        }
+        if (($usuario['tipo'] ?? '') === 'coordenador') {
+            $stmt = $db->prepare("SELECT setor_id FROM usuario_setores WHERE usuario_id = ? ORDER BY criado_em");
+            $stmt->execute([(int) $usuario['id']]);
+            foreach ($stmt->fetchAll(PDO::FETCH_COLUMN) as $extra) {
+                $ids[] = (int) $extra;
+            }
+        }
+        $ids = array_values(array_unique($ids));
+        if (!$ids) {
+            return [];
+        }
+        $stmt = $db->query("SELECT id, nome FROM setores WHERE id IN (" . implode(',', $ids) . ")");
+        $porId = [];
+        foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $s) {
+            $porId[(int) $s['id']] = $s['nome'];
+        }
+        $lista = [];
+        foreach ($ids as $id) { // mantém a ordem: principal primeiro
+            if (isset($porId[$id])) {
+                $lista[] = ['id' => $id, 'nome' => $porId[$id]];
+            }
+        }
+        return $lista;
+    }
+
+    /**
+     * O usuário (linha do banco com id, tipo e setor_id) pertence ao setor? Usado para escolher
+     * destinatários (encaminhar, repassar): setor principal ou, no coordenador, um adicional.
+     */
+    public static function usuarioDoSetor(PDO $db, array $usuario, int $setorId): bool {
+        if ((int) ($usuario['setor_id'] ?? 0) === $setorId) {
+            return true;
+        }
+        if (($usuario['tipo'] ?? '') !== 'coordenador') {
+            return false;
+        }
+        $stmt = $db->prepare("SELECT 1 FROM usuario_setores WHERE usuario_id = ? AND setor_id = ?");
+        $stmt->execute([(int) $usuario['id'], $setorId]);
+        return (bool) $stmt->fetchColumn();
+    }
+    /** O usuário tem acesso ao setor? (visão total sempre; coordenador em qualquer um dos seus) */
+    public static function temAcessoAoSetor(array $user, ?int $setorId): bool {
+        $setores = self::setoresDoUsuario($user);
+        if ($setores === null) {
+            return true;
+        }
+        return $setorId !== null && in_array($setorId, $setores, true);
+    }
+
+    /**
+     * Condição SQL "coluna IN (...)" para um escopo de setores (ids inteiros, sem risco de injeção):
+     * null = todos ("1=1"); lista vazia = nenhum ("1=0").
+     */
+    public static function filtroSetorSql(string $coluna, ?array $escopo): string {
+        if ($escopo === null) {
+            return '1=1';
+        }
+        if ($escopo === []) {
+            return '1=0';
+        }
+        return $coluna . ' IN (' . implode(',', array_map('intval', $escopo)) . ')';
+    }
 
     /** Status que movem a demanda para o Arquivo */
     const STATUS_ARQUIVO = ['encerrado', 'cancelado', 'fechado']; // 'fechado' = valor legado do ENUM
@@ -38,8 +176,11 @@ class AcessoService {
         if (!empty($ticket['excluido_em'])) {
             return false; // na lixeira: só o administrador
         }
-        if ($tipo === 'gestor') {
-            return AuthMiddleware::mesmoSetor($user, isset($ticket['setor_id']) ? (int) $ticket['setor_id'] : null);
+        if (self::ehVisaoTotal($user)) {
+            return true; // coordenador geral e supervisor: consulta de todos os setores
+        }
+        if (self::ehGestao($user)) {
+            return self::temAcessoAoSetor($user, isset($ticket['setor_id']) ? (int) $ticket['setor_id'] : null);
         }
         if ($tipo === 'operador') {
             return (int) ($ticket['agente_id'] ?? 0) === (int) $user['id']
@@ -61,8 +202,11 @@ class AcessoService {
         if ($tipo === 'admin') {
             return true;
         }
-        if ($tipo === 'gestor') {
-            return AuthMiddleware::mesmoSetor($user, isset($ticket['setor_id']) ? (int) $ticket['setor_id'] : null);
+        if (self::ehSomenteLeitura($user)) {
+            return false; // coordenador geral e supervisor só consultam
+        }
+        if (self::ehGestao($user)) {
+            return self::temAcessoAoSetor($user, isset($ticket['setor_id']) ? (int) $ticket['setor_id'] : null);
         }
         if ($tipo === 'operador') {
             return (int) ($ticket['agente_id'] ?? 0) === (int) $user['id'];
@@ -103,9 +247,13 @@ class AcessoService {
         }
         $tipo = $user['tipo'] ?? '';
         $ticketId = (int) ($ticket['id'] ?? 0);
-        if ($tipo === 'gestor' && !empty($user['setor_id'])) {
-            $stmt = $db->prepare("SELECT 1 FROM ticket_setor_log WHERE ticket_id = ? AND setor_id = ? LIMIT 1");
-            $stmt->execute([$ticketId, (int) $user['setor_id']]);
+        if (self::ehGestao($user)) {
+            $setores = self::setoresDoUsuario($user) ?? [];
+            if ($setores === []) {
+                return false;
+            }
+            $stmt = $db->prepare("SELECT 1 FROM ticket_setor_log WHERE ticket_id = ? AND setor_id IN (" . implode(',', array_map('intval', $setores)) . ") LIMIT 1");
+            $stmt->execute([$ticketId]);
             return (bool) $stmt->fetchColumn();
         }
         if ($tipo === 'operador') {
@@ -164,11 +312,45 @@ class AcessoService {
      * Demais papéis: sempre o próprio setor, ignorando o parâmetro recebido.
      */
     public static function setorEscopo(array $user): ?int {
-        if (($user['tipo'] ?? '') === 'admin') {
-            $pedido = $_GET['setor_id'] ?? '';
-            return $pedido !== '' && is_numeric($pedido) ? (int) $pedido : null;
+        $pedido = $_GET['setor_id'] ?? '';
+        $pedido = $pedido !== '' && is_numeric($pedido) ? (int) $pedido : null;
+        if (self::ehVisaoTotal($user)) {
+            return $pedido;
         }
-        return isset($user['setor_id']) && $user['setor_id'] !== null ? (int) $user['setor_id'] : null;
+        $proprio = isset($user['setor_id']) && $user['setor_id'] !== null ? (int) $user['setor_id'] : null;
+        // Coordenador: pode escolher qualquer um dos seus setores; fora da lista, vale o principal
+        if (($user['tipo'] ?? '') === 'coordenador' && $pedido !== null && self::temAcessoAoSetor($user, $pedido)) {
+            return $pedido;
+        }
+        return $proprio;
+    }
+
+    /**
+     * Escopo de setores da requisição, para listagens e indicadores (várias linhas de vários setores).
+     * - visão total: ?setor_id= escolhe um setor; vazio = null (todos);
+     * - coordenador: ?setor_id= precisa ser um dos seus (senão 403); vazio = todos os seus;
+     * - gestor/operador/cliente: sempre o próprio setor, ignorando o parâmetro.
+     * Use com filtroSetorSql(). Lista vazia = o usuário não tem setor (não vê nada).
+     *
+     * @return int[]|null null = todos os setores
+     */
+    public static function escopoSetores(array $user): ?array {
+        $pedido = $_GET['setor_id'] ?? '';
+        $pedido = $pedido !== '' && is_numeric($pedido) ? (int) $pedido : null;
+        $meus = self::setoresDoUsuario($user);
+
+        if ($meus === null) {
+            return $pedido !== null ? [$pedido] : null;
+        }
+        if (($user['tipo'] ?? '') === 'coordenador' && $pedido !== null) {
+            if (!in_array($pedido, $meus, true)) {
+                http_response_code(403);
+                echo json_encode(['error' => 'Você não tem acesso a este setor']);
+                exit;
+            }
+            return [$pedido];
+        }
+        return $meus;
     }
 
     /**
@@ -182,9 +364,14 @@ class AcessoService {
         $destinatarios = [];
 
         if ($setorId !== null) {
+            // Gestores do setor e o coordenador dele (setor principal ou adicional)
             $stmt = $db->prepare("SELECT id, email, nome FROM usuarios
-                                  WHERE tipo = 'gestor' AND setor_id = ? AND ativo = 1");
-            $stmt->execute([$setorId]);
+                                  WHERE ativo = 1 AND (
+                                      (tipo = 'gestor' AND setor_id = ?)
+                                      OR (tipo = 'coordenador' AND (setor_id = ?
+                                          OR id IN (SELECT usuario_id FROM usuario_setores WHERE setor_id = ?)))
+                                  )");
+            $stmt->execute([$setorId, $setorId, $setorId]);
             $destinatarios = $stmt->fetchAll(PDO::FETCH_ASSOC);
         }
 
@@ -271,11 +458,13 @@ class AcessoService {
      * mudou de setor ou deixou de atender (registra no histórico e avisa os gestores) e cancela
      * os lembretes direcionados a ele. Devolve quantas demandas foram devolvidas.
      */
-    public static function devolverDemandasDoResponsavel(PDO $db, int $usuarioId, int $autorId, string $motivo): int {
+    public static function devolverDemandasDoResponsavel(PDO $db, int $usuarioId, int $autorId, string $motivo, ?int $apenasSetorId = null): int {
         $arquivo = "'" . implode("','", self::STATUS_ARQUIVO) . "'";
+        // $apenasSetorId: o coordenador perdeu só um setor adicional; as demandas dos outros setores ficam com ele
+        $filtroSetor = $apenasSetorId !== null ? ' AND t.setor_id = ' . (int) $apenasSetorId : '';
         $stmt = $db->prepare("SELECT t.id, t.setor_id, u.nome AS responsavel_nome
                               FROM tickets t INNER JOIN usuarios u ON u.id = t.agente_id
-                              WHERE t.agente_id = ? AND t.status NOT IN ($arquivo)");
+                              WHERE t.agente_id = ? AND t.status NOT IN ($arquivo)$filtroSetor");
         $stmt->execute([$usuarioId]);
         $demandas = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
@@ -295,9 +484,17 @@ class AcessoService {
             }
         }
 
-        $db->prepare("UPDATE lembretes SET cancelado_em = NOW(), cancelado_motivo = ?
-                      WHERE agente_id = ? AND notificado = 0 AND cancelado_em IS NULL")
-           ->execute([mb_substr('Destinatário ' . $motivo, 0, 255), $usuarioId]);
+        // Perdeu só um setor: os lembretes das demandas devolvidas saem; os demais continuam valendo
+        if ($apenasSetorId === null) {
+            $db->prepare("UPDATE lembretes SET cancelado_em = NOW(), cancelado_motivo = ?
+                          WHERE agente_id = ? AND notificado = 0 AND cancelado_em IS NULL")
+               ->execute([mb_substr('Destinatário ' . $motivo, 0, 255), $usuarioId]);
+        } elseif ($demandas) {
+            $ids = implode(',', array_map(fn($d) => (int) $d['id'], $demandas));
+            $db->prepare("UPDATE lembretes SET cancelado_em = NOW(), cancelado_motivo = ?
+                          WHERE agente_id = ? AND notificado = 0 AND cancelado_em IS NULL AND ticket_id IN ($ids)")
+               ->execute([mb_substr('Destinatário ' . $motivo, 0, 255), $usuarioId]);
+        }
 
         return count($demandas);
     }

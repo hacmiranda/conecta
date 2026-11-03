@@ -86,14 +86,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
 
         // Escopo por papel: admin vê tudo; gestor só o próprio setor; usuario/cliente só o que é seu
         $tipo = $user['tipo'] ?? '';
-        // Admin: recorte pelo setor escolhido no cabeçalho (?setor_id; vazio = todos os setores)
-        $setorAdmin = $tipo === 'admin' ? AcessoService::setorEscopo($user) : null;
-        if ($tipo === 'gestor') {
-            $query .= " AND t.setor_id = :setor_id_escopo";
-            $params[':setor_id_escopo'] = $user['setor_id'] ?? 0;
-        } elseif ($setorAdmin !== null) {
-            $query .= " AND t.setor_id = :setor_id_escopo";
-            $params[':setor_id_escopo'] = $setorAdmin;
+        // Visão total e gestão: recorte pelo(s) setor(es) (cabeçalho: ?setor_id; vazio = todos os seus)
+        $porSetor = AcessoService::ehVisaoTotal($user) || AcessoService::ehGestao($user);
+        $escopoSetores = $porSetor ? AcessoService::escopoSetores($user) : null;
+        if ($porSetor) {
+            if ($escopoSetores !== null) {
+                $query .= ' AND ' . AcessoService::filtroSetorSql('t.setor_id', $escopoSetores);
+            }
         } elseif ($tipo === 'operador') {
             $query .= " AND (t.agente_id = :self_id_escopo OR t.usuario_id = :self_id_escopo2)";
             $params[':self_id_escopo'] = $user['id'];
@@ -101,6 +100,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
         } elseif ($tipo === 'cliente') {
             $query .= " AND t.usuario_id = :self_id_escopo";
             $params[':self_id_escopo'] = $user['id'];
+        } else {
+            $query .= ' AND 1 = 0'; // papel desconhecido nunca enxerga tudo
         }
 
         $query .= " ORDER BY t.criado_em DESC";

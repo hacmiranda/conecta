@@ -7,6 +7,7 @@ require_once __DIR__ . '/../config/database.php';
 require_once __DIR__ . '/../middleware/auth.php';
 require_once __DIR__ . '/../services/auditoria-service.php';
 require_once __DIR__ . '/../services/rate-limit-service.php';
+require_once __DIR__ . '/../services/acesso-service.php';
 require_once __DIR__ . '/../services/rede-service.php';
 require_once __DIR__ . '/../services/log-service.php';
 require_once __DIR__ . '/../config/turnstile.php';
@@ -128,6 +129,9 @@ try {
             'cargo'        => $usuario['cargo'] ?? null,
             'setor_id'     => $usuario['setor_id'] ?? null,
             'setor_nome'   => $usuario['setor_nome'] ?? null,
+            'setores'      => AcessoService::setoresComNome($db, $usuario),
+            'somente_leitura' => AcessoService::ehSomenteLeitura($usuario),
+            'atendimento_externo' => (int) ($usuario['atendimento_externo'] ?? 0) === 1,
             'trocar_senha' => (int) ($usuario['trocar_senha'] ?? 0) === 1,
         ],
     ]);

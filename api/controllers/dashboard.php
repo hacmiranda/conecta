@@ -27,28 +27,29 @@ $EM_ANDAMENTO_SQL = AcessoService::listaSql(array_merge(AcessoService::STATUS_AR
 if ($_SERVER['REQUEST_METHOD'] === 'GET') {
     $user = AuthMiddleware::verificarAuth();
 
-    // Escopo por papel: admin vê tudo; gestor só o próprio setor; usuario/cliente só o que é seu.
-    // Interpolado direto (não bindParam) pois setor_id/id vêm do JWT já validado, não de input do usuário.
+    // Escopo por papel: visão total (admin, coordenador geral, supervisor) vê tudo ou o setor escolhido;
+    // gestor e coordenador, os próprios setores; operador/cliente só o que é seu.
+    // Interpolado direto (não bindParam) pois os ids vêm do JWT/banco e são convertidos em inteiros.
     $tipo = $user['tipo'] ?? '';
     $filtroT = ' AND t.excluido_em IS NULL'; // aplica-se a queries que usam alias "t" (lixeira fica de fora)
 
-    // Setor do recorte: o do gestor, ou o escolhido pelo admin no cabeçalho (?setor_id; vazio = todos)
-    $setorFiltro = null;
-    if ($tipo === 'gestor') {
-        $setorFiltro = (int) ($user['setor_id'] ?? 0);
-    } elseif ($tipo === 'admin') {
-        $setorFiltro = AcessoService::setorEscopo($user);
-    }
+    // Recorte por setor: o(s) setor(es) de gestão ou o escolhido no cabeçalho (?setor_id; vazio = todos os seus)
+    $porSetor = AcessoService::ehVisaoTotal($user) || AcessoService::ehGestao($user);
+    $escopoSetores = $porSetor ? AcessoService::escopoSetores($user) : null;
+    $recorteSetor = $porSetor && $escopoSetores !== null;
 
-    if ($setorFiltro !== null) {
-        $filtroT .= ' AND t.setor_id = ' . $setorFiltro;
+    if ($recorteSetor) {
+        $filtroT .= ' AND ' . AcessoService::filtroSetorSql('t.setor_id', $escopoSetores);
     } elseif ($tipo === 'operador') {
         $filtroT .= ' AND (t.agente_id = ' . (int) $user['id'] . ' OR t.usuario_id = ' . (int) $user['id'] . ')';
     } elseif ($tipo === 'cliente') {
         $filtroT .= ' AND t.usuario_id = ' . (int) $user['id'];
+    } elseif (!$porSetor) {
+        http_response_code(403); // papel desconhecido nunca enxerga tudo
+        echo json_encode(['error' => 'Acesso negado']);
+        exit;
     }
-    // admin sem setor escolhido: $filtroT permanece vazio (enxerga tudo)
-
+    // visão total sem setor escolhido: $filtroT permanece só com a lixeira (enxerga tudo)
     try {
         $dashboard = [];
 
@@ -111,16 +112,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
 
         // Tickets por agente (apenas tickets ativos) — escopo aplicado na condição do LEFT JOIN,
         // não no WHERE, para não excluir agentes sem nenhum ticket no recorte (ficam com total 0)
-        $filtroAgenteJoin = ' AND t.excluido_em IS NULL' . ($setorFiltro !== null ? (' AND t.setor_id = ' . $setorFiltro) : '');
+        $filtroAgenteJoin = ' AND t.excluido_em IS NULL' . ($recorteSetor ? (' AND ' . AcessoService::filtroSetorSql('t.setor_id', $escopoSetores)) : '');
         $filtroAgenteWhere = $tipo === 'operador' ? (' AND u.id = ' . (int) $user['id']) : '';
         // Com recorte por setor, a lista de agentes é a equipe daquele setor
-        if ($setorFiltro !== null) {
-            $filtroAgenteWhere .= ' AND u.setor_id = ' . $setorFiltro;
+        if ($recorteSetor) {
+            $filtroAgenteWhere .= ' AND ' . AcessoService::filtroSetorSql('u.setor_id', $escopoSetores);
         }
         $query = "SELECT u.nome, COUNT(t.id) as total
                   FROM usuarios u
                   LEFT JOIN tickets t ON u.id = t.agente_id AND t.status NOT IN ($ARQUIVO_SQL){$filtroAgenteJoin}
-                  WHERE u.tipo IN ('admin', 'gestor', 'operador') AND u.ativo = 1{$filtroAgenteWhere}
+                  WHERE u.tipo IN ('admin', 'coordenador', 'gestor', 'operador') AND u.ativo = 1{$filtroAgenteWhere}
                   GROUP BY u.id, u.nome
                   ORDER BY total DESC";
         $stmt = $db->prepare($query);
@@ -178,7 +179,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
         $query = "SELECT u.nome as agente, t.status, COUNT(*) as total
                   FROM tickets t
                   JOIN usuarios u ON t.agente_id = u.id
-                  WHERE u.tipo IN ('operador', 'gestor', 'admin') AND u.ativo = 1
+                  WHERE u.tipo IN ('operador', 'gestor', 'coordenador', 'admin') AND u.ativo = 1
                     AND t.status NOT IN ($ARQUIVO_SQL, 'resolvido'){$filtroT}{$filtroStatusPorAgente}
                   GROUP BY u.nome, t.status
                   ORDER BY u.nome, t.status";

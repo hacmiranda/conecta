@@ -232,6 +232,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
             $ticket['na_lixeira'] = !empty($ticket['excluido_em']);
             $ticket['acesso_historico'] = !AcessoService::podeVerTicket($user, $ticket);   // só leitura do histórico
             $ticket['somente_leitura'] = !AcessoService::podeOperarTicket($user, $ticket); // não pode alterar
+            $ticket['perfil_consulta'] = AcessoService::ehSomenteLeitura($user);           // coordenador geral / supervisor: nem comentar
 
             // Para o formulário de comentário desabilitar "Enviar por e-mail"/"Com cópia" quando
             // desligados no setor atual da demanda (NotificacaoEmailService)
@@ -273,7 +274,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
 
             // Status que movem a demanda para o Arquivo (constantes internas, sem entrada do usuário)
             $arquivados = "'" . implode("','", AcessoService::STATUS_ARQUIVO) . "'";
-            $setor_escopo = AcessoService::setorEscopo($user);
+            // Setores que o usuário enxerga nesta requisição (null = todos; ?setor_id= escolhe um deles)
+            $escopo_setores = AcessoService::escopoSetores($user);
+            $filtro_setor = AcessoService::filtroSetorSql('t.setor_id', $escopo_setores);
 
             // Colunas explícitas: a descrição (HTML, com imagens em base64 de vários MB) não vai nas
             // listas, que o Kanban carrega inteiras; vai um resumo em texto (descricao_resumo)
@@ -318,24 +321,22 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
                     exit;
                 }
                 $where[] = "t.excluido_em IS NOT NULL";
-                if ($setor_escopo !== null) {
-                    $where[] = "t.setor_id = :setor_id";
-                    $params[':setor_id'] = $setor_escopo;
+                if ($escopo_setores !== null) {
+                    $where[] = $filtro_setor;
                 }
             } elseif ($escopo === 'transferidas') {
-                // Demandas que passaram pelo setore hoje estão em outro (gestor/admin)
-                if (!in_array($tipo_logado, ['gestor', 'admin'], true)) {
+                // Demandas que passaram pelo(s) setor(es) e hoje estão em outro (gestão, admin e consulta)
+                if (!AcessoService::ehGestao($user) && !AcessoService::ehVisaoTotal($user)) {
                     http_response_code(403);
-                    echo json_encode(['error' => 'Escopo disponível apenas para gestores e administradores']);
+                    echo json_encode(['error' => 'Escopo disponível apenas para gestores, coordenadores e administradores']);
                     exit;
                 }
-                if ($setor_escopo !== null) {
-                    $where[] = "(t.setor_id IS NULL OR t.setor_id <> :setor_atual) AND EXISTS (
+                if ($escopo_setores !== null && $escopo_setores !== []) {
+                    $lista_setores = implode(',', array_map('intval', $escopo_setores));
+                    $where[] = "(t.setor_id IS NULL OR t.setor_id NOT IN ($lista_setores)) AND EXISTS (
                                     SELECT 1 FROM ticket_setor_log l
-                                    WHERE l.ticket_id = t.id AND l.setor_id = :setor_log AND l.saiu_em IS NOT NULL)";
-                    $params[':setor_atual'] = $setor_escopo;
-                    $params[':setor_log'] = $setor_escopo;
-                } elseif ($tipo_logado === 'admin') {
+                                    WHERE l.ticket_id = t.id AND l.setor_id IN ($lista_setores) AND l.saiu_em IS NOT NULL)";
+                } elseif ($escopo_setores === null) {
                     $where[] = "EXISTS (SELECT 1 FROM ticket_setor_log l
                                         WHERE l.ticket_id = t.id AND l.saiu_em IS NOT NULL AND l.setor_id <> t.setor_id)";
                 } else {
@@ -343,7 +344,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
                 }
             } elseif ($escopo === 'repassadas') {
                 // Demandas que o usuário atendeu e passou adiante, ainda abertas com outra pessoa
-                if (!in_array($tipo_logado, ['operador', 'gestor'], true)) {
+                if (!in_array($tipo_logado, AcessoService::PAPEIS_ATENDEM, true)) {
                     http_response_code(403);
                     echo json_encode(['error' => 'Escopo disponível apenas para operadores e gestores']);
                     exit;
@@ -356,14 +357,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
                 $params[':self_atual'] = $usuario_logado_id;
             } else {
                 // Visibilidade base por papel
-                if ($tipo_logado === 'admin') {
-                    if ($setor_escopo !== null) {
-                        $where[] = "t.setor_id = :setor_id";
-                        $params[':setor_id'] = $setor_escopo;
+                if (AcessoService::ehVisaoTotal($user)) {
+                    if ($escopo_setores !== null) {
+                        $where[] = $filtro_setor;
                     }
-                } elseif ($tipo_logado === 'gestor') {
-                    $where[] = "t.setor_id = :setor_id";
-                    $params[':setor_id'] = $setor_escopo ?? 0;
+                } elseif (AcessoService::ehGestao($user)) {
+                    $where[] = $filtro_setor; // gestor: o próprio setor; coordenador: os seus (ou o escolhido)
                 } elseif ($tipo_logado === 'operador') {
                     if ($escopo === 'arquivo') {
                         // Arquivo do operador: o que é/foi dele (responsável atual, solicitante,
@@ -495,6 +494,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $setor_pedido = $db->prepare("SELECT id FROM setores WHERE id = ? AND ativo = 1");
             $setor_pedido->execute([(int) $_POST['setor_id']]);
             $setor_id = $setor_pedido->fetchColumn() ?: null;
+        }
+
+        // Coordenador pode abrir a demanda em qualquer um dos seus setores (o escolhido no cabeçalho)
+        if (($user['tipo'] ?? '') === 'coordenador' && !empty($_POST['setor_id']) && is_numeric($_POST['setor_id'])
+            && AcessoService::temAcessoAoSetor($user, (int) $_POST['setor_id'])) {
+            $setor_id = (int) $_POST['setor_id'];
         }
 
         if ($setor_id === null) {
