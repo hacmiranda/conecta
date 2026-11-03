@@ -4,6 +4,7 @@ header('Content-Type: application/json');
 require_once __DIR__ . '/../config/database.php';
 require_once __DIR__ . '/../middleware/auth.php';
 require_once __DIR__ . '/../services/auditoria-service.php';
+require_once __DIR__ . '/../services/setor-service.php';
 
 AuthMiddleware::configurarCORS(['GET', 'POST', 'PUT', 'DELETE']);
 
@@ -57,24 +58,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             exit;
         }
 
-        $stmt = $db->prepare("INSERT INTO setores (nome, ativo) VALUES (:nome, 1)");
-        $stmt->bindParam(':nome', $nome);
-        $stmt->execute();
-        $setor_id = $db->lastInsertId();
-
-        // Novo setor começa com todos os status e prioridades ativos; as categorias são próprias do setor
-        // Expediente e feriados recorrentes são herdados do setor Geral (cada setor edita os seus depois)
-        $db->prepare("INSERT INTO horarios_uteis (setor_id, dia_semana, hora_inicio, hora_fim, ativo)
-                      SELECT ?, h.dia_semana, h.hora_inicio, h.hora_fim, h.ativo
-                      FROM horarios_uteis h INNER JOIN setores g ON g.id = h.setor_id AND g.nome = 'Geral'")
-           ->execute([$setor_id]);
-        $db->prepare("INSERT INTO feriados (setor_id, `data`, descricao, recorrente)
-                      SELECT ?, f.`data`, f.descricao, f.recorrente
-                      FROM feriados f INNER JOIN setores g ON g.id = f.setor_id AND g.nome = 'Geral'
-                      WHERE f.recorrente = 1")
-           ->execute([$setor_id]);
-$db->prepare("INSERT INTO setor_status (setor_id, status_id, ativo, ordem) SELECT ?, id, 1, ordem FROM ticket_status")->execute([$setor_id]);
-        $db->prepare("INSERT INTO setor_prioridades (setor_id, prioridade_id, ativo, ordem) SELECT ?, id, 1, ordem FROM ticket_prioridades")->execute([$setor_id]);
+        // Novo setor começa com todos os status e prioridades ativos, expediente e feriados do Geral (SetorService)
+        $setor_id = SetorService::criar($db, $nome);
 
         $auditoria = new AuditoriaService($db);
         $auditoria->registrar($user['id'], 'criar_setor', 'setores', $setor_id, null, json_encode(['nome' => $nome]));

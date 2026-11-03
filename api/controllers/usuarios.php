@@ -5,6 +5,7 @@ require_once __DIR__ . '/../config/database.php';
 require_once __DIR__ . '/../middleware/auth.php';
 require_once __DIR__ . '/../services/senha-service.php';
 require_once __DIR__ . '/../services/auditoria-service.php';
+require_once __DIR__ . '/../services/usuario-service.php';
 require_once __DIR__ . '/../services/acesso-service.php';
 require_once __DIR__ . '/../services/html-sanitizer.php';
 
@@ -22,31 +23,7 @@ $db = $database->getConnection();
  * Usado quando o formulário de criação não informa um username explícito.
  */
 function gerarUsernameUnico(PDO $db, string $nomeCompleto): string {
-    $transliterado = @iconv('UTF-8', 'ASCII//TRANSLIT//IGNORE', $nomeCompleto);
-    $base = strtolower(trim($transliterado !== false ? $transliterado : $nomeCompleto));
-    $base = preg_replace('/[^a-z0-9\s]/', '', $base);
-    $partes = array_values(array_filter(preg_split('/\s+/', trim($base))));
-
-    if (count($partes) === 0) {
-        $base = 'usuario';
-    } elseif (count($partes) === 1) {
-        $base = $partes[0];
-    } else {
-        $base = $partes[0] . '.' . end($partes);
-    }
-
-    $candidato = $base;
-    $sufixo = 2;
-    $check = $db->prepare("SELECT id FROM usuarios WHERE username = :username");
-    while (true) {
-        $check->execute([':username' => $candidato]);
-        if (!$check->fetch()) {
-            break;
-        }
-        $candidato = $base . $sufixo;
-        $sufixo++;
-    }
-    return $candidato;
+    return UsuarioService::gerarUsernameUnico($db, $nomeCompleto);
 }
 
 /**
