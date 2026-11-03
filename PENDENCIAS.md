@@ -28,8 +28,8 @@ Detalhes e motivos: `docs/relatorios/AUDITORIA_2026-11-01.md` (seção 7), `docs
   - [ ] Transferir de setor volta a demanda para "novo"? (BUG-20)
   - [ ] A equipe deixa de receber o e-mail "seu comentário foi adicionado"? (BUG-15)
 - [ ] **Banco e LGPD:**
-  - [ ] Aprovar a migração 39 (índices novos, DES-04/09)
-  - [ ] Aprovar a migração 40 (chaves estrangeiras e colunas sem uso, INC-04/07)
+  - [ ] Aprovar a futura migração 41 (índices novos, DES-04/09; era a "39" da auditoria, o número foi usado pelos papéis de coordenação)
+  - [ ] Aprovar a futura migração 42 (chaves estrangeiras e colunas sem uso, INC-04/07; era a "40" da auditoria)
   - [ ] Definir os prazos de guarda dos dados (SEG-15/DES-13)
 - [ ] Decidir os demais itens da auditoria que aguardam aprovação: SEG-02, SEG-05, SEG-08, SEG-10, SEG-11, SEG-12, BUG-13, BUG-17, INC-08, INC-09, DES-06, MAN-02, MAN-03
 - [x] **Integração com o METRICA360:** decidido em 03/11/2026 — o METRICA360 vira o módulo "Satisfação" do Conecta (mesmo banco, login único, papéis novos). Plano de 8 fases em andamento (ver "Unificação" abaixo)
@@ -52,7 +52,7 @@ Plano: `C:\Users\hugo.miranda\.claude\plans\1-quero-continuar-iterative-quasar.m
 
 - [ ] Definir no `.env` do servidor todas as chaves `*_PROD` (`SETOR_EMAIL_ENCRYPTION_KEY_PROD`, `INTEGRATION_API_KEY_PROD`, `CRON_KEY_PROD`, JWT/CSRF etc.; lista em `.env.example`)
 - [ ] Confirmar `db_host` e `db_user` de produção
-- [ ] Aplicar as migrações 9–38 com backup (`php database/migrar.php`), ou confirmar que a réplica do banco local já vem com elas
+- [ ] Aplicar as migrações 9–40 com backup (`php database/migrar.php`), ou confirmar que a réplica do banco local já vem com elas
 - [ ] Depois do deploy: `php database/recifrar-senhas-caixas.php` (senhas das caixas para AES-GCM)
 - [ ] Definir `PROXIES_CONFIAVEIS` com as faixas da Cloudflare, se o site ficar atrás dela
 - [ ] Não enviar ao servidor: `frontend/node_modules/`, `mockups/`, `api/tests/`
