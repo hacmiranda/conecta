@@ -162,6 +162,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 
     try {
+        // Tudo ou nada (auditoria 01/11/2026, BUG-10): comentário, primeira resposta, anexos e troca de
+        // status numa transação, como no comentário por e-mail e na criação pela tela. Se algo falhar, nada
+        // fica pela metade, nem os arquivos no disco. Avisos e e-mails só depois do commit.
+        $db->beginTransaction();
+        UploadService::iniciarLote();
+
         // Entra no histórico mostrado ao solicitante só o que foi enviado a ele por e-mail
         // (nota interna nunca entra; comentário sem e-mail fica só para a equipe)
         $query = "INSERT INTO comentarios (ticket_id, usuario_id, comentario, interno, visivel_solicitante)
@@ -180,11 +186,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         // Comentário da equipe enviado ao solicitante cumpre o SLA de resposta (só a primeira vez;
         // mesma regra do DemandaService). Nota interna e comentário sem e-mail não contam.
         if (!$interno && $enviar_email && in_array($user['tipo'] ?? '', ['operador', 'gestor', 'admin'], true)) {
-            try {
-                DemandaService::marcarPrimeiraResposta($db, (int) $ticket_id, $setorDemanda);
-            } catch (Exception $e) {
-                error_log('[COMENTARIOS] Erro ao marcar a primeira resposta: ' . $e->getMessage());
-            }
+            DemandaService::marcarPrimeiraResposta($db, (int) $ticket_id, $setorDemanda);
         }
 
         // Buscar dados do comentário recém-criado
@@ -203,6 +205,28 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $anexos_recusados = UploadService::salvarEnviados($db, $_FILES['anexos'], (int) $ticket_id, (int) $comentario_id)['recusados'];
         }
 
+        // Responsável da demanda e autor (travando a demanda até o commit)
+        $stmt_ticket = $db->prepare("SELECT agente_id, status FROM tickets WHERE id = ? FOR UPDATE");
+        $stmt_ticket->execute([$ticket_id]);
+        $ticket = $stmt_ticket->fetch();
+
+        $stmt_tipo_autor = $db->prepare("SELECT tipo, nome FROM usuarios WHERE id = ?");
+        $stmt_tipo_autor->execute([$usuario_id]);
+        $autor_data = $stmt_tipo_autor->fetch(PDO::FETCH_ASSOC);
+        $autor_tipo = $autor_data['tipo'] ?? 'cliente';
+        $autor_nome = $autor_data['nome'] ?? 'Usuário';
+
+        // Membro da equipe comentando na demanda de outro responsável: status "nova_resposta" (regra única
+        // da troca de status: retoma o SLA pausado, histórico, auditoria), dentro da transação
+        $comentario_de_outro_agente = $ticket && $ticket['agente_id'] && $ticket['agente_id'] != $usuario_id
+            && in_array($autor_tipo, ['operador', 'gestor', 'admin'], true);
+        if ($comentario_de_outro_agente
+            && !in_array($ticket['status'], array_merge(AcessoService::STATUS_ARQUIVO, ['nova_resposta']), true)) {
+            DemandaService::mudarStatus($db, (int) $ticket_id, 'nova_resposta', (int) $usuario_id);
+        }
+
+        $db->commit();
+
         // Não registrar no histórico - o comentário já aparece na timeline
 
         // Resultado do envio por e-mail ao solicitante (null = não solicitado)
@@ -214,48 +238,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             require_once __DIR__ . '/../services/email-sender.php';
             $emailSender = new EmailSender($db);
 
-            // Buscar dados do ticket
-            $query_ticket = "SELECT agente_id FROM tickets WHERE id = ?";
-            $stmt_ticket = $db->prepare($query_ticket);
-            $stmt_ticket->execute([$ticket_id]);
-            $ticket = $stmt_ticket->fetch();
-
             $agentes_notificar = [];
-
-            // Buscar tipo do usuário que está comentando
-            $query_tipo_autor = "SELECT tipo, nome FROM usuarios WHERE id = ?";
-            $stmt_tipo_autor = $db->prepare($query_tipo_autor);
-            $stmt_tipo_autor->execute([$usuario_id]);
-            $autor_data = $stmt_tipo_autor->fetch(PDO::FETCH_ASSOC);
-            $autor_tipo = $autor_data['tipo'] ?? 'cliente';
-            $autor_nome = $autor_data['nome'] ?? 'Usuário';
 
             if ($ticket && $ticket['agente_id']) {
                 // Ticket tem responsável: notificar apenas ele (se não for o autor)
                 if ($ticket['agente_id'] != $usuario_id) {
                     $agentes_notificar[] = $ticket['agente_id'];
 
-                    // --- NOVA LÓGICA: Notificação agente → agente ---
-                    // Se o autor é agente/admin comentando em ticket de outro agente:
-                    // 1. Mudar status para nova_resposta
-                    // 2. Enviar e-mail específico ao agente responsável
-                    if (in_array($autor_tipo, ['operador', 'gestor', 'admin'])) {
-                        // 1. Alterar status para nova_resposta
-                        $status_query = "SELECT status FROM tickets WHERE id = ?";
-                        $status_stmt = $db->prepare($status_query);
-                        $status_stmt->execute([$ticket_id]);
-                        $status_atual = $status_stmt->fetchColumn();
-
-                        if (!in_array($status_atual, array_merge(AcessoService::STATUS_ARQUIVO, ['nova_resposta']), true)) {
-                            try {
-                                // Regra única da troca de status: retoma o SLA pausado, histórico, auditoria
-                                DemandaService::mudarStatus($db, (int) $ticket_id, 'nova_resposta', (int) $usuario_id);
-                            } catch (Exception $e) {
-                                error_log("[COMENTARIOS] Erro ao atualizar status: " . $e->getMessage());
-                            }
-                        }
-
-                        // 2. Enviar e-mail ao agente responsável — nota interna nunca vai por e-mail,
+                    // Notificação agente → agente: o autor é da equipe e comenta na demanda de outro
+                    // responsável (o status "nova_resposta" já foi gravado na transação acima)
+                    if ($comentario_de_outro_agente) {
+                        // Enviar e-mail ao agente responsável — nota interna nunca vai por e-mail,
                         // nem para outro agente (só a notificação interna já registrada acima)
                         if (!$interno) {
                             try {
@@ -359,7 +352,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         echo json_encode(['success' => true, 'comentario_id' => $comentario_id, 'comentario' => $comentario_data, 'anexos' => $anexos, 'anexos_recusados' => $anexos_recusados,
             'email_enviado' => $email_resultado, 'email_na_fila' => $email_resultado, 'email_destino' => $email_destino]);
 
-    } catch (Exception $e) {
+    } catch (Throwable $e) {
+        // Falha antes do commit: desfaz o comentário e apaga os arquivos já gravados
+        if ($db->inTransaction()) {
+            $db->rollBack();
+            UploadService::desfazerLote();
+        }
         error_log('Erro ao adicionar comentário: ' . $e->getMessage());
         http_response_code(500);
         echo json_encode(['error' => 'Erro ao adicionar comentário']);

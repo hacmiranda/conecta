@@ -11,6 +11,9 @@ class EmailFilaService {
     const LOTE = 30;
     // Mensagem presa em "enviando" (processo interrompido) volta para a fila depois disso
     const MINUTOS_ENVIANDO_PRESO = 10;
+    // Tipos cujo corpo não fica guardado depois de sair: o e-mail de recuperação de senha leva o token em
+    // claro no link, e o banco só guarda o hash dele (auditoria 01/11/2026, SEG-03)
+    const TIPOS_SEM_CORPO_GUARDADO = ['recuperacao_senha'];
 
     /**
      * Envia as mensagens vencidas da fila. Devolve ['enviados' => n, 'falhas' => n, 'pendentes' => n].
@@ -32,7 +35,6 @@ class EmailFilaService {
         $reserva = $db->prepare("UPDATE email_fila SET status = 'enviando', tentativas = tentativas + 1, proxima_tentativa = NOW()
                                  WHERE id = ? AND status = 'pendente'");
         $busca = $db->prepare("SELECT * FROM email_fila WHERE id = ?");
-        $ok = $db->prepare("UPDATE email_fila SET status = 'enviado', enviado_em = NOW(), erro = NULL WHERE id = ?");
         $volta = $db->prepare("UPDATE email_fila SET status = 'pendente', erro = ?, proxima_tentativa = DATE_ADD(NOW(), INTERVAL ? MINUTE) WHERE id = ?");
         $desiste = $db->prepare("UPDATE email_fila SET status = 'falha', erro = ? WHERE id = ?");
 
@@ -63,13 +65,14 @@ class EmailFilaService {
             }
 
             if ($enviado) {
-                $ok->execute([$id]);
+                self::marcarEnviado($db, $msg);
                 $resumo['enviados']++;
                 continue;
             }
 
             if ((int) $msg['tentativas'] >= self::MAX_TENTATIVAS) {
                 $desiste->execute([$erro, $id]);
+                self::apagarCorpoSensivel($db, $msg);
                 $resumo['falhas']++;
                 self::registrarFalhaNoHistorico($db, $msg, (string) $erro);
             } else {
@@ -85,6 +88,20 @@ class EmailFilaService {
         $db->exec("DELETE FROM email_fila WHERE status = 'falha' AND criado_em < DATE_SUB(NOW(), INTERVAL 30 DAY)");
 
         return $resumo;
+    }
+
+    /** Marca a mensagem como enviada; o corpo dos tipos sensíveis é apagado na mesma hora. */
+    public static function marcarEnviado(PDO $db, array $msg): void {
+        $db->prepare("UPDATE email_fila SET status = 'enviado', enviado_em = NOW(), erro = NULL WHERE id = ?")
+           ->execute([(int) $msg['id']]);
+        self::apagarCorpoSensivel($db, $msg);
+    }
+
+    /** Apaga o corpo de um e-mail que não pode ficar guardado (ver TIPOS_SEM_CORPO_GUARDADO). */
+    private static function apagarCorpoSensivel(PDO $db, array $msg): void {
+        if (in_array($msg['tipo'] ?? null, self::TIPOS_SEM_CORPO_GUARDADO, true)) {
+            $db->prepare("UPDATE email_fila SET corpo = '' WHERE id = ?")->execute([(int) $msg['id']]);
+        }
     }
 
     /**

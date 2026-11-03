@@ -70,7 +70,7 @@ function _mesclarAlertaEmail(notificacoes, naoLidas, dados) {
 
         if (!foiExcluida) {
             const dt = ultimaFalha
-                ? new Date(ultimaFalha).toLocaleString('pt-BR')
+                ? dataDoBanco(ultimaFalha).toLocaleString('pt-BR')
                 : '';
             todas = [{
                 id: '__email_falha__',
@@ -158,7 +158,7 @@ function renderizarNotificacoes(notificacoes) {
                     </span>
                 </li>`;
         }
-        const quando = new Date(notif.criado_em).toLocaleString('pt-BR');
+        const quando = dataDoBanco(notif.criado_em).toLocaleString('pt-BR');
         return `
             <li class="notif-item${naoLida ? ' notif-item--nao-lida' : ''}">
                 <button type="button" class="notif-abrir" data-acao="abrir" data-id="${Number(notif.id)}" data-ticket="${notif.ticket_id ? Number(notif.ticket_id) : ''}">

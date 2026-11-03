@@ -71,6 +71,60 @@ class UploadService {
         return ['ok' => true, 'extensao' => $extensao, 'motivo' => null];
     }
 
+    /**
+     * DOCX/XLSX que o finfo reconhece só como "application/zip": confere se o arquivo é mesmo um pacote
+     * do Office (tem [Content_Types].xml e a pasta word/ ou xl/). Sem isso, qualquer ZIP renomeado para
+     * .docx entrava, contrariando a regra "sem zip" (auditoria 01/11/2026, SEG-09). Sem a extensão
+     * ZipArchive no servidor, aceita como antes (e registra no log).
+     */
+    public static function zipEhDoOffice(string $caminho, string $extensao): bool {
+        $pasta = ['docx' => 'word/', 'xlsx' => 'xl/'][$extensao] ?? null;
+        if ($pasta === null) {
+            return false;
+        }
+        if (!class_exists('ZipArchive')) {
+            error_log('[UPLOAD] Extensão zip ausente: .' . $extensao . ' aceito sem conferir o conteúdo do pacote');
+            return true;
+        }
+        $zip = new ZipArchive();
+        if ($zip->open($caminho, ZipArchive::RDONLY) !== true) {
+            return false;
+        }
+        $ok = $zip->locateName('[Content_Types].xml') !== false;
+        $temPasta = false;
+        for ($i = 0; $ok && !$temPasta && $i < $zip->numFiles; $i++) {
+            $temPasta = str_starts_with((string) $zip->getNameIndex($i), $pasta);
+        }
+        $zip->close();
+        return $ok && $temPasta;
+    }
+
+    /** validar() + conferência do pacote do Office para um arquivo em disco (upload pela tela). */
+    public static function validarArquivo(string $nomeOriginal, string $mimeReal, int $tamanho, string $caminho): array {
+        $validacao = self::validar($nomeOriginal, $mimeReal, $tamanho);
+        if ($validacao['ok'] && $mimeReal === 'application/zip' && !self::zipEhDoOffice($caminho, $validacao['extensao'])) {
+            return ['ok' => false, 'extensao' => $validacao['extensao'], 'motivo' => 'Conteúdo não corresponde ao tipo do arquivo'];
+        }
+        return $validacao;
+    }
+
+    /** validar() + conferência do pacote do Office para um conteúdo em memória (e-mail, integração). */
+    public static function validarConteudo(string $nomeOriginal, string $mimeReal, string $conteudo): array {
+        $validacao = self::validar($nomeOriginal, $mimeReal, strlen($conteudo));
+        if ($validacao['ok'] && $mimeReal === 'application/zip') {
+            $temporario = tempnam(sys_get_temp_dir(), 'cnz');
+            $ehOffice = $temporario !== false && file_put_contents($temporario, $conteudo) !== false
+                && self::zipEhDoOffice($temporario, $validacao['extensao']);
+            if ($temporario !== false) {
+                @unlink($temporario);
+            }
+            if (!$ehOffice) {
+                return ['ok' => false, 'extensao' => $validacao['extensao'], 'motivo' => 'Conteúdo não corresponde ao tipo do arquivo'];
+            }
+        }
+        return $validacao;
+    }
+
     /** MIME real de um conteúdo em memória (e-mail recebido, integração). */
     public static function mimeDoConteudo(string $conteudo): string {
         $finfo = finfo_open(FILEINFO_MIME_TYPE);
@@ -116,7 +170,7 @@ class UploadService {
             $mime = (string) finfo_file($finfo, $arq['tmp']);
             finfo_close($finfo);
 
-            $validacao = self::validar($arq['nome'], $mime, $arq['tamanho']);
+            $validacao = self::validarArquivo($arq['nome'], $mime, $arq['tamanho'], $arq['tmp']);
             if (!$validacao['ok']) {
                 $resultado['recusados'][] = ['nome' => $arq['nome'], 'motivo' => $validacao['motivo']];
                 continue;

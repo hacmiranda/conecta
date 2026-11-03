@@ -66,10 +66,7 @@ class DemandaService {
         $stmt->execute([$ticketId]);
         $arquivos = $stmt->fetchAll(PDO::FETCH_COLUMN);
 
-        $dados = $db->prepare("SELECT titulo, descricao, status, prioridade, setor_id, categoria_id, agente_id, usuario_id, criado_em
-                               FROM tickets WHERE id = ?");
-        $dados->execute([$ticketId]);
-        $resumo = $dados->fetch(PDO::FETCH_ASSOC);
+        $resumo = self::resumoParaAuditoria($db, $ticketId);
 
         $db->beginTransaction();
         try {
@@ -95,6 +92,20 @@ class DemandaService {
         }
 
         (new AuditoriaService($db))->registrar($autorId, 'excluir_ticket_definitivo', 'tickets', $ticketId, json_encode($resumo), null);
+    }
+
+    /**
+     * Dados da demanda para a auditoria (cancelar, excluir de vez): sem a descrição, que pode ter imagens
+     * em base64 de centenas de KB e fazia o INSERT em auditoria.dados_anteriores (TEXT, 64 KB) falhar em
+     * silêncio, deixando a exclusão definitiva sem rastro. Vai só o hash e o tamanho dela (auditoria
+     * 01/11/2026, BUG-04 e parte de SEG-15).
+     */
+    public static function resumoParaAuditoria(PDO $db, int $ticketId): array {
+        $dados = $db->prepare("SELECT titulo, SHA2(descricao, 256) AS descricao_sha256, CHAR_LENGTH(descricao) AS descricao_tamanho,
+                                      status, prioridade, setor_id, categoria_id, agente_id, usuario_id, criado_em
+                               FROM tickets WHERE id = ?");
+        $dados->execute([$ticketId]);
+        return $dados->fetch(PDO::FETCH_ASSOC) ?: [];
     }
 
     /**
@@ -183,16 +194,23 @@ class DemandaService {
         $vaiArquivar = in_array($novo, AcessoService::STATUS_ARQUIVO, true);
         $eraArquivada = in_array($anterior, AcessoService::STATUS_ARQUIVO, true);
 
-        // Resolução: a primeira vez que chega a resolvido/encerrado (desconta o tempo pausado)
+        // Resolução: a primeira vez que chega a resolvido/encerrado (desconta o tempo pausado, inclusive a
+        // pausa ainda em andamento: de "aguardando_*" para "resolvido" os dois status congelam, a pausa
+        // não fecha e o trecho pausado entrava como tempo trabalhado; auditoria 01/11/2026, BUG-02)
         if ($vaiConcluir) {
-            $dados = $db->prepare("SELECT t.criado_em, COALESCE(s.tempo_pausado_segundos, 0) AS pausado
+            $dados = $db->prepare("SELECT t.criado_em, COALESCE(s.tempo_pausado_segundos, 0) AS pausado, s.pausado_em
                                    FROM tickets t LEFT JOIN ticket_sla s ON s.ticket_id = t.id WHERE t.id = ?");
             $dados->execute([$ticketId]);
             $d = $dados->fetch(PDO::FETCH_ASSOC);
             if ($d && $d['criado_em']) {
-                $total = $sla->calcularSegundosUteis($d['criado_em'], date('Y-m-d H:i:s'), $setorId);
+                $agora = date('Y-m-d H:i:s');
+                $total = $sla->calcularSegundosUteis($d['criado_em'], $agora, $setorId);
+                $pausado = (int) $d['pausado'];
+                if (!empty($d['pausado_em'])) {
+                    $pausado += $sla->calcularSegundosUteis($d['pausado_em'], $agora, $setorId);
+                }
                 $db->prepare("UPDATE ticket_sla SET resolvido_em = NOW(), tempo_resolucao_segundos = ? WHERE ticket_id = ? AND resolvido_em IS NULL")
-                   ->execute([max(0, $total - (int) $d['pausado']), $ticketId]);
+                   ->execute([max(0, $total - $pausado), $ticketId]);
             }
         }
 

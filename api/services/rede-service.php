@@ -20,10 +20,28 @@ class RedeService {
         if ($cf !== '' && filter_var($cf, FILTER_VALIDATE_IP)) {
             return $cf;
         }
-        // X-Forwarded-For: "cliente, proxy1, proxy2" — o primeiro é o cliente
-        $xff = explode(',', (string) ($_SERVER['HTTP_X_FORWARDED_FOR'] ?? ''));
-        $primeiro = trim($xff[0] ?? '');
-        return $primeiro !== '' && filter_var($primeiro, FILTER_VALIDATE_IP) ? $primeiro : $remoto;
+        return self::ipDoEncaminhamento((string) ($_SERVER['HTTP_X_FORWARDED_FOR'] ?? ''), $remoto, $confiaveis);
+    }
+
+    /**
+     * IP do cliente no X-Forwarded-For ("cliente, proxy1, proxy2"), lido da direita para a esquerda: o
+     * primeiro endereço que não é proxy confiável. O primeiro item da lista quem escreve é o próprio
+     * cliente, então não vale sozinho (auditoria 01/11/2026, SEG-07). Função pura (testável).
+     */
+    public static function ipDoEncaminhamento(string $xff, string $remoto, array $confiaveis): string {
+        $lista = array_values(array_filter(array_map('trim', explode(',', $xff)), function ($ip) {
+            return $ip !== '';
+        }));
+        for ($i = count($lista) - 1; $i >= 0; $i--) {
+            if (!filter_var($lista[$i], FILTER_VALIDATE_IP)) {
+                return $remoto; // lixo no meio da cadeia: não dá para confiar em nada à esquerda
+            }
+            if (!self::ipNaLista($lista[$i], $confiaveis)) {
+                return $lista[$i];
+            }
+        }
+        // Todos são proxies confiáveis: o mais à esquerda é o mais próximo do cliente
+        return $lista ? $lista[0] : $remoto;
     }
 
     /** O IP está em alguma das faixas (IP exato ou CIDR, IPv4 ou IPv6)? Função pura (testável). */

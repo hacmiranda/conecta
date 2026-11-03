@@ -12,6 +12,25 @@ final class HtmlSanitizerTest extends TestCase {
         $this->assertSame('alert(1)Ana', HtmlSanitizer::texto('<script>alert(1)</script>Ana'));
     }
 
+    /** Auditoria 01/11/2026, BUG-01: o strip_tags apagava o texto depois de um "<" solto. */
+    public function test_texto_mantem_sinal_de_menor_que_nao_e_tag(): void {
+        $this->assertSame('valor <100 reais', HtmlSanitizer::texto('valor <100 reais'));
+        $this->assertSame('5<10 e 3>2', HtmlSanitizer::texto('5<10 e 3>2'));
+        $this->assertSame('x <= y', HtmlSanitizer::texto('x <= y'));
+        $this->assertSame('a < b', HtmlSanitizer::texto('a < b'));
+        $this->assertSame('x', HtmlSanitizer::texto('<script>x</script>'));
+        $this->assertSame('Assunto  teste', HtmlSanitizer::texto('Assunto <urgente> teste'), 'parece tag: sai, como antes');
+    }
+
+    public function test_texto_nao_deixa_tag_se_formar_nem_inicio_de_tag_aberto(): void {
+        // Remoção repetida: tirar <b> não pode "montar" um <img>
+        $this->assertStringNotContainsString('<img', HtmlSanitizer::texto('<<b>img src=x onerror=alert(1)>'));
+        // Início de tag sem ">" (o strip_tags apagava até o fim): fica, mas sem poder virar tag
+        $this->assertSame('Nome < img src=x onerror=alert(1)//', HtmlSanitizer::texto('Nome <img src=x onerror=alert(1)//'));
+        $this->assertSame('a < /b', HtmlSanitizer::texto('a </b'));
+        $this->assertSame('ok', HtmlSanitizer::texto('<!-- comentário -->ok'));
+    }
+
     public function test_texto_respeita_o_tamanho_maximo(): void {
         $this->assertSame(100, mb_strlen(HtmlSanitizer::texto(str_repeat('á', 150), 100)));
     }

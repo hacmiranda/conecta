@@ -278,8 +278,8 @@ function aplicarFiltroMeusTickets() {
             let valorB = b[campo] || '';
 
             if (campo === 'criado_em') {
-                valorA = new Date(valorA);
-                valorB = new Date(valorB);
+                valorA = dataDoBanco(valorA);
+                valorB = dataDoBanco(valorB);
             } else if (campo === 'id') {
                 valorA = parseInt(valorA);
                 valorB = parseInt(valorB);
@@ -538,7 +538,7 @@ function renderizarKanbanTela(tickets) {
                     ${slaBadge}
                     <div class="kanban-card-footer">
                         <span class="kanban-agente">${sanitizeHTML(ticket.agente_nome || 'Livre')}</span>
-                        <span class="kanban-data">${new Date(ticket.criado_em).toLocaleDateString('pt-BR')}</span>
+                        <span class="kanban-data">${dataDoBanco(ticket.criado_em).toLocaleDateString('pt-BR')}</span>
                     </div>
                     <button type="button" class="kanban-mover" data-acao="mover-kanban" data-id="${Number(ticket.id)}"
                         aria-label="Mudar status da demanda ${sanitizeHTML(numeroDemanda(ticket))}">
@@ -687,7 +687,7 @@ function mostrarTicketsNaTela(tickets) {
         const iconeComentario = ticket.tem_comentario_nao_lido
             ? `<span class="material-symbols-outlined icone-tabela icone-comentario-ms" data-vg-tooltip="Há um ou mais comentários novos ainda não lidos nesta demanda." data-vg-title="NOVA MENSAGEM" aria-label="Novo comentário">chat_bubble</span>` : '';
         const iconomeLembrete = ticket.proximo_lembrete
-            ? `<span class="material-symbols-outlined icone-tabela icone-lembrete-ms" data-vg-tooltip="Lembrete agendado para ${new Date(ticket.proximo_lembrete).toLocaleString('pt-BR')}." data-vg-title="LEMBRETE ATIVO" aria-label="Tem lembrete">event</span>` : '';
+            ? `<span class="material-symbols-outlined icone-tabela icone-lembrete-ms" data-vg-tooltip="Lembrete agendado para ${dataDoBanco(ticket.proximo_lembrete).toLocaleString('pt-BR')}." data-vg-title="LEMBRETE ATIVO" aria-label="Tem lembrete">event</span>` : '';
         const iconeMesclado = ticket.eh_mesclado > 0
             ? `<span class="material-symbols-outlined icone-tabela" data-vg-tooltip="Esta demanda foi mesclada com outra demanda." data-vg-title="DEMANDA MESCLADA" aria-label="Mesclado" style="color:#a7241c">call_merge</span>` : '';
 
@@ -697,7 +697,7 @@ function mostrarTicketsNaTela(tickets) {
             ? `<span class="sla-badge ${slaInfo.classe}"><span class="sr-only">SLA: </span><span aria-hidden="true">⏱</span> ${sanitizeHTML(slaInfo.texto)}</span>` : '';
 
         // Data formatada sem cor hardcoded
-        const dataObj = new Date(ticket.criado_em);
+        const dataObj = dataDoBanco(ticket.criado_em);
         const data = dataObj.toLocaleDateString('pt-BR');
         const hora = dataObj.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
 
@@ -724,7 +724,7 @@ function mostrarTicketsNaTela(tickets) {
                 </td>
                 <td data-label="Solicitante">${solicitante}${emailExibir}</td>
                 ${exibirColunaSetor(false) ? `<td data-label="Setor">${sanitizeHTML(ticket.setor_nome || '-')}</td>` : ''}
-                <td data-label="Responsável"><span class="status ${ticket.agente_nome ? 'atribuido' : 'nao-atribuido'} ${modoMergeAtivo ? '' : 'clickable'}" ${modoMergeAtivo ? '' : `onclick="event.stopPropagation(); atribuirTicket(${ticket.id}, ${ticket.setor_id ? Number(ticket.setor_id) : 'null'})" title="Clique para atribuir"`}>${sanitizeHTML(ticket.agente_nome || 'Não atribuído')}</span>${(ticket.agente_nome && ticket.atribuido_em) ? `<small class="ticket-data-hora">desde ${new Date(ticket.atribuido_em).toLocaleDateString('pt-BR')}</small>` : ''}</td>
+                <td data-label="Responsável"><span class="status ${ticket.agente_nome ? 'atribuido' : 'nao-atribuido'} ${modoMergeAtivo ? '' : 'clickable'}" ${modoMergeAtivo ? '' : `onclick="event.stopPropagation(); atribuirTicket(${ticket.id}, ${ticket.setor_id ? Number(ticket.setor_id) : 'null'})" title="Clique para atribuir"`}>${sanitizeHTML(ticket.agente_nome || 'Não atribuído')}</span>${(ticket.agente_nome && ticket.atribuido_em) ? `<small class="ticket-data-hora">desde ${dataDoBanco(ticket.atribuido_em).toLocaleDateString('pt-BR')}</small>` : ''}</td>
                 <td data-label="Subcategoria"><span class="status categoria ${ticket.categoria_nome ? '' : 'sem-categoria'} ${modoMergeAtivo ? '' : 'clickable'}" ${modoMergeAtivo ? '' : `onclick="event.stopPropagation(); alterarCategoria(${ticket.id})" title="Clique para alterar"`}>${sanitizeHTML(ticket.categoria_nome || 'Sem subcategoria')}</span></td>
                 <td data-label="Status"><span class="status ${ticket.status} ${modoMergeAtivo ? '' : 'clickable'}" ${modoMergeAtivo ? '' : `onclick="event.stopPropagation(); alterarStatus(${ticket.id}, ${ticket.setor_id || 'null'})"`} title="Clique para alterar">${window.STATUS_CONFIG && window.STATUS_CONFIG[ticket.status] ? window.STATUS_CONFIG[ticket.status].nome : (typeof formatarNomeStatus === 'function' ? formatarNomeStatus(ticket.status) : ticket.status)}</span></td>
                 <td data-label="Prioridade"><span class="status prioridade ${ticket.prioridade || 'normal'} ${modoMergeAtivo ? '' : 'clickable'}" ${modoMergeAtivo ? '' : `onclick="event.stopPropagation(); alterarPrioridade(${ticket.id})" title="Clique para alterar"`}>${typeof formatarNomePrioridade === 'function' ? formatarNomePrioridade(ticket.prioridade) : (ticket.prioridade ? ticket.prioridade.charAt(0).toUpperCase() + ticket.prioridade.slice(1).toLowerCase() : 'Normal')}</span></td>
@@ -835,7 +835,6 @@ function popularPrioridadesFormNovo() {
 
 // Função para limpar formulário de ticket completamente
 function limparFormularioTicket() {
-    console.log('🧹 Limpando formulário de ticket...');
 
     // Reset geral do formulário primeiro
     document.getElementById('form-ticket').reset();
@@ -896,7 +895,6 @@ function limparFormularioTicket() {
         renderizarCategoriasForm(todasCategorias);
     }
 
-    console.log('✅ Formulário limpo com sucesso!');
 }
 
 // Função para mostrar tickets com atualização forçada
@@ -947,8 +945,8 @@ function ordenarTabela(campo) {
 
         // Tratamento especial para datas
         if (campo === 'criado_em') {
-            valorA = new Date(valorA);
-            valorB = new Date(valorB);
+            valorA = dataDoBanco(valorA);
+            valorB = dataDoBanco(valorB);
         }
 
         // Tratamento especial para números

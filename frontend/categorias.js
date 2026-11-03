@@ -19,7 +19,6 @@ document.addEventListener('setor-contexto-alterado', function () {
 });
 
 async function carregarCategorias() {
-    console.log('📁 Carregando categorias...');
     const usuario = JSON.parse(localStorage.getItem('cd_usuario') || '{}');
     // Setor do contexto: o do usuário ou, para o admin, o escolhido no cabeçalho
     const setorContextoCat = window.CabecalhoSetor ? window.CabecalhoSetor.obterSetorContexto() : (usuario.setor_id || null);
@@ -27,7 +26,6 @@ async function carregarCategorias() {
 
     try {
         todasCategorias = await Api.get('categorias.php' + filtroSetor);
-        console.log('📁 Categorias carregadas:', todasCategorias.length);
         // NÃO configurar pesquisa automaticamente para não interferir na navegação
     } catch (e) {
         console.error('❌ Erro ao carregar categorias:', e.status, e.message);
@@ -40,11 +38,9 @@ function configurarPesquisaCategoria() {
     const lista = document.getElementById('categoria-lista-form');
 
     if (!input || !lista) {
-        console.log('⚠️ Elementos de categoria não encontrados');
         return;
     }
 
-    console.log('🔧 Configurando pesquisa de categoria...');
 
     // Cada configuração cancela os ouvintes da anterior (antes se acumulavam a cada abertura da tela:
     // as setas pulavam vários itens e o clique fora disparava N vezes)
@@ -146,7 +142,6 @@ function configurarPesquisaCategoria() {
         }
     }, ouvintes);
 
-    console.log('✅ Pesquisa de categoria configurada com sucesso!');
 }
 
 // Renderizar categorias no formulário
@@ -184,7 +179,6 @@ function renderizarCategoriasForm(categorias) {
             // Ocultar lista
             document.getElementById('categoria-lista-form').classList.remove('show');
 
-            console.log('📁 Categoria selecionada:', categoria.nome, 'ID:', categoria.id);
         };
 
         // Adicionar hover para navegação por teclado
@@ -328,7 +322,7 @@ function mostrarListaCategorias(categorias, macrocategorias) {
                     <div class="usuario-card">
                         <div class="usuario-info">
                             <h4>${sanitizeHTML(categoria.nome)}</h4>
-                            <p><strong>Criado:</strong> ${new Date(categoria.criado_em).toLocaleDateString('pt-BR')}</p>
+                            <p><strong>Criado:</strong> ${dataDoBanco(categoria.criado_em).toLocaleDateString('pt-BR')}</p>
                         </div>
                         <div class="usuario-acoes">
                             <button class="btn-editar" onclick="editarCategoria(${categoria.id})">Editar</button>
@@ -348,7 +342,7 @@ function mostrarListaCategorias(categorias, macrocategorias) {
                 <div class="usuario-card">
                     <div class="usuario-info">
                         <h4>${sanitizeHTML(categoria.nome)}</h4>
-                        <p><strong>Criado:</strong> ${new Date(categoria.criado_em).toLocaleDateString('pt-BR')}</p>
+                        <p><strong>Criado:</strong> ${dataDoBanco(categoria.criado_em).toLocaleDateString('pt-BR')}</p>
                     </div>
                     <div class="usuario-acoes">
                         <button class="btn-editar" onclick="editarCategoria(${categoria.id})">Editar</button>

@@ -20,6 +20,11 @@ class EmailService {
     private $diasBusca = 3; // janela de busca na caixa (dias)
     private $enderecosDoSistema = null; // caixas do próprio sistema (nunca viram demanda)
     const MAX_TENTATIVAS = 5; // falhas seguidas antes de desistir de um e-mail
+    // Texto gravado em emails_erro quando a tentativa começa: se o processo morrer no meio (falta de
+    // memória, tempo esgotado), a linha fica com ele e a tentativa conta (auditoria 01/11/2026, BUG-08)
+    const MARCA_INTERROMPIDA = 'Processamento interrompido antes de terminar (erro fatal, falta de memória ou tempo esgotado)';
+    private $tentativaAtual = null; // ['id' => int, 'nova' => bool, 'erro_anterior' => ?string] da mensagem em processamento
+    private $usarMemoriaUids = true; // lembrar os UIDs já tratados por caixa (ver verificarCaixa)
 
     /**
      * Mascara o e-mail para log (regra de segurança do projeto: nunca logar dado pessoal em
@@ -43,9 +48,11 @@ class EmailService {
      * Se nenhuma estiver cadastrada, cai para a caixa global legada do .env (compatibilidade
      * com quem ainda não migrou para e-mail por setor).
      */
-    public function verificarEmails(int $dias = 3) {
+    public function verificarEmails(int $dias = 3, bool $usarMemoriaUids = true) {
         require_once __DIR__ . '/crypto-service.php';
         $this->diasBusca = max(1, min(60, $dias));
+        // A recuperação de e-mails perdidos confere tudo de novo, sem a memória de UIDs
+        $this->usarMemoriaUids = $usarMemoriaUids;
 
         $caixas = [];
         try {
@@ -65,14 +72,20 @@ class EmailService {
         foreach ($caixas as $caixa) {
             try {
                 $senha = CryptoService::decrypt($caixa['imap_pass_cifrada']);
-            } catch (Exception $e) {
+            } catch (Throwable $e) {
                 LogService::erro('email-cron', "Não foi possível decifrar a senha da caixa #{$caixa['id']}: " . $e->getMessage());
                 $sucessoGeral = false;
                 continue;
             }
 
-            LogService::info('email-cron', "=== Verificando caixa do setor #{$caixa['setor_id']} ({$caixa['imap_user']}) ===");
-            $ok = $this->verificarCaixa($caixa['imap_host'], (int) $caixa['imap_port'], $caixa['imap_user'], $senha, (int) $caixa['setor_id'], (int) $caixa['id'], (int) $caixa['validar_certificado'] === 1);
+            LogService::detalhe('email-cron', "=== Verificando caixa do setor #{$caixa['setor_id']} ({$caixa['imap_user']}) ===");
+            // Erro de PHP numa caixa não impede as demais (antes só Exception era capturada)
+            try {
+                $ok = $this->verificarCaixa($caixa['imap_host'], (int) $caixa['imap_port'], $caixa['imap_user'], $senha, (int) $caixa['setor_id'], (int) $caixa['id'], (int) $caixa['validar_certificado'] === 1);
+            } catch (Throwable $e) {
+                LogService::erro('email-cron', "Erro na caixa #{$caixa['id']}: " . get_class($e) . ': ' . $e->getMessage());
+                $ok = false;
+            }
             $sucessoGeral = $sucessoGeral && $ok;
         }
 
@@ -97,7 +110,8 @@ class EmailService {
         try {
             // Certificado do servidor validado por padrão; só é dispensado por decisão explícita da caixa
             $mailbox = "{{$host}:{$port}/imap/ssl" . ($validarCertificado ? '' : '/novalidate-cert') . "}INBOX";
-            LogService::info('email-cron', "Conectando em: $mailbox");
+            LogService::detalhe('email-cron', "Conectando em: $mailbox");
+            $inicio = microtime(true);
 
             // Tempo-limite: servidor travado não segura o cron (e a trava dele) indefinidamente
             imap_timeout(IMAP_OPENTIMEOUT, 20);
@@ -112,64 +126,224 @@ class EmailService {
                 throw new Exception('Não foi possível conectar ao email: ' . $erro);
             }
 
-            LogService::info('email-cron', 'Conectado com sucesso');
+            LogService::detalhe('email-cron', 'Conectado com sucesso');
 
-                // Buscar emails dos últimos N dias (padrão 3) para garantir que nenhum foi perdido
-                // mesmo se marcado como lido por outro cliente (Outlook/Celular); o Message-ID evita duplicar
-                $data_busca = date('d-M-Y', strtotime('-' . $this->diasBusca . ' days'));
-                $search_criteria = 'SINCE "' . $data_busca . '"';
+            // Buscar emails dos últimos N dias (padrão 3) para garantir que nenhum foi perdido
+            // mesmo se marcado como lido por outro cliente (Outlook/Celular); o Message-ID evita duplicar
+            $data_busca = date('d-M-Y', strtotime('-' . $this->diasBusca . ' days'));
+            $search_criteria = 'SINCE "' . $data_busca . '"';
+            LogService::detalhe('email-cron', "Buscando emails: $search_criteria");
 
-                LogService::info('email-cron', "Buscando emails: $search_criteria");
+            $emails = imap_search($inbox, $search_criteria, SE_UID);
+            $naJanela = $emails ? count($emails) : 0;
+            $novas = 0;
+            $falhas = 0;
 
-                $emails = imap_search($inbox, $search_criteria, SE_UID);
+            if ($emails) {
+                // Dos mais antigos para os mais novos
+                sort($emails);
 
-                if ($emails) {
-                    $count = count($emails);
-                    LogService::info('email-cron', "Encontrados $count emails recentes para análise");
+                // Só as mensagens ainda não processadas nesta caixa são lidas (auditoria 01/11/2026, DES-01).
+                // Antes, cada mensagem já processada custava ~3 comandos IMAP (≈1,15 s) a cada execução:
+                // 1. os UIDs já tratados ficam lembrados por caixa (backend/cache/email-uids/), valendo enquanto
+                //    a UIDVALIDITY da caixa não mudar: essas nem são consultadas;
+                // 2. das demais, os Message-IDs vêm da visão geral do IMAP e são conferidos no banco de uma vez.
+                $uidValidity = 0;
+                $conhecidos = [];
+                if ($this->usarMemoriaUids) {
+                    $situacaoCaixa = @imap_status($inbox, $mailbox, SA_UIDVALIDITY);
+                    $uidValidity = is_object($situacaoCaixa) ? (int) $situacaoCaixa->uidvalidity : 0;
+                    $conhecidos = $this->lerMemoriaUids($uidValidity);
+                }
+                $aConferir = self::uidsAConferir($emails, $conhecidos);
+                $pendentes = $aConferir ? $this->mensagensPendentes($inbox, $aConferir) : [];
+                $novas = count($pendentes);
+                $tratados = array_values(array_diff($aConferir, array_column($pendentes, 'uid')));
 
-                    // Ordenar para processar dos mais antigos para os mais novos
-                    sort($emails);
-
-                    foreach ($emails as $uid) {
-                        $msgno = imap_msgno($inbox, $uid);
-                    LogService::info('email-cron', "Processando UID: $uid (MSG: $msgno)");
-
+                foreach ($pendentes as $msg) {
+                    LogService::detalhe('email-cron', "Processando UID: {$msg['uid']} (MSG: {$msg['msgno']})");
+                    // Throwable: TypeError/ValueError/Error de uma mensagem não derrubam a caixa, as demais
+                    // caixas, os lembretes nem a fila (antes só Exception era capturada)
                     try {
-                        $this->processarEmail($inbox, $msgno, $uid);
-                    } catch (Exception $e) {
-                        LogService::erro('email-cron', "Erro ao processar UID $uid: " . $e->getMessage());
-                        // Não marcar como lido se houver erro
+                        if ($this->processarEmail($inbox, $msg['msgno'], $msg['uid'], $msg['message_id'])) {
+                            $tratados[] = $msg['uid'];
+                        } else {
+                            $falhas++;
+                        }
+                    } catch (Throwable $e) {
+                        $falhas++;
+                        LogService::erro('email-cron', "Erro ao processar UID {$msg['uid']}: " . get_class($e) . ': ' . $e->getMessage());
                     }
                 }
-            } else {
-                LogService::info('email-cron', 'Nenhum email não lido encontrado');
+
+                if ($this->usarMemoriaUids) {
+                    $this->gravarMemoriaUids($uidValidity, self::novaMemoriaUids($emails, $conhecidos, $tratados));
+                }
             }
 
-            // Verificar total de emails na caixa
             $total_emails = imap_num_msg($inbox);
-            LogService::info('email-cron', "Total na caixa: $total_emails");
-
             imap_close($inbox);
-            return true;
 
-        } catch (Exception $e) {
+            LogService::info('email-cron', sprintf('Caixa %s: %d na janela de %d dia(s), %d nova(s), %d com falha, %d no total da caixa (%.1f s)',
+                $caixaId !== null ? '#' . $caixaId . ' (setor #' . $setorId . ')' : 'global', $naJanela, $this->diasBusca,
+                $novas, $falhas, $total_emails, microtime(true) - $inicio));
+            return $falhas === 0;
+
+        } catch (Throwable $e) {
             LogService::erro('email-cron', 'Erro: ' . $e->getMessage());
             error_log('Erro no EmailService: ' . $e->getMessage());
             return false;
         }
     }
 
-    private function processarEmail($inbox, $email_number, $uid = null) {
-        LogService::info('email-cron', "--- Processando Email #$email_number ---");
+    /** UIDs da janela que não estão na memória de UIDs tratados. Função pura (testável). */
+    public static function uidsAConferir(array $janela, array $conhecidos): array {
+        $ja = array_flip(array_map('intval', $conhecidos));
+        return array_values(array_filter(array_map('intval', $janela), function ($uid) use ($ja) {
+            return !isset($ja[$uid]);
+        }));
+    }
+
+    /**
+     * Nova memória de UIDs tratados: os já conhecidos que continuam na janela mais os tratados agora.
+     * O que sai da janela de busca sai da memória (o arquivo não cresce). Função pura (testável).
+     */
+    public static function novaMemoriaUids(array $janela, array $conhecidos, array $tratados): array {
+        $naJanela = array_flip(array_map('intval', $janela));
+        $memoria = [];
+        foreach (array_merge($conhecidos, $tratados) as $uid) {
+            if (isset($naJanela[(int) $uid])) {
+                $memoria[(int) $uid] = true;
+            }
+        }
+        $uids = array_keys($memoria);
+        sort($uids);
+        return $uids;
+    }
+
+    /** Arquivo da memória de UIDs tratados da caixa atual (pasta backend/cache, fora do alcance da web). */
+    private function arquivoMemoriaUids(): string {
+        return dirname(__DIR__, 2) . '/backend/cache/email-uids/caixa-' . ($this->caixaEmailAtualId ?? 'global') . '.json';
+    }
+
+    /** UIDs já tratados, se a UIDVALIDITY é a mesma (se mudou, a caixa foi recriada e tudo é conferido de novo). */
+    private function lerMemoriaUids(int $uidValidity): array {
+        $arquivo = $this->arquivoMemoriaUids();
+        if ($uidValidity <= 0 || !is_file($arquivo)) {
+            return [];
+        }
+        $dados = json_decode((string) @file_get_contents($arquivo), true);
+        if (!is_array($dados) || (int) ($dados['uidvalidity'] ?? 0) !== $uidValidity || !is_array($dados['uids'] ?? null)) {
+            return [];
+        }
+        return array_map('intval', $dados['uids']);
+    }
+
+    /** Grava a memória de UIDs (arquivo temporário + rename: uma execução interrompida não deixa o arquivo pela metade). */
+    private function gravarMemoriaUids(int $uidValidity, array $uids): void {
+        if ($uidValidity <= 0) {
+            return;
+        }
+        $arquivo = $this->arquivoMemoriaUids();
+        $pasta = dirname($arquivo);
+        if (!is_dir($pasta)) {
+            @mkdir($pasta, 0750, true);
+        }
+        $temporario = $arquivo . '.tmp';
+        $json = json_encode(['uidvalidity' => $uidValidity, 'uids' => array_values($uids), 'atualizado_em' => date('c')]);
+        if ($json === false || @file_put_contents($temporario, $json) === false || !@rename($temporario, $arquivo)) {
+            LogService::aviso('email-cron', 'Não foi possível gravar a memória de UIDs da caixa (a próxima execução confere tudo de novo)');
+        }
+    }
+
+    /**
+     * UIDs da janela que ainda não foram processados nesta caixa, com o Message-ID (null quando o
+     * servidor não informa: essas seguem para processarEmail, que confere de novo pelo cabeçalho).
+     * @return array<int, array{uid:int, msgno:int, message_id:?string}>
+     */
+    private function mensagensPendentes($inbox, array $uids): array {
+        $pendentes = [];
+        foreach (array_chunk($uids, 200) as $lote) {
+            $visao = imap_fetch_overview($inbox, implode(',', $lote), FT_UID);
+            if (!is_array($visao)) {
+                // Sem a visão geral: confere uma a uma, como antes
+                foreach ($lote as $uid) {
+                    $pendentes[] = ['uid' => (int) $uid, 'msgno' => (int) imap_msgno($inbox, (int) $uid), 'message_id' => null];
+                }
+                continue;
+            }
+            $ids = [];
+            foreach ($visao as $o) {
+                if (isset($o->message_id) && trim((string) $o->message_id) !== '') {
+                    $ids[] = (string) $o->message_id;
+                }
+            }
+            $pendentes = array_merge($pendentes, self::filtrarPendentes($visao, $this->jaProcessadosEmLote($ids)));
+        }
+        return $pendentes;
+    }
+
+    /**
+     * Função pura (testável): da visão geral do IMAP (objetos com uid, msgno e message_id), tira as
+     * mensagens cujo Message-ID já foi processado. Ordena por UID.
+     * @param array<int, object> $visao
+     * @param array<int, string> $processados
+     * @return array<int, array{uid:int, msgno:int, message_id:?string}>
+     */
+    public static function filtrarPendentes(array $visao, array $processados): array {
+        $ja = array_flip($processados);
+        $saida = [];
+        foreach ($visao as $o) {
+            $mid = isset($o->message_id) ? (string) $o->message_id : '';
+            if (trim($mid) !== '' && isset($ja[$mid])) {
+                continue;
+            }
+            $saida[] = ['uid' => (int) ($o->uid ?? 0), 'msgno' => (int) ($o->msgno ?? 0), 'message_id' => trim($mid) !== '' ? $mid : null];
+        }
+        usort($saida, function ($a, $b) { return $a['uid'] <=> $b['uid']; });
+        return $saida;
+    }
+
+    /** Message-IDs (da lista) já registrados em emails_processados para a caixa atual. */
+    private function jaProcessadosEmLote(array $ids): array {
+        if (!$ids) {
+            return [];
+        }
+        try {
+            $marcas = implode(',', array_fill(0, count($ids), '?'));
+            $stmt = $this->db->prepare("SELECT message_id FROM emails_processados WHERE setor_email_id <=> ? AND message_id IN ($marcas)");
+            $stmt->execute(array_merge([$this->caixaEmailAtualId], array_values($ids)));
+            return $stmt->fetchAll(PDO::FETCH_COLUMN);
+        } catch (Throwable $e) {
+            // Sem a conferência em lote, cada mensagem é conferida em processarEmail (mais lento, mas correto)
+            LogService::aviso('email-cron', 'Não foi possível conferir os e-mails processados em lote: ' . $e->getMessage());
+            return [];
+        }
+    }
+
+    /**
+     * Processa uma mensagem. Devolve false se falhou (fica para a próxima execução, até MAX_TENTATIVAS).
+     * A tentativa é registrada ANTES de processar: se o PHP morrer no meio (falta de memória, tempo
+     * esgotado), a tentativa conta mesmo assim e, depois de MAX_TENTATIVAS, o e-mail é deixado de lado
+     * (antes ficava derrubando todas as execuções enquanto estivesse na janela de busca).
+     */
+    private function processarEmail($inbox, $email_number, $uid = null, ?string $messageIdConhecido = null): bool {
+        LogService::detalhe('email-cron', "--- Processando Email #$email_number ---");
 
         $header = imap_headerinfo($inbox, $email_number);
-        $structure = imap_fetchstructure($inbox, $email_number);
+        if (!is_object($header)) {
+            if ($messageIdConhecido === null) {
+                throw new Exception('Cabeçalho da mensagem ilegível');
+            }
+            $header = new stdClass();
+        }
 
         // Message-ID evita duplicatas. Sem ele, usa uma identidade estável da mensagem
         // (um id aleatório faria o mesmo e-mail virar demanda nova a cada execução)
         $message_id = $header->message_id ?? null;
         if (!$message_id) {
-            $message_id = 'sem-id-' . sha1(($header->date ?? '') . '|' . ($header->fromaddress ?? '') . '|' . ($header->subject ?? '') . '|' . ($this->caixaEmailAtualId ?? 'global'));
+            $message_id = $messageIdConhecido
+                ?: 'sem-id-' . sha1(($header->date ?? '') . '|' . ($header->fromaddress ?? '') . '|' . ($header->subject ?? '') . '|' . ($this->caixaEmailAtualId ?? 'global'));
         }
 
         $marcarLido = function () use ($inbox, $uid, $email_number) {
@@ -180,11 +354,10 @@ class EmailService {
             }
         };
 
-        // Verificar se já foi processado
+        // Já processado (a conferência em lote não reconheceu o Message-ID): não relê nem remarca como lido
         if ($this->emailJaProcessado($message_id)) {
-            LogService::info('email-cron', "Email já processado anteriormente (Message-ID: $message_id)");
-            $marcarLido();
-            return;
+            LogService::detalhe('email-cron', "Email já processado anteriormente (Message-ID: $message_id)");
+            return true;
         }
 
         // Dados do remetente e assunto (o assunto vira o título: texto puro, sem tags)
@@ -194,8 +367,47 @@ class EmailService {
             $assunto = '(sem assunto)';
         }
 
+        // Conta a tentativa antes de processar (ver docblock)
+        $tentativas = $this->iniciarTentativa($message_id, $remetente, $assunto);
+        if ($tentativas > self::MAX_TENTATIVAS) {
+            $desistiu = 'Desistiu após ' . ($tentativas - 1) . ' tentativas interrompidas por erro fatal (memória, tempo ou estrutura inválida)';
+            LogService::erro('email-cron', $desistiu . ': e-mail de ' . self::mascararEmail($remetente));
+            $this->registrarEmailProcessado($message_id, $remetente, $assunto, null, 'erro', $desistiu);
+            $marcarLido();
+            return false;
+        }
+
+        try {
+            $this->processarConteudo($inbox, $email_number, $header, $message_id, $remetente, $assunto, $marcarLido);
+        } catch (Throwable $e) {
+            // Não marca como lido nem como processado: tenta de novo na próxima execução
+            $erro = get_class($e) . ': ' . $e->getMessage();
+            $this->anotarFalha($erro);
+            LogService::erro('email-cron', 'Falha ao processar e-mail de ' . self::mascararEmail($remetente) . " (tentativa $tentativas): " . $erro);
+            if ($tentativas >= self::MAX_TENTATIVAS) {
+                $this->registrarEmailProcessado($message_id, $remetente, $assunto, null, 'erro', 'Desistiu após ' . $tentativas . ' tentativas: ' . mb_substr($erro, 0, 180));
+                $marcarLido();
+            }
+            return false;
+        }
+        $this->concluirTentativa();
+        return true;
+    }
+
+    /**
+     * Corpo do processamento de uma mensagem nova (ignorar, filtro, comentário ou demanda nova).
+     * Qualquer erro sobe para processarEmail, que registra a falha.
+     */
+    private function processarConteudo($inbox, $email_number, $header, string $message_id, string $remetente, string $assunto, callable $marcarLido): void {
+        $structure = imap_fetchstructure($inbox, $email_number);
+        if (!is_object($structure)) {
+            throw new Exception('Estrutura da mensagem ilegível (imap_fetchstructure)');
+        }
+        // Cabeçalho cru lido uma vez só (motivo para ignorar e autenticidade)
+        $cabecalhoCru = (string) imap_fetchheader($inbox, $email_number);
+
         // Caixas do próprio sistema e respostas automáticas nunca viram demanda (evita laços)
-        $motivo_ignorar = $this->motivoParaIgnorar($inbox, $email_number, $remetente);
+        $motivo_ignorar = $this->motivoParaIgnorar($cabecalhoCru, $remetente);
         if ($motivo_ignorar !== null) {
             LogService::info('email-cron', "Email ignorado ($motivo_ignorar): " . self::mascararEmail($remetente));
             $this->registrarEmailProcessado($message_id, $remetente, $assunto, null, 'ignorado', $motivo_ignorar);
@@ -217,10 +429,10 @@ class EmailService {
         $body = nl2br(htmlspecialchars($body, ENT_QUOTES, 'UTF-8'), false);
 
         // Assunto não entra no log (texto livre, pode conter dado pessoal); remetente mascarado
-        LogService::info('email-cron', 'Remetente: ' . self::mascararEmail($remetente));
+        LogService::detalhe('email-cron', 'Remetente: ' . self::mascararEmail($remetente));
 
         // Autenticidade do remetente (SPF/DKIM/DMARC) segundo o servidor que recebeu a mensagem
-        $autenticacao = self::avaliarAutenticacao((string) imap_fetchheader($inbox, $email_number));
+        $autenticacao = self::avaliarAutenticacao($cabecalhoCru);
         if ($autenticacao === 'desconhecido') {
             LogService::aviso('email-cron', 'Sem resultado de SPF/DKIM/DMARC no cabeçalho (Authentication-Results)');
         }
@@ -230,56 +442,45 @@ class EmailService {
         $ticket_id = $this->extrairTicketId($assunto);
         $observacao = null;
 
-        try {
-            $recusa = $ticket_id ? $this->motivoRecusaComentario((int) $ticket_id, $remetente, $autenticacao) : null;
+        $recusa = $ticket_id ? $this->motivoRecusaComentario((int) $ticket_id, $remetente, $autenticacao) : null;
 
-            if ($ticket_id && $recusa === null) {
-                LogService::info('email-cron', 'Resposta à demanda ' . ProtocoloService::rotuloPorId($this->db, (int) $ticket_id));
-                $anexos_processados = $this->processarAnexosEmail($inbox, $email_number);
-                $this->adicionarComentario($ticket_id, $body, $remetente, $anexos_processados);
-                $tipo = 'comentario';
-            } else {
-                // Filtros de e-mail do setor: e-mail que coincide não abre demanda (resposta que vira
-                // comentário nunca chega aqui)
-                $filtro = $this->filtroQueBarra([
-                    'remetente'     => trim(($header->from[0]->personal ?? '') . ' ' . $remetente),
-                    'destinatarios' => $this->enderecosDosDestinatarios($header),
-                    'assunto'       => $assunto,
-                    'corpo'         => $corpoPuro,
-                ]);
-                if ($filtro !== null) {
-                    $descricaoFiltro = FiltroEmailService::descrever($filtro);
-                    LogService::info('email-cron', 'Barrado pelo filtro #' . (int) $filtro['id'] . ' (' . $filtro['campo'] . '): ' . self::mascararEmail($remetente));
-                    FiltroEmailService::registrarOcorrencia($this->db, (int) $filtro['id']);
-                    $this->registrarEmailProcessado($message_id, $remetente, $assunto, null, 'ignorado', 'Filtro: ' . mb_substr($descricaoFiltro, 0, 230), (int) $filtro['id']);
-                    $marcarLido();
-                    return;
-                }
-                if ($ticket_id) {
-                    $observacao = 'Mencionou a demanda ' . ProtocoloService::rotuloPorId($this->db, (int) $ticket_id) . ', mas ' . $recusa . '; aberta demanda nova.';
-                    $body = '<p><em>' . htmlspecialchars($observacao, ENT_QUOTES, 'UTF-8') . '</em></p>' . $body;
-                    LogService::aviso('email-cron', $observacao);
-                }
-                LogService::info('email-cron', 'Criando nova demanda...');
-                $ticket_id = $this->criarTicketPorEmail($assunto, $body, $remetente, $this->processarAnexosEmail($inbox, $email_number));
-                $tipo = 'novo_ticket';
-            }
-        } catch (Exception $e) {
-            // Não marca como lido nem como processado: tenta de novo na próxima execução
-            $tentativas = $this->registrarFalha($message_id, $remetente, $assunto, $e->getMessage());
-            LogService::erro('email-cron', 'Falha ao processar e-mail de ' . self::mascararEmail($remetente) . " (tentativa $tentativas): " . $e->getMessage());
-            if ($tentativas >= self::MAX_TENTATIVAS) {
-                $this->registrarEmailProcessado($message_id, $remetente, $assunto, null, 'erro', 'Desistiu após ' . $tentativas . ' tentativas: ' . mb_substr($e->getMessage(), 0, 180));
+        if ($ticket_id && $recusa === null) {
+            LogService::info('email-cron', 'Resposta à demanda ' . ProtocoloService::rotuloPorId($this->db, (int) $ticket_id));
+            $anexos_processados = $this->processarAnexosEmail($inbox, $email_number, $structure);
+            $this->adicionarComentario($ticket_id, $body, $remetente, $anexos_processados);
+            $tipo = 'comentario';
+        } else {
+            // Filtros de e-mail do setor: e-mail que coincide não abre demanda (resposta que vira
+            // comentário nunca chega aqui)
+            $filtro = $this->filtroQueBarra([
+                'remetente'     => trim(($header->from[0]->personal ?? '') . ' ' . $remetente),
+                'destinatarios' => $this->enderecosDosDestinatarios($header),
+                'assunto'       => $assunto,
+                'corpo'         => $corpoPuro,
+            ]);
+            if ($filtro !== null) {
+                $descricaoFiltro = FiltroEmailService::descrever($filtro);
+                LogService::info('email-cron', 'Barrado pelo filtro #' . (int) $filtro['id'] . ' (' . $filtro['campo'] . '): ' . self::mascararEmail($remetente));
+                FiltroEmailService::registrarOcorrencia($this->db, (int) $filtro['id']);
+                $this->registrarEmailProcessado($message_id, $remetente, $assunto, null, 'ignorado', 'Filtro: ' . mb_substr($descricaoFiltro, 0, 230), (int) $filtro['id']);
                 $marcarLido();
+                return;
             }
-            return;
+            if ($ticket_id) {
+                $observacao = 'Mencionou a demanda ' . ProtocoloService::rotuloPorId($this->db, (int) $ticket_id) . ', mas ' . $recusa . '; aberta demanda nova.';
+                $body = '<p><em>' . htmlspecialchars($observacao, ENT_QUOTES, 'UTF-8') . '</em></p>' . $body;
+                LogService::aviso('email-cron', $observacao);
+            }
+            LogService::detalhe('email-cron', 'Criando nova demanda...');
+            $ticket_id = $this->criarTicketPorEmail($assunto, $body, $remetente, $this->processarAnexosEmail($inbox, $email_number, $structure));
+            $tipo = 'novo_ticket';
         }
 
         $this->registrarEmailProcessado($message_id, $remetente, $assunto, $ticket_id, $tipo, $observacao);
 
         // Marcar email como lido APENAS após sucesso
         $marcarLido();
-        LogService::info('email-cron', 'Email processado e marcado como lido');
+        LogService::detalhe('email-cron', 'Email processado e marcado como lido');
     }
 
     /**
@@ -331,14 +532,13 @@ class EmailService {
     /**
      * Motivo para ignorar o e-mail (null = processar): remetente do próprio sistema ou mensagem automática.
      */
-    private function motivoParaIgnorar($inbox, $email_number, string $remetente): ?string {
+    private function motivoParaIgnorar(string $cabecalho, string $remetente): ?string {
         if ($remetente === '@' || $remetente === '') {
             return 'remetente ausente';
         }
         if (in_array($remetente, $this->enderecosDoSistema(), true)) {
             return 'remetente é uma caixa do próprio sistema';
         }
-        $cabecalho = (string) imap_fetchheader($inbox, $email_number);
         if (preg_match('/^Auto-Submitted:\s*(?!no\b)\S+/im', $cabecalho)
             || preg_match('/^X-(Autoreply|Autorespond|Autoresponder|Auto-Reply):/im', $cabecalho)) {
             return 'resposta automática';
@@ -439,24 +639,63 @@ class EmailService {
     }
 
     /**
-     * Registra a falha no processamento de um e-mail e devolve quantas tentativas já houve.
+     * Conta uma tentativa de processar o e-mail em emails_erro, ANTES de processar (com o texto
+     * MARCA_INTERROMPIDA), e devolve o número desta tentativa. Ver processarEmail.
      */
-    private function registrarFalha(string $message_id, string $remetente, string $assunto, string $erro): int {
+    private function iniciarTentativa(string $message_id, string $remetente, string $assunto): int {
+        $this->tentativaAtual = null;
         try {
-            $sel = $this->db->prepare("SELECT id, tentativas FROM emails_erro WHERE message_id = ? AND setor_email_id <=> ? ORDER BY id DESC LIMIT 1");
+            $sel = $this->db->prepare("SELECT id, tentativas, erro_mensagem FROM emails_erro WHERE message_id = ? AND setor_email_id <=> ? ORDER BY id DESC LIMIT 1");
             $sel->execute([$message_id, $this->caixaEmailAtualId]);
             $linha = $sel->fetch(PDO::FETCH_ASSOC);
             if ($linha) {
                 $this->db->prepare("UPDATE emails_erro SET tentativas = tentativas + 1, erro_mensagem = ?, ultima_tentativa = NOW() WHERE id = ?")
-                         ->execute([mb_substr($erro, 0, 2000), $linha['id']]);
+                         ->execute([self::MARCA_INTERROMPIDA, $linha['id']]);
+                $this->tentativaAtual = ['id' => (int) $linha['id'], 'nova' => false, 'erro_anterior' => $linha['erro_mensagem']];
                 return (int) $linha['tentativas'] + 1;
             }
             $this->db->prepare("INSERT INTO emails_erro (message_id, setor_email_id, email_remetente, assunto, erro_mensagem) VALUES (?, ?, ?, ?, ?)")
-                     ->execute([$message_id, $this->caixaEmailAtualId, $remetente, $assunto, mb_substr($erro, 0, 2000)]);
-        } catch (Exception $e) {
-            error_log('[EMAIL-SERVICE] Não foi possível registrar a falha: ' . $e->getMessage());
+                     ->execute([$message_id, $this->caixaEmailAtualId, $remetente, $assunto, self::MARCA_INTERROMPIDA]);
+            $this->tentativaAtual = ['id' => (int) $this->db->lastInsertId(), 'nova' => true, 'erro_anterior' => null];
+        } catch (Throwable $e) {
+            error_log('[EMAIL-SERVICE] Não foi possível registrar a tentativa: ' . $e->getMessage());
         }
         return 1;
+    }
+
+    /** Grava o erro (capturado) da tentativa em andamento; a tentativa já foi contada. */
+    private function anotarFalha(string $erro): void {
+        if ($this->tentativaAtual === null) {
+            return;
+        }
+        try {
+            $this->db->prepare("UPDATE emails_erro SET erro_mensagem = ?, ultima_tentativa = NOW() WHERE id = ?")
+                     ->execute([mb_substr($erro, 0, 2000), $this->tentativaAtual['id']]);
+        } catch (Throwable $e) {
+            error_log('[EMAIL-SERVICE] Não foi possível registrar a falha: ' . $e->getMessage());
+        }
+        $this->tentativaAtual = null;
+    }
+
+    /**
+     * A tentativa terminou bem: desfaz a contagem antecipada (apaga a linha criada agora, ou devolve a
+     * contagem e o erro de antes, quando o e-mail já tinha falhado em outra execução).
+     */
+    private function concluirTentativa(): void {
+        if ($this->tentativaAtual === null) {
+            return;
+        }
+        try {
+            if ($this->tentativaAtual['nova']) {
+                $this->db->prepare("DELETE FROM emails_erro WHERE id = ?")->execute([$this->tentativaAtual['id']]);
+            } else {
+                $this->db->prepare("UPDATE emails_erro SET tentativas = GREATEST(tentativas - 1, 0), erro_mensagem = ? WHERE id = ?")
+                         ->execute([$this->tentativaAtual['erro_anterior'], $this->tentativaAtual['id']]);
+            }
+        } catch (Throwable $e) {
+            error_log('[EMAIL-SERVICE] Não foi possível concluir a tentativa: ' . $e->getMessage());
+        }
+        $this->tentativaAtual = null;
     }
 
     private function emailJaProcessado($message_id) {
@@ -486,7 +725,7 @@ class EmailService {
             $stmt->bindParam(':tipo', $tipo);
             $stmt->bindValue(':observacao', $observacao);
             $stmt->execute();
-            LogService::info('email-cron', 'Email registrado no histórico');
+            LogService::detalhe('email-cron', 'Email registrado no histórico');
         } catch (Exception $e) {
             // Se tabela não existe, apenas logar
             LogService::aviso('email-cron', 'Não foi possível registrar no histórico');
@@ -574,10 +813,11 @@ class EmailService {
         try {
             require_once __DIR__ . '/email-sender.php';
             $emailSender = new EmailSender($this->db);
-            if (!$emailSender->enviarEmailNovoTicket($ticket_id, $resultado_anexos['rejeitados'])) {
+            // E-mail desligado no setor já sai como INFO no EmailSender; AVISO só para falha real (BUG-16)
+            if (!$emailSender->enviarEmailNovoTicket($ticket_id, $resultado_anexos['rejeitados']) && !$emailSender->ultimoEmailFoiDesligado()) {
                 LogService::aviso('email-cron', "Confirmação ao solicitante da demanda #$ticket_id não enfileirada");
             }
-            if (!$emailSender->notificarAgentesNovoTicket($ticket_id)) {
+            if (!$emailSender->notificarAgentesNovoTicket($ticket_id) && !$emailSender->ultimoEmailFoiDesligado()) {
                 LogService::aviso('email-cron', "Aviso à equipe da demanda #$ticket_id não enfileirado");
             }
         } catch (Exception $e) {
@@ -600,15 +840,39 @@ class EmailService {
         };
     }
 
+    /**
+     * Recusa um anexo antes de baixá-lo (tipo fora da lista ou tamanho acima do limite), com os mesmos
+     * motivos de UploadService::validar. Função pura (testável).
+     */
+    public static function motivoRecusaAntesDeBaixar(string $nome, int $tamanhoEstimado): ?string {
+        $extensao = strtolower(pathinfo(basename($nome), PATHINFO_EXTENSION));
+        if (!isset(UploadService::TIPOS[$extensao])) {
+            return 'Tipo não permitido';
+        }
+        if ($tamanhoEstimado > UploadService::MAX_BYTES_ARQUIVO) {
+            return 'Tamanho excede 20MB';
+        }
+        return null;
+    }
+
     /** Anexos da mensagem, validados pela mesma regra da tela (UploadService): tipo real, 5 arquivos, 20 MB cada. */
-    private function processarAnexosEmail($inbox, $email_number) {
+    private function processarAnexosEmail($inbox, $email_number, $structure = null) {
         $anexos_validos = [];
         $anexos_rejeitados = [];
 
-        $structure = imap_fetchstructure($inbox, $email_number);
-        foreach (EmailMime::anexos($structure, $this->buscadorDeSecoes($inbox, $email_number, $structure)) as $anexo) {
+        if (!is_object($structure)) {
+            $structure = imap_fetchstructure($inbox, $email_number);
+        }
+        $recusarAntes = [self::class, 'motivoRecusaAntesDeBaixar'];
+        foreach (EmailMime::anexos($structure, $this->buscadorDeSecoes($inbox, $email_number, $structure), $recusarAntes) as $anexo) {
+            if (isset($anexo['recusado'])) {
+                // Recusado sem baixar (não ocupa memória)
+                $anexos_rejeitados[] = ['nome' => $anexo['nome'], 'motivo' => $anexo['recusado']];
+                LogService::aviso('email-cron', "[ANEXO] Recusado sem baixar (seção {$anexo['secao']}): {$anexo['recusado']}");
+                continue;
+            }
             $mime_real = UploadService::mimeDoConteudo($anexo['conteudo']);
-            $validacao = UploadService::validar($anexo['nome'], $mime_real, $anexo['tamanho']);
+            $validacao = UploadService::validarConteudo($anexo['nome'], $mime_real, $anexo['conteudo']);
             if (!$validacao['ok']) {
                 $anexos_rejeitados[] = ['nome' => $anexo['nome'], 'motivo' => $validacao['motivo']];
                 LogService::aviso('email-cron', "[ANEXO] Recusado (seção {$anexo['secao']}): {$validacao['motivo']} ({$validacao['extensao']})");
@@ -622,7 +886,7 @@ class EmailService {
             $anexos_validos[] = ['nome' => $anexo['nome'], 'conteudo' => $anexo['conteudo'], 'tamanho' => $anexo['tamanho'], 'tipo' => $mime_real];
         }
 
-        LogService::info('email-cron', 'Anexos: ' . count($anexos_validos) . ' aceito(s), ' . count($anexos_rejeitados) . ' recusado(s)');
+        LogService::detalhe('email-cron', 'Anexos: ' . count($anexos_validos) . ' aceito(s), ' . count($anexos_rejeitados) . ' recusado(s)');
         return ['validos' => $anexos_validos, 'rejeitados' => $anexos_rejeitados];
     }
     private function salvarAnexo($ticket_id, $anexo, $comentario_id = null) {
@@ -690,7 +954,7 @@ class EmailService {
 
     private function adicionarComentario($ticket_id, $comentario, $email, array $anexos_processados = ['validos' => [], 'rejeitados' => []]) {
         $ticket_id = (int) $ticket_id;
-        LogService::info('email-cron', 'Adicionando comentário à demanda ' . ProtocoloService::rotuloPorId($this->db, $ticket_id));
+        LogService::detalhe('email-cron', 'Adicionando comentário à demanda ' . ProtocoloService::rotuloPorId($this->db, $ticket_id));
 
         $comentario = trim($comentario);
         if (mb_strlen($comentario) > 20000) {

@@ -2,6 +2,8 @@
 header('Content-Type: application/json');
 
 require_once __DIR__ . '/../middleware/auth.php';
+require_once __DIR__ . '/../config/database.php';
+require_once __DIR__ . '/../services/auditoria-service.php';
 
 AuthMiddleware::configurarCORS(['POST']);
 
@@ -49,14 +51,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             exit;
         }
         
-        // Definir caminhos
+        // Definir caminhos (absolutos, a partir deste arquivo: o caminho relativo dependia do diretório de
+        // trabalho do PHP; auditoria 01/11/2026, SEG-13)
+        $imagens = dirname(__DIR__, 2) . '/frontend/images/';
         if ($tipo === 'header') {
             $destinos = [
-                '../../frontend/images/logo_vazado.png',
-                '../../frontend/images/blocked.png'
+                $imagens . 'logo_vazado.png',
+                $imagens . 'blocked.png'
             ];
         } else {
-            $destinos = ['../../frontend/images/logo_login.png'];
+            $destinos = [$imagens . 'logo_login.png'];
         }
         
         // Fazer backup e salvar
@@ -77,6 +81,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
         
         if ($sucesso) {
+            // Auditoria obrigatória (regra do projeto): troca de logotipo da aplicação
+            try {
+                (new AuditoriaService((new Database())->getConnection()))->registrar((int) $user['id'], 'alterar_logo', 'personalizacao', null,
+                    null, json_encode(['tipo' => $tipo, 'arquivos' => array_map('basename', $destinos), 'tamanho' => (int) $file['size'], 'sha256' => hash_file('sha256', $temp_path)]));
+            } catch (Throwable $e) {
+                error_log('[PERSONALIZACAO] Erro ao auditar a troca de logo: ' . $e->getMessage());
+            }
             echo json_encode(['success' => true]);
         } else {
             http_response_code(500);

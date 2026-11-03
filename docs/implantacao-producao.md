@@ -21,6 +21,16 @@ Nada abaixo foi definido neste roteiro — são escolhas de implantação, não 
   `docs/especificacoes/PROMPT_INTEGRACAO_SISTEMA_SATELITE.md` (este é usado por sistemas
   satélites que consomem `abrir_chamado.php` — avisar quem mantém esses sistemas sobre a nova
   URL quando o caminho `/conecta` entrar no ar).
+- **Subdomínio próprio (auditoria 01/11/2026, SEG-01, achado alto; ainda não decidido).** Em
+  `https://crp07.org.br/conecta` o Conecta divide a origem com o METRICA360 e o site: um XSS em
+  qualquer um deles pode chamar a API do Conecta como o usuário logado e ler o `cd_csrf_token` do
+  `localStorage` (o cookie HttpOnly só impede o roubo do token). A recomendação é publicar em
+  `https://conecta.crp07.org.br`. Se for decidido, mudam juntos: DNS e certificado; `base_url`
+  (`environment.php` / `BASE_URL_PROD`) e `CORS_ALLOWED_ORIGINS_PROD`; `rootBase`/`apiBase` em
+  `frontend/app-config.js`; o `Path=/conecta` do cookie (`AuthMiddleware::definirCookieSessao`, que
+  pode passar a `__Host-conecta_sessao`, sem `Path` nem `Domain`); a URL dos crons no cron-job.org;
+  o `SSO_AUDIENCE_PROD`; e o aviso aos sistemas satélites. **Decidir antes de avisar os satélites**,
+  para não trocar a URL duas vezes.
 - **E-mail de cada setor.** As caixas IMAP/SMTP de setor (`setor_emails`) são cadastradas pela
   tela "Configurar e-mail" depois do primeiro deploy — não há nada a migrar aqui, mas alguém
   precisa cadastrá-las antes dos setores dependerem de e-mail.
@@ -79,16 +89,54 @@ cabeçalho `X-Cron-Key: <valor>` (o parâmetro `?key=` na URL não é mais aceit
   execução, os lembretes vencidos e o envio da fila de e-mail — **não precisa agendar os outros
   três separadamente**, a menos que se queira um intervalo diferente para algum deles.
 - Teste manual antes de agendar: `curl -H "X-Cron-Key: <valor>" https://<dominio>/api/cron/verificar-emails.php`
+- Desde a auditoria de 01/11/2026: um erro de PHP numa mensagem não derruba mais a cadeia (lembretes e fila
+  seguem, até depois de erro fatal); cada execução lê só as mensagens novas (os UIDs já tratados ficam em
+  `backend/cache/email-uids/`, que pode ser apagada sem perda: a próxima execução confere tudo de novo);
+  o log é um arquivo por dia (`backend/logs/email-cron-AAAA-MM-DD.log`, guardado `LOG_RETENCAO_DIAS` dias,
+  padrão 30) com uma linha de resumo por caixa. O antigo `backend/logs/email-cron.log` não é mais escrito e
+  pode ser arquivado ou apagado.
 
 ## 6. Depois do primeiro deploy
 
 - [ ] Login funciona com o primeiro administrador
-- [ ] `php database/migrar.php --status` mostra as 22 migrações aplicadas
+- [ ] `php database/migrar.php --status` mostra todas as migrações aplicadas (9 a 38 em 01/11/2026)
 - [ ] `php api/tests/matriz-de-acesso.php https://<dominio>` roda limpo contra o ambiente (cuidado: cria e apaga dados de teste — só rodar antes de haver dados reais, ou usar um ambiente de homologação)
 - [ ] Teste de envio de e-mail pela tela "Configurar e-mail" (teste de uma caixa de setor) chega de verdade
-- [ ] Cron de e-mail rodou ao menos uma vez com sucesso (ver `backend/logs/email-cron.log`)
+- [ ] Cron de e-mail rodou ao menos uma vez com sucesso (ver `backend/logs/email-cron-AAAA-MM-DD.log`: linha
+      "Caixa #N (setor #M): ... (X s)" por caixa)
+- [ ] Pastas `backend/logs/` e `backend/cache/` graváveis pelo usuário do PHP (e fora do alcance da web:
+      `backend/.htaccess` nega tudo)
+- [ ] `curl -I https://<dominio>/frontend/script.js?v=<versão>` traz `Cache-Control: public, max-age=31536000, immutable`
+      e, com `mod_deflate` ativo, `Content-Encoding: gzip` (pedir com `-H "Accept-Encoding: gzip"`)
 - [ ] HTTPS ativo e `Secure`/`HttpOnly`/`SameSite=Strict` confirmados nos cookies de sessão (se usados) e nos headers de segurança (`X-Frame-Options`, `Content-Security-Policy` etc.)
 - [ ] Backup automático do banco agendado (fora do escopo deste sistema, mas necessário)
+
+## 6a. Conferir no servidor antes do deploy (auditoria 01/11/2026, Fase 0)
+
+Registrar aqui os valores encontrados no servidor de produção (não foi possível conferir daqui):
+
+| Item | Recomendado | Encontrado |
+|---|---|---|
+| Versão do PHP | 8.2 ou mais nova (o suporte de segurança do 8.2 termina em 31/12/2026: planejar 8.3/8.4) | |
+| Extensões | `imap`, `pdo_mysql`, `mbstring`, `curl`, `fileinfo`, `zip` (sem `zip`, DOCX/XLSX são aceitos sem conferir o pacote) | |
+| `memory_limit` | 256M ou mais (o cron lê e-mails com anexos de até 20 MB) | |
+| `post_max_size` / `upload_max_filesize` | coerentes com 5 anexos de 20 MB (ex.: 110M / 20M) | |
+| `max_execution_time` do cron por HTTP | o cron chama `set_time_limit(300)` | |
+| Módulos do Apache | `mod_headers`, `mod_rewrite` e, para a compressão, `mod_deflate` | |
+| Rotação dos logs do servidor (Apache/PHP) | ativa | |
+
+## 6b. O que NÃO enviar ao servidor (auditoria 01/11/2026, MAN-04)
+
+Ao empacotar o deploy, deixar de fora:
+
+- `docs/`, `mockups/` (o `.htaccess` só bloqueia os `.php` de lá), `.playwright-mcp/`, `.superpowers/`,
+  `.claude/`, `.agent/`, `.git/`
+- `api/tests/` (testes e matriz de acesso) e `api/phpunit.xml`
+- `frontend/node_modules/` e `frontend/package*.json` (ferramentas locais)
+- `frontend/images/logos-propostas/` e `frontend/branding-preview.html` (só histórico)
+- `api/composer.phar`, dumps `.sql` fora de `database/`, `backend/logs/*`, `backend/cache/*` e `backend/anexos/*`
+  do ambiente local (dados de desenvolvimento)
+- `api/config/.env` local (o servidor tem o seu, com as chaves `*_PROD`)
 
 ## 7. Registro de Atividades e Meu Painel (vindos do METRICA360, 27/10/2026)
 

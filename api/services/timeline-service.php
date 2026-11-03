@@ -23,10 +23,17 @@ class TimelineService {
         $stmt->execute([$ticketId]);
         $comentarios = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
-        $anexosStmt = $db->prepare("SELECT * FROM anexos WHERE comentario_id = ?");
+        // Anexos de todos os comentários numa consulta só (antes, uma por comentário; auditoria 01/11/2026, DES-11)
+        $anexosPorComentario = [];
+        if ($comentarios) {
+            $anexosStmt = $db->prepare("SELECT * FROM anexos WHERE ticket_id = ? AND comentario_id IS NOT NULL ORDER BY id");
+            $anexosStmt->execute([$ticketId]);
+            foreach ($anexosStmt->fetchAll(PDO::FETCH_ASSOC) as $anexo) {
+                $anexosPorComentario[(int) $anexo['comentario_id']][] = $anexo;
+            }
+        }
         foreach ($comentarios as &$comentario) {
-            $anexosStmt->execute([$comentario['id']]);
-            $comentario['anexos'] = $anexosStmt->fetchAll(PDO::FETCH_ASSOC);
+            $comentario['anexos'] = $anexosPorComentario[(int) $comentario['id']] ?? [];
         }
         unset($comentario);
 

@@ -26,6 +26,31 @@ function htmlSeguro(html) {
     return sanitizeHTML(html);
 }
 
+/**
+ * Célula de CSV sem fórmula: valor que começa com = + - @ (ou tab/retorno) ganha um apóstrofo na frente,
+ * para o Excel não executar fórmula vinda de fora (ex.: assunto de e-mail "=HYPERLINK(...)"). Mesma regra
+ * do backend (AtividadesAcompanhamentoService::celulaCsv). Devolve o texto sem aspas (auditoria
+ * 01/11/2026, SEG-04).
+ */
+function celulaCsv(valor) {
+    const texto = valor == null ? '' : String(valor);
+    return /^[=+\-@\t\r]/.test(texto) ? "'" + texto : texto;
+}
+
+/**
+ * Data/hora vinda do banco ("AAAA-MM-DD HH:MM:SS" ou "AAAA-MM-DD") como Date, sempre no horário local.
+ * Sem o "T", navegadores mais rígidos (Safari/iOS antigos) davam "Invalid Date"; e a data sozinha era
+ * lida como UTC, aparecendo um dia antes no fuso de Brasília (auditoria 01/11/2026, BUG-14).
+ * null/undefined seguem como new Date(valor) fazia (época / Invalid Date), para não mudar ordenações.
+ */
+function dataDoBanco(valor) {
+    if (valor == null || valor instanceof Date) return new Date(valor);
+    const texto = String(valor).trim();
+    if (/^\d{4}-\d{2}-\d{2}$/.test(texto)) return new Date(texto + 'T00:00:00');
+    if (/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}/.test(texto)) return new Date(texto.replace(' ', 'T'));
+    return new Date(texto);
+}
+
 // Texto como argumento de função em onclick="fn(decodeURIComponent('...'))"
 function argJs(valor) {
     return encodeURIComponent(String(valor ?? '')).replace(/'/g, '%27');
@@ -685,29 +710,23 @@ async function executarAlteracaoStatus(ticketId, novoStatus, callback, observaco
 let loaderStartTime = null;
 
 function mostrarLoader() {
-    console.log('🔵 mostrarLoader: iniciando...');
     loaderStartTime = Date.now();
     const loaderElement = document.getElementById('loader-overlay');
-    console.log('🔵 Elemento loader:', loaderElement);
     if (loaderElement) {
         loaderElement.classList.add('show');
-        console.log('✅ Loader mostrado');
     } else {
         console.error('❌ Elemento loader-overlay não encontrado!');
     }
 }
 
 function ocultarLoader() {
-    console.log('🔴 ocultarLoader: iniciando...');
     const tempoDecorrido = Date.now() - loaderStartTime;
     const tempoRestante = Math.max(0, 500 - tempoDecorrido);
-    console.log('🔴 Tempo decorrido:', tempoDecorrido, 'ms, tempo restante:', tempoRestante, 'ms');
 
     setTimeout(() => {
         const loaderElement = document.getElementById('loader-overlay');
         if (loaderElement) {
             loaderElement.classList.remove('show');
-            console.log('✅ Loader ocultado');
         }
     }, tempoRestante);
 }
@@ -930,7 +949,6 @@ function fecharModal() {
 
 // Confirmar modal
 function confirmarModal(resultado) {
-    console.log('🔘 confirmarModal chamado com:', resultado);
     const callback = modalCallback;
     fecharModal();
     if (callback) callback(resultado);
@@ -938,7 +956,6 @@ function confirmarModal(resultado) {
 
 // Prompt modal
 function promptModal(valor) {
-    console.log('📝 promptModal chamado com:', valor);
     const callback = modalCallback;
     fecharModal();
     if (callback) callback(valor !== null);
@@ -946,8 +963,6 @@ function promptModal(valor) {
 
 // Selecionar modal
 function selecionarModal(opcao) {
-    console.log('selecionarModal chamado com:', opcao);
-    console.log('modalSelectCallback:', modalSelectCallback);
 
     const callback = modalSelectCallback;
 
@@ -1234,6 +1249,27 @@ document.addEventListener('keydown', function (e) {
     }
 });
 
+/**
+ * Confere papel e setor do usuário com o servidor (me.php) ao carregar a aplicação. O servidor já relê os
+ * dois a cada requisição, mas menus e botões seguiam o que ficou em localStorage.cd_usuario no login: um
+ * gestor rebaixado continuava vendo os menus de gestor até entrar de novo (auditoria 01/11/2026, INC-06).
+ * Se o papel ou o setor mudou, guarda os dados novos e recarrega a página uma vez.
+ */
+async function atualizarUsuarioDoServidor(guardado) {
+    try {
+        const resposta = await Api.get('me.php');
+        const atual = resposta && resposta.usuario;
+        if (!atual) return;
+        const mudou = atual.tipo !== guardado.tipo || String(atual.setor_id ?? '') !== String(guardado.setor_id ?? '');
+        localStorage.setItem('cd_usuario', JSON.stringify(Object.assign({}, guardado, atual)));
+        if (mudou) {
+            window.location.reload();
+        }
+    } catch (e) {
+        // Sem conexão: segue com o que está guardado (sessão encerrada já é tratada pelo Api)
+    }
+}
+
 // Inicializar aplicação
 document.addEventListener('DOMContentLoaded', function () {
     restaurarModalPrompt(); // guarda o rodapé original do modal de texto
@@ -1261,6 +1297,9 @@ document.addEventListener('DOMContentLoaded', function () {
         ativarTrocaObrigatoriaSenha();
         return;
     }
+
+    // Papel e setor podem ter mudado desde o login: confere com o servidor (INC-06)
+    atualizarUsuarioDoServidor(dadosUsuario);
 
     // Inicializar sistema de SLA
     if (typeof inicializarSistemaSLA === 'function') {

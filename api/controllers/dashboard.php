@@ -3,6 +3,7 @@ header('Content-Type: application/json');
 header('Cache-Control: private, max-age=60'); // Cache no navegador por 60s para aliviar carga pesada de dezenas de SUM() e COUNT() do MySQL
 
 require_once __DIR__ . '/../config/database.php';
+require_once __DIR__ . '/../services/cache-arquivo-service.php';
 require_once __DIR__ . '/../services/sla-service.php';
 require_once __DIR__ . '/../middleware/auth.php';
 require_once __DIR__ . '/../services/acesso-service.php';
@@ -253,15 +254,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
                   FROM tickets t
                   LEFT JOIN ticket_sla ts ON t.id = ts.ticket_id
                   WHERE t.status NOT IN ($EM_ANDAMENTO_SQL){$filtroT}";
-        $stmt = $db->prepare($query);
-        $stmt->execute();
-        $slaVencido = 0;
-        $slaCalculo = new SLAService($db);
-        foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $aberta) {
-            $situacao = $slaCalculo->situacao($aberta, $aberta, $aberta['setor_id'] !== null ? (int) $aberta['setor_id'] : null);
-            if ($situacao && $situacao['vencido']) {
-                $slaVencido++;
+        // O cálculo é demanda a demanda (horário útil de cada uma): o resultado vale 60 s por escopo,
+        // como já ficava no navegador (auditoria 01/11/2026, DES-10)
+        $slaVencido = CacheArquivoService::ler('dashboard-sla-vencido', $filtroT);
+        if (!is_int($slaVencido)) {
+            $stmt = $db->prepare($query);
+            $stmt->execute();
+            $slaVencido = 0;
+            $slaCalculo = new SLAService($db);
+            foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $aberta) {
+                $situacao = $slaCalculo->situacao($aberta, $aberta, $aberta['setor_id'] !== null ? (int) $aberta['setor_id'] : null);
+                if ($situacao && $situacao['vencido']) {
+                    $slaVencido++;
+                }
             }
+            CacheArquivoService::gravar('dashboard-sla-vencido', $filtroT, $slaVencido, 60);
         }
         $dashboard['sla_vencido'] = $slaVencido;
 

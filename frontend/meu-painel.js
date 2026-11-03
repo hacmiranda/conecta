@@ -50,7 +50,15 @@ function iniciarRelogioMeuPainel() {
     };
     atualizar();
     clearInterval(mpRelogio);
-    mpRelogio = setInterval(atualizar, 30000);
+    // Para sozinho quando a tela sai de vista (antes seguia rodando depois de trocar de tela; DES-14)
+    mpRelogio = setInterval(() => {
+        const secao = document.getElementById('meu-painel');
+        if (!secao || !secao.classList.contains('active') || !document.body.contains(alvo)) {
+            clearInterval(mpRelogio);
+            return;
+        }
+        atualizar();
+    }, 30000);
 }
 
 // Recarrega a cada 5 min (como no METRICA360), só com a tela aberta e visível e sem ninguém digitando

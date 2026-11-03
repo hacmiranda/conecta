@@ -159,4 +159,35 @@ final class EmailRecebidoTest extends TestCase {
         $this->assertSame($protocoloAntes, $this->valor("SELECT COALESCE(MAX(ultimo), 0) FROM protocolo_sequencia"), 'o número do protocolo não foi gasto');
         $this->assertSame($anexosAntes, count(glob(UploadService::pasta() . '*')), 'nenhum arquivo órfão no disco');
     }
+
+    /**
+     * Auditoria 01/11/2026, BUG-08: a tentativa é contada antes de processar, então um erro fatal (que
+     * nenhum catch pega) também conta, e depois de MAX_TENTATIVAS o e-mail é deixado de lado.
+     */
+    public function test_tentativa_contada_antes_de_processar(): void {
+        $this->naCaixa($this->setorA, $this->caixaA);
+        $mid = '<zz-tentativa-' . bin2hex(random_bytes(4)) . '@teste.local>';
+        $linhas = fn() => (int) $this->valor("SELECT COUNT(*) FROM emails_erro WHERE message_id = ?", [$mid]);
+
+        // Sucesso: não sobra nada em emails_erro
+        $this->assertSame(1, $this->chamar('iniciarTentativa', $mid, 'zz@exemplo.com', 'zz assunto'));
+        $this->assertSame(EmailService::MARCA_INTERROMPIDA, $this->valor("SELECT erro_mensagem FROM emails_erro WHERE message_id = ?", [$mid]));
+        $this->chamar('concluirTentativa');
+        $this->assertSame(0, $linhas());
+
+        // Erro capturado: guarda a mensagem; a tentativa seguinte que der certo devolve a contagem e o erro de antes
+        $this->chamar('iniciarTentativa', $mid, 'zz@exemplo.com', 'zz assunto');
+        $this->chamar('anotarFalha', 'TypeError: estrutura inválida');
+        $this->assertSame(2, $this->chamar('iniciarTentativa', $mid, 'zz@exemplo.com', 'zz assunto'));
+        $this->chamar('concluirTentativa');
+        $this->assertSame(1, (int) $this->valor("SELECT tentativas FROM emails_erro WHERE message_id = ?", [$mid]));
+        $this->assertSame('TypeError: estrutura inválida', $this->valor("SELECT erro_mensagem FROM emails_erro WHERE message_id = ?", [$mid]));
+
+        // Processo morto no meio (sem concluir nem anotar) quatro vezes: a sexta tentativa já passa do limite
+        for ($i = 2; $i <= EmailService::MAX_TENTATIVAS; $i++) {
+            $this->assertSame($i, $this->chamar('iniciarTentativa', $mid, 'zz@exemplo.com', 'zz assunto'));
+        }
+        $this->assertSame(EmailService::MAX_TENTATIVAS + 1, $this->chamar('iniciarTentativa', $mid, 'zz@exemplo.com', 'zz assunto'));
+        $this->assertSame(1, $linhas(), 'uma linha por mensagem e caixa');
+    }
 }

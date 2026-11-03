@@ -71,7 +71,15 @@ function iniciarRelogioRegistro() {
     };
     atualizar();
     clearInterval(raRelogio);
-    raRelogio = setInterval(atualizar, 30000);
+    // Para sozinho quando a tela sai de vista (antes seguia rodando depois de trocar de tela; DES-14)
+    raRelogio = setInterval(() => {
+        const secao = document.getElementById('registro-atividades');
+        if (!secao || !secao.classList.contains('active') || !document.body.contains(alvo)) {
+            clearInterval(raRelogio);
+            return;
+        }
+        atualizar();
+    }, 30000);
 }
 
 // ---------- montagem ----------

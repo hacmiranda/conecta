@@ -106,6 +106,70 @@ final class FluxoDemandaTest extends TestCase {
         $this->assertSame('2026-01-02 10:00:00', $this->sla()['resolvido_em']);
     }
 
+    /** Auditoria 01/11/2026, BUG-02: resolver direto de um status que pausa desconta a pausa em andamento. */
+    public function test_resolver_a_partir_de_aguardando_desconta_a_pausa_em_andamento(): void {
+        $this->mudar('em_atendimento');
+        $this->mudar('aguardando_resposta');
+        $sla = new SLAService($this->db);
+        if (!$sla->congelaSla('aguardando_resposta') || !$sla->congelaSla('resolvido')) {
+            $this->markTestSkipped('O catálogo local não congela o SLA nesses status.');
+        }
+        // Toda a vida da demanda (3 dias) em pausa ainda aberta
+        $criado = $this->demanda()['criado_em'];
+        $this->db->prepare("UPDATE ticket_sla SET pausado = TRUE, pausado_em = ?, tempo_pausado_segundos = 0 WHERE ticket_id = ?")
+                 ->execute([$criado, $this->ticket]);
+        if ($sla->calcularSegundosUteis($criado, date('Y-m-d H:i:s'), $this->setor) <= 0) {
+            $this->markTestSkipped('Sem horário útil nos últimos 3 dias para medir.');
+        }
+
+        $this->mudar('resolvido');
+
+        // Antes: o trecho pausado entrava como tempo trabalhado (resolução = os 3 dias úteis)
+        $this->assertLessThanOrEqual(5, (int) $this->sla()['tempo_resolucao_segundos']);
+    }
+
+    /** Auditoria 01/11/2026, BUG-04: descrição com imagem grande não impede mais o registro de auditoria. */
+    public function test_auditoria_sem_a_descricao_grava_mesmo_com_imagem_grande(): void {
+        $descricao = '<p>zz</p><img src="data:image/png;base64,' . str_repeat('QUJD', 50000) . '">'; // ~200 KB
+        $this->db->prepare("UPDATE tickets SET descricao = ? WHERE id = ?")->execute([$descricao, $this->ticket]);
+
+        $resumo = DemandaService::resumoParaAuditoria($this->db, $this->ticket);
+        $this->assertArrayNotHasKey('descricao', $resumo);
+        $this->assertSame(hash('sha256', $descricao), $resumo['descricao_sha256']);
+        $this->assertLessThan(1000, strlen(json_encode($resumo)));
+
+        $this->assertTrue((new AuditoriaService($this->db))->registrar($this->autor, 'excluir_ticket_definitivo', 'tickets', $this->ticket, json_encode($resumo), null));
+        $linha = $this->db->prepare("SELECT dados_anteriores FROM auditoria WHERE acao = 'excluir_ticket_definitivo' AND registro_id = ? ORDER BY id DESC LIMIT 1");
+        $linha->execute([$this->ticket]);
+        $this->assertStringContainsString('"titulo":"zz fluxo"', (string) $linha->fetchColumn());
+    }
+
+    /** Auditoria 01/11/2026, BUG-09: o lembrete vencido retoma a demanda pela regra única de status. */
+    public function test_lembrete_retoma_aguardando_data_pela_regra_unica(): void {
+        require_once __DIR__ . '/../../services/lembrete-service.php';
+        require_once __DIR__ . '/../../services/catalogo-service.php';
+        if (!CatalogoService::statusPermitido($this->db, 'em_atendimento', $this->setor)) {
+            $this->markTestSkipped('"em_atendimento" não está ativo no setor de teste.');
+        }
+        $this->mudar('em_atendimento');
+        $this->mudar('aguardando_data');
+
+        $m = new ReflectionMethod(LembreteService::class, 'retomarSeAguardandoData');
+        $m->invoke(null, $this->db, ['ticket_id' => $this->ticket, 'ticket_status' => 'aguardando_data',
+                                    'ticket_setor_id' => $this->setor, 'criado_por' => $this->autor]);
+
+        $this->assertSame('em_atendimento', $this->demanda()['status']);
+        $h = $this->db->prepare("SELECT COUNT(*) FROM ticket_historico WHERE ticket_id = ? AND acao = 'status' AND valor_anterior = 'aguardando_data' AND valor_novo = 'em_atendimento'");
+        $h->execute([$this->ticket]);
+        $this->assertSame(1, (int) $h->fetchColumn());
+
+        // Status mudou antes do lembrete vencer: não mexe
+        $this->mudar('nova_resposta', ['resposta_da_equipe' => false]);
+        $m->invoke(null, $this->db, ['ticket_id' => $this->ticket, 'ticket_status' => 'aguardando_data',
+                                    'ticket_setor_id' => $this->setor, 'criado_por' => $this->autor]);
+        $this->assertSame('nova_resposta', $this->demanda()['status']);
+    }
+
     public function test_mesmo_status_nao_gera_historico(): void {
         $this->assertSame([], $this->mudar('novo'));
         $h = $this->db->prepare("SELECT COUNT(*) FROM ticket_historico WHERE ticket_id = ? AND acao = 'status'");

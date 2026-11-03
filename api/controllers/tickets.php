@@ -640,7 +640,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'PUT') {
         $params = [':id' => $ticket_id];
 
         // Dados atuais ANTES da atualização
-        $current_stmt = $db->prepare("SELECT titulo, descricao, status, prioridade, categoria_id, agente_id, setor_id, usuario_id, excluido_em
+        $current_stmt = $db->prepare("SELECT titulo, status, prioridade, categoria_id, agente_id, setor_id, usuario_id, excluido_em
                                       FROM tickets WHERE id = ?");
         $current_stmt->execute([$ticket_id]);
         $current_data = $current_stmt->fetch(PDO::FETCH_ASSOC);
@@ -706,11 +706,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'PUT') {
         $current_data['status'] = $travada['status'];
         $current_data['agente_id'] = $travada['agente_id'];
 
-        // Auditoria do cancelamento ANTES da alteração
+        // Auditoria do cancelamento ANTES da alteração (sem a descrição: ver DemandaService::resumoParaAuditoria)
         if (isset($input['status']) && $input['status'] === 'cancelado' && $current_data['status'] !== 'cancelado') {
-            $dados_novos = $current_data;
+            $dados_anteriores = DemandaService::resumoParaAuditoria($db, (int) $ticket_id);
+            $dados_anteriores['status'] = $current_data['status'];
+            $dados_novos = $dados_anteriores;
             $dados_novos['status'] = 'cancelado';
-            (new AuditoriaService($db))->registrar($usuario_id, 'cancelar_ticket', 'tickets', $ticket_id, json_encode($current_data), json_encode($dados_novos));
+            (new AuditoriaService($db))->registrar($usuario_id, 'cancelar_ticket', 'tickets', $ticket_id, json_encode($dados_anteriores), json_encode($dados_novos));
         }
 
         if (isset($input['status']) && $input['status'] !== $current_data['status']) {
@@ -732,7 +734,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'PUT') {
 
         if (isset($input['categoria_id'])) {
             $updates[] = 'categoria_id = :categoria_id';
-            $params[':categoria_id'] = $input['categoria_id'] ?: null;
+            // Inteiro, como na validação acima ("5abc" passava como 5 e gravava o texto cru: 500 no modo estrito; BUG-12)
+            $params[':categoria_id'] = !empty($input['categoria_id']) ? (int) $input['categoria_id'] : null;
         }
 
         if (!empty($updates)) {

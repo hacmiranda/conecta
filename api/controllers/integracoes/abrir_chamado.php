@@ -101,7 +101,7 @@ if ($origem === 'ouvidoria_interna') {
     // Tickets criados pelas telas de denúncia/manifestação externa
     if (empty($email_solicitante)) {
         http_response_code(400);
-        echo json_encode(['error' => 'Para manifestações públicas, o e-mail do cidadão é obrigatório para devolução do retorno da TI.']);
+        echo json_encode(['error' => 'Para manifestações públicas, o e-mail do cidadão é obrigatório para enviar a resposta da demanda.']);
         exit;
     }
 } else if (empty($email_solicitante)) {
@@ -142,7 +142,7 @@ if (!empty($anexo_base64)) {
         $anexo_nome .= '.png';
     }
     $mime = UploadService::mimeDoConteudo($conteudo);
-    $validacao = UploadService::validar($anexo_nome, $mime, strlen($conteudo));
+    $validacao = UploadService::validarConteudo($anexo_nome, $mime, $conteudo);
     if (!$validacao['ok']) {
         http_response_code(400);
         echo json_encode(['error' => 'Anexo recusado: ' . $validacao['motivo'] . '.']);
@@ -151,22 +151,23 @@ if (!empty($anexo_base64)) {
     $anexo = ['conteudo' => $conteudo, 'nome' => $anexo_nome, 'extensao' => $validacao['extensao'], 'mime' => $mime];
 }
 
-// Tag Tática: Identidade Visual da API no Corpo da Descrição
-$descricao_final = "<div style=\"background-color: #f1f5f9; border-left: 4px solid #3b82f6; padding: 12px; margin-bottom: 20px; border-radius: 4px;\">";
-$descricao_final .= "<p style=\"margin: 0; font-size: 13px; color: #475569;\"><strong>🤖 AVISO DE INTEGRAÇÃO M2M</strong><br>";
-$descricao_final .= "Esta demanda foi protocolada automaticamente via API (<strong>" . htmlspecialchars(strtoupper(str_replace('_', ' ', $origem))) . "</strong>).<br>";
-$descricao_final .= "Solicitante Identificado Repasse: <strong>" . htmlspecialchars($nome_solicitante . ' (' . $email_solicitante . ')') . "</strong></p></div>";
+// Aviso de origem no início da descrição. HTML gravado (aparece na tela e nos e-mails): cores em hex da
+// paleta CRPRS (neutro-50, vinho-700, neutro-600), não dos tokens CSS; o azul do helpdesk saiu (INC-05)
+$descricao_final = "<div style=\"background-color: #f7f4f0; border-left: 4px solid #8b1d17; padding: 12px; margin-bottom: 20px; border-radius: 4px;\">";
+$descricao_final .= "<p style=\"margin: 0; font-size: 13px; color: #5f5852;\"><strong>🤖 Demanda aberta por integração</strong><br>";
+$descricao_final .= "Esta demanda foi registrada automaticamente pelo sistema <strong>" . htmlspecialchars(strtoupper(str_replace('_', ' ', $origem))) . "</strong>.<br>";
+$descricao_final .= "Solicitante informado pelo sistema: <strong>" . htmlspecialchars($nome_solicitante . ' (' . $email_solicitante . ')') . "</strong></p></div>";
 $descricao_final .= $descricao;
 
-// Bloco Hacker: Embutir Logs Técnicos do Navegador/Sistema no rodapé do ticket
+// Dados técnicos enviados pelo sistema de origem (navegador, versão etc.), no fim da descrição da demanda
 if (!empty($metadados) && is_array($metadados)) {
-    $descricao_final .= "<br><br><div style=\"background-color: #1e293b; color: #10b981; padding: 12px; border-radius: 4px; font-family: monospace; font-size: 11px; margin-top: 15px;\">";
-    $descricao_final .= "<strong style=\"color: #f8fafc;\">🖥️ LOGS E METADADOS DE DEPURACÃO:</strong><br>";
+    $descricao_final .= "<br><br><div style=\"background-color: #1f1a18; color: #efeae4; padding: 12px; border-radius: 4px; font-family: monospace; font-size: 11px; margin-top: 15px;\">";
+    $descricao_final .= "<strong style=\"color: #f7f4f0;\">🖥️ Dados técnicos do sistema de origem:</strong><br>";
     $descricao_final .= "<ul style=\"list-style: none; padding-left: 0; margin-top: 8px;\">";
     foreach (array_slice($metadados, 0, 50, true) as $key => $value) {
         $clean_key = htmlspecialchars(ucfirst(str_replace('_', ' ', (string) $key)));
         $clean_value = htmlspecialchars(mb_substr(is_array($value) ? (string) json_encode($value) : (string) $value, 0, 2000));
-        $descricao_final .= "<li style=\"margin-bottom: 4px;\"><strong style=\"color: #94a3b8;\">{$clean_key}:</strong> {$clean_value}</li>";
+        $descricao_final .= "<li style=\"margin-bottom: 4px;\"><strong style=\"color: #efeae4;\">{$clean_key}:</strong> {$clean_value}</li>";
     }
     $descricao_final .= "</ul></div>";
 }
@@ -180,7 +181,7 @@ function responderDemanda(int $ticket_id, ?string $protocolo, string $origem, bo
         'protocolo' => $rotulo,
         'origem' => $origem,
         'idempotente' => $repetido,
-        'message' => ($repetido ? 'Pedido já recebido antes. Demanda existente: ' : 'Demanda do Satélite inserida limpa na Mesa de TI com identificador: ') . $rotulo,
+        'message' => ($repetido ? 'Pedido já recebido antes. Demanda existente: ' : 'Demanda registrada com o protocolo ') . $rotulo,
     ]);
 }
 
@@ -278,12 +279,12 @@ try {
 
     // Notificar Sino dos Agentes Logados no HD
     try {
-        $msg_notificacao = "🤖 Novo ticket M2M (" . ProtocoloService::rotulo($protocolo, $ticket_id) . ") gerado a partir da: " . strtoupper(str_replace('_', ' ', $origem));
+        $msg_notificacao = "🤖 Nova demanda (" . ProtocoloService::rotulo($protocolo, $ticket_id) . ") aberta pela integração: " . strtoupper(str_replace('_', ' ', $origem));
         // Apenas os gestores do setor de entrada (admins se não houver gestor)
         $agentes = array_column(AcessoService::destinatariosInternosDoSetor($db, $setor_id ? (int) $setor_id : null), 'id');
 
         if (!empty($agentes)) {
-            $stmt_notif = $db->prepare("INSERT INTO notificacoes (usuario_id, titulo, mensagem, ticket_id) VALUES (?, '📡 Interceptação API', ?, ?)");
+            $stmt_notif = $db->prepare("INSERT INTO notificacoes (usuario_id, titulo, mensagem, ticket_id) VALUES (?, '📡 Demanda por integração', ?, ?)");
             foreach ($agentes as $ag) {
                 $stmt_notif->execute([$ag, $msg_notificacao, $ticket_id]);
             }

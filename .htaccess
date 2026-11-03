@@ -59,3 +59,16 @@ RewriteRule ^(.*)$ /conecta/frontend/login.html [L,R=301]
     # Restringe acesso a APIs do navegador desnecessárias
     Header always set Permissions-Policy "camera=(), microphone=(), geolocation=(), payment=()"
 </IfModule>
+
+# Compressão e cache dos arquivos estáticos (auditoria 01/11/2026, DES-03)
+# - gzip para HTML, JS, CSS, JSON e SVG quando o mod_deflate estiver ativo no servidor;
+# - JS e CSS pedidos com ?v= (todos os do index.html; o número muda a cada alteração) ficam em cache
+#   por 1 ano sem revalidar. Sem ?v=, o navegador segue revalidando como antes.
+<IfModule mod_deflate.c>
+    AddOutputFilterByType DEFLATE text/html text/css text/plain application/javascript text/javascript application/json image/svg+xml
+</IfModule>
+<IfModule mod_headers.c>
+    <If "%{REQUEST_URI} =~ m#\.(js|css)$# && %{QUERY_STRING} =~ /(^|&)v=/">
+        Header set Cache-Control "public, max-age=31536000, immutable"
+    </If>
+</IfModule>

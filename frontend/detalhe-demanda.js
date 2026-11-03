@@ -163,7 +163,7 @@ function marcarComentariosLidos(ticketId) {
 }
 
 // Formatar ações do histórico
-function formatarAcaoHistorico(acao, valorAnterior, valorNovo) {
+function formatarAcaoHistorico(acao, valorAnterior, valorNovo, demandaMescladaEm = null) {
     // Valores do histórico vêm do banco (nomes, setores, e-mails): sempre como texto
     acao = sanitizeHTML(acao);
     valorAnterior = valorAnterior == null ? valorAnterior : sanitizeHTML(valorAnterior);
@@ -204,7 +204,13 @@ function formatarAcaoHistorico(acao, valorAnterior, valorNovo) {
                 return `atribuiu a demanda para <strong>${agenteNovo}</strong>`;
             }
         case 'merge':
-            return `mesclou as demandas <strong>#${valorNovo}</strong> nesta demanda`;
+            // O valor gravado já começa com "#" (antes saía "##"). Na demanda que foi mesclada (marcada como
+            // 'secundaria' desde 01/11/2026, ou, nas antigas, a própria demanda tem mesclada_em), o sentido é
+            // o inverso (BUG-06)
+            if (valorAnterior === 'secundaria' || (valorAnterior == null && demandaMescladaEm)) {
+                return `mesclou esta demanda na demanda <strong>${valorNovo}</strong>`;
+            }
+            return `mesclou as demandas <strong>${valorNovo}</strong> nesta demanda`;
         case 'atribuicao_supervisor':
             return `encaminhou a demanda para <strong>${valorNovo}</strong>`;
         case 'devolucao':
@@ -281,7 +287,7 @@ function mostrarDetalhesTicket(ticket) {
                 comentariosHtml += `
                     <div class="comentario-wrapper${ehNotaInterna ? ' comentario-interno' : ''}">
                         <div class="comentario-info">
-                            <strong>💬 ${sanitizeHTML(item.autor_nome)}</strong> - ${new Date(item.criado_em).toLocaleString('pt-BR')}${ehNotaInterna ? ' <span class="selo-nota-interna">🔒 Nota interna</span>' : ''}<br>
+                            <strong>💬 ${sanitizeHTML(item.autor_nome)}</strong> - ${dataDoBanco(item.criado_em).toLocaleString('pt-BR')}${ehNotaInterna ? ' <span class="selo-nota-interna">🔒 Nota interna</span>' : ''}<br>
                             <strong style="color: #666; font-size: 0.9em;">Comentário:</strong>
                         </div>
                         <div class="comentario">
@@ -292,7 +298,7 @@ function mostrarDetalhesTicket(ticket) {
                 if (item.anexos && item.anexos.length > 0) {
                     comentariosHtml += `
                         <div style="margin-top: 0.75rem;">
-                            <strong style="color: #666; font-size: 0.9em; margin-bottom: 0.5rem; display: block;"><img src="images/clipe-de-anexo.png" style="width: 14px; height: 14px; vertical-align: middle; margin-right: 4px;">Anexos (${item.anexos.length}):</strong>
+                            <strong style="color: #666; font-size: 0.9em; margin-bottom: 0.5rem; display: block;"><img src="images/clipe-de-anexo.png" alt="" aria-hidden="true" style="width: 14px; height: 14px; vertical-align: middle; margin-right: 4px;">Anexos (${item.anexos.length}):</strong>
                     `;
                     item.anexos.forEach(anexo => {
                         const tipo = anexo.tipo || '';
@@ -336,16 +342,16 @@ function mostrarDetalhesTicket(ticket) {
                             acao = `reatribuiu a demanda de <strong>${partes[0]}</strong> para <strong>${partes[1]}</strong>`;
                         }
                     } else {
-                        acao = formatarAcaoHistorico(item.acao, item.valor_anterior, item.valor_novo);
+                        acao = formatarAcaoHistorico(item.acao, item.valor_anterior, item.valor_novo, ticket.mesclada_em);
                     }
                 } else {
-                    acao = formatarAcaoHistorico(item.acao, item.valor_anterior, item.valor_novo);
+                    acao = formatarAcaoHistorico(item.acao, item.valor_anterior, item.valor_novo, ticket.mesclada_em);
                 }
 
                 comentariosHtml += `
                     <div class="historico-wrapper">
                         <div class="historico-info">
-                            <strong>📅 ${sanitizeHTML(item.autor_nome || 'Sistema')}</strong> - ${new Date(item.criado_em).toLocaleString('pt-BR')}
+                            <strong>📅 ${sanitizeHTML(item.autor_nome || 'Sistema')}</strong> - ${dataDoBanco(item.criado_em).toLocaleString('pt-BR')}
                         </div>
                         <div class="historico-acao">
                             ${acao}
@@ -424,13 +430,13 @@ function mostrarDetalhesTicket(ticket) {
             return sanitizeHTML(nome) || '—';
         })()}</p>
             <p><strong>Prioridade:</strong> ${ticket.prioridade}</p>
-            <p><strong>Data:</strong> ${new Date(ticket.criado_em).toLocaleString('pt-BR')}</p>
+            <p><strong>Data:</strong> ${dataDoBanco(ticket.criado_em).toLocaleString('pt-BR')}</p>
             ${ticket.status === 'encerrado' && ticket.fechado_por_nome ?
-            `<p><strong>Encerrado por:</strong> ${sanitizeHTML(ticket.fechado_por_nome)} em ${new Date(ticket.fechado_em).toLocaleString('pt-BR')}</p>` :
+            `<p><strong>Encerrado por:</strong> ${sanitizeHTML(ticket.fechado_por_nome)} em ${dataDoBanco(ticket.fechado_em).toLocaleString('pt-BR')}</p>` :
             ''
         }
             ${ticket.agente_nome && ticket.atribuido_em ?
-            `<p><strong>Atribuída a:</strong> ${sanitizeHTML(ticket.agente_nome)} em ${new Date(ticket.atribuido_em).toLocaleString('pt-BR')}</p>` :
+            `<p><strong>Atribuída a:</strong> ${sanitizeHTML(ticket.agente_nome)} em ${dataDoBanco(ticket.atribuido_em).toLocaleString('pt-BR')}</p>` :
             ''
         }
 
@@ -444,7 +450,7 @@ function mostrarDetalhesTicket(ticket) {
                             <div class="anexo-item" style="background: #f7f4f0; padding: 0.75rem; margin: 0.5rem 0; border-radius: 4px; display: flex; justify-content: space-between; align-items: center;">
                                 <div>
                                     <strong>${sanitizeHTML(anexo.nome_original)}</strong><br>
-                                    <small style="color: #666;">${(anexo.tamanho / 1024 / 1024).toFixed(2)}MB - ${new Date(anexo.criado_em).toLocaleDateString('pt-BR')}</small>
+                                    <small style="color: #666;">${(anexo.tamanho / 1024 / 1024).toFixed(2)}MB - ${dataDoBanco(anexo.criado_em).toLocaleDateString('pt-BR')}</small>
                                 </div>
                                 <div style="display: flex; gap: 0.5rem;">
                                     ${(anexo.tipo || anexo.tipo_mime) === 'application/pdf' || (anexo.tipo || anexo.tipo_mime).startsWith('image/') ?
@@ -804,7 +810,6 @@ function adicionarComentario(event, ticketId) {
         });
     }
 
-    console.log('Enviando comentário com', anexosComentarioSelecionados.length, 'anexos');
 
     mostrarLoader();
 
@@ -861,7 +866,7 @@ function adicionarComentario(event, ticketId) {
                     const autorStrong = document.createElement('strong');
                     autorStrong.textContent = '💬 ' + (data.comentario.autor_nome || '');
                     infoDiv.appendChild(autorStrong);
-                    infoDiv.appendChild(document.createTextNode(' - ' + new Date(data.comentario.criado_em).toLocaleString('pt-BR')));
+                    infoDiv.appendChild(document.createTextNode(' - ' + dataDoBanco(data.comentario.criado_em).toLocaleString('pt-BR')));
                     if (ehNotaInterna) {
                         const seloInterno = document.createElement('span');
                         seloInterno.className = 'selo-nota-interna';

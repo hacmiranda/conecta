@@ -123,7 +123,13 @@ if ($method === 'POST') {
 // PUT / DELETE need ID from URL like ?id=1
 if ($method === 'PUT') {
     AuthMiddleware::verificarCSRF();
-    $id = isset($_GET['id']) ? $_GET['id'] : die();
+    // Sem id: 400 em JSON (antes o die() devolvia 200 vazio; auditoria 01/11/2026, BUG-18)
+    $id = (int) ($_GET['id'] ?? 0);
+    if ($id <= 0) {
+        http_response_code(400);
+        echo json_encode(['error' => 'Informe o id da resposta rápida']);
+        exit;
+    }
     $data = json_decode(file_get_contents("php://input"));
     
     // Check permission - admin or owner
@@ -173,7 +179,13 @@ if ($method === 'PUT') {
 
 if ($method === 'DELETE') {
     AuthMiddleware::verificarCSRF();
-    $id = isset($_GET['id']) ? $_GET['id'] : die();
+    // Sem id: 400 em JSON (antes o die() devolvia 200 vazio; auditoria 01/11/2026, BUG-18)
+    $id = (int) ($_GET['id'] ?? 0);
+    if ($id <= 0) {
+        http_response_code(400);
+        echo json_encode(['error' => 'Informe o id da resposta rápida']);
+        exit;
+    }
     // Check permission - admin or owner
     $check_query = "SELECT usuario_id, setor_id FROM macros WHERE id = :id";
     $check_stmt = $db->prepare($check_query);

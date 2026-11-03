@@ -147,28 +147,45 @@ class LembreteService {
     }
 
     /**
-     * Demanda em "Aguardando data" volta para "Em atendimento" quando o lembrete vence:
-     * retoma o SLA pausado e registra no histórico e na auditoria.
+     * Demanda em "Aguardando data" volta para "Em atendimento" quando o lembrete vence, pela regra única
+     * de troca de status (DemandaService::mudarStatus: trava a linha, SLA, histórico, auditoria, janelas).
+     * Antes era um UPDATE direto, sem trava e sem conferir o catálogo do setor (auditoria 01/11/2026,
+     * BUG-09). Se "em_atendimento" não estiver ativo no setor, a demanda fica como está (com aviso no log).
+     * Uma falha aqui não desfaz o aviso já dado (o lembrete não é avisado de novo).
      */
     private static function retomarSeAguardandoData(PDO $db, array $lembrete): void {
         if ($lembrete['ticket_status'] !== 'aguardando_data') {
             return;
         }
+        require_once __DIR__ . '/demanda-service.php';
+        require_once __DIR__ . '/catalogo-service.php';
         $ticketId = (int) $lembrete['ticket_id'];
-        $upd = $db->prepare("UPDATE tickets SET status = 'em_atendimento' WHERE id = ? AND status = 'aguardando_data'");
-        $upd->execute([$ticketId]);
-        if ($upd->rowCount() === 0) {
+        $setorId = $lembrete['ticket_setor_id'] ? (int) $lembrete['ticket_setor_id'] : null;
+        if (!CatalogoService::statusPermitido($db, 'em_atendimento', $setorId)) {
+            error_log('[LEMBRETES] "em_atendimento" não está ativo no setor da demanda #' . $ticketId . '; ela continua aguardando data');
             return;
         }
 
-        $setorId = $lembrete['ticket_setor_id'] ? (int) $lembrete['ticket_setor_id'] : null;
-        (new SLAService($db))->retomarPausa($ticketId, $setorId);
-
-        // Autor do evento: quem criou o lembrete (a mudança é consequência dele)
-        $autor = (int) $lembrete['criado_por'];
-        $db->prepare("INSERT INTO ticket_historico (ticket_id, usuario_id, acao, valor_anterior, valor_novo)
-                      VALUES (?, ?, 'status', 'aguardando_data', 'em_atendimento')")
-           ->execute([$ticketId, $autor]);
-        (new AuditoriaService($db))->registrarTicket($ticketId, $autor, 'status', 'aguardando_data', 'em_atendimento');
+        $propria = !$db->inTransaction();
+        try {
+            if ($propria) {
+                $db->beginTransaction();
+            }
+            // Confere sob trava: alguém pode ter mudado o status desde a leitura do lembrete
+            $atual = $db->prepare("SELECT status FROM tickets WHERE id = ? FOR UPDATE");
+            $atual->execute([$ticketId]);
+            if ($atual->fetchColumn() === 'aguardando_data') {
+                // Autor do evento: quem criou o lembrete (a mudança é consequência dele)
+                DemandaService::mudarStatus($db, $ticketId, 'em_atendimento', (int) $lembrete['criado_por']);
+            }
+            if ($propria) {
+                $db->commit();
+            }
+        } catch (Throwable $e) {
+            if ($propria && $db->inTransaction()) {
+                $db->rollBack();
+            }
+            error_log('[LEMBRETES] Não foi possível retomar a demanda #' . $ticketId . ': ' . $e->getMessage());
+        }
     }
 }

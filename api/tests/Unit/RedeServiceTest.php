@@ -22,6 +22,17 @@ final class RedeServiceTest extends TestCase {
         $this->assertFalse(RedeService::ipNaLista('10.0.0.1', ['lixo', '']));
     }
 
+    /** Auditoria 01/11/2026, SEG-07: o X-Forwarded-For é lido da direita para a esquerda. */
+    public function test_ip_do_encaminhamento_ignora_o_que_o_cliente_inventou(): void {
+        $proxies = ['10.0.0.0/8'];
+        // O cliente mandou "1.2.3.4" pronto; o proxy acrescentou o IP real dele (203.0.113.9)
+        $this->assertSame('203.0.113.9', RedeService::ipDoEncaminhamento('1.2.3.4, 203.0.113.9', '10.0.0.2', $proxies));
+        $this->assertSame('203.0.113.9', RedeService::ipDoEncaminhamento('1.2.3.4, 203.0.113.9, 10.0.0.7', '10.0.0.2', $proxies));
+        $this->assertSame('10.0.0.5', RedeService::ipDoEncaminhamento('10.0.0.5, 10.0.0.7', '10.0.0.2', $proxies), 'todos confiáveis: o mais à esquerda');
+        $this->assertSame('10.0.0.2', RedeService::ipDoEncaminhamento('', '10.0.0.2', $proxies));
+        $this->assertSame('10.0.0.2', RedeService::ipDoEncaminhamento('1.2.3.4, lixo, 10.0.0.7', '10.0.0.2', $proxies));
+    }
+
     public function test_sem_proxy_confiavel_usa_o_ip_da_conexao(): void {
         $_SERVER['REMOTE_ADDR'] = '203.0.113.9';
         $_SERVER['HTTP_X_FORWARDED_FOR'] = '1.2.3.4';

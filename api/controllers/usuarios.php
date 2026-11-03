@@ -556,6 +556,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'DELETE') {
             ['tabela' => 'comentarios',            'colunas' => ['usuario_id'],                             'msg' => 'comentários'],
             ['tabela' => 'ticket_historico',       'colunas' => ['usuario_id'],                             'msg' => 'histórico'],
             ['tabela' => 'ticket_agente_log',      'colunas' => ['usuario_id'],                             'msg' => 'atendimento de demandas'],
+            // Chave estrangeira RESTRICT: sem esta linha, a exclusão dava 500 genérico (auditoria 01/11/2026, BUG-19)
+            ['tabela' => 'registros_atividades',   'colunas' => ['usuario_id'],                             'msg' => 'registro de atividades'],
 ];
 
         foreach ($tabelas as $t) {

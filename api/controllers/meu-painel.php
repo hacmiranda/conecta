@@ -16,6 +16,7 @@ require_once __DIR__ . '/../middleware/auth.php';
 require_once __DIR__ . '/../services/auditoria-service.php';
 require_once __DIR__ . '/../services/metrica360-client.php';
 require_once __DIR__ . '/../services/log-service.php';
+require_once __DIR__ . '/../services/cache-arquivo-service.php';
 
 AuthMiddleware::configurarCORS(['GET', 'POST']);
 
@@ -64,16 +65,28 @@ try {
     }
 
     if ($metodo === 'GET' && ($_GET['acao'] ?? '') === 'acesso') {
-        $r = $cliente->get('/api/integracao/funcionario', ['email' => $email]);
-        if ($r['http'] !== 200 || ($r['dados']['status'] ?? '') !== 'ok') {
-            echo json_encode(['disponivel' => false, 'existe' => false, 'atendimento_externo' => false]);
+        // Consultado a cada carga da aplicação: a resposta fica guardada por 15 min (2 min quando o
+        // METRICA360 não respondeu), para um METRICA360 lento não prender um processo do PHP a cada
+        // carga (até 10 s; auditoria 01/11/2026, DES-07). Chave = e-mail do usuário (vira sha1 no arquivo).
+        $guardado = CacheArquivoService::ler('meu-painel-acesso', $email);
+        if (is_array($guardado)) {
+            echo json_encode($guardado);
             exit;
         }
-        echo json_encode([
+        $r = $cliente->get('/api/integracao/funcionario', ['email' => $email]);
+        if ($r['http'] !== 200 || ($r['dados']['status'] ?? '') !== 'ok') {
+            $resposta = ['disponivel' => false, 'existe' => false, 'atendimento_externo' => false];
+            CacheArquivoService::gravar('meu-painel-acesso', $email, $resposta, 120);
+            echo json_encode($resposta);
+            exit;
+        }
+        $resposta = [
             'disponivel'          => true,
             'existe'              => (bool) ($r['dados']['existe'] ?? false),
             'atendimento_externo' => (bool) ($r['dados']['atendimento_externo'] ?? false),
-        ]);
+        ];
+        CacheArquivoService::gravar('meu-painel-acesso', $email, $resposta, 900);
+        echo json_encode($resposta);
         exit;
     }
 

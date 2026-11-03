@@ -262,7 +262,7 @@ async function carregarLogEmailsProcessadosSetor() {
                     <div class="config-setor-item" style="flex-direction:column;align-items:flex-start;gap:0.25rem;">
                         <div style="display:flex;justify-content:space-between;width:100%;">
                             <strong>${sanitizeHTML(r.assunto || '(sem assunto)')}</strong>
-                            <span style="font-size:0.85rem;color:#666;">${new Date(r.processado_em).toLocaleString('pt-BR')}</span>
+                            <span style="font-size:0.85rem;color:#666;">${dataDoBanco(r.processado_em).toLocaleString('pt-BR')}</span>
                         </div>
                         <div style="font-size:0.85rem;color:#666;">
                             De: ${sanitizeHTML(r.email_remetente)} · Caixa: ${sanitizeHTML(r.setor_email_endereco || '—')} · ${sanitizeHTML(rotuloTipo[r.tipo] || r.tipo)}

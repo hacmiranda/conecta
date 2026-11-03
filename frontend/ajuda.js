@@ -41,8 +41,8 @@ function mostrarSLA() {
             <p>As demandas exibem ícones de alerta conforme o prazo se aproxima:</p>
             <ul>
                 <li><strong>🟢 0-50% do prazo:</strong> Sem ícone - Tudo ok</li>
-                <li><strong>🟡 50-79% do prazo:</strong> <img src="images/icone_atencao_amarelo.png" style="width: 16px; height: 16px; vertical-align: middle;"> Amarelo - Atenção, prazo se aproximando</li>
-                <li><strong>🔴 80-100%+ do prazo:</strong> <img src="images/icone_atencao_vermelho.png" style="width: 16px; height: 16px; vertical-align: middle;"> Vermelho - Urgente ou vencido</li>
+                <li><strong>🟡 50-79% do prazo:</strong> <img src="images/icone_atencao_amarelo.png" alt="Ícone amarelo de atenção" style="width: 16px; height: 16px; vertical-align: middle;"> Amarelo - Atenção, prazo se aproximando</li>
+                <li><strong>🔴 80-100%+ do prazo:</strong> <img src="images/icone_atencao_vermelho.png" alt="Ícone vermelho de urgência" style="width: 16px; height: 16px; vertical-align: middle;"> Vermelho - Urgente ou vencido</li>
             </ul>
 
             <h4>📋 Tabela de Prazos por Prioridade</h4>

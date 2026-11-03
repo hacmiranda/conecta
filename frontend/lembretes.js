@@ -23,7 +23,7 @@ function mostrarLembretes(lembretes) {
         const horaFormatada = dataHora.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
         const notificado = lembrete.notificado == 1;
         const cancelado = !!lembrete.cancelado_em;
-        const dataCriacaoFormatada = new Date(lembrete.criado_em).toLocaleString('pt-BR');
+        const dataCriacaoFormatada = dataDoBanco(lembrete.criado_em).toLocaleString('pt-BR');
 
         let selo = '';
         if (cancelado) {

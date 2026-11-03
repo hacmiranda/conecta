@@ -263,7 +263,7 @@ function mostrarLogEmails(dados, paginaAtual = 1) {
             const tipoTexto = tipoLabels[log.tipo] || log.tipo;
             const bg = i % 2 === 0 ? corLinhaImpar : corLinhaPar;
             const dataFormatada = log.enviado_em
-                ? new Date(log.enviado_em).toLocaleString('pt-BR')
+                ? dataDoBanco(log.enviado_em).toLocaleString('pt-BR')
                 : '—';
 
             return `
@@ -367,7 +367,7 @@ function mostrarListaAuditoria(registros) {
                     <div><strong>Ação:</strong> ${formatarAcao(registro.acao)}</div>
                     <div><strong>Detalhes:</strong> ${detalhes}</div>
                     <div><strong>Usuário:</strong> ${sanitizeHTML(registro.usuario_nome)}</div>
-                    <div><strong>Data/Hora:</strong> ${new Date(registro.criado_em).toLocaleString('pt-BR')}</div>
+                    <div><strong>Data/Hora:</strong> ${dataDoBanco(registro.criado_em).toLocaleString('pt-BR')}</div>
                     <div><strong>IP:</strong> ${sanitizeHTML(registro.ip_address || 'N/A')}</div>
                     <div><strong>Host:</strong> ${sanitizeHTML(registro.hostname || 'N/A')}</div>
                 </div>
@@ -604,7 +604,7 @@ function mostrarRegistrosAuditoria(registros) {
             <div class="auditoria-card">
                 <div class="auditoria-header">
                     <span class="auditoria-acao">${formatarAcaoAuditoria(reg.acao)}</span>
-                    <span class="auditoria-data">${new Date(reg.criado_em).toLocaleString('pt-BR')}</span>
+                    <span class="auditoria-data">${dataDoBanco(reg.criado_em).toLocaleString('pt-BR')}</span>
                 </div>
                 <div class="auditoria-body">
                     <div><strong>Usuário:</strong> ${sanitizeHTML(reg.usuario_nome)} (${sanitizeHTML(reg.usuario_email)})</div>
@@ -665,7 +665,7 @@ function mostrarRegistrosTicketsAudit(registros) {
             <div class="auditoria-card">
                 <div class="auditoria-header">
                     <span class="auditoria-acao">Demanda ${numeroDemanda(reg)} - ${sanitizeHTML(reg.campo)}</span>
-                    <span class="auditoria-data">${new Date(reg.criado_em).toLocaleString('pt-BR')}</span>
+                    <span class="auditoria-data">${dataDoBanco(reg.criado_em).toLocaleString('pt-BR')}</span>
                 </div>
                 <div class="auditoria-body">
                     <div><strong>Usuário:</strong> ${sanitizeHTML(reg.usuario_nome)}</div>
@@ -732,7 +732,7 @@ function mostrarRegistrosLoginAudit(registros) {
             <div class="auditoria-card ${classe}">
                 <div class="auditoria-header">
                     <span class="auditoria-acao">${icone} ${formatarAcaoLogin(reg.acao)}</span>
-                    <span class="auditoria-data">${new Date(reg.criado_em).toLocaleString('pt-BR')}</span>
+                    <span class="auditoria-data">${dataDoBanco(reg.criado_em).toLocaleString('pt-BR')}</span>
                 </div>
                 <div class="auditoria-body">
                     <div><strong>Usuário:</strong> ${sanitizeHTML(reg.usuario_nome || reg.email)}</div>
@@ -800,7 +800,7 @@ function mostrarEstatisticasAudit(dados) {
                 <div class="estatistica-lista">
                     ${dados.logins_por_dia.slice(0, 10).map(item => `
                         <div class="estatistica-item">
-                            <span>${new Date(item.data).toLocaleDateString('pt-BR')}</span>
+                            <span>${dataDoBanco(item.data).toLocaleDateString('pt-BR')}</span>
                             <span class="estatistica-valor">✅ ${item.sucessos} | ❌ ${item.falhas}</span>
                         </div>
                     `).join('')}
@@ -893,6 +893,9 @@ async function exportarAuditoria() {
     try {
         const dados = await Api.post(`auditoria-avancada.php?exportar=1&tipo=${tipo}`, {});
         baixarCSV(dados.registros, `auditoria_${tipo}_${new Date().toISOString().split('T')[0]}.csv`);
+        if (dados.limitado) {
+            mostrarToast('Aviso', `Exportados os ${dados.teto} registros mais recentes (limite da exportação).`, 'warning');
+        }
     } catch (e) {
         // comportamento original: silencioso em erro
     }
@@ -1133,7 +1136,8 @@ async function exportarLogEmailsCSV() {
     const status  = document.getElementById('email-log-status')?.value  || '';
     const tipo    = document.getElementById('email-log-tipo')?.value    || '';
 
-    const params = new URLSearchParams({ pagina: 1, limite: 99999, periodo });
+    // exportar=1: o servidor devolve tudo numa página (até 10 mil); antes vinham só 100, sem aviso (BUG-05)
+    const params = new URLSearchParams({ pagina: 1, exportar: 1, periodo });
     if (status) params.append('status', status);
     if (tipo)   params.append('tipo', tipo);
 
@@ -1150,10 +1154,11 @@ async function exportarLogEmailsCSV() {
         const colunas = ['id', 'destinatario', 'assunto', 'tipo', 'ticket_id', 'status', 'erro', 'enviado_em'];
         const cabecalho = ['ID', 'Destinatário', 'Assunto', 'Tipo', 'Demanda', 'Status', 'Erro', 'Data/Hora'];
 
-        let csv = cabecalho.join(',') + '\n';
+        // BOM: acentos certos no Excel; celulaCsv: fórmula neutralizada (assunto e erro vêm de fora; SEG-04)
+        let csv = '\uFEFF' + cabecalho.join(',') + '\n';
         logs.forEach(log => {
             const linha = colunas.map(col => {
-                const val = log[col] != null ? String(log[col]) : '';
+                const val = celulaCsv(log[col] != null ? String(log[col]) : '');
                 return `"${val.replace(/"/g, '""')}"`;
             });
             csv += linha.join(',') + '\n';
@@ -1165,7 +1170,11 @@ async function exportarLogEmailsCSV() {
         link.download = `email_logs_${new Date().toISOString().split('T')[0]}.csv`;
         link.click();
 
-        mostrarToast('Sucesso', 'Arquivo CSV exportado com sucesso!', 'success');
+        if (Number(dados.total) > logs.length) {
+            mostrarToast('Aviso', `Exportados ${logs.length} de ${dados.total} registros (limite da exportação). Reduza o período para exportar o restante.`, 'warning');
+        } else {
+            mostrarToast('Sucesso', 'Arquivo CSV exportado com sucesso!', 'success');
+        }
     } catch (e) {
         mostrarToast('Erro', 'Falha ao buscar dados para exportação.', 'error');
     }
@@ -1178,11 +1187,12 @@ function baixarCSV(registros, filename) {
     }
 
     const headers = Object.keys(registros[0]);
-    let csv = headers.join(',') + '\n';
+    // BOM: acentos certos no Excel; celulaCsv: fórmula neutralizada (user agent, assunto etc.; SEG-04)
+    let csv = '\uFEFF' + headers.join(',') + '\n';
 
     registros.forEach(reg => {
         const row = headers.map(h => {
-            const val = reg[h] || '';
+            const val = celulaCsv(reg[h] || '');
             return `"${String(val).replace(/"/g, '""')}"`;
         });
         csv += row.join(',') + '\n';

@@ -42,7 +42,21 @@ function cronTravar(PDO $db, string $nome): bool {
 }
 
 /**
- * Registra uma linha no log do cron (backend/logs/<arquivo>), via LogService.
+ * Depois de um erro fatal (memória ou tempo esgotados), dá folga para a finalização do PHP ainda rodar
+ * os lembretes e a fila: mais 128 MB de memória e mais 120 s (verificar-emails.php).
+ */
+function cronFolgaParaFinalizar(): void {
+    $limite = trim((string) ini_get('memory_limit'));
+    if ($limite !== '' && $limite !== '-1') {
+        $unidade = strtolower(substr($limite, -1));
+        $bytes = (int) $limite * (['g' => 1073741824, 'm' => 1048576, 'k' => 1024][$unidade] ?? 1);
+        @ini_set('memory_limit', (string) ($bytes + 128 * 1048576));
+    }
+    @set_time_limit(120);
+}
+
+/**
+ * Registra uma linha no log do cron (backend/logs/<arquivo>-AAAA-MM-DD.log), via LogService.
  * Mantém a assinatura antiga (nome do arquivo com ".log") para não mudar as
  * ~10 chamadas já existentes nos crons; só delega para o logger único.
  */

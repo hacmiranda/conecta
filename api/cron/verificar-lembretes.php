@@ -28,7 +28,8 @@ try {
         // Notificações do sino já lidas há mais de 90 dias (a tabela crescia sem limite)
         $db_lembretes->exec("DELETE FROM notificacoes WHERE lida = 1 AND criado_em < DATE_SUB(NOW(), INTERVAL 90 DAY)");
     }
-} catch (Exception $e) {
+} catch (Throwable $e) {
+    // Throwable: um erro de PHP nos lembretes não impede a fila de e-mails logo abaixo
     error_log('[CRON LEMBRETES] Erro: ' . $e->getMessage());
     cronLog('lembretes-cron.log', 'Erro: ' . $e->getMessage());
     if (PHP_SAPI !== 'cli') {

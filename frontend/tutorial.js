@@ -151,7 +151,6 @@ function mostrarTutorialAjuda() {
 }
 
 function mostrarPasso(step) {
-    console.log('Tutorial - Passo:', step, 'Total:', tutorialSteps.length);
 
     if (step >= tutorialSteps.length) {
         finalizarTutorial();
@@ -160,7 +159,6 @@ function mostrarPasso(step) {
 
     currentStep = step;
     const passo = tutorialSteps[step];
-    console.log('Tutorial - Configuração do passo:', passo);
     const target = document.querySelector(passo.target);
 
     if (!target) {
@@ -189,7 +187,6 @@ function mostrarPasso(step) {
         overlay.style.backgroundColor = 'rgba(0, 0, 0, 0.85)';
         spotlight.style.display = 'none';
         spotlight.style.boxShadow = 'none';
-        console.log('Tela inicial/final - Overlay escuro ativado');
     } else {
         // Para destaques, overlay transparente e spotlight com box-shadow
         overlay.style.backgroundColor = 'transparent';
@@ -199,7 +196,6 @@ function mostrarPasso(step) {
         spotlight.style.left = (rect.left - 5) + 'px';
         spotlight.style.width = (rect.width + 10) + 'px';
         spotlight.style.height = (rect.height + 10) + 'px';
-        console.log('Passo intermediário - Spotlight ativado');
 
         // Adicionar seta se necessário
         if (passo.arrow) {

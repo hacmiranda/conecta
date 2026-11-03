@@ -105,7 +105,8 @@ try {
            ->execute([':senha' => password_hash($senha, $algoHash), ':id' => $usuario['id']]);
     }
 
-    RateLimitService::limpar($ip, 'login');
+    // Só a contagem da conta é zerada: zerar a do IP deixava quem tem uma conta válida intercalar logins
+    // certos para seguir testando senhas de outras contas (auditoria 01/11/2026, SEG-06)
     RateLimitService::limpar($chaveConta, 'login_conta');
 
     // Gera o token (claims csrf, tv, jti e exp) e grava no cookie de sessão HttpOnly:

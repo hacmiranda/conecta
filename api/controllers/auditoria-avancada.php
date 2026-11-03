@@ -23,8 +23,10 @@ try {
 
     if ($_SERVER['REQUEST_METHOD'] === 'GET') {
         $tipo = $_GET['tipo'] ?? 'geral';
-        $pagina = isset($_GET['pagina']) ? (int)$_GET['pagina'] : 1;
-        $limite = isset($_GET['limite']) ? (int)$_GET['limite'] : 50;
+        // Página a partir de 1 e limite entre 1 e 200: limite=0 dava DivisionByZeroError (500) e
+        // pagina<1, OFFSET negativo (auditoria 01/11/2026, SEG-14)
+        $pagina = max(1, isset($_GET['pagina']) ? (int)$_GET['pagina'] : 1);
+        $limite = min(200, max(1, isset($_GET['limite']) ? (int)$_GET['limite'] : 50));
         $offset = ($pagina - 1) * $limite;
 
         $filtros = [];
@@ -359,12 +361,19 @@ try {
                       ORDER BY al.criado_em DESC";
         }
 
-        $stmt = $db->prepare($query);
+        // Teto da exportação (antes vinha a tabela inteira de uma vez): os mais recentes primeiro, e a tela
+        // avisa quando o teto foi atingido (SEG-14)
+        $tetoExportacao = 50000;
+        $stmt = $db->prepare($query . ' LIMIT ' . ($tetoExportacao + 1));
         if ($ehGestor) $stmt->bindValue(':setor_id_escopo', $setorEscopo);
         $stmt->execute();
         $registros = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        $limitado = count($registros) > $tetoExportacao;
+        if ($limitado) {
+            array_pop($registros);
+        }
 
-        echo json_encode(['registros' => $registros]);
+        echo json_encode(['registros' => $registros, 'limitado' => $limitado, 'teto' => $tetoExportacao]);
     }
     
 } catch (Exception $e) {

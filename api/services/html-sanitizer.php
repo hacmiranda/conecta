@@ -88,9 +88,20 @@ class HtmlSanitizer {
 
     /**
      * Texto simples: remove qualquer tag, normaliza espaços e limita o tamanho (em caracteres).
+     *
+     * Só remove o que é tag de verdade ("<" seguido de letra, "/", "!" ou "?", até o ">"). O strip_tags
+     * apagava em silêncio tudo depois de um "<" solto: "valor <100 reais" virava "valor " e "5<10 e 3>2"
+     * virava "52" (auditoria 01/11/2026, BUG-01). A remoção se repete até não sobrar tag (para que
+     * "<<b>img ...>" não vire "<img ...>"), e um início de tag sem fechamento ("<img src=x onerror=...")
+     * ganha um espaço depois do "<", o que o impede de virar tag em qualquer HTML onde o texto entrar.
      */
     public static function texto(?string $texto, int $maximo = 255): string {
-        $texto = strip_tags((string) $texto);
+        $texto = (string) $texto;
+        do {
+            $antes = $texto;
+            $texto = (string) preg_replace('/<!--.*?-->|<\/?[a-zA-Z][^<>]*>|<[!?][^<>]*>/s', '', $texto);
+        } while ($texto !== $antes);
+        $texto = (string) preg_replace('/<(?=[a-zA-Z\/!?])/', '< ', $texto);
         $texto = trim(preg_replace('/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/u', '', $texto) ?? '');
         if ($maximo > 0 && mb_strlen($texto) > $maximo) {
             $texto = mb_substr($texto, 0, $maximo);

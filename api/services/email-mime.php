@@ -218,11 +218,35 @@ final class EmailMime {
     }
 
     /**
-     * Arquivos da mensagem (ainda não validados: o chamador passa pelo UploadService).
-     * @param callable(string):string $buscar conteúdo cru de uma seção
-     * @return array<int, array{secao:string, nome:string, conteudo:string, tamanho:int}>
+     * Tamanho mínimo provável do arquivo decodificado, pelo tamanho codificado que o servidor informa
+     * (bytes de imap_fetchstructure), sem baixar nada. Base64 com quebra de linha a cada 76 caracteres
+     * rende 57 bytes a cada 78 (0,73); 7bit/8bit/binário, o próprio tamanho. Quoted-printable e
+     * outros: null (não dá para estimar com segurança).
      */
-    public static function anexos(object $estrutura, callable $buscar): array {
+    public static function tamanhoEstimado(object $parte): ?int {
+        if (!isset($parte->bytes) || !is_numeric($parte->bytes)) {
+            return null;
+        }
+        $bytes = (int) $parte->bytes;
+        $encoding = (int) ($parte->encoding ?? 0);
+        if ($encoding === 3) {
+            return (int) floor($bytes * 0.73);
+        }
+        return in_array($encoding, [0, 1, 2], true) ? $bytes : null;
+    }
+
+    /**
+     * Arquivos da mensagem (ainda não validados: o chamador passa pelo UploadService).
+     * $recusarAntes(nome, tamanhoEstimado) devolve o motivo para recusar SEM baixar o conteúdo (tipo
+     * proibido, tamanho acima do limite), ou null: um anexo de 40 MB não é mais lido para a memória só
+     * para ser recusado depois (auditoria 01/11/2026, BUG-08). Não vale para imagem que ainda pode ser
+     * logotipo de assinatura (essas são descartadas em silêncio, como antes). O anexo recusado assim
+     * volta com conteudo '' e a chave 'recusado' (motivo).
+     * @param callable(string):string $buscar conteúdo cru de uma seção
+     * @param null|callable(string, int):?string $recusarAntes
+     * @return array<int, array{secao:string, nome:string, conteudo:string, tamanho:int, recusado?:string}>
+     */
+    public static function anexos(object $estrutura, callable $buscar, ?callable $recusarAntes = null): array {
         $saida = [];
         if (empty($estrutura->parts)) {
             return $saida; // e-mail simples: é só texto
@@ -239,6 +263,19 @@ final class EmailMime {
                 continue; // texto/HTML da mensagem
             }
 
+            // Recusa sem baixar (margem de 10% para não confundir com o logotipo da assinatura)
+            $estimado = self::tamanhoEstimado($parte);
+            if ($recusarAntes !== null && $estimado !== null && $estimado > 0
+                && (!$imagem || $estimado > self::LIMITE_IMAGEM_ASSINATURA * 1.1)) {
+                $nomeFinal = $nome !== '' ? $nome : self::nomePadrao($parte, $tipo, $imagem, $sequencia);
+                $motivo = $recusarAntes($nomeFinal, $estimado);
+                if ($motivo !== null) {
+                    $saida[] = ['secao' => $folha['secao'], 'nome' => $nomeFinal, 'conteudo' => '', 'tamanho' => $estimado, 'recusado' => (string) $motivo];
+                    continue;
+                }
+                $nome = $nomeFinal;
+            }
+
             $conteudo = self::decodificar((string) $buscar($folha['secao']), (int) ($parte->encoding ?? 0));
             $tamanho = strlen($conteudo);
             if ($tamanho === 0) {
@@ -253,16 +290,20 @@ final class EmailMime {
             }
 
             if ($nome === '') {
-                $sequencia++;
-                if ($tipo === self::TIPO_MENSAGEM) {
-                    $nome = 'mensagem_encaminhada_' . $sequencia . '.eml';
-                } else {
-                    $ext = self::subtipo($parte) === 'jpeg' ? 'jpg' : (self::subtipo($parte) ?: 'bin');
-                    $nome = ($imagem ? 'imagem_' : 'anexo_') . $sequencia . '.' . preg_replace('/[^a-z0-9]/', '', $ext);
-                }
+                $nome = self::nomePadrao($parte, $tipo, $imagem, $sequencia);
             }
             $saida[] = ['secao' => $folha['secao'], 'nome' => $nome, 'conteudo' => $conteudo, 'tamanho' => $tamanho];
         }
         return $saida;
+    }
+
+    /** Nome para a parte sem nome de arquivo (avança a sequência). */
+    private static function nomePadrao(object $parte, int $tipo, bool $imagem, int &$sequencia): string {
+        $sequencia++;
+        if ($tipo === self::TIPO_MENSAGEM) {
+            return 'mensagem_encaminhada_' . $sequencia . '.eml';
+        }
+        $ext = self::subtipo($parte) === 'jpeg' ? 'jpg' : (self::subtipo($parte) ?: 'bin');
+        return ($imagem ? 'imagem_' : 'anexo_') . $sequencia . '.' . preg_replace('/[^a-z0-9]/', '', $ext);
     }
 }

@@ -19,6 +19,13 @@ $db = (new Database())->getConnection();
 // --- Parâmetros de filtro e paginação ---
 $pagina  = max(1, (int)($_GET['pagina']  ?? 1));
 $limite  = min(100, max(10, (int)($_GET['limite'] ?? 50)));
+// Exportação CSV: uma página só, com teto alto (antes o CSV pedia 99999 e recebia 100 em silêncio;
+// auditoria 01/11/2026, BUG-05). O total vem na resposta para a tela avisar se passou do teto.
+const EMAIL_LOGS_EXPORTACAO_MAX = 10000;
+if (!empty($_GET['exportar'])) {
+    $pagina = 1;
+    $limite = EMAIL_LOGS_EXPORTACAO_MAX;
+}
 $offset  = ($pagina - 1) * $limite;
 
 $status    = $_GET['status']    ?? null;   // sucesso | falha

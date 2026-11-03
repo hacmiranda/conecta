@@ -32,9 +32,10 @@ cronLog('verificacao-manual.log', "Início da recuperação de e-mails ($dias di
 // O EmailService já grava o andamento via LogService (canal email-cron, e também no
 // terminal quando rodado por CLI); não precisa mais de buffer de saída.
 try {
-    $resultado = (new EmailService($db))->verificarEmails($dias);
+    // Sem a memória de UIDs tratados: confere de novo cada mensagem da janela
+    $resultado = (new EmailService($db))->verificarEmails($dias, false);
     $situacao = $resultado ? "Recuperação concluída ($dias dias)" : "Recuperação concluída com erros ($dias dias)";
-} catch (Exception $e) {
+} catch (Throwable $e) {
     $situacao = 'Recuperação: erro crítico (ver log)';
     error_log('[CRON EMAILS PERDIDOS] Erro crítico: ' . $e->getMessage());
 }

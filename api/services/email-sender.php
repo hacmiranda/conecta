@@ -25,6 +25,14 @@ class EmailSender {
     private $remetenteSetor = null;
     // true: as mensagens vão para a fila (email_fila) e o cron envia; false: envio na hora
     private $filaAtiva = true;
+    // O último emailAtivo() encontrou o e-mail desligado no setor (ver ultimoEmailFoiDesligado)
+    private $ultimoDesligado = false;
+    // Colunas da demanda lidas para montar os e-mails: todas, menos descricao/descricao_texto (HTML com
+    // imagens em base64 de vários MB que nenhum desses e-mails usa; auditoria 01/11/2026, DES-05).
+    // notificarAgentesNovoTicket, que mostra a descrição, continua lendo t.*.
+    const COLUNAS_DEMANDA = 't.id, t.protocolo, t.titulo, t.usuario_id, t.origem_api, t.chave_idempotencia, t.email_solicitante, '
+        . 't.agente_id, t.atribuido_em, t.status, t.prioridade, t.criado_em, t.atualizado_em, t.categoria_id, t.setor_id, '
+        . 't.fechado_por, t.fechado_em, t.reaberto_contador, t.mesclada_em, t.excluido_em, t.excluido_por';
 
     public function __construct($db) {
         $this->db = $db;
@@ -222,11 +230,20 @@ class EmailSender {
         $stmt->execute([(int) $ticket_id]);
         $setorId = $stmt->fetchColumn();
         $ativo = NotificacaoEmailService::ativa($this->db, $setorId ? (int) $setorId : null, $codigo);
+        $this->ultimoDesligado = !$ativo;
         if (!$ativo) {
             LogService::info('email-cron', "E-mail '$codigo' não enviado: desativado no setor da demanda "
                 . ProtocoloService::rotuloPorId($this->db, (int) $ticket_id));
         }
         return $ativo;
+    }
+
+    /**
+     * O último e-mail pedido não saiu porque está desligado no setor (e não por falha)? Para quem chama
+     * não registrar como AVISO o que foi decisão do setor (auditoria 01/11/2026, BUG-16).
+     */
+    public function ultimoEmailFoiDesligado(): bool {
+        return $this->ultimoDesligado;
     }
 
     public function enviarEmailNovoTicket($ticket_id, $anexos_rejeitados = []) {
@@ -237,7 +254,7 @@ class EmailSender {
         try {
             error_log("[EMAIL-SENDER] Iniciando envio para ticket #$ticket_id");
             
-            $query = "SELECT t.*, u.nome as usuario_nome, u.email as usuario_email 
+            $query = "SELECT " . self::COLUNAS_DEMANDA . ", u.nome as usuario_nome, u.email as usuario_email 
                      FROM tickets t 
                      LEFT JOIN usuarios u ON t.usuario_id = u.id 
                      WHERE t.id = :ticket_id";
@@ -597,7 +614,7 @@ class EmailSender {
     public function enviarComentarioParaSolicitante($ticket_id, $comentario_id, $com_copia = null) {
         $this->prepararRemetenteDoTicket($ticket_id);
         try {
-            $query = "SELECT t.*, u.nome as usuario_nome, u.email as usuario_email,
+            $query = "SELECT " . self::COLUNAS_DEMANDA . ", u.nome as usuario_nome, u.email as usuario_email,
                              c.comentario, uc.nome as comentario_autor, a.nome as agente_nome,
                              uc.tipo as autor_tipo, su.nome as autor_setor, st.nome as demanda_setor
                       FROM tickets t
@@ -698,7 +715,7 @@ class EmailSender {
         }
         $this->usarRemetenteGlobal();
         try {
-            $query = "SELECT t.*, u.nome as usuario_nome, u.email as usuario_email,
+            $query = "SELECT " . self::COLUNAS_DEMANDA . ", u.nome as usuario_nome, u.email as usuario_email,
                              a.nome as agente_nome, a.email as agente_email,
                              c.comentario, uc.nome as comentario_autor
                       FROM tickets t 
@@ -777,7 +794,7 @@ class EmailSender {
         }
         $this->prepararRemetenteDoTicket($ticket_id);
         try {
-            $query = "SELECT t.*, u.nome as usuario_nome
+            $query = "SELECT " . self::COLUNAS_DEMANDA . ", u.nome as usuario_nome
                      FROM tickets t 
                      LEFT JOIN usuarios u ON t.usuario_id = u.id 
                      WHERE t.id = :ticket_id";
@@ -836,7 +853,7 @@ class EmailSender {
     public function notificarFechamentoTicket($ticket_id) {
         $this->prepararRemetenteDoTicket($ticket_id);
         try {
-            $query = "SELECT t.*, u.nome as usuario_nome, u.email as usuario_email,
+            $query = "SELECT " . self::COLUNAS_DEMANDA . ", u.nome as usuario_nome, u.email as usuario_email,
                              f.nome as fechado_por_nome
                      FROM tickets t 
                      LEFT JOIN usuarios u ON t.usuario_id = u.id 
@@ -917,7 +934,7 @@ class EmailSender {
         }
         $this->usarRemetenteGlobal();
         try {
-            $query = "SELECT t.*, u.nome as usuario_nome, u.email as usuario_email,
+            $query = "SELECT " . self::COLUNAS_DEMANDA . ", u.nome as usuario_nome, u.email as usuario_email,
                              a.email as agente_email, a.nome as agente_nome
                      FROM tickets t 
                      LEFT JOIN usuarios u ON t.usuario_id = u.id 
@@ -955,7 +972,7 @@ class EmailSender {
         }
         $this->prepararRemetenteDoTicket($ticket_id);
         try {
-            $query = "SELECT t.*, u.nome as usuario_nome, u.email as usuario_email
+            $query = "SELECT " . self::COLUNAS_DEMANDA . ", u.nome as usuario_nome, u.email as usuario_email
                      FROM tickets t 
                      LEFT JOIN usuarios u ON t.usuario_id = u.id
                      WHERE t.id = :ticket_id";
@@ -1004,7 +1021,7 @@ class EmailSender {
             $agente = $stmt_agente->fetch();
             
             // Buscar ticket
-            $query = "SELECT t.*, u.nome as usuario_nome, u.email as usuario_email
+            $query = "SELECT " . self::COLUNAS_DEMANDA . ", u.nome as usuario_nome, u.email as usuario_email
                      FROM tickets t 
                      LEFT JOIN usuarios u ON t.usuario_id = u.id
                      WHERE t.id = :ticket_id";
@@ -1044,7 +1061,7 @@ class EmailSender {
     public function enviarPrimeiraRespostaAoSolicitante($ticket_id, $nome_agente) {
         $this->prepararRemetenteDoTicket($ticket_id);
         try {
-            $query = "SELECT t.*, u.nome as usuario_nome, u.email as usuario_email
+            $query = "SELECT " . self::COLUNAS_DEMANDA . ", u.nome as usuario_nome, u.email as usuario_email
                      FROM tickets t 
                      LEFT JOIN usuarios u ON t.usuario_id = u.id
                      WHERE t.id = :ticket_id";

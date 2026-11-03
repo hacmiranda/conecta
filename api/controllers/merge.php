@@ -6,6 +6,7 @@ require_once __DIR__ . '/../middleware/auth.php';
 require_once __DIR__ . '/../services/acesso-service.php';
 require_once __DIR__ . '/../services/demanda-service.php';
 require_once __DIR__ . '/../services/protocolo-service.php';
+require_once __DIR__ . '/../services/html-sanitizer.php';
 
 AuthMiddleware::configurarCORS(['POST']);
 
@@ -113,14 +114,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $db->prepare("INSERT INTO ticket_historico (ticket_id, usuario_id, acao, valor_anterior, valor_novo) VALUES (?, ?, 'merge', NULL, ?)")
            ->execute([$ticket_principal, $user['id'], mb_substr((string) $tickets_rotulos, 0, 255)]);
 
-        // Adicionar comentário detalhado de merge no ticket principal
-        $comentario_merge = "🔗 **MESCLAGEM DE DEMANDAS**\n\n";
-        $comentario_merge .= "Demandas mescladas: " . $tickets_rotulos . "\n\n";
+        // Comentário da mesclagem na principal, em HTML (o comentário é exibido como HTML: o Markdown antigo
+        // saía numa linha só, com os asteriscos), e com a descrição resumida em texto (até 1000 caracteres;
+        // antes ia inteira, até 10 mil) — auditoria 01/11/2026, BUG-07
+        $esc = function ($t) { return htmlspecialchars((string) $t, ENT_QUOTES, 'UTF-8'); };
+        $comentario_merge = '<p>🔗 <strong>Mesclagem de demandas</strong></p>';
+        $comentario_merge .= '<p>Demandas mescladas: ' . $esc($tickets_rotulos) . '</p>';
         foreach ($tickets_secundarios_info as $info) {
             $rotulo_info = ProtocoloService::rotulo($info['protocolo'] ?? null, (int) $info['id']);
-            $comentario_merge .= "**Demanda " . $rotulo_info . "**\n";
-            $comentario_merge .= "Assunto: " . htmlspecialchars((string) $info['titulo'], ENT_QUOTES, 'UTF-8') . "\n";
-            $comentario_merge .= "Descrição: " . strip_tags((string) $info['descricao']) . "\n\n";
+            $resumo = HtmlSanitizer::textoParaBusca((string) $info['descricao'], 1001);
+            if (mb_strlen($resumo) > 1000) {
+                $resumo = mb_substr($resumo, 0, 1000) . '…';
+            }
+            $comentario_merge .= '<p><strong>Demanda ' . $esc($rotulo_info) . '</strong><br>'
+                . 'Assunto: ' . $esc($info['titulo']) . '<br>'
+                . 'Descrição: ' . $esc($resumo) . '</p>';
         }
 
         $query = "INSERT INTO comentarios (ticket_id, usuario_id, comentario) VALUES (:ticket_id, :usuario_id, :comentario)";
@@ -153,13 +161,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 DemandaService::mudarStatus($db, (int) $ticket_id, 'encerrado', (int) $user['id']);
             }
 
-            // Linha do tempo da demanda mesclada
-            $db->prepare("INSERT INTO ticket_historico (ticket_id, usuario_id, acao, valor_anterior, valor_novo) VALUES (?, ?, 'merge', NULL, ?)")
+            // Linha do tempo da demanda mesclada. valor_anterior = 'secundaria' diz à tela que esta é a
+            // demanda que foi mesclada na principal (antes aparecia "mesclou as demandas #<principal> nesta
+            // demanda", com o sentido invertido; BUG-06)
+            $db->prepare("INSERT INTO ticket_historico (ticket_id, usuario_id, acao, valor_anterior, valor_novo) VALUES (?, ?, 'merge', 'secundaria', ?)")
                ->execute([$ticket_id, $user['id'], $principal_rotulo]);
 
-            // Adicionar comentário detalhado nos tickets fechados
-            $comentario_fechado = "🔗 **TICKET MESCLADO**\n\n";
-            $comentario_fechado .= "Este ticket foi mesclado ao ticket principal " . $principal_rotulo;
+            // Comentário na demanda mesclada (HTML e com "demanda"; BUG-07)
+            $comentario_fechado = '<p>🔗 <strong>Demanda mesclada</strong></p>'
+                . '<p>Esta demanda foi mesclada à demanda principal ' . htmlspecialchars((string) $principal_rotulo, ENT_QUOTES, 'UTF-8') . '.</p>';
 
             $query = "INSERT INTO comentarios (ticket_id, usuario_id, comentario) VALUES (:ticket_id, :usuario_id, :comentario)";
             $stmt = $db->prepare($query);

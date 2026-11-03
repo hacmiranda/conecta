@@ -27,3 +27,7 @@ require_once __DIR__ . '/Apoio/EmlParaEstrutura.php';
 require_once __DIR__ . '/../config/database.php';
 require_once __DIR__ . '/../config/email-config.php';
 require_once __DIR__ . '/../services/demanda-service.php';
+require_once __DIR__ . '/../services/log-service.php';
+
+// Os testes não escrevem no log real (backend/logs) nem no terminal (auditoria 01/11/2026, MAN-05)
+LogService::usarDiretorio(sys_get_temp_dir() . '/conecta-testes-logs', false);

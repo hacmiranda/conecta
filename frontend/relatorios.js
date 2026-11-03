@@ -157,13 +157,13 @@ function exibirRelatorio(dados) {
     `;
 
     dados.tickets.forEach(ticket => {
-        const dataAbertura = new Date(ticket.criado_em);
+        const dataAbertura = dataDoBanco(ticket.criado_em);
         const dataAberturaFormatada = dataAbertura.toLocaleDateString('pt-BR');
         const horaAberturaFormatada = dataAbertura.toLocaleTimeString('pt-BR');
 
         let dataFechamento = '-';
         if (ticket.fechado_em) {
-            const dataFech = new Date(ticket.fechado_em);
+            const dataFech = dataDoBanco(ticket.fechado_em);
             dataFechamento = dataFech.toLocaleDateString('pt-BR') + '<br>' + dataFech.toLocaleTimeString('pt-BR');
         }
 
@@ -216,23 +216,24 @@ function exportarExcel() {
     csv += 'Nº Demanda;Data Abertura;Hora Abertura;Assunto;Solicitante;Responsável;Subcategoria;Status;Prioridade;Data Fechamento;Hora Fechamento\n';
 
     dados.tickets.forEach(ticket => {
-        const dataAbertura = new Date(ticket.criado_em);
+        const dataAbertura = dataDoBanco(ticket.criado_em);
         const dataAberturaFormatada = dataAbertura.toLocaleDateString('pt-BR');
         const horaAberturaFormatada = dataAbertura.toLocaleTimeString('pt-BR');
 
         let dataFechamento = '-';
         let horaFechamento = '-';
         if (ticket.fechado_em) {
-            const dataFech = new Date(ticket.fechado_em);
+            const dataFech = dataDoBanco(ticket.fechado_em);
             dataFechamento = dataFech.toLocaleDateString('pt-BR');
             horaFechamento = dataFech.toLocaleTimeString('pt-BR');
         }
 
         const numero = numeroDemanda(ticket);
-        const titulo = ticket.titulo.replace(/;/g, ',');
-        const solicitante = (ticket.usuario_nome || 'N/A').replace(/;/g, ',');
-        const responsavel = (ticket.agente_nome || 'Não atribuído').replace(/;/g, ',');
-        const categoria = (ticket.categoria_nome || 'Sem subcategoria').replace(/;/g, ',');
+        // celulaCsv: o título vem do assunto de e-mail externo (fórmula do Excel neutralizada; SEG-04)
+        const titulo = celulaCsv(ticket.titulo.replace(/;/g, ','));
+        const solicitante = celulaCsv((ticket.usuario_nome || 'N/A').replace(/;/g, ','));
+        const responsavel = celulaCsv((ticket.agente_nome || 'Não atribuído').replace(/;/g, ','));
+        const categoria = celulaCsv((ticket.categoria_nome || 'Sem subcategoria').replace(/;/g, ','));
         const status = ticket.status.charAt(0).toUpperCase() + ticket.status.slice(1);
         const prioridade = ticket.prioridade.charAt(0).toUpperCase() + ticket.prioridade.slice(1);
 
@@ -304,13 +305,13 @@ function exportarPDF() {
     `);
 
     dados.tickets.forEach(ticket => {
-        const dataAbertura = new Date(ticket.criado_em);
+        const dataAbertura = dataDoBanco(ticket.criado_em);
         const dataAberturaFormatada = dataAbertura.toLocaleDateString('pt-BR');
         const horaAberturaFormatada = dataAbertura.toLocaleTimeString('pt-BR');
 
         let dataFechamento = '-';
         if (ticket.fechado_em) {
-            const dataFech = new Date(ticket.fechado_em);
+            const dataFech = dataDoBanco(ticket.fechado_em);
             dataFechamento = dataFech.toLocaleDateString('pt-BR') + '<br>' + dataFech.toLocaleTimeString('pt-BR');
         }
 

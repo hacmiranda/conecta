@@ -46,7 +46,7 @@ function mostrarListaSetores(setores) {
         <div class="usuario-card ${setor.ativo == 0 ? 'usuario-inativo' : ''}">
             <div class="usuario-info">
                 <h4>${sanitizeHTML(setor.nome)} ${setor.ativo == 0 ? '<span style="color: #dc3545;">(Inativo)</span>' : ''}</h4>
-                <p><strong>Criado:</strong> ${new Date(setor.criado_em).toLocaleDateString('pt-BR')}</p>
+                <p><strong>Criado:</strong> ${dataDoBanco(setor.criado_em).toLocaleDateString('pt-BR')}</p>
             </div>
             <div class="usuario-acoes">
                 ${ehAdmin ? `
