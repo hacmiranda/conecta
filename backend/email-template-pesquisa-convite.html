@@ -20,15 +20,6 @@
             border: 1px solid #ddd; border-top: none;
         }
         .estrelas { text-align: center; font-size: 28px; letter-spacing: 6px; color: #f89327; margin: 18px 0; }
-        .btn {
-            display: inline-block;
-            background-color: #a7241c;
-            color: #ffffff;
-            padding: 14px 32px;
-            text-decoration: none;
-            border-radius: 6px;
-            font-weight: bold;
-        }
         .link-alternativo { font-size: 13px; color: #666; text-align: center; word-break: break-all; }
         .footer {
             margin-top: 30px;
@@ -51,9 +42,14 @@
 
         <p class="estrelas">★★★★★</p>
 
-        <p style="text-align: center; margin: 24px 0;">
-            <a class="btn" href="{{LINK}}">Avaliar atendimento</a>
-        </p>
+        <!-- Botão com estilos embutidos: Gmail/Outlook ignoram a cor do <style> e pintam o link de azul -->
+        <table role="presentation" border="0" cellspacing="0" cellpadding="0" align="center" style="margin: 24px auto;">
+            <tr>
+                <td align="center" bgcolor="#a7241c" style="background-color: #a7241c; border-radius: 6px;">
+                    <a href="{{LINK}}" target="_blank" style="display: inline-block; padding: 14px 32px; font-family: Arial, sans-serif; font-size: 16px; font-weight: bold; color: #ffffff !important; text-decoration: none; border-radius: 6px; background-color: #a7241c;"><span style="color: #ffffff;">Avaliar atendimento</span></a>
+                </td>
+            </tr>
+        </table>
 
         <p class="link-alternativo">Se o botão não funcionar, copie e cole este endereço no navegador:<br>{{LINK}}</p>
 
