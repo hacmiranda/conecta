@@ -530,7 +530,8 @@ function mostrarDetalhesTicket(ticket) {
                     </div>
                     <div class="form-group">
                         <label for="anexos-comentario">Anexos (até 5 arquivos, 20 MB no total):</label>
-                        <input type="file" id="anexos-comentario" multiple accept=".pdf,.doc,.docx,.txt,.csv,.xls,.xlsx,.png,.jpg,.jpeg" onchange="validarAnexosComentario()">
+                        <input type="file" id="anexos-comentario" multiple accept=".pdf,.doc,.docx,.txt,.csv,.xls,.xlsx,.png,.jpg,.jpeg" onchange="validarAnexosComentario()" aria-describedby="anexos-comentario-tipos">
+                        <small class="ajuda-editor" id="anexos-comentario-tipos">Tipos aceitos: PDF, DOC, DOCX, TXT, CSV, XLS, XLSX, PNG, JPG/JPEG.</small>
                         <div id="anexos-comentario-info" style="margin-top: 0.5rem; font-size: 0.9rem; color: #666;"></div>
                     </div>
                     <div style="display: flex; gap: 0.5rem;">
@@ -733,7 +734,7 @@ function validarAnexosComentario() {
     });
 
     if (arquivosInvalidos.length > 0) {
-        mostrarAlert('Tipo Inválido', `Tipos não permitidos: ${sanitizeHTML(arquivosInvalidos.map(a => a.name).join(', '))}`);
+        mostrarAlert('Tipo Inválido', `Tipos não permitidos: ${sanitizeHTML(arquivosInvalidos.map(a => a.name).join(', '))}.<br>Tipos aceitos: PDF, DOC, DOCX, TXT, CSV, XLS, XLSX, PNG, JPG/JPEG.`);
         input.value = '';
         return;
     }
