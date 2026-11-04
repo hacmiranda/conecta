@@ -192,6 +192,10 @@ function ligarAcoesNotificacoes() {
             _marcarEmailFalhaLida(alvo.dataset.ultima);
         } else if (acao === 'email-excluir') {
             _excluirEmailFalha(alvo.dataset.ultima);
+        } else if (acao === 'fechar-painel') {
+            fecharNavDropdown('notificacoes');
+            const sino = document.getElementById('btn-nav-notificacoes');
+            if (sino) sino.focus();
         } else if (acao === 'marcar-todas') {
             marcarTodasComoLidas();
         } else if (acao === 'excluir-todas') {

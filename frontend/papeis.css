@@ -67,3 +67,8 @@ body.modo-escuro .aviso-perfil-consulta {
 body.modo-escuro .fieldset-setores-adicionais {
     border-color: var(--neutro-600);
 }
+
+/* Atributo hidden sempre vence o display dos rótulos de filtro (ex.: "Minhas Demandas" some para operador) */
+.switch-label[hidden] {
+    display: none !important;
+}

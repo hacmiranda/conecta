@@ -122,7 +122,7 @@ async function verDetalhes(ticketId) {
         ocultarLoader();
         // Salvar dados do ticket para saber se é fechado
         // Só o que as ações da tela precisam (não a demanda inteira, com descrição e imagens): sessionStorage, some ao fechar a aba
-        sessionStorage.setItem('cd_ticketAtual', JSON.stringify({ id: ticket.id, setor_id: ticket.setor_id, status: ticket.status, agente_id: ticket.agente_id, usuario_email: ticket.usuario_email }));
+        sessionStorage.setItem('cd_ticketAtual', JSON.stringify({ id: ticket.id, setor_id: ticket.setor_id, status: ticket.status, agente_id: ticket.agente_id, categoria_id: ticket.categoria_id, usuario_email: ticket.usuario_email }));
         mostrarSecao('detalhes');
 
         setTimeout(() => {
@@ -146,6 +146,7 @@ async function verDetalhes(ticketId) {
             });
             // Imagens no corpo do comentário: botão, colar (Ctrl+V) e arrastar; a imagem vai no e-mail
             habilitarImagensNoEditor(window.quillComentario);
+            toggleCampoComCopia(); // o envio por e-mail já vem marcado: mostra o campo de cópia e ajusta o botão
 
             carregarLembretes(ticketId);
             if (typeof carregarSeletorMacros === 'function') carregarSeletorMacros();
@@ -506,7 +507,7 @@ function mostrarDetalhesTicket(ticket) {
                     <div class="form-group">
                         <label class="switch-label">
                             <label class="switch">
-                                <input type="checkbox" id="enviar-email" onchange="toggleCampoComCopia(); verificarAnexosEmail();" ${ticket.email_resposta_ativo === false ? 'disabled' : ''}>
+                                <input type="checkbox" id="enviar-email" onchange="toggleCampoComCopia(); verificarAnexosEmail();" ${ticket.email_resposta_ativo === false ? 'disabled' : 'checked'}>
                                 <span class="slider"></span>
                             </label>
                             <span>Enviar comentário por e-mail para o solicitante</span>

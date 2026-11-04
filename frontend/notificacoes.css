@@ -217,3 +217,21 @@ body.modo-escuro {
     text-align: center;
     color: var(--notif-texto);
 }
+
+/* Botão X que fecha o painel de notificações (o painel antes só fechava ao clicar de novo no sino) */
+.notif-cabecalho-fechar {
+    background: transparent;
+    border: 1px solid transparent;
+    border-radius: var(--radius-sm);
+    color: var(--branco);
+    cursor: pointer;
+    font: inherit;
+    font-size: 1rem;
+    line-height: 1;
+    padding: var(--notif-espaco-1) var(--notif-espaco-2);
+}
+
+.notif-cabecalho-fechar:hover {
+    background: var(--vinho-700);
+    border-color: currentColor;
+}

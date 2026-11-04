@@ -75,11 +75,13 @@
 }
 
 .modal-header.sucesso {
-    background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
+    background: var(--verde-700) !important;
+    color: #fff !important;
 }
 
 .modal-header.erro {
-    background: linear-gradient(135deg, #ff6b35 0%, #f7931e 100%);
+    background: linear-gradient(135deg, var(--vinho-600) 0%, var(--vinho-900) 100%) !important;
+    color: #fff !important;
 }
 
 .modal-header.laranja {
@@ -187,12 +189,12 @@
 }
 
 .btn-success-modal {
-    background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
+    background: var(--verde-700);
     color: white;
 }
 
 .btn-danger-modal {
-    background: linear-gradient(135deg, #ff416c 0%, #ff4b2b 100%);
+    background: linear-gradient(135deg, var(--vinho-600) 0%, var(--vinho-900) 100%);
     color: white;
 }
 

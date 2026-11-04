@@ -165,7 +165,7 @@ function mostrarTicketsFechadosNaTela(tickets) {
                     <th onclick="ordenarTabelaFechados('usuario_nome')" class="sortable" data-campo-fechado="usuario_nome" scope="col">Solicitante <span class="sort-arrows">↕</span></th>
                     ${exibirColunaSetor(true) ? '<th onclick="ordenarTabelaFechados(\'setor_nome\')" class="sortable" data-campo-fechado="setor_nome" scope="col">Setor <span class="sort-arrows">↕</span></th>' : ''}
                     <th onclick="ordenarTabelaFechados('agente_nome')" class="sortable" data-campo-fechado="agente_nome" scope="col">Responsável <span class="sort-arrows">↕</span></th>
-                    <th onclick="ordenarTabelaFechados('categoria_nome')" class="sortable" data-campo-fechado="categoria_nome" scope="col">Subcategoria <span class="sort-arrows">↕</span></th>
+                    <th onclick="ordenarTabelaFechados('categoria_nome')" class="sortable" data-campo-fechado="categoria_nome" scope="col">Assunto <span class="sort-arrows">↕</span></th>
                     <th onclick="ordenarTabelaFechados('status')" class="sortable" data-campo-fechado="status" scope="col">Status <span class="sort-arrows">↕</span></th>
                     <th onclick="ordenarTabelaFechados('fechado_em')" class="sortable" data-campo-fechado="fechado_em" style="white-space: nowrap;" scope="col">Encerramento <span class="sort-arrows">↕</span></th>
                     <th scope="col">Ações</th>

@@ -427,14 +427,14 @@ function atribuirTicket(ticketId, setorId) {
         }
 
         mostrarSelect(
-            'Encaminhar a Operador',
+            'Atribuir Demanda',
             'Selecione quem vai atender a demanda:',
             equipe,
             function (escolhido) {
                 if (!escolhido) return;
                 pedirComentarioEExecutar(
                     ticketId, 'atribuir', { usuario_id: escolhido.id },
-                    'Encaminhar a Operador',
+                    'Atribuir Demanda',
                     `Registre o encaminhamento para ${escolhido.nome}:`,
                     `Demanda encaminhada para ${sanitizeHTML(escolhido.nome)}!`
                 );
@@ -476,7 +476,10 @@ function pedirComentarioEExecutar(ticketId, acao, extra, tituloPrompt, mensagemP
         if (comentario === null || comentario === undefined) return;
         const texto = comentario.trim();
         if (!texto) {
-            mostrarAlert('Comentário obrigatório', 'Descreva o motivo desta ação antes de confirmar.');
+            // Ao fechar o aviso, volta ao modal em que a observação é escrita
+            mostrarAlert('Comentário obrigatório', 'Descreva o motivo desta ação antes de confirmar.', function () {
+                pedirComentarioEExecutar(ticketId, acao, extra, tituloPrompt, mensagemPrompt, mensagemSucesso);
+            });
             return;
         }
         executarAcaoDemanda(ticketId, acao, extra, texto, mensagemSucesso);
@@ -779,14 +782,20 @@ function mostrarAlert(titulo, mensagem, callback) {
     const header = document.querySelector('#modal-alert .modal-header');
     const btnOk = document.querySelector('#modal-alert .btn-modal');
 
-    header.classList.remove('sucesso', 'erro');
-    btnOk.classList.remove('btn-success-modal', 'btn-danger-modal', 'btn-primary-modal');
+    header.classList.remove('sucesso', 'erro', 'laranja');
+    btnOk.classList.remove('btn-success-modal', 'btn-danger-modal', 'btn-primary-modal', 'btn-laranja-modal');
 
-    if (titulo.toLowerCase().includes('erro')) {
+    // Cores: verde = sucesso, vermelho = erro/insucesso, laranja = aviso/atenção (vermelho só para erro)
+    const tituloMin = titulo.toLowerCase();
+    if (tituloMin.includes('erro') || tituloMin.includes('falha') || tituloMin.includes('negado')) {
         header.classList.add('erro');
         btnOk.classList.add('btn-danger-modal');
+    } else if (/sucesso|alterad[ao]|salv[ao]|conclu[ií]d[ao]|enviad[ao]|criad[ao]|atualizad[ao]/.test(tituloMin)) {
+        header.classList.add('sucesso');
+        btnOk.classList.add('btn-success-modal');
     } else {
-        btnOk.classList.add('btn-primary-modal');
+        header.classList.add('laranja');
+        btnOk.classList.add('btn-laranja-modal');
     }
 
     document.getElementById('modal-overlay').classList.add('show');
@@ -1010,6 +1019,13 @@ function aplicarVisibilidadePorPapel(tipo) {
     // Acompanhamento das atividades: gestão do setor e visão total
     const itemAcomp = document.getElementById('nav-atividades-item');
     if (itemAcomp) itemAcomp.hidden = !(Papeis.administraSetor(perfil) || Papeis.visaoTotal(perfil));
+
+    // Operador já vê só as suas demandas: o filtro "Minhas Demandas" não faz sentido para ele
+    ['filtro-meus-tickets', 'filtro-meus-tickets-fechados'].forEach(id => {
+        const filtro = document.getElementById(id);
+        const rotulo = filtro ? filtro.closest('label.switch-label') : null;
+        if (rotulo) rotulo.hidden = tipo === 'operador';
+    });
 
     // Módulo Satisfação: admin, coordenador geral, supervisor e coordenador
     const itemSatisfacao = document.getElementById('nav-satisfacao-item');
