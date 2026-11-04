@@ -507,7 +507,7 @@ function mostrarDetalhesTicket(ticket) {
                     <div class="form-group">
                         <label class="switch-label">
                             <label class="switch">
-                                <input type="checkbox" id="enviar-email" onchange="toggleCampoComCopia(); verificarAnexosEmail();" ${ticket.email_resposta_ativo === false ? 'disabled' : 'checked'}>
+                                <input type="checkbox" id="enviar-email" onchange="toggleEnviarEmail()" ${ticket.email_resposta_ativo === false ? 'disabled data-desativado-setor="1"' : 'checked'}>
                                 <span class="slider"></span>
                             </label>
                             <span>Enviar comentário por e-mail para o solicitante</span>
@@ -625,16 +625,26 @@ function fecharVisualizador() {
     modal._focoAnterior = null;
 }
 
-// Nota interna nunca vai por e-mail: ao marcar, desliga e trava "Enviar por e-mail"
+// "Nota interna" e "Enviar por e-mail" são opostos: sempre um ligado e o outro desligado.
+// Exceção: com o envio de resposta por e-mail desativado no setor, o e-mail fica travado e a nota interna é livre.
+function emailRespostaDisponivel() {
+    const enviarEmail = document.getElementById('enviar-email');
+    return !!enviarEmail && !enviarEmail.hasAttribute('data-desativado-setor');
+}
+
 function toggleComentarioInterno() {
     const interno = document.getElementById('comentario-interno').checked;
-    const enviarEmail = document.getElementById('enviar-email');
-
-    enviarEmail.disabled = interno;
-    if (interno && enviarEmail.checked) {
-        enviarEmail.checked = false;
+    if (emailRespostaDisponivel()) {
+        document.getElementById('enviar-email').checked = !interno;
         toggleCampoComCopia();
     }
+}
+
+function toggleEnviarEmail() {
+    const enviarEmail = document.getElementById('enviar-email').checked;
+    document.getElementById('comentario-interno').checked = !enviarEmail;
+    toggleCampoComCopia();
+    verificarAnexosEmail();
 }
 
 // Mostrar/ocultar campo "com cópia"
@@ -881,15 +891,14 @@ function adicionarComentario(event, ticketId) {
             // Limpar formulário
             document.getElementById('novo-comentario').value = '';
             if (window.quillComentario) window.quillComentario.root.innerHTML = '';
+            // Volta ao padrão da tela: e-mail ligado (se o setor permitir) e nota interna desligada
             document.getElementById('comentario-interno').checked = false;
-            document.getElementById('enviar-email').disabled = false;
-            document.getElementById('enviar-email').checked = false;
+            document.getElementById('enviar-email').checked = emailRespostaDisponivel();
             document.getElementById('toggle-com-copia').checked = false;
             document.getElementById('com-copia').value = '';
             document.getElementById('com-copia').removeAttribute('required');
-            document.getElementById('campo-com-copia').style.display = 'none';
             document.getElementById('campo-email-copia').style.display = 'none';
-            document.getElementById('btn-adicionar-comentario').textContent = 'Adicionar Comentário';
+            toggleCampoComCopia(); // ajusta o campo de cópia, o texto do botão e a assinatura
             document.getElementById('anexos-comentario').value = '';
             anexosComentarioSelecionados = [];
             atualizarListaAnexosComentario();
