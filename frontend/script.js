@@ -1015,7 +1015,7 @@ function aplicarVisibilidadePorPapel(tipo) {
     const itemSatisfacao = document.getElementById('nav-satisfacao-item');
     if (itemSatisfacao) itemSatisfacao.hidden = !Papeis.veSatisfacao(perfil);
 
-    // Meu Painel: só quem o METRICA360 reconhece com atendimento externo (consulta assíncrona)
+    // Meu Painel: só quem tem atendimento externo (consulta assíncrona)
     if (typeof verificarAcessoMeuPainel === 'function') verificarAcessoMeuPainel();
 
     const menuConfigWrapper = document.getElementById('nav-config-wrapper');

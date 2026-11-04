@@ -45,8 +45,10 @@ Plano: `C:\Users\hugo.miranda\.claude\plans\1-quero-continuar-iterative-quasar.m
 - [x] Fase 5 — backend do módulo (convites, avaliações, painéis, página pública)
 - [x] Fase 6 — telas do grupo "Satisfação" e Configurações → Pesquisa de satisfação
 - [x] Fase 7 — página pública `avaliar.html`
-- [ ] Fase 8 — desligar o METRICA360 (301 de `/metrica360`, arquivar repositório, remover `Metrica360Client`)
-- [ ] Depois: avisar quem tem o link `/metrica360/avaliar` (nada em produção ainda, então só se algum convite de teste foi enviado de verdade)
+- [x] Fase 8 — código: `Metrica360Client` e as chaves `METRICA360_*` removidos; roteiro novo em `docs/implantacao-producao.md` (seção 7)
+- [ ] **Você:** revisar o ensaio e autorizar `php database/importar-metrica360.php --executar` (cria os 18 setores e 38 contas no banco local, que vai para produção)
+- [ ] **Você:** conferir as telas novas com dados reais (grupo Satisfação, Configurações → Pesquisa de satisfação, `avaliar.html`) e decidir se quer o widget do Google Reviews também no painel de avaliações
+- [ ] **Quando o METRICA360 sair do ar:** redirecionar `/metrica360` (301) para `/conecta/` no servidor e arquivar o repositório dele no GitHub (não apagar)
 
 ## 4. Antes do primeiro deploy em produção
 

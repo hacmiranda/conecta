@@ -45,7 +45,7 @@ class NotificacaoEmailService {
         ],
         'sol_pesquisa_satisfacao' => [
             self::GRUPO_SOLICITANTE, 'Pesquisa de satisfação',
-            'Na primeira vez que a demanda de um solicitante externo (fora de @crprs.org.br) é resolvida ou encerrada. Enviada pelo METRICA360, que cuida dos prazos, reenvio e notas.',
+            'Na primeira vez que a demanda de um solicitante externo (fora de @crprs.org.br) é resolvida ou encerrada. O convite leva um link de avaliação; o sistema cuida da quarentena, do prazo do link e de um reenvio se não houver resposta.',
         ],
         'int_nova_demanda' => [
             self::GRUPO_INTERNO, 'Aviso de nova demanda',

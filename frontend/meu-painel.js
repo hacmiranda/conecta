@@ -1,7 +1,7 @@
 /**
  * Meu Painel: envio de pesquisas de satisfação (antiga tela "Envio de Pesquisas" da Área do Funcionário
- * do METRICA360, 27/10/2026). Os convites e as notas ficam no METRICA360; a API do Conecta só repassa.
- * Aparece para quem tem cadastro no METRICA360 com "atendimento externo" (verificarAcessoMeuPainel).
+ * do METRICA360, 27/10/2026; hoje do módulo Satisfação do Conecta). Aparece para quem tem "atendimento externo"
+ * marcado no cadastro do usuário (verificarAcessoMeuPainel).
  * Sem onclick/style inline: ações por data-acao com ouvintes delegados (CSS em meu-painel.css).
  */
 const MP_ELFSIGHT_SCRIPT = 'https://static.elfsight.com/platform/platform.js';
@@ -11,7 +11,7 @@ let mpPagina = 1;
 let mpRecarga = null;
 let mpRelogio = null;
 
-// Mostra o item do menu só para quem o METRICA360 reconhece com atendimento externo
+// Mostra o item do menu só para quem tem atendimento externo
 async function verificarAcessoMeuPainel() {
     const item = document.getElementById('nav-meu-painel-item');
     if (!item) return;
@@ -28,7 +28,7 @@ async function restaurarMeuPainel() {
     try {
         const r = await Api.get('meu-painel.php?acao=acesso');
         if (r.existe && r.atendimento_externo) return mostrarMeuPainel();
-    } catch (e) { /* sem acesso ou METRICA360 fora: cai nas demandas */ }
+    } catch (e) { /* sem acesso: cai nas demandas */ }
     mostrarSecao('tickets');
     carregarTickets();
 }

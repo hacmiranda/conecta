@@ -803,7 +803,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'PUT') {
             error_log('[TICKETS PUT] Alteração salva; falha nos avisos: ' . $avisoErro->getMessage());
         }
 
-        // Pedido de pesquisa de satisfação: só grava na fila (o cron entrega ao METRICA360); nunca lança
+        // Pedido de pesquisa de satisfação: só grava na fila (o cron cria o convite); nunca lança
         if ($pos_commit['pesquisa']) {
             PesquisaSatisfacaoService::registrar($db, (int) $ticket_id);
         }

@@ -7,7 +7,7 @@
  *   GET    ?acao=relatorio&usuario_id=&data_ini=&data_fim=&modalidade=&p=   Relatório (20 por página) + pendências
  *   GET    ?acao=detalhe&id=                                        itens de um relatório enviado
  *   GET    ?acao=historico&data_ini=&data_fim=                      Histórico de ausências
- *   GET    ?acao=cruzamento&usuario_id=&data_ini=&data_fim=         Cruzamento atividades × satisfação (METRICA360)
+ *   GET    ?acao=cruzamento&usuario_id=&data_ini=&data_fim=         Cruzamento atividades × satisfação (módulo Satisfação)
  *   GET    ?acao=csv-relatorio | csv-historico | csv-cruzamento     mesmos filtros, arquivo CSV
  *   POST   ?acao=abonar {usuario_id, data, tipo, justificativa}
  *   DELETE ?acao=abono&id=

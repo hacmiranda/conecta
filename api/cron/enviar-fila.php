@@ -5,7 +5,7 @@
  * Execução: pela linha de comando (php api/cron/enviar-fila.php) ou por HTTP com a chave CRON_KEY_*.
  * Também é chamado ao final de verificar-lembretes.php (e, portanto, de verificar-emails.php),
  * então o cron externo existente já envia a fila a cada execução. Ao final, entrega também os
- * pedidos de pesquisa de satisfação ao METRICA360 (enviar-pesquisas.php).
+ * pedidos de pesquisa de satisfação e a expiração/reenvio dos convites (enviar-pesquisas.php).
  */
 require_once __DIR__ . '/acesso-cron.php';
 cronExigirAcesso();
@@ -35,5 +35,5 @@ try {
     echo "Fila de e-mails: erro (ver log)\n";
 }
 
-// Pedidos de pesquisa de satisfação ao METRICA360 (mesma cadência da fila de e-mails)
+// Pedidos de pesquisa de satisfação e convites (mesma cadência da fila de e-mails)
 require __DIR__ . '/enviar-pesquisas.php';

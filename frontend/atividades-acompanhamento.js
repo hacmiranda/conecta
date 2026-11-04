@@ -1,7 +1,7 @@
 /**
  * Acompanhamento do Registro de Atividades (admin e gestor; veio das telas de admin do METRICA360, 27/10/2026):
  * Painel de Atividades (com abono de pendências), Relatório de Atividades, Histórico de ausências e
- * Cruzamento de dados (atividades × satisfação do METRICA360). Grupo "Atividades" da sidebar, seção
+ * Cruzamento de dados (atividades × notas do módulo Satisfação). Grupo "Atividades" da sidebar, seção
  * #atividades; subtela em cd_subSecaoAtiva. Admin segue o setor escolhido no cabeçalho (urlComSetor).
  * Sem onclick/style inline: ações por data-acao com ouvintes delegados (CSS em atividades-acompanhamento.css).
  */
@@ -395,7 +395,7 @@ function montarCruzamentoDados(d, f) {
             </div>
         </form>`;
     if (!d.usuario) {
-        return `<p class="acomp-intro">Compare a satisfação dos cidadãos (notas do METRICA360) com as atividades registradas por um servidor.</p>
+        return `<p class="acomp-intro">Compare a satisfação dos cidadãos (notas das avaliações) com as atividades registradas por um servidor.</p>
             ${filtros}<p class="acomp-aviso">Escolha um servidor no filtro acima e, se quiser, ajuste o período.</p>`;
     }
     const s = d.satisfacao;

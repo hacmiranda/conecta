@@ -1,7 +1,7 @@
 <?php
 /**
  * Cache curto em arquivo (backend/cache/<grupo>/, pasta fora do alcance da web), para respostas caras que
- * podem valer por alguns minutos: o acesso ao "Meu Painel" (consulta ao METRICA360, até 10 s) e o card
+ * podem valer por alguns minutos: o card
  * "SLA vencido" do dashboard (auditoria 01/11/2026, DES-07 e DES-10).
  *
  * A chave vira sha1 no nome do arquivo (nunca entra dado pessoal no nome). Falha de leitura ou gravação

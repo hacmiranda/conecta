@@ -96,7 +96,7 @@ cabeçalho `X-Cron-Key: <valor>` (o parâmetro `?key=` na URL não é mais aceit
 ## 6. Depois do primeiro deploy
 
 - [ ] Login funciona com o primeiro administrador
-- [ ] `php database/migrar.php --status` mostra todas as migrações aplicadas (9 a 38 em 01/11/2026)
+- [ ] `php database/migrar.php --status` mostra todas as migrações aplicadas (9 a 40 em 03/11/2026)
 - [ ] `php api/tests/matriz-de-acesso.php https://<dominio>` roda limpo contra o ambiente (cuidado: cria e apaga dados de teste — só rodar antes de haver dados reais, ou usar um ambiente de homologação)
 - [ ] Teste de envio de e-mail pela tela "Configurar e-mail" (teste de uma caixa de setor) chega de verdade
 - [ ] Cron de e-mail rodou ao menos uma vez com sucesso (ver `backend/logs/email-cron-AAAA-MM-DD.log`: linha
@@ -135,45 +135,48 @@ Ao empacotar o deploy, deixar de fora:
   do ambiente local (dados de desenvolvimento)
 - `api/config/.env` local (o servidor tem o seu, com as chaves `*_PROD`)
 
-## 7. Registro de Atividades e Meu Painel (vindos do METRICA360, 27/10/2026)
+## 7. Módulo Satisfação, papéis de coordenação e Registro de Atividades (unificação com o METRICA360, 03/11/2026)
 
-> **Substituído em 03/11/2026.** O METRICA360 inteiro será absorvido pelo Conecta (módulo "Satisfação",
-> mesmo banco, login único). Os passos 1, 4 e 6 abaixo (API do METRICA360, mesmo e-mail nos dois
-> sistemas, script destrutivo `remover_area_funcionario.sql`) **deixam de valer** assim que a fase 8 do
-> plano for concluída; o roteiro novo (importação de pessoas e setores com `database/importar-metrica360.php`,
-> migração 40 e redirecionamento de `/metrica360`) será escrito aqui no fim do trabalho. Os passos 2, 3 e 5
-> (migração, configurar atividades por setor, avisar os servidores) continuam valendo.
+O METRICA360 deixou de ser um sistema à parte: pesquisa de satisfação, Meu Painel e Registro de Atividades
+são do próprio Conecta, no mesmo banco, com o mesmo login. **Nada do METRICA360 precisa ser publicado**: não há
+mais API entre os dois, nem `INTEGRACAO_CONECTA_API_KEY`, `METRICA360_URL_*` ou `METRICA360_API_KEY_*`.
 
-A "Área do Funcionário" do METRICA360 passou para o Conecta. **A ordem importa**, porque os dois sistemas
-dependem um do outro:
-
-1. **METRICA360 primeiro, ramo `melhorias-auditoria-2026-10`** (commit "API de integração para o Meu Painel
-   e o Cruzamento"): rotas `/api/integracao/funcionario`, `/painel`, `/convite-manual` e `/satisfacao`.
-   Exige `INTEGRACAO_CONECTA_API_KEY` no `.env` dele (a mesma da pesquisa de satisfação). A Área do
-   Funcionário de lá **continua no ar** nesta etapa.
-2. **Conecta**: publicar o código e rodar `php database/migrar.php` (aplica a 38). Conferir no `.env`
-   `METRICA360_URL_PROD` e `METRICA360_API_KEY_PROD`. O `.htaccess` novo libera o widget do Google
-   Reviews (Elfsight) na CSP.
-3. **Configurar cada setor** em Configurações → Atividades (admin ou gestor): cadastrar as atividades
-   (dá para colar várias, uma por linha), as regras de prazo do setor e as de cada servidor. Sem
-   "Cobrar a partir de", a cobrança começa no dia em que as regras são salvas. **O Conecta começa sem os
-   tipos de atividade do METRICA360**: copiar a lista de cada setor de lá (Configurações → Atividades do
-   METRICA360) antes do passo 6.
-4. **Conferir os e-mails**: o "Meu Painel" só aparece para quem tem, no METRICA360, o **mesmo e-mail** do
-   Conecta e "Faz atendimento externo" marcado.
-5. **Avisar os servidores**: o registro de atividades e o envio de pesquisas agora são feitos dentro do
-   Conecta (menus "Registro de Atividades" e "Meu Painel").
-6. **Por último, METRICA360 ramo `remover-area-funcionario`**: tira a Área do Funcionário e as telas de
-   atividades de lá (as rotas antigas passam a dar 404). Depois, **com backup completo do banco**, rodar
-   `migrations/2026_10_27_remover_area_funcionario.sql` (copia para `bkp_2026_10_27_*` e apaga as tabelas
-   e colunas de atividades; é destrutivo e não repete).
+1. **Banco:** `php database/migrar.php` (aplica a 39, papéis de coordenação, e a 40, módulo Satisfação), ou
+   confirmar com `--status` que a réplica do banco local já vem com elas.
+2. **Pessoas e setores:** o banco local recebe as contas e os setores dos servidores com
+   `php database/importar-metrica360.php` (ensaio primeiro, depois `--executar`; só roda no banco local, nunca
+   no de produção). As contas novas nascem com senha desconhecida e troca obrigatória: cada pessoa usa
+   **"Esqueci a senha"** no primeiro acesso (o e-mail precisa estar certo e a caixa de envio configurada).
+   Conferir depois, em Configurações → Usuários, o setor de quem ficou em "Geral" por não ter setor no
+   METRICA360 e os coordenadores com mais de um setor.
+3. **Configurar a pesquisa:** Configurações → Pesquisa de satisfação (admin): regras de convite (quarentena,
+   validade do link, reenvio), meta de nota, e-mail do alerta de nota baixa, link do Google Avaliações,
+   categorias e frases. O importador já traz as do METRICA360.
+4. **Configurar cada setor** em Configurações → Atividades (admin, coordenador ou gestor): atividades (dá para
+   colar várias, uma por linha), regras de prazo do setor e de cada servidor. O Conecta começa sem os tipos de
+   atividade do METRICA360: copiar a lista de cada setor de lá antes de avisar os servidores. Sem "Cobrar a
+   partir de", a cobrança começa no dia em que as regras são salvas.
+5. **Marcar quem faz atendimento externo** (Configurações → Usuários, admin): só essas pessoas veem o
+   "Meu Painel" e enviam convites. O importador já traz a marcação.
+6. **Cron:** o de e-mail (`verificar-emails.php`, a cada 2 minutos) já fecha a cadeia, e o fim dela cria os
+   convites, expira os vencidos e faz o reenvio. Não há cron novo.
+7. **`/metrica360` no endereço antigo:** quando o METRICA360 não for mais usado, fazer o endereço
+   `https://crp07.org.br/metrica360` redirecionar (301) para `https://crp07.org.br/conecta/` no servidor
+   (no `.htaccess` da pasta antiga: `RedirectMatch 301 ^/metrica360/(.*)$ /conecta/`) e arquivar o repositório do METRICA360
+   no GitHub. O `db_metrica360` fica só como cópia de segurança até o usuário decidir apagar. Os convites
+   que o METRICA360 de teste enviou não migram: seus links deixam de funcionar.
+8. **Avisar os servidores:** registro de atividades, envio de pesquisas e (para a coordenação) a Satisfação
+   agora são feitos dentro do Conecta.
 
 Conferência depois da implantação:
-- [ ] Gestor/operador vê "Registro de Atividades"; registra, salva rascunho e envia um dia de teste
-- [ ] Admin/gestor vê o grupo "Atividades" (painel, relatório, ausências, cruzamento) e o CSV abre no Excel com acentos
-- [ ] Um servidor com atendimento externo vê "Meu Painel", com indicadores e histórico; envio de convite chega por e-mail
-- [ ] Widget do Google Reviews carrega sem erro de CSP no console
-- [ ] `php api/tests/matriz-de-acesso.php` (seções 7c a 7f) limpo, se rodado em homologação
+- [ ] Gestor/operador/coordenador/supervisor/coordenador geral veem "Registro de Atividades"; registrar, salvar rascunho e enviar um dia de teste
+- [ ] Admin, gestor, coordenador, supervisor e coordenador geral veem o grupo "Atividades" (só gestão abona) e o CSV abre no Excel com acentos
+- [ ] Admin, coordenador geral, supervisor e coordenador veem o grupo "Satisfação"; gestor e operador não
+- [ ] Supervisor e coordenador geral não conseguem alterar nada, mas conseguem fazer a triagem de uma avaliação
+- [ ] Um servidor com atendimento externo vê "Meu Painel", com indicadores e histórico; o convite enviado chega por e-mail e o link abre a página de avaliação
+- [ ] Encerrar uma demanda de um solicitante externo gera o convite (log `pesquisa-satisfacao` e a fila de e-mail)
+- [ ] Widget do Google Reviews carrega sem erro de CSP no console (Meu Painel)
+- [ ] `php api/tests/matriz-de-acesso.php` (seções 7c a 7f, 9 e 10) limpo, se rodado em homologação
 
 ## Pendências técnicas conhecidas (não bloqueiam a implantação)
 
