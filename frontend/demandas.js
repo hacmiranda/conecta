@@ -667,7 +667,7 @@ function mostrarTicketsNaTela(tickets) {
                     <th onclick="ordenarTabela('usuario_nome')" class="sortable" data-campo="usuario_nome" scope="col">Solicitante <span class="sort-arrows">↕</span></th>
                     ${exibirColunaSetor(false) ? '<th onclick="ordenarTabela(\'setor_nome\')" class="sortable" data-campo="setor_nome" scope="col">Setor <span class="sort-arrows">↕</span></th>' : ''}
                     <th onclick="ordenarTabela('agente_nome')" class="sortable" data-campo="agente_nome" scope="col">Responsável <span class="sort-arrows">↕</span></th>
-                    <th onclick="ordenarTabela('categoria_nome')" class="sortable" data-campo="categoria_nome" scope="col">Assunto <span class="sort-arrows">↕</span></th>
+                    <th onclick="ordenarTabela('categoria_nome')" class="sortable" data-campo="categoria_nome" scope="col">Categoria/subcategoria <span class="sort-arrows">↕</span></th>
                     <th onclick="ordenarTabela('status')" class="sortable" data-campo="status" scope="col">Status <span class="sort-arrows">↕</span></th>
                     <th onclick="ordenarTabela('prioridade')" class="sortable" data-campo="prioridade" scope="col">Prioridade <span class="sort-arrows">↕</span></th>
                 </tr>
