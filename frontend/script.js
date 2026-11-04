@@ -229,7 +229,6 @@ function inicializarAvatar() {
     if (!usuario.nome) return;
 
     const nome = usuario.nome || '';
-    const email = usuario.email || '';
     const tipo = usuario.tipo || '';
     const cargo = usuario.cargo || '';
 
@@ -245,7 +244,6 @@ function inicializarAvatar() {
     const setEl = (id, val) => { const el = document.getElementById(id); if (el) el.textContent = val; };
 
     setEl('header-avatar-iniciais', iniciais);
-    setEl('header-avatar-iniciais-sm', iniciais);
     setEl('header-avatar-nome', nome.split(' ')[0]); // primeiro nome no botão
     setEl('header-avatar-role', 'Perfil: ' + Papeis.rotulo(tipo));
     const elCargo = document.getElementById('header-avatar-cargo');
@@ -253,8 +251,6 @@ function inicializarAvatar() {
         elCargo.textContent = cargo;
         elCargo.style.display = cargo ? '' : 'none';
     }
-    setEl('had-nome', nome);
-    setEl('had-email', email);
 }
 
 function toggleAvatarDropdown() {

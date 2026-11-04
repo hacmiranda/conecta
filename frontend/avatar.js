@@ -180,7 +180,7 @@ function atualizarAvatarHeader() {
     
     const avatarUrl = `${window.APP_CONFIG.rootBase}backend/uploads/avatars/${usuario.avatar}`;
     
-    ['header-avatar-circle', 'header-avatar-circle-sm'].forEach(id => {
+    ['header-avatar-circle'].forEach(id => {
         const el = document.getElementById(id);
         if (el) {
             el.style.backgroundImage = `url('${avatarUrl}')`;

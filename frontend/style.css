@@ -306,6 +306,7 @@ nav {
     box-shadow: 0 10px 40px rgba(0, 0, 0, 0.18);
     z-index: 2000;
     overflow: hidden;
+    padding: 0.25rem 0;
     transform-origin: top right;
     animation: avatar-dropdown-in 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
 }
@@ -324,42 +325,6 @@ nav {
         opacity: 1;
         transform: scale(1) translateY(0);
     }
-}
-
-.header-avatar-dropdown-header {
-    display: flex;
-    align-items: center;
-    gap: 0.75rem;
-    padding: 1rem;
-    background: linear-gradient(135deg, var(--vinho-600) 0%, var(--vinho-900) 100%);
-}
-
-.header-avatar-circle-sm {
-    width: 2.2rem;
-    height: 2.2rem;
-    border-radius: 50%;
-    background: linear-gradient(135deg, var(--laranja-500) 0%, var(--vinho-600) 100%);
-    border: 2px solid rgba(255, 255, 255, 0.3);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 0.75rem;
-    font-weight: 700;
-    color: #fff;
-    flex-shrink: 0;
-}
-
-.had-nome {
-    font-size: 0.85rem;
-    font-weight: 700;
-    color: #fff;
-    line-height: 1.3;
-}
-
-.had-email {
-    font-size: 0.72rem;
-    color: var(--vinho-100);
-    word-break: break-all;
 }
 
 .header-avatar-dropdown-divider {
