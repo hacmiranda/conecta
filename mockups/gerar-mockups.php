@@ -29,6 +29,7 @@ require_once $raiz . '/api/services/email-cabecalho.php';
 require_once $raiz . '/api/services/email-historico.php';
 require_once $raiz . '/api/services/email-tipografia.php';
 require_once $raiz . '/api/services/email-assinatura-resposta.php';
+require_once $raiz . '/api/services/pesquisa-convite-service.php';
 
 // Conversa de exemplo (mais recente primeiro) — só mensagens visíveis ao solicitante; uma nota interna
 // da equipe existiria na demanda, mas nunca aparece aqui.
@@ -342,6 +343,25 @@ $emails[] = [
     ",
 ];
 
+// ---- Módulo Satisfação --------------------------------------------------------------------------
+// Montado pela mesma função do envio real (PesquisaConviteService::montarEmail), sem passar pela fila.
+// Fica no fim do catálogo para não renumerar os arquivos e PNGs dos demais.
+[$assuntoConvite, $htmlConvite] = PesquisaConviteService::montarEmail(
+    $solicitante,
+    'https://crp07.org.br/conecta/frontend/avaliar.html#t=' . str_repeat('3f9a', 16),
+    $num
+);
+$emails[] = [
+    'slug' => 'pesquisa-de-satisfacao', 'grupo' => 'Para o solicitante', 'formato' => 'html',
+    'titulo' => 'Convite da pesquisa de satisfação',
+    'de' => $remetenteGlobal, 'para' => "{$solicitante} <{$emailSolic}>",
+    'assunto' => $assuntoConvite,
+    'quando' => 'Depois que uma demanda de solicitante externo chega pela primeira vez a "Resolvido" ou "Encerrado" (a fila de pesquisas roda no fim do cron de e-mail). Também sai quando um servidor envia o convite pelo "Meu Painel". Se não houver avaliação, o mesmo convite é reenviado uma vez, 48 horas depois (padrão).',
+    'quem' => 'O solicitante da demanda (ou a pessoa informada no "Meu Painel"). Não sai para e-mails do CRPRS, para caixas de setor nem para quem já recebeu convite nos últimos 15 dias (quarentena).',
+    'obs' => 'Liga/desliga por setor no código sol_pesquisa_satisfacao (aba Envio de E-mails). O link leva à página pública de avaliação e vale 7 dias (padrão); prazos, reenvio e quarentena ficam em Configurações → Pesquisa de satisfação. O token do exemplo é fictício.',
+    'corpo' => $htmlConvite,
+];
+
 // ---- Gravação ---------------------------------------------------------------------------------
 foreach (['emails', 'paginas', 'imagens', 'assets'] as $pasta) {
     if (!is_dir("$saida/$pasta")) {
@@ -462,8 +482,7 @@ foreach ($grupos as $grupo => $lista) {
 }
 $md .= "\n## Como foi feito e como atualizar\n\n";
 $md .= "- `gerar-mockups.php` monta tudo a partir dos modelos reais de `backend/email-template-*.html`. Rode `php mockups/gerar-mockups.php` depois de mudar um modelo ou um texto de e-mail.\n";
-$md .= "- A **pesquisa de satisfação** (liga/desliga `sol_pesquisa_satisfacao` na aba Envio de E-mails) não está neste catálogo: o convite sai do módulo Satisfação com o modelo `backend/email-template-pesquisa-convite.html` (ver CLAUDE.md, \"Unificação com o METRICA360\").
-";
+$md .= "- O **convite da pesquisa de satisfação** (último do catálogo) sai do módulo Satisfação com o modelo `backend/email-template-pesquisa-convite.html`, montado pela mesma função do envio real (`PesquisaConviteService::montarEmail`). Ele substituiu o e-mail que o METRICA360 enviava (ver CLAUDE.md, \"Unificação com o METRICA360\").\n";
 $md .= "- Os e-mails montados direto no código (agente→agente, lembrete, recuperação de senha e os avisos em texto puro) são cópias do texto original; atualize o catálogo do gerador quando o código mudar.\n";
 $md .= "- Todos os e-mails ao solicitante trazem no final a **demanda registrada** (título e descrição) e o **histórico da conversa** com o CRPRS, do mais recente para o mais antigo. Notas internas e comentários da equipe que não foram enviados ao solicitante nunca aparecem. A \"Resposta da equipe\" e a \"Cópia da resposta\" não repetem a mensagem que acabou de ser enviada.\n";
 $md .= "- `emails/` guarda o e-mail puro (HTML ou texto), `paginas/` a moldura com o momento do envio, `imagens/` os PNGs.\n";

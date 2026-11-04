@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Convite da pesquisa de satisfação - Mockup de e-mail</title>
+<link rel="stylesheet" href="../assets/mockup.css">
+<script src="../assets/mockup.js" defer></script>
+</head>
+<body>
+<main class="cartao">
+  <p class="cartao-grupo">Para o solicitante · 17 de 17</p>
+  <h1>Convite da pesquisa de satisfação</h1>
+  <section class="descricao" aria-label="Quando e para quem">
+    <dl>
+      <dt>Quando é enviado</dt><dd>Depois que uma demanda de solicitante externo chega pela primeira vez a &quot;Resolvido&quot; ou &quot;Encerrado&quot; (a fila de pesquisas roda no fim do cron de e-mail). Também sai quando um servidor envia o convite pelo &quot;Meu Painel&quot;. Se não houver avaliação, o mesmo convite é reenviado uma vez, 48 horas depois (padrão).</dd>
+      <dt>Para quem</dt><dd>O solicitante da demanda (ou a pessoa informada no &quot;Meu Painel&quot;). Não sai para e-mails do CRPRS, para caixas de setor nem para quem já recebeu convite nos últimos 15 dias (quarentena).</dd>
+      <dt>Observação</dt><dd>Liga/desliga por setor no código sol_pesquisa_satisfacao (aba Envio de E-mails). O link leva à página pública de avaliação e vale 7 dias (padrão); prazos, reenvio e quarentena ficam em Configurações → Pesquisa de satisfação. O token do exemplo é fictício.</dd>
+    </dl>
+  </section>
+  <section class="cliente-email" aria-label="Pré-visualização do e-mail">
+    <dl class="cabecalho-email">
+      <dt>De</dt><dd>administrador@crprs.org.br (remetente global do sistema)</dd>
+      <dt>Para</dt><dd>Maria Souza &lt;maria.souza@exemplo.com.br&gt;</dd>
+      <dt>Assunto</dt><dd class="assunto">Como foi seu atendimento no CRPRS? Avalie em 1 minuto</dd>
+      <dt>Formato</dt><dd>HTML</dd>
+    </dl>
+    <div class="corpo-email"><iframe class="email-quadro" title="E-mail: Convite da pesquisa de satisfação" srcdoc="&lt;!DOCTYPE html&gt;
+&lt;html lang=&quot;pt-BR&quot;&gt;
+&lt;head&gt;
+    &lt;meta charset=&quot;UTF-8&quot;&gt;
+    &lt;meta name=&quot;viewport&quot; content=&quot;width=device-width, initial-scale=1.0&quot;&gt;
+    &lt;title&gt;Pesquisa de satisfação&lt;/title&gt;
+    &lt;style&gt;
+        body {
+            font-family: Arial, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .content {
+            background-color: #f9f9f9;
+            padding: 30px;
+            border-radius: 0 0 8px 8px;
+            border: 1px solid #ddd; border-top: none;
+        }
+        .estrelas { text-align: center; font-size: 28px; letter-spacing: 6px; color: #f89327; margin: 18px 0; }
+        .btn {
+            display: inline-block;
+            background-color: #a7241c;
+            color: #ffffff;
+            padding: 14px 32px;
+            text-decoration: none;
+            border-radius: 6px;
+            font-weight: bold;
+        }
+        .link-alternativo { font-size: 13px; color: #666; text-align: center; word-break: break-all; }
+        .footer {
+            margin-top: 30px;
+            padding-top: 20px;
+            border-top: 1px solid #ddd;
+            font-size: 0.9rem;
+            color: #666;
+        }
+    &lt;/style&gt;
+&lt;/head&gt;
+&lt;body&gt;
+    &lt;table role=&quot;presentation&quot; width=&quot;100%&quot; cellpadding=&quot;0&quot; cellspacing=&quot;0&quot; border=&quot;0&quot; style=&quot;border-collapse:collapse;&quot;&gt;&lt;tr&gt;&lt;td bgcolor=&quot;#ffffff&quot; style=&quot;font-family:Arial,Helvetica,sans-serif;padding:14px 24px;border:1px solid #ddd6cd;border-top:none;border-bottom:none;&quot;&gt;&lt;table role=&quot;presentation&quot; width=&quot;100%&quot; cellpadding=&quot;0&quot; cellspacing=&quot;0&quot; border=&quot;0&quot; style=&quot;border-collapse:collapse;&quot;&gt;&lt;tr&gt;&lt;td valign=&quot;middle&quot; width=&quot;40%&quot; style=&quot;padding:0;&quot;&gt;&lt;img src=&quot;http://www.crprs.org.br/assets/frontend/img/logo.png&quot; alt=&quot;CRPRS&quot; width=&quot;110&quot; style=&quot;display:block;border:0;height:auto;&quot;&gt;&lt;/td&gt;&lt;td valign=&quot;middle&quot; align=&quot;right&quot; style=&quot;font-family:Arial,Helvetica,sans-serif;padding:0;&quot;&gt;&lt;div style=&quot;font-family:Arial,Helvetica,sans-serif;font-size:11px;line-height:14px;font-weight:bold;letter-spacing:1px;text-transform:uppercase;color:#5f5852;&quot;&gt;Conselho Regional de Psicologia do RS&lt;/div&gt;&lt;div style=&quot;font-family:Arial,Helvetica,sans-serif;font-size:20px;line-height:26px;font-weight:bold;color:#8b1d17;padding-top:4px;&quot;&gt;Pesquisa de satisfação&lt;/div&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/td&gt;&lt;/tr&gt;&lt;tr&gt;&lt;td style=&quot;padding:0;&quot;&gt;&lt;table role=&quot;presentation&quot; width=&quot;100%&quot; cellpadding=&quot;0&quot; cellspacing=&quot;0&quot; border=&quot;0&quot; style=&quot;border-collapse:collapse;&quot;&gt;&lt;tr&gt;&lt;td width=&quot;34%&quot; height=&quot;5&quot; bgcolor=&quot;#f89327&quot; style=&quot;height:5px;font-size:0;line-height:0;background:#f89327;&quot;&gt;&amp;nbsp;&lt;/td&gt;&lt;td width=&quot;33%&quot; height=&quot;5&quot; bgcolor=&quot;#70ab2a&quot; style=&quot;height:5px;font-size:0;line-height:0;background:#70ab2a;&quot;&gt;&amp;nbsp;&lt;/td&gt;&lt;td width=&quot;33%&quot; height=&quot;5&quot; bgcolor=&quot;#a7241c&quot; style=&quot;height:5px;font-size:0;line-height:0;background:#a7241c;&quot;&gt;&amp;nbsp;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;
+
+    &lt;div class=&quot;content&quot;&gt;
+        &lt;p&gt;Olá, &lt;strong&gt;Maria Souza&lt;/strong&gt;!&lt;/p&gt;
+
+        &lt;p&gt;Informamos que a sua solicitação &lt;strong&gt;#CRPRS2026-0001&lt;/strong&gt; junto ao CRPRS foi finalizada.&lt;/p&gt;
+
+        &lt;p&gt;Queremos saber como foi a sua experiência. A sua avaliação é muito importante para aprimorarmos nossos processos e garantirmos um serviço cada vez melhor. Leva menos de &lt;strong&gt;1 minuto&lt;/strong&gt;!&lt;/p&gt;
+
+        &lt;p class=&quot;estrelas&quot;&gt;★★★★★&lt;/p&gt;
+
+        &lt;p style=&quot;text-align: center; margin: 24px 0;&quot;&gt;
+            &lt;a class=&quot;btn&quot; href=&quot;https://crp07.org.br/conecta/frontend/avaliar.html#t=3f9a3f9a3f9a3f9a3f9a3f9a3f9a3f9a3f9a3f9a3f9a3f9a3f9a3f9a3f9a3f9a&quot;&gt;Avaliar atendimento&lt;/a&gt;
+        &lt;/p&gt;
+
+        &lt;p class=&quot;link-alternativo&quot;&gt;Se o botão não funcionar, copie e cole este endereço no navegador:&lt;br&gt;https://crp07.org.br/conecta/frontend/avaliar.html#t=3f9a3f9a3f9a3f9a3f9a3f9a3f9a3f9a3f9a3f9a3f9a3f9a3f9a3f9a3f9a3f9a&lt;/p&gt;
+
+        &lt;div class=&quot;footer&quot;&gt;
+            &lt;p&gt;Este e-mail foi enviado automaticamente. Por favor, não responda.&lt;/p&gt;
+        &lt;/div&gt;
+    &lt;/div&gt;
+&lt;/body&gt;
+&lt;/html&gt;
+"></iframe></div>
+  </section>
+</main>
+</body>
+</html>

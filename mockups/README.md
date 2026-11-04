@@ -22,6 +22,7 @@ Todos os e-mails que o sistema envia, com dados fictícios (solicitante *Maria S
 | 14 | [Novo comentário na sua demanda (de outro atendente)](imagens/14-comentario-entre-agentes.png) | Quando outro atendente, gestor ou administrador comenta numa demanda que está atribuída a você. O status da demanda passa para "Nova Resposta". | O atendente responsável pela demanda. |
 | 15 | [Lembrete de demanda](imagens/15-lembrete.png) | Na data e hora agendadas no lembrete (o cron de lembretes dispara a cada rodada). Lembretes de demandas encerradas ou canceladas são cancelados e não enviados. | A pessoa escolhida ao criar o lembrete; se não houve escolha, o responsável pela demanda ou, sem responsável, os gestores do setor. |
 | 16 | [Recuperação de senha](imagens/16-recuperacao-de-senha.png) | Quando alguém usa "Esqueci minha senha" na tela de login. É enviado na hora, sem passar pela fila. | O usuário da conta. Solicitantes externos (cliente) não recebem. |
+| 17 | [Convite da pesquisa de satisfação](imagens/17-pesquisa-de-satisfacao.png) | Depois que uma demanda de solicitante externo chega pela primeira vez a "Resolvido" ou "Encerrado" (a fila de pesquisas roda no fim do cron de e-mail). Também sai quando um servidor envia o convite pelo "Meu Painel". Se não houver avaliação, o mesmo convite é reenviado uma vez, 48 horas depois (padrão). | O solicitante da demanda (ou a pessoa informada no "Meu Painel"). Não sai para e-mails do CRPRS, para caixas de setor nem para quem já recebeu convite nos últimos 15 dias (quarentena). |
 
 ## Detalhes
 
@@ -114,6 +115,17 @@ Todos os e-mails que o sistema envia, com dados fictícios (solicitante *Maria S
 - **Observação:** Assina como a equipe do setor da demanda.
 
 ![Demanda reaberta (aviso ao solicitante)](imagens/08-demanda-reaberta-solicitante.png)
+
+#### Convite da pesquisa de satisfação
+
+- **De:** administrador@crprs.org.br (remetente global do sistema)
+- **Para:** Maria Souza <maria.souza@exemplo.com.br>
+- **Assunto:** Como foi seu atendimento no CRPRS? Avalie em 1 minuto
+- **Quando:** Depois que uma demanda de solicitante externo chega pela primeira vez a "Resolvido" ou "Encerrado" (a fila de pesquisas roda no fim do cron de e-mail). Também sai quando um servidor envia o convite pelo "Meu Painel". Se não houver avaliação, o mesmo convite é reenviado uma vez, 48 horas depois (padrão).
+- **Quem recebe:** O solicitante da demanda (ou a pessoa informada no "Meu Painel"). Não sai para e-mails do CRPRS, para caixas de setor nem para quem já recebeu convite nos últimos 15 dias (quarentena).
+- **Observação:** Liga/desliga por setor no código sol_pesquisa_satisfacao (aba Envio de E-mails). O link leva à página pública de avaliação e vale 7 dias (padrão); prazos, reenvio e quarentena ficam em Configurações → Pesquisa de satisfação. O token do exemplo é fictício.
+
+![Convite da pesquisa de satisfação](imagens/17-pesquisa-de-satisfacao.png)
 
 ### Para a equipe (internos)
 
@@ -208,7 +220,7 @@ Todos os e-mails que o sistema envia, com dados fictícios (solicitante *Maria S
 ## Como foi feito e como atualizar
 
 - `gerar-mockups.php` monta tudo a partir dos modelos reais de `backend/email-template-*.html`. Rode `php mockups/gerar-mockups.php` depois de mudar um modelo ou um texto de e-mail.
-- A **pesquisa de satisfação** (liga/desliga `sol_pesquisa_satisfacao` na aba Envio de E-mails) não está neste catálogo: o convite sai do módulo Satisfação com o modelo `backend/email-template-pesquisa-convite.html` (ver CLAUDE.md, "Unificação com o METRICA360").
+- O **convite da pesquisa de satisfação** (último do catálogo) sai do módulo Satisfação com o modelo `backend/email-template-pesquisa-convite.html`, montado pela mesma função do envio real (`PesquisaConviteService::montarEmail`). Ele substituiu o e-mail que o METRICA360 enviava (ver CLAUDE.md, "Unificação com o METRICA360").
 - Os e-mails montados direto no código (agente→agente, lembrete, recuperação de senha e os avisos em texto puro) são cópias do texto original; atualize o catálogo do gerador quando o código mudar.
 - Todos os e-mails ao solicitante trazem no final a **demanda registrada** (título e descrição) e o **histórico da conversa** com o CRPRS, do mais recente para o mais antigo. Notas internas e comentários da equipe que não foram enviados ao solicitante nunca aparecem. A "Resposta da equipe" e a "Cópia da resposta" não repetem a mensagem que acabou de ser enviada.
 - `emails/` guarda o e-mail puro (HTML ou texto), `paginas/` a moldura com o momento do envio, `imagens/` os PNGs.
