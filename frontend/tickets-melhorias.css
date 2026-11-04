@@ -1187,3 +1187,47 @@
 .modo-escuro .ajuda-editor {
     color: var(--neutro-200);
 }
+
+/* Prévia da assinatura do e-mail dentro da caixa do comentário (detalhe-demanda.js, atualizarAssinaturaPrevia).
+   A área editável cresce com o texto e a caixa rola: a assinatura desce junto, logo abaixo da última linha. */
+#editor-comentario .ql-editor {
+    height: auto;
+    min-height: 90px;
+    overflow-y: visible;
+}
+
+#editor-comentario .assinatura-previa {
+    padding: 0 15px 12px;
+    color: var(--neutro-400);
+    font-family: var(--fonte-resposta);
+    font-size: var(--tamanho-resposta);
+    line-height: var(--entrelinha-resposta);
+    cursor: default;
+    user-select: none;
+}
+
+#editor-comentario .assinatura-previa p {
+    margin: 0;
+}
+
+#editor-comentario .assinatura-previa p:first-child {
+    margin-bottom: 0.5rem;
+}
+
+#editor-comentario .assinatura-previa-nome {
+    font-weight: 700;
+}
+
+#editor-comentario .assinatura-previa-dica {
+    margin-top: 0.375rem !important;
+    font-size: 0.75rem;
+    font-style: italic;
+}
+
+#editor-comentario .assinatura-previa[hidden] {
+    display: none;
+}
+
+.modo-escuro #editor-comentario .assinatura-previa {
+    color: var(--neutro-400);
+}

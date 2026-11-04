@@ -491,7 +491,7 @@ function mostrarDetalhesTicket(ticket) {
                         </select>
                     </div>
                     <div class="form-group">
-                        <div id="editor-comentario" style="height: 150px; background: #fff;"></div>
+                        <div id="editor-comentario" style="height: 150px; background: #fff;" data-setor-demanda="${sanitizeHTML(ticket.setor_nome || '')}"></div>
                         <small class="ajuda-editor">Arraste a borda inferior para aumentar a caixa. Para incluir imagem, use o botão da barra, cole (Ctrl+V) ou arraste o arquivo.</small>
                         <input type="hidden" id="novo-comentario" required>
                     </div>
@@ -655,6 +655,43 @@ function toggleCampoComCopia() {
         document.getElementById('com-copia').removeAttribute('required');
         btnAdicionar.textContent = 'Adicionar Comentário';
     }
+    atualizarAssinaturaPrevia();
+}
+
+/**
+ * Prévia da assinatura que o e-mail ao solicitante leva (EmailAssinaturaResposta, no servidor): "Atenciosamente,",
+ * o nome de quem responde e o setor. Aparece esmaecida dentro da caixa do comentário, logo abaixo do texto, só com
+ * "Enviar comentário por e-mail" ligado, para ninguém digitar a assinatura de novo. Fica fora da área editável do
+ * Quill: não pode ser apagada e não entra no comentário gravado. Mesma regra de setor do servidor: admin assina com
+ * o setor da demanda; os demais, com o próprio setor (ou o da demanda, se não tiverem).
+ */
+function atualizarAssinaturaPrevia() {
+    const editor = document.getElementById('editor-comentario');
+    const enviar = document.getElementById('enviar-email');
+    if (!editor || !enviar) return;
+    let previa = editor.querySelector('.assinatura-previa');
+    const usuario = JSON.parse(localStorage.getItem('cd_usuario') || '{}');
+    const assina = ['admin', 'coordenador', 'gestor', 'operador'].includes(usuario.tipo) && !!usuario.nome;
+    const mostrar = assina && enviar.checked && !enviar.disabled;
+
+    if (!mostrar) {
+        if (previa) previa.hidden = true;
+        return;
+    }
+    const setorDemanda = editor.dataset.setorDemanda || '';
+    const setor = usuario.tipo === 'admin' ? setorDemanda : (usuario.setor_nome || setorDemanda);
+    if (!previa) {
+        previa = document.createElement('div');
+        previa.className = 'assinatura-previa';
+        previa.setAttribute('contenteditable', 'false');
+        previa.setAttribute('role', 'note');
+        previa.setAttribute('aria-label', 'Assinatura adicionada automaticamente ao e-mail');
+        editor.appendChild(previa); // depois da área editável (.ql-editor), dentro da mesma caixa
+    }
+    previa.innerHTML = `<p>Atenciosamente,</p><p class="assinatura-previa-nome">${sanitizeHTML(usuario.nome)}</p>`
+        + (setor ? `<p>${sanitizeHTML(setor)}</p>` : '')
+        + '<p class="assinatura-previa-dica">Assinatura incluída automaticamente no e-mail ao solicitante.</p>';
+    previa.hidden = false;
 }
 
 function toggleCampoEmailCopia() {
