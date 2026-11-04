@@ -1,0 +1,280 @@
+/*
+ * Página pública de avaliação (avaliar.html). Autônoma, como login.html: paleta oficial CRPRS, contraste mínimo
+ * 4,5:1, foco visível e sem estilo inline. Funciona em 360 px.
+ */
+:root {
+    --av-vinho-900: #5e130e;
+    --av-vinho-700: #8b1d17;
+    --av-vinho-600: #a7241c;
+    --av-laranja: #f89327;
+    --av-laranja-texto: #a8590b;
+    --av-verde-700: #2f6b12;
+    --av-texto: #2b2523;
+    --av-texto-suave: #5f5852;
+    --av-borda: #ddd6cd;
+    --av-fundo: #f7f4f0;
+}
+
+* {
+    box-sizing: border-box;
+}
+
+body {
+    margin: 0;
+    min-height: 100vh;
+    background: linear-gradient(135deg, var(--av-vinho-700) 0%, var(--av-vinho-900) 100%);
+    color: var(--av-texto);
+    font-family: Inter, "Segoe UI", Arial, sans-serif;
+    line-height: 1.5;
+}
+
+[hidden] {
+    display: none !important;
+}
+
+.av-pagina {
+    width: 100%;
+    max-width: 36rem;
+    margin: 0 auto;
+    padding: 1.5rem 1rem 2rem;
+}
+
+.av-topo {
+    text-align: center;
+    color: #fff;
+}
+
+.av-topo img {
+    display: block;
+    margin: 0 auto 0.5rem;
+}
+
+.av-instituicao {
+    margin: 0;
+    font-size: 0.8rem;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+}
+
+.av-topo h1 {
+    margin: 0.25rem 0 1rem;
+    font-size: 1.6rem;
+}
+
+.av-cartao {
+    margin-bottom: 1rem;
+    padding: 1.5rem;
+    border-radius: 14px;
+    background: #fff;
+    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.25);
+}
+
+.av-cartao h2 {
+    margin: 0 0 0.5rem;
+    color: var(--av-vinho-700);
+}
+
+.av-intro {
+    margin-top: 0;
+    font-size: 1.05rem;
+}
+
+fieldset {
+    margin: 0 0 1rem;
+    padding: 0;
+    border: 0;
+    min-width: 0;
+}
+
+legend {
+    padding: 0;
+    margin-bottom: 0.5rem;
+    font-weight: 700;
+}
+
+legend small,
+.av-campo small {
+    font-weight: 400;
+    color: var(--av-texto-suave);
+}
+
+/* Notas: botões de opção com a estrela e o texto; o rádio fica visível para o leitor de tela e o teclado */
+.av-notas-lista {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 0.5rem;
+}
+
+.av-nota {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.125rem;
+    padding: 0.625rem 0.25rem;
+    border: 2px solid var(--av-borda);
+    border-radius: 10px;
+    cursor: pointer;
+    text-align: center;
+}
+
+.av-nota input {
+    position: absolute;
+    opacity: 0;
+    inset: 0;
+    margin: 0;
+    cursor: pointer;
+}
+
+.av-nota-estrela {
+    font-size: 1.75rem;
+    line-height: 1;
+    color: var(--av-borda);
+}
+
+.av-nota-texto {
+    font-size: 0.7rem;
+    color: var(--av-texto-suave);
+}
+
+.av-nota:hover {
+    border-color: var(--av-laranja);
+}
+
+.av-nota:has(input:checked) {
+    border-color: var(--av-vinho-600);
+    background: #fdf2f1;
+}
+
+.av-nota:has(input:checked) .av-nota-estrela {
+    color: var(--av-laranja);
+}
+
+.av-nota:has(input:checked) .av-nota-texto {
+    color: var(--av-vinho-700);
+    font-weight: 700;
+}
+
+.av-nota:has(input:focus-visible),
+.av-botao:focus-visible,
+textarea:focus-visible,
+.av-chip:has(input:focus-visible) {
+    outline: 3px solid var(--av-vinho-600);
+    outline-offset: 2px;
+}
+
+/* Categorias */
+.av-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+}
+
+.av-chip {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.375rem;
+    padding: 0.375rem 0.75rem;
+    border: 2px solid var(--av-borda);
+    border-radius: 999px;
+    cursor: pointer;
+    font-size: 0.9rem;
+}
+
+.av-chip input {
+    position: absolute;
+    opacity: 0;
+    inset: 0;
+    margin: 0;
+    cursor: pointer;
+}
+
+.av-chip:has(input:checked) {
+    border-color: var(--av-verde-700);
+    background: #eef6e6;
+    color: var(--av-verde-700);
+    font-weight: 700;
+}
+
+.av-campo label {
+    display: block;
+    margin-bottom: 0.25rem;
+    font-weight: 700;
+}
+
+textarea {
+    width: 100%;
+    padding: 0.625rem;
+    border: 2px solid var(--av-borda);
+    border-radius: 10px;
+    font: inherit;
+    resize: vertical;
+}
+
+.av-contador {
+    margin: 0.25rem 0 0;
+    text-align: right;
+    font-size: 0.8rem;
+    color: var(--av-texto-suave);
+}
+
+.av-erro {
+    margin: 0 0 0.75rem;
+    padding: 0.5rem 0.75rem;
+    border-left: 4px solid var(--av-vinho-600);
+    border-radius: 6px;
+    background: #fdf2f1;
+    color: var(--av-vinho-700);
+}
+
+.av-botao {
+    display: inline-block;
+    width: 100%;
+    padding: 0.875rem 1.5rem;
+    border: 0;
+    border-radius: 10px;
+    background: var(--av-vinho-600);
+    color: #fff;
+    font: inherit;
+    font-weight: 700;
+    text-align: center;
+    text-decoration: none;
+    cursor: pointer;
+}
+
+.av-botao:hover {
+    background: var(--av-vinho-700);
+}
+
+.av-botao:disabled {
+    opacity: 0.6;
+    cursor: wait;
+}
+
+.av-rodape {
+    margin-top: 1rem;
+    color: #fff;
+    font-size: 0.8rem;
+    text-align: center;
+    opacity: 0.9;
+}
+
+@media (max-width: 420px) {
+    .av-notas-lista {
+        grid-template-columns: repeat(5, 1fr);
+        gap: 0.25rem;
+    }
+
+    .av-nota-texto {
+        font-size: 0.6rem;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    * {
+        transition: none !important;
+        animation: none !important;
+    }
+}

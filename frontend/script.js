@@ -326,6 +326,7 @@ function mostrarSecao(secaoId) {
         'registro-atividades': 'btn-nav-registro-atividades',
         'meu-painel': 'btn-nav-meu-painel',
         'atividades': 'btn-nav-atividades',
+        'satisfacao': 'btn-nav-satisfacao',
         'ajuda': 'btn-nav-ajuda',
         'config': 'btn-nav-config'
     };
@@ -1010,6 +1011,10 @@ function aplicarVisibilidadePorPapel(tipo) {
     const itemAcomp = document.getElementById('nav-atividades-item');
     if (itemAcomp) itemAcomp.hidden = !(Papeis.administraSetor(perfil) || Papeis.visaoTotal(perfil));
 
+    // Módulo Satisfação: admin, coordenador geral, supervisor e coordenador
+    const itemSatisfacao = document.getElementById('nav-satisfacao-item');
+    if (itemSatisfacao) itemSatisfacao.hidden = !Papeis.veSatisfacao(perfil);
+
     // Meu Painel: só quem o METRICA360 reconhece com atendimento externo (consulta assíncrona)
     if (typeof verificarAcessoMeuPainel === 'function') verificarAcessoMeuPainel();
 
@@ -1025,7 +1030,7 @@ function aplicarVisibilidadePorPapel(tipo) {
         menuConfigWrapper.style.display = '';
         // Gestor e coordenador: Usuários, Categorias, Ativação por Setor, Horários e Feriados e Personalização
         // (somente leitura). Setores, Configurar e-mail e Auditoria são exclusivos do admin.
-        const itensAdminApenas = ['btn-config-setores', 'btn-config-email', 'btn-config-auditoria'];
+        const itensAdminApenas = ['btn-config-setores', 'btn-config-email', 'btn-config-auditoria', 'btn-config-pesquisa'];
         itensAdminApenas.forEach(id => {
             const el = document.getElementById(id);
             if (el) el.style.display = 'none';
@@ -1109,6 +1114,8 @@ function restaurarSecaoAtiva() {
         restaurarMeuPainel();
     } else if (secaoSalva === 'atividades' && podeAcompanharAtividades()) {
         mostrarAcompanhamentoAtividades(subSecaoSalva);
+    } else if (secaoSalva === 'satisfacao' && podeVerSatisfacao()) {
+        mostrarSatisfacao(subSecaoSalva);
     } else if (secaoSalva === 'sobre') {
         mostrarSobre();
     } else if (secaoSalva === 'ajuda') {
@@ -1164,6 +1171,8 @@ function restaurarSecaoAtiva() {
                 mostrarFiltrosEmail();
             } else if (subSecaoSalva === 'atividades') {
                 mostrarAtividadesConfig();
+            } else if (subSecaoSalva === 'pesquisa-config') {
+                mostrarPesquisaConfig();
             } else if (subSecaoSalva === 'auditoria') {
                 mostrarAuditoria();
             } else if (subSecaoSalva === 'horarios-sla') {

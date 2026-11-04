@@ -1,0 +1,391 @@
+/*
+ * Módulo Satisfação (avaliações, Painel de Setores, convites e configuração). Só tokens de style.css;
+ * modo escuro por body.modo-escuro. Sem estilo inline no HTML: larguras e alturas de barras vêm de data-* e
+ * são aplicadas por satisfacao.js.
+ */
+#satisfacao,
+#satisfacao-conteudo {
+    --sat-raio: 10px;
+}
+
+.sat-aviso,
+.sat-vazio {
+    color: var(--neutro-600);
+}
+
+.sat-aviso {
+    padding: 1rem 0;
+}
+
+.sat-frase {
+    margin: 0 0 1rem;
+    padding: 0.75rem 1rem;
+    border-left: 4px solid var(--laranja-500);
+    border-radius: 0 var(--sat-raio) var(--sat-raio) 0;
+    background: var(--laranja-50);
+    color: var(--neutro-800);
+    font-style: italic;
+}
+
+.sat-frase footer {
+    margin-top: 0.25rem;
+    font-size: 0.85rem;
+    font-style: normal;
+    color: var(--neutro-600);
+}
+
+/* Indicadores */
+.sat-kpis {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(9.5rem, 1fr));
+    gap: 0.75rem;
+    margin-bottom: 1.25rem;
+}
+
+.sat-kpi {
+    display: flex;
+    flex-direction: column;
+    gap: 0.125rem;
+    padding: 0.75rem 1rem;
+    border: 1px solid var(--neutro-200);
+    border-top: 3px solid var(--vinho-600);
+    border-radius: var(--sat-raio);
+    background: var(--neutro-50);
+}
+
+.sat-kpi strong {
+    font-size: 1.6rem;
+    line-height: 1.2;
+    color: var(--neutro-900);
+}
+
+.sat-kpi span {
+    font-size: 0.85rem;
+    color: var(--neutro-600);
+}
+
+.sat-tendencia,
+.sat-meta {
+    font-size: 0.75rem;
+}
+
+.sat-sobe { color: var(--verde-700); }
+.sat-desce { color: var(--vinho-700); }
+.sat-igual,
+.sat-meta { color: var(--neutro-600); }
+
+/* Blocos */
+.sat-bloco {
+    margin-bottom: 1.5rem;
+    padding: 1rem;
+    border: 1px solid var(--neutro-200);
+    border-radius: var(--sat-raio);
+    background: var(--neutro-50);
+}
+
+.sat-bloco-topo {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 0.5rem;
+    margin-bottom: 0.75rem;
+}
+
+.sat-bloco h3,
+.sat-bloco h4 {
+    margin: 0;
+    color: var(--vinho-700);
+}
+
+.sat-periodos {
+    display: inline-flex;
+    gap: 0.25rem;
+}
+
+.sat-ativo {
+    background: var(--vinho-600);
+    border-color: var(--vinho-600);
+    color: #fff;
+}
+
+.sat-grafico {
+    display: block;
+    max-width: 100%;
+}
+
+/* Categorias */
+.sat-cat-grade {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr));
+    gap: 1.25rem;
+}
+
+.sat-cat-linha {
+    display: grid;
+    grid-template-columns: minmax(7rem, 1.2fr) 2fr auto;
+    align-items: center;
+    gap: 0.5rem;
+    margin-top: 0.5rem;
+}
+
+.sat-barra {
+    display: block;
+    height: 0.6rem;
+    border-radius: 999px;
+    background: var(--neutro-200);
+    overflow: hidden;
+}
+
+.sat-barra i {
+    display: block;
+    height: 100%;
+    border-radius: 999px;
+}
+
+.sat-barra-boa { background: var(--verde-500); }
+.sat-barra-ruim { background: var(--vinho-600); }
+
+/* Filtros */
+.sat-filtros {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-end;
+    gap: 0.75rem;
+    margin-bottom: 1rem;
+}
+
+.sat-filtros label {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+    font-size: 0.85rem;
+    color: var(--neutro-800);
+}
+
+.sat-busca {
+    flex: 1 1 14rem;
+}
+
+/* Tabelas */
+.sat-tabela-rolagem {
+    overflow-x: auto;
+}
+
+.sat-tabela {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.sat-tabela th,
+.sat-tabela td {
+    padding: 0.5rem 0.625rem;
+    border-bottom: 1px solid var(--neutro-200);
+    text-align: left;
+    vertical-align: top;
+}
+
+.sat-tabela thead th {
+    background: var(--neutro-100);
+    border-bottom: 2px solid var(--vinho-600);
+    font-size: 0.8rem;
+    text-transform: uppercase;
+    letter-spacing: 0.02em;
+}
+
+.sat-comentario p {
+    margin: 0 0 0.25rem;
+}
+
+.sat-anotacao {
+    padding: 0.25rem 0.5rem;
+    border-left: 3px solid var(--laranja-500);
+    background: var(--laranja-50);
+    font-size: 0.85rem;
+}
+
+.sat-estrelas {
+    color: var(--laranja-texto);
+    letter-spacing: 1px;
+    white-space: nowrap;
+}
+
+.sat-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.25rem;
+}
+
+.sat-chip {
+    padding: 0.0625rem 0.5rem;
+    border-radius: 999px;
+    background: var(--neutro-100);
+    font-size: 0.75rem;
+}
+
+.sat-selo {
+    display: inline-block;
+    padding: 0.0625rem 0.5rem;
+    border-radius: 999px;
+    font-size: 0.75rem;
+    font-weight: 600;
+}
+
+.sat-selo-avaliado { background: var(--verde-50); color: var(--verde-700); }
+.sat-selo-aguardando { background: var(--laranja-50); color: var(--laranja-texto); }
+.sat-selo-expirado { background: var(--neutro-100); color: var(--neutro-600); }
+
+.sat-destaque {
+    padding: 0 0.375rem;
+    border-radius: 999px;
+    background: var(--laranja-100);
+    color: var(--laranja-texto);
+    font-size: 0.7rem;
+    white-space: nowrap;
+}
+
+/* Minigráfico dos últimos 6 meses */
+.sat-mini {
+    display: inline-flex;
+    align-items: flex-end;
+    gap: 2px;
+    height: 1.5rem;
+}
+
+.sat-mini i {
+    display: block;
+    width: 6px;
+    min-height: 2px;
+    background: var(--vinho-600);
+    border-radius: 1px;
+}
+
+.sat-paginacao {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 1rem;
+    margin-top: 1rem;
+}
+
+.sat-rodape {
+    font-size: 0.8rem;
+    color: var(--neutro-600);
+}
+
+/* Configuração (satisfacao-config.js) */
+.satcfg-grade {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr));
+    gap: 0.75rem 1rem;
+}
+
+.satcfg-campo {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+    font-size: 0.9rem;
+}
+
+.satcfg-campo small {
+    color: var(--neutro-600);
+}
+
+.satcfg-linha {
+    display: grid;
+    grid-template-columns: 4rem 1fr auto auto;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.375rem 0;
+    border-bottom: 1px solid var(--neutro-200);
+}
+
+.satcfg-linha-frase {
+    grid-template-columns: 1fr 12rem auto auto;
+}
+
+.satcfg-acoes {
+    display: inline-flex;
+    gap: 0.25rem;
+}
+
+.satcfg-nova {
+    margin-top: 0.75rem;
+}
+
+/* Modo escuro */
+body.modo-escuro .sat-kpi,
+body.modo-escuro .sat-bloco {
+    background: var(--neutro-900);
+    border-color: var(--neutro-600);
+}
+
+body.modo-escuro .sat-kpi strong,
+body.modo-escuro .sat-filtros label {
+    color: var(--neutro-50);
+}
+
+body.modo-escuro .sat-bloco h3,
+body.modo-escuro .sat-bloco h4 {
+    color: var(--laranja-500);
+}
+
+body.modo-escuro .sat-tabela thead th,
+body.modo-escuro .sat-chip {
+    background: var(--neutro-800);
+    color: var(--neutro-50);
+}
+
+body.modo-escuro .sat-tabela th,
+body.modo-escuro .sat-tabela td,
+body.modo-escuro .satcfg-linha {
+    border-color: var(--neutro-600);
+}
+
+body.modo-escuro .sat-frase,
+body.modo-escuro .sat-anotacao {
+    background: var(--neutro-800);
+    color: var(--neutro-50);
+}
+
+/* Celular: tabelas viram cartões empilhados */
+@media (max-width: 640px) {
+    .sat-tabela thead {
+        position: absolute;
+        width: 1px;
+        height: 1px;
+        overflow: hidden;
+        clip: rect(0 0 0 0);
+    }
+
+    .sat-tabela tr {
+        display: block;
+        margin-bottom: 0.75rem;
+        border: 1px solid var(--neutro-200);
+        border-radius: var(--sat-raio);
+    }
+
+    .sat-tabela td,
+    .sat-tabela th[scope="row"] {
+        display: block;
+        border-bottom: 0;
+    }
+
+    .sat-tabela td[data-label]::before {
+        content: attr(data-label) ": ";
+        font-weight: 600;
+        color: var(--neutro-600);
+    }
+
+    .satcfg-linha,
+    .satcfg-linha-frase {
+        grid-template-columns: 1fr;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    #satisfacao * {
+        transition: none !important;
+        animation: none !important;
+    }
+}

@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="robots" content="noindex, nofollow">
+    <meta name="referrer" content="no-referrer">
+    <meta name="description" content="Pesquisa de satisfação do Conselho Regional de Psicologia do RS.">
+    <title>Pesquisa de satisfação - CRPRS</title>
+    <link rel="icon" type="image/png" href="images/logo_vazado.png">
+    <!-- Configuração de deploy (base da API) -->
+    <script src="app-config.js?v=c1"></script>
+    <link rel="stylesheet" href="avaliar.css?v=1">
+    <script src="avaliar.js?v=1" defer></script>
+</head>
+
+<body>
+    <main class="av-pagina">
+        <header class="av-topo">
+            <img src="images/logo_vazado.png" alt="" width="72" height="72">
+            <p class="av-instituicao">Conselho Regional de Psicologia do RS</p>
+            <h1>Pesquisa de satisfação</h1>
+        </header>
+
+        <section id="av-carregando" class="av-cartao" role="status" aria-live="polite">
+            <p>Carregando...</p>
+        </section>
+
+        <!-- Link inválido, vencido ou já usado -->
+        <section id="av-aviso" class="av-cartao" role="alert" hidden>
+            <h2 id="av-aviso-titulo"></h2>
+            <p id="av-aviso-texto"></p>
+        </section>
+
+        <!-- Formulário -->
+        <section id="av-formulario" class="av-cartao" hidden>
+            <p class="av-intro">Como foi o seu atendimento? Leva menos de 1 minuto.</p>
+            <form id="av-form" novalidate>
+                <fieldset class="av-notas">
+                    <legend>Sua nota</legend>
+                    <div class="av-notas-lista">
+                        <label class="av-nota"><input type="radio" name="nota" value="1"><span class="av-nota-estrela" aria-hidden="true">★</span><span class="av-nota-texto">1 — Muito ruim</span></label>
+                        <label class="av-nota"><input type="radio" name="nota" value="2"><span class="av-nota-estrela" aria-hidden="true">★</span><span class="av-nota-texto">2 — Ruim</span></label>
+                        <label class="av-nota"><input type="radio" name="nota" value="3"><span class="av-nota-estrela" aria-hidden="true">★</span><span class="av-nota-texto">3 — Regular</span></label>
+                        <label class="av-nota"><input type="radio" name="nota" value="4"><span class="av-nota-estrela" aria-hidden="true">★</span><span class="av-nota-texto">4 — Bom</span></label>
+                        <label class="av-nota"><input type="radio" name="nota" value="5"><span class="av-nota-estrela" aria-hidden="true">★</span><span class="av-nota-texto">5 — Excelente</span></label>
+                    </div>
+                </fieldset>
+
+                <div id="av-detalhes" hidden>
+                    <fieldset id="av-categorias-grupo" class="av-categorias" hidden>
+                        <legend>O que você quer destacar? <small>(opcional)</small></legend>
+                        <div id="av-categorias" class="av-chips"></div>
+                    </fieldset>
+
+                    <div class="av-campo">
+                        <label for="av-comentario">Comentário <small>(opcional)</small></label>
+                        <textarea id="av-comentario" name="comentario" rows="4" maxlength="1000" aria-describedby="av-contador"></textarea>
+                        <p id="av-contador" class="av-contador">0 / 1000</p>
+                    </div>
+
+                    <p id="av-erro" class="av-erro" role="alert" hidden></p>
+                    <button type="submit" id="av-enviar" class="av-botao">Enviar avaliação</button>
+                </div>
+            </form>
+        </section>
+
+        <!-- Agradecimento -->
+        <section id="av-obrigado" class="av-cartao" role="status" aria-live="polite" hidden>
+            <h2 id="av-obrigado-titulo"></h2>
+            <p id="av-obrigado-texto"></p>
+            <p id="av-google" hidden>
+                <a id="av-google-link" class="av-botao" href="#" target="_blank" rel="noopener noreferrer">Avaliar também no Google</a>
+            </p>
+        </section>
+
+        <footer class="av-rodape">
+            <p>Esta pesquisa é anônima para o público: não guardamos seu endereço de IP nem o seu navegador.
+                Seu comentário é lido apenas pela equipe do CRPRS.</p>
+        </footer>
+    </main>
+</body>
+
+</html>
