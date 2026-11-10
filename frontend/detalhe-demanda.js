@@ -386,7 +386,7 @@ function mostrarDetalhesTicket(ticket) {
     } else if (ticket.somente_leitura) {
         faixaAviso = `<div class="faixa-aviso-demanda" role="status">👁️ Você pode acompanhar esta demanda e comentar, mas só o responsável ou a gestão do setor altera status, prioridade e responsável.</div>`;
     } else {
-        botoesTopo = `${ticket.status === 'encerrado' || ticket.status === 'fechado' ?
+        botoesTopo = `${(ticket.status === 'encerrado' || ticket.status === 'fechado') && !ticket.mesclada_em ?
             `<button class="btn-reabrir" onclick="reabrirTicket(${ticket.id})" style="margin-left: 1rem; background-color: #28a745;">🔄 Reabrir</button>` : ''}
             <button class="btn-excluir" onclick="excluirTicket(${ticket.id})" style="margin-left: 1rem; background-color: var(--vermelho);">🗑️ Excluir</button>`;
     }
@@ -690,7 +690,10 @@ function atualizarAssinaturaPrevia() {
         return;
     }
     const setorDemanda = editor.dataset.setorDemanda || '';
-    const setor = usuario.tipo === 'admin' ? setorDemanda : (usuario.setor_nome || setorDemanda);
+    // Admin e coordenador (vários setores) assinam pelo setor da demanda; os demais, pelo próprio setor
+    const setor = ['admin', 'coordenador'].includes(usuario.tipo)
+        ? (setorDemanda || usuario.setor_nome || '')
+        : (usuario.setor_nome || setorDemanda);
     if (!previa) {
         previa = document.createElement('div');
         previa.className = 'assinatura-previa';
@@ -1094,6 +1097,7 @@ function validarAntesComentario(ticketId) {
 
 
 // Função para enviar comentário e fechar ticket
+// Mesmas conferências e avisos do "Adicionar Comentário"; só encerra depois que o comentário foi gravado.
 function enviarEFecharTicket(ticketId) {
     // Sincroniza o Quill com o input hidden antes de ler o valor
     if (window.quillComentario) {
@@ -1107,17 +1111,23 @@ function enviarEFecharTicket(ticketId) {
         mostrarAlert('Atenção', 'Por favor, adicione um comentário antes de fechar a demanda.');
         return;
     }
-    mostrarConfirm('Enviar e Fechar Demanda', 'Deseja adicionar o comentário e encerrar esta demanda?', function (confirmado) {
+    if (!validarAntesComentario(ticketId)) {
+        return;
+    }
+    mostrarConfirm('Enviar e Fechar Demanda', 'Deseja adicionar o comentário e encerrar esta demanda?', async function (confirmado) {
         if (!confirmado) return;
 
         // Evita duplo envio enquanto a requisição está em andamento
         const btnAdicionarForm = document.getElementById('btn-adicionar-comentario');
         const btnEnviarFechar = document.getElementById('btn-enviar-fechar');
         if (btnEnviarFechar?.disabled) return;
+        const liberarBotoes = () => {
+            if (btnAdicionarForm) btnAdicionarForm.disabled = false;
+            if (btnEnviarFechar) btnEnviarFechar.disabled = false;
+        };
         if (btnAdicionarForm) btnAdicionarForm.disabled = true;
         if (btnEnviarFechar) btnEnviarFechar.disabled = true;
 
-        mostrarLoader();
         const formData = new FormData();
         formData.append('comentario', comentario);
         formData.append('ticket_id', ticketId);
@@ -1130,45 +1140,62 @@ function enviarEFecharTicket(ticketId) {
             if (comCopia) formData.append('com_copia', comCopia);
         }
         // Usar o array acumulado (o input é limpo após validação, então .files estaria vazio)
-        if (anexosComentarioSelecionados.length > 0) {
-            anexosComentarioSelecionados.forEach(arquivo => {
-                formData.append('anexos[]', arquivo);
+        anexosComentarioSelecionados.forEach(arquivo => formData.append('anexos[]', arquivo));
+
+        mostrarLoader();
+        let data;
+        try {
+            const resposta = await fetch(window.APP_CONFIG.apiBase + 'comentarios.php', {
+                method: 'POST',
+                headers: getAuthHeaders(), // X-CSRF-Token (a sessão vai no cookie)
+                body: formData
             });
-        }
-        const xhr = new XMLHttpRequest();
-        xhr.open('POST', window.APP_CONFIG.apiBase + 'comentarios.php', true);
-        setSecurityHeaders(xhr);
-        xhr.onload = function () {
-            if (xhr.status === 200) {
-                const usuarioLogado = JSON.parse(localStorage.getItem('cd_usuario'));
-                executarAlteracaoStatus(ticketId, 'encerrado', function () {
-                    ocultarLoader();
-                    mostrarToast('Sucesso', 'Comentário adicionado e demanda encerrada!', 'success');
-                    setTimeout(() => {
-                        if (secaoOrigem === 'fechados') {
-                            mostrarTicketsFechados();
-                        } else {
-                            mostrarTicketsComAtualizacao();
-                        }
-                    }, 500);
-                });
-            } else {
+            data = await resposta.json().catch(() => ({}));
+            if (!resposta.ok) {
                 ocultarLoader();
-                if (btnAdicionarForm) btnAdicionarForm.disabled = false;
-                if (btnEnviarFechar) btnEnviarFechar.disabled = false;
-                mostrarAlert('Erro', 'Erro ao adicionar comentário');
+                liberarBotoes();
+                mostrarAlert('Erro', data.error || 'Não foi possível adicionar o comentário. A demanda não foi encerrada.');
+                return;
             }
-        };
-        xhr.onerror = function () {
+        } catch (e) {
             ocultarLoader();
-            if (btnAdicionarForm) btnAdicionarForm.disabled = false;
-            if (btnEnviarFechar) btnEnviarFechar.disabled = false;
-            mostrarAlert('Erro', 'Erro de conexão ao adicionar comentário');
-        };
-        xhr.send(formData);
+            liberarBotoes();
+            mostrarAlert('Erro', 'Não foi possível conectar ao servidor. O comentário não foi enviado e a demanda não foi encerrada.');
+            return;
+        }
+
+        // O comentário já está gravado: o formulário é limpo para não reenviá-lo
+        document.getElementById('novo-comentario').value = '';
+        if (window.quillComentario) window.quillComentario.root.innerHTML = '';
+        anexosComentarioSelecionados = [];
+        if (typeof atualizarListaAnexosComentario === 'function') atualizarListaAnexosComentario();
+        avisarAnexosRecusados(data.anexos_recusados);
+        const emailFalhou = enviarEmail && data.email_enviado === false;
+
+        const encerrou = await executarAlteracaoStatus(ticketId, 'encerrado', () => {}, {
+            semToast: true,
+            mensagemErro: 'O comentário foi salvo, mas a demanda não foi encerrada:'
+        });
+        if (!encerrou) {
+            liberarBotoes();
+            verDetalhes(ticketId); // mostra o comentário que foi gravado
+            return;
+        }
+
+        if (emailFalhou) {
+            mostrarAlert('Atenção', 'A demanda foi encerrada, mas o e-mail com o comentário NÃO foi enviado ao solicitante. Verifique o endereço do solicitante e a configuração de e-mail do setor.');
+        } else {
+            mostrarToast('Sucesso', 'Comentário adicionado e demanda encerrada!', 'success');
+        }
+        setTimeout(() => {
+            if (secaoOrigem === 'fechados') {
+                mostrarTicketsFechados();
+            } else {
+                mostrarTicketsComAtualizacao();
+            }
+        }, 500);
     }, true);
 }
-
 // Caixas de comentário/descrição: têm altura máxima de 200 px, mas podem ser aumentadas arrastando o
 // canto inferior direito. O navegador não deixa passar do max-height, então, ao segurar o canto,
 // o limite é solto e a altura atual vira altura fixa (a partir daí o arraste cresce livremente).

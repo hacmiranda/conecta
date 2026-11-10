@@ -15,6 +15,7 @@ require_once __DIR__ . '/../services/auditoria-service.php';
 require_once __DIR__ . '/../services/lembrete-service.php';
 require_once __DIR__ . '/../services/protocolo-service.php';
 require_once __DIR__ . '/../services/demanda-service.php';
+require_once __DIR__ . '/../services/catalogo-service.php';
 
 AuthMiddleware::configurarCORS(['POST']);
 
@@ -62,7 +63,7 @@ if ($comentario_texto === '') {
 }
 
 try {
-    $ticket_stmt = $db->prepare("SELECT id, setor_id, agente_id, status, usuario_id, categoria_id, excluido_em FROM tickets WHERE id = ?");
+    $ticket_stmt = $db->prepare("SELECT id, setor_id, agente_id, status, prioridade, usuario_id, categoria_id, excluido_em FROM tickets WHERE id = ?");
     $ticket_stmt->execute([$ticket_id]);
     $ticket = $ticket_stmt->fetch(PDO::FETCH_ASSOC);
 
@@ -278,6 +279,22 @@ try {
         }
         $upd = $db->prepare("UPDATE tickets SET setor_id = :setor_id, agente_id = NULL, atribuido_em = NULL, categoria_id = NULL WHERE id = :id");
         $upd->execute([':setor_id' => $setor_destino_id, ':id' => $ticket_id]);
+
+        // Status e prioridade precisam estar ativos no setor de destino; senão a demanda chega como
+        // "novo" (status do sistema, sempre ativo) e com a prioridade normal (ou a primeira ativa de lá)
+        if (!CatalogoService::statusPermitido($db, (string) $ticket['status'], $setor_destino_id)) {
+            DemandaService::mudarStatus($db, (int) $ticket_id, 'novo', (int) $user['id'], ['resposta_da_equipe' => false]);
+        }
+        if (!CatalogoService::prioridadePermitida($db, (string) $ticket['prioridade'], $setor_destino_id)) {
+            $nova_prioridade = CatalogoService::prioridadePermitida($db, 'normal', $setor_destino_id)
+                ? 'normal' : CatalogoService::primeiraPrioridadeAtiva($db, $setor_destino_id);
+            if ($nova_prioridade !== null && $nova_prioridade !== $ticket['prioridade']) {
+                $db->prepare("UPDATE tickets SET prioridade = ? WHERE id = ?")->execute([$nova_prioridade, $ticket_id]);
+                $db->prepare("INSERT INTO ticket_historico (ticket_id, usuario_id, acao, valor_anterior, valor_novo) VALUES (?, ?, 'prioridade', ?, ?)")
+                   ->execute([$ticket_id, $user['id'], $ticket['prioridade'], $nova_prioridade]);
+                $auditoria->registrarTicket($ticket_id, $user['id'], 'prioridade', $ticket['prioridade'], $nova_prioridade);
+            }
+        }
 
         // Lembretes direcionados a pessoas do setor de origem deixam de valer
         LembreteService::cancelarPendentes($db, $ticket_id, 'Demanda transferida para o setor ' . $setor_destino['nome'], true);

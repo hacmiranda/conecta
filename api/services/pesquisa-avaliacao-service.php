@@ -58,7 +58,9 @@ class PesquisaAvaliacaoService {
     }
 
     /**
-     * Grava a avaliação. Nota 3 ou mais entra como "resolvido"; 1 e 2 ficam "pendente" para a triagem.
+     * Grava a avaliação. Notas 4 e 5 entram como "resolvido"; 1, 2 e 3 ficam "pendente" para a triagem
+     * (a página diz ao cidadão, de 1 a 3, que a avaliação será analisada; decisão de 10/11/2026).
+     * O alerta por e-mail continua só para 1 e 2.
      *
      * @param int[] $categoriaIds
      * @param callable|null $notificar (avaliacaoId, nota, comentario, usuarioId, setorId): void — troca o alerta nos testes
@@ -85,7 +87,7 @@ class PesquisaAvaliacaoService {
             }
 
             $db->prepare("INSERT INTO pesquisa_avaliacoes (convite_id, nota, comentario, status) VALUES (?, ?, ?, ?)")
-               ->execute([$convite['id'], $nota, $comentario !== '' ? $comentario : null, $nota >= 3 ? 'resolvido' : 'pendente']);
+               ->execute([$convite['id'], $nota, $comentario !== '' ? $comentario : null, $nota >= 4 ? 'resolvido' : 'pendente']);
             $avaliacaoId = (int) $db->lastInsertId();
 
             // Só categorias que existem e estão ativas

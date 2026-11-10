@@ -27,7 +27,6 @@ AuthMiddleware::verificarAdmin($user); // log de e-mails: exclusivo do administr
 $database = new Database();
 $db = $database->getConnection();
 
-$ehGestor = ($user['tipo'] ?? '') === 'gestor';
 $pagina = isset($_GET['pagina']) ? max(1, (int) $_GET['pagina']) : 1;
 $limite = isset($_GET['limite']) ? min(200, max(1, (int) $_GET['limite'])) : 50;
 $offset = ($pagina - 1) * $limite;
@@ -35,10 +34,7 @@ $offset = ($pagina - 1) * $limite;
 $filtros = [];
 $params = [];
 
-if ($ehGestor) {
-    $filtros[] = "se.setor_id = :setor_id_escopo";
-    $params[':setor_id_escopo'] = $user['setor_id'] ?? 0;
-} elseif (isset($_GET['setor_id']) && $_GET['setor_id'] !== '') {
+if (isset($_GET['setor_id']) && $_GET['setor_id'] !== '') {
     $filtros[] = "se.setor_id = :setor_id_filtro";
     $params[':setor_id_filtro'] = (int) $_GET['setor_id'];
 }

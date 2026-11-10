@@ -14,7 +14,8 @@ require_once __DIR__ . '/notificacao-email-service.php';
 require_once __DIR__ . '/log-service.php';
 
 use PHPMailer\PHPMailer\PHPMailer;
-use PHPMailer\PHPMailer\Exception;
+// Sem "use PHPMailer\PHPMailer\Exception": com ele, todo catch (Exception) deste arquivo pegava só a
+// exceção do PHPMailer, e um erro do banco ou da cifra da caixa escapava. Os catch usam \Throwable.
 
 class EmailSender {
     private $db;
@@ -79,7 +80,7 @@ class EmailSender {
             if ($ticketId) {
                 try {
                     $bloco = EmailHistorico::bloco($this->db, $ticketId, $excluirComentarioId);
-                } catch (Exception $e) {
+                } catch (Throwable $e) {
                     error_log('[EMAIL-SENDER] Histórico da demanda indisponível: ' . $e->getMessage());
                 }
             }
@@ -186,7 +187,7 @@ class EmailSender {
                         'nome'      => !empty($caixa['nome_remetente']) ? $caixa['nome_remetente'] : 'Conecta CRPRS - ' . $caixa['setor_nome'],
                     ];
                 }
-            } catch (Exception $e) {
+            } catch (Throwable $e) {
                 // Cai no remetente global; o motivo fica no log (sem credenciais)
                 error_log('[EMAIL-SENDER] Caixa do setor ' . $setorId . ' indisponível, usando remetente global: ' . $e->getMessage());
                 $this->remetenteSetor = null;
@@ -206,7 +207,7 @@ class EmailSender {
             $stmt->execute([(int) $ticket_id]);
             $valor = $stmt->fetchColumn();
             $setorId = $valor ? (int) $valor : null;
-        } catch (Exception $e) {
+        } catch (Throwable $e) {
             error_log('[EMAIL-SENDER] Erro ao localizar o setor da demanda: ' . $e->getMessage());
         }
         $this->usarRemetenteDoSetor($setorId);
@@ -302,7 +303,7 @@ class EmailSender {
             error_log("[EMAIL-SENDER] Resultado: " . ($resultado ? "SUCESSO" : "FALHA"));
             return $resultado;
             
-        } catch (Exception $e) {
+        } catch (Throwable $e) {
             error_log('[EMAIL-SENDER] Erro: ' . $e->getMessage());
             return false;
         }
@@ -367,7 +368,7 @@ class EmailSender {
             
             return $enviados > 0;
             
-        } catch (Exception $e) {
+        } catch (Throwable $e) {
             error_log('Erro ao notificar agentes: ' . $e->getMessage());
             return false;
         }
@@ -411,7 +412,7 @@ class EmailSender {
             $this->mailer->clearAddresses();
             $this->mailer->clearAttachments();
             return $resultado;
-        } catch (Exception $e) {
+        } catch (Throwable $e) {
             $erro = $e->getMessage();
             error_log('Erro ao enviar email com anexos: ' . $erro);
             return false;
@@ -491,7 +492,7 @@ class EmailSender {
             ]);
             $this->logContext = ['ticket_id' => null, 'tipo' => null];
             return true;
-        } catch (Exception $e) {
+        } catch (Throwable $e) {
             error_log('[EMAIL-FILA] Não foi possível enfileirar, enviando na hora: ' . $e->getMessage());
             return $this->enviarAgora($para, $assunto, $corpo, $html, $anexos);
         }
@@ -536,7 +537,7 @@ class EmailSender {
             // Resetar contexto após registrar
             $this->logContext = ['ticket_id' => null, 'tipo' => null];
 
-        } catch (Exception $e) {
+        } catch (Throwable $e) {
             // Log de fallback no arquivo caso o banco falhe
             error_log("[EMAIL-LOG] Falha ao registrar log no banco: " . $e->getMessage());
             error_log("[EMAIL-LOG] $status | Para: $destinatario | Assunto: $assunto | Erro: $erro");
@@ -568,7 +569,7 @@ class EmailSender {
             $resultado = $mail->send();
             $status    = $resultado ? 'sucesso' : 'falha';
             return $resultado;
-        } catch (Exception $e) {
+        } catch (Throwable $e) {
             $erro = $e->getMessage();
             error_log('[EMAIL] ERRO ao enviar para ' . LogService::mascararEmail((string) $para) . ': ' . $erro);
             return false;
@@ -602,7 +603,7 @@ class EmailSender {
                 error_log('[EMAIL] Falha ao enviar email para: ' . LogService::mascararEmail((string) $para));
             }
             return $resultado;
-        } catch (Exception $e) {
+        } catch (Throwable $e) {
             $erro = $e->getMessage();
             error_log('[EMAIL] Erro ao enviar email para ' . LogService::mascararEmail((string) $para) . ': ' . $erro);
             return false;
@@ -648,10 +649,11 @@ class EmailSender {
             $comentario_email = EmailTipografia::padronizar($comentario_email);
 
             // Assinatura de quem respondeu, dentro do card (só no e-mail; não fica gravada no comentário).
-            // Gestor/operador: o próprio setor (ou o da demanda, se vazio); admin, que não tem setor: o da demanda.
+            // Gestor/operador: o próprio setor (ou o da demanda, se vazio). Admin, que não tem setor, e
+            // coordenador, que responde em vários setores: o da demanda (ou, sem ele, o setor principal).
             if (in_array($dados['autor_tipo'] ?? '', ['admin', 'coordenador', 'gestor', 'operador'], true)) {
-                $setor_assinatura = $dados['autor_tipo'] === 'admin'
-                    ? (string) ($dados['demanda_setor'] ?? '')
+                $setor_assinatura = in_array($dados['autor_tipo'], ['admin', 'coordenador'], true)
+                    ? ((string) ($dados['demanda_setor'] ?? '') ?: (string) ($dados['autor_setor'] ?? ''))
                     : ((string) ($dados['autor_setor'] ?? '') ?: (string) ($dados['demanda_setor'] ?? ''));
                 $comentario_email .= EmailAssinaturaResposta::html((string) $dados['comentario_autor'], $setor_assinatura);
             }
@@ -674,7 +676,7 @@ class EmailSender {
                 $stmt_anexos = $this->db->prepare($query_anexos);
                 $stmt_anexos->execute([$comentario_id]);
                 $anexos = $stmt_anexos->fetchAll(PDO::FETCH_ASSOC);
-            } catch (Exception $e) {
+            } catch (Throwable $e) {
                 error_log('Erro ao buscar anexos: ' . $e->getMessage());
             }
 
@@ -703,7 +705,7 @@ class EmailSender {
 
             return (bool) $enviado;
             
-        } catch (Exception $e) {
+        } catch (Throwable $e) {
             error_log('Erro ao enviar comentário para solicitante: ' . $e->getMessage());
             return false;
         }
@@ -780,7 +782,7 @@ class EmailSender {
 
             return true;
             
-        } catch (Exception $e) {
+        } catch (Throwable $e) {
             error_log('Erro ao notificar novo comentário: ' . $e->getMessage());
             return false;
         }
@@ -844,7 +846,7 @@ class EmailSender {
             
             return $this->enviarEmail($email_remetente, $assunto, $template);
             
-        } catch (Exception $e) {
+        } catch (Throwable $e) {
             error_log('Erro ao confirmar comentário: ' . $e->getMessage());
             return false;
         }
@@ -922,7 +924,7 @@ class EmailSender {
             
             return true;
             
-        } catch (Exception $e) {
+        } catch (Throwable $e) {
             error_log('Erro ao notificar fechamento: ' . $e->getMessage());
             return false;
         }
@@ -960,7 +962,7 @@ class EmailSender {
             }
             
             return true;
-        } catch (Exception $e) {
+        } catch (Throwable $e) {
             error_log('Erro ao notificar reabertura: ' . $e->getMessage());
             return false;
         }
@@ -1004,7 +1006,7 @@ class EmailSender {
             $assunto = "🎫 [" . $rotulo . "] Demanda reaberta - " . $ticket['titulo'];
 
             return $this->enviarEmail($destino, $assunto, $template);
-        } catch (Exception $e) {
+        } catch (Throwable $e) {
             error_log('Erro ao notificar solicitante sobre reabertura: ' . $e->getMessage());
             return false;
         }
@@ -1052,7 +1054,7 @@ class EmailSender {
             
             return true;
             
-        } catch (Exception $e) {
+        } catch (Throwable $e) {
             error_log('Erro ao notificar atribuição: ' . $e->getMessage());
             return false;
         }
@@ -1097,7 +1099,7 @@ class EmailSender {
             
             return $this->enviarEmail(($ticket['email_solicitante'] ?: $ticket['usuario_email']), $assunto, $template);
             
-        } catch (Exception $e) {
+        } catch (Throwable $e) {
             error_log('Erro ao enviar primeira resposta: ' . $e->getMessage());
             return false;
         }
@@ -1126,7 +1128,7 @@ class EmailSender {
             }
 
             // Buscar dados do ticket e comentário
-            $q_ticket = "SELECT t.titulo, t.protocolo, c.comentario
+            $q_ticket = "SELECT t.titulo, t.protocolo, c.comentario, c.interno
                          FROM tickets t
                          LEFT JOIN comentarios c ON c.id = :comentario_id
                          WHERE t.id = :ticket_id";
@@ -1148,7 +1150,9 @@ class EmailSender {
                 $trecho .= '...';
             }
 
-            $assunto = "💬 Novo comentário na Demanda {$rotulo} - {$titulo}";
+            $ehNota = !empty($dados['interno']);
+            $assunto = ($ehNota ? "🔒 Nota interna na Demanda " : "💬 Novo comentário na Demanda ") . "{$rotulo} - {$titulo}";
+            $oQue = $ehNota ? 'uma <strong>nota interna</strong> (não enviada ao solicitante)' : 'um novo comentário';
 
             $e_nome = $this->esc($agente['nome']);
             $e_autor = $this->esc($autor_nome);
@@ -1163,7 +1167,7 @@ class EmailSender {
                 <div style='background: #f9f9f9; padding: 24px; border-radius: 0 0 8px 8px; border: 1px solid #e0e0e0;'>
                     <p style='margin: 0 0 12px 0;'>Olá, <strong>{$e_nome}</strong>!</p>
                     <p style='margin: 0 0 16px 0;'>
-                        O agente <strong>{$e_autor}</strong> adicionou um novo comentário na demanda
+                        O agente <strong>{$e_autor}</strong> adicionou {$oQue} na demanda
                         <strong>{$rotulo}</strong> que está atribuída a você.
                     </p>
                     <div style='background: #fff; border-left: 4px solid #e0a800; padding: 14px 18px; border-radius: 4px; margin-bottom: 20px;'>
@@ -1180,7 +1184,7 @@ class EmailSender {
 
             return $this->enviarEmail($agente['email'], $assunto, $html);
 
-        } catch (Exception $e) {
+        } catch (Throwable $e) {
             error_log('[EMAIL] Erro em notificarComentarioEntreAgentes: ' . $e->getMessage());
             return false;
         }
@@ -1194,7 +1198,7 @@ class EmailSender {
             $setor->execute([(int) $ticket_id]);
             $setorId = $setor->fetchColumn();
             DemandaService::marcarPrimeiraResposta($this->db, (int) $ticket_id, $setorId ? (int) $setorId : null);
-        } catch (Exception $e) {
+        } catch (Throwable $e) {
             error_log('[EMAIL] Erro ao registrar primeira resposta no SLA: ' . $e->getMessage());
         }
     }

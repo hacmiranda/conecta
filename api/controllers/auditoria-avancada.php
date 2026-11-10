@@ -15,9 +15,6 @@ try {
     $user = AuthMiddleware::verificarAuth();
     AuthMiddleware::verificarAdmin($user); // Auditoria: exclusiva de administradores
 
-    $ehGestor = ($user['tipo'] ?? '') === 'gestor';
-    $setorEscopo = $user['setor_id'] ?? 0;
-
     $database = new Database();
     $db = $database->getConnection();
 
@@ -31,12 +28,6 @@ try {
 
         $filtros = [];
         $params = [];
-
-        // Gestor só vê ações praticadas por gente do próprio setor; admin vê tudo
-        if ($ehGestor) {
-            $filtros[] = "a.usuario_id IN (SELECT id FROM usuarios WHERE setor_id = :setor_id_escopo)";
-            $params[':setor_id_escopo'] = $setorEscopo;
-        }
 
         if (isset($_GET['acao'])) {
             $filtros[] = "a.acao = :acao";
@@ -124,12 +115,6 @@ try {
             $filtrosTicket = [];
             $paramsTicket = [];
 
-            // Gestor só vê alterações de demandas do próprio setor; admin vê tudo
-            if ($ehGestor) {
-                $filtrosTicket[] = "t.setor_id = :setor_id_escopo";
-                $paramsTicket[':setor_id_escopo'] = $setorEscopo;
-            }
-
             if (isset($_GET['ticket_id'])) {
                 $filtrosTicket[] = "at.ticket_id = :ticket_id";
                 $paramsTicket[':ticket_id'] = $_GET['ticket_id'];
@@ -198,12 +183,6 @@ try {
             $filtrosLogin = [];
             $paramsLogin = [];
 
-            // Gestor só vê logins de gente do próprio setor; admin vê tudo
-            if ($ehGestor) {
-                $filtrosLogin[] = "al.usuario_id IN (SELECT id FROM usuarios WHERE setor_id = :setor_id_escopo)";
-                $paramsLogin[':setor_id_escopo'] = $setorEscopo;
-            }
-
             if (isset($_GET['usuario_id'])) {
                 $filtrosLogin[] = "al.usuario_id = :usuario_id";
                 $paramsLogin[':usuario_id'] = $_GET['usuario_id'];
@@ -263,28 +242,17 @@ try {
         
         // Estatísticas
         elseif ($tipo === 'estatisticas') {
-            // Gestor só vê estatísticas da gente/demandas do próprio setor; admin vê tudo
-            $filtroAcao = $ehGestor ? "WHERE usuario_id IN (SELECT id FROM usuarios WHERE setor_id = :setor_id_escopo)" : "";
-            $filtroAcaoA = $ehGestor ? "WHERE a.usuario_id IN (SELECT id FROM usuarios WHERE setor_id = :setor_id_escopo)" : "";
-            $filtroLogin = $ehGestor
-                ? "AND usuario_id IN (SELECT id FROM usuarios WHERE setor_id = :setor_id_escopo)"
-                : "";
-            $filtroTicketCampo = $ehGestor ? "WHERE t.setor_id = :setor_id_escopo" : "";
-
             // Ações por tipo
-            $queryAcoes = "SELECT acao, COUNT(*) as total FROM auditoria $filtroAcao GROUP BY acao ORDER BY total DESC";
+            $queryAcoes = "SELECT acao, COUNT(*) as total FROM auditoria GROUP BY acao ORDER BY total DESC";
             $stmtAcoes = $db->prepare($queryAcoes);
-            if ($ehGestor) $stmtAcoes->bindValue(':setor_id_escopo', $setorEscopo);
             $stmtAcoes->execute();
             $acoesPorTipo = $stmtAcoes->fetchAll(PDO::FETCH_ASSOC);
 
             // Ações por usuário
             $queryUsuarios = "SELECT u.nome, COUNT(*) as total FROM auditoria a
                              LEFT JOIN usuarios u ON a.usuario_id = u.id
-                             $filtroAcaoA
                              GROUP BY a.usuario_id ORDER BY total DESC LIMIT 10";
             $stmtUsuarios = $db->prepare($queryUsuarios);
-            if ($ehGestor) $stmtUsuarios->bindValue(':setor_id_escopo', $setorEscopo);
             $stmtUsuarios->execute();
             $acoesPorUsuario = $stmtUsuarios->fetchAll(PDO::FETCH_ASSOC);
 
@@ -293,20 +261,17 @@ try {
                            SUM(CASE WHEN acao = 'login_sucesso' THEN 1 ELSE 0 END) as sucessos,
                            SUM(CASE WHEN acao = 'login_falha' THEN 1 ELSE 0 END) as falhas
                            FROM auditoria_login
-                           WHERE criado_em >= DATE_SUB(NOW(), INTERVAL 30 DAY) $filtroLogin
+                           WHERE criado_em >= DATE_SUB(NOW(), INTERVAL 30 DAY)
                            GROUP BY DATE(criado_em) ORDER BY data DESC";
             $stmtLogins = $db->prepare($queryLogins);
-            if ($ehGestor) $stmtLogins->bindValue(':setor_id_escopo', $setorEscopo);
             $stmtLogins->execute();
             $loginsPorDia = $stmtLogins->fetchAll(PDO::FETCH_ASSOC);
 
             // Alterações de tickets por campo
             $queryTickets = "SELECT at.campo, COUNT(*) as total FROM auditoria_tickets at
                             LEFT JOIN tickets t ON at.ticket_id = t.id
-                            $filtroTicketCampo
                             GROUP BY at.campo ORDER BY total DESC";
             $stmtTickets = $db->prepare($queryTickets);
-            if ($ehGestor) $stmtTickets->bindValue(':setor_id_escopo', $setorEscopo);
             $stmtTickets->execute();
             $alteracoesPorCampo = $stmtTickets->fetchAll(PDO::FETCH_ASSOC);
             
@@ -324,7 +289,6 @@ try {
         $tipo = $_GET['tipo'] ?? 'geral';
 
         if ($tipo === 'geral') {
-            $filtroExport = $ehGestor ? "WHERE a.usuario_id IN (SELECT id FROM usuarios WHERE setor_id = :setor_id_escopo)" : "";
             $query = "SELECT a.*,
                              u.nome as usuario_nome,
                              u.email as usuario_email,
@@ -342,22 +306,17 @@ try {
                       FROM auditoria a
                       LEFT JOIN usuarios u ON a.usuario_id = u.id
                       LEFT JOIN tickets t ON a.tabela = 'tickets' AND t.id = a.registro_id
-                      $filtroExport
                       ORDER BY a.criado_em DESC";
         } elseif ($tipo === 'tickets') {
-            $filtroExport = $ehGestor ? "WHERE t.setor_id = :setor_id_escopo" : "";
             $query = "SELECT at.*, u.nome as usuario_nome, t.titulo as ticket_titulo, t.protocolo as ticket_protocolo
                       FROM auditoria_tickets at
                       LEFT JOIN usuarios u ON at.usuario_id = u.id
                       LEFT JOIN tickets t ON at.ticket_id = t.id
-                      $filtroExport
                       ORDER BY at.criado_em DESC";
         } elseif ($tipo === 'login') {
-            $filtroExport = $ehGestor ? "WHERE al.usuario_id IN (SELECT id FROM usuarios WHERE setor_id = :setor_id_escopo)" : "";
             $query = "SELECT al.*, u.nome as usuario_nome
                       FROM auditoria_login al
                       LEFT JOIN usuarios u ON al.usuario_id = u.id
-                      $filtroExport
                       ORDER BY al.criado_em DESC";
         }
 
@@ -365,7 +324,6 @@ try {
         // avisa quando o teto foi atingido (SEG-14)
         $tetoExportacao = 50000;
         $stmt = $db->prepare($query . ' LIMIT ' . ($tetoExportacao + 1));
-        if ($ehGestor) $stmt->bindValue(':setor_id_escopo', $setorEscopo);
         $stmt->execute();
         $registros = $stmt->fetchAll(PDO::FETCH_ASSOC);
         $limitado = count($registros) > $tetoExportacao;

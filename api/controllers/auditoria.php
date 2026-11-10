@@ -22,12 +22,6 @@ try {
         $filtros = [];
         $params = [];
 
-        // Gestor só vê ações praticadas por gente do próprio setor; admin vê tudo
-        if (($user['tipo'] ?? '') === 'gestor') {
-            $filtros[] = "a.usuario_id IN (SELECT id FROM usuarios WHERE setor_id = :setor_id_escopo)";
-            $params[':setor_id_escopo'] = $user['setor_id'] ?? 0;
-        }
-
         if (isset($_GET['acao'])) {
             $filtros[] = "a.acao = :acao";
             $params[':acao'] = $_GET['acao'];

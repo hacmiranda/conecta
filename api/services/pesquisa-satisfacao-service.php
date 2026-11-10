@@ -9,7 +9,9 @@
  * demanda (ou a quem a encerrou). A fila de pedidos existe para o gatilho nunca atrapalhar a troca de
  * status e para repetir se o e-mail não puder ser enfileirado.
  *
- * Uma pesquisa por demanda (ticket_id único). A mesclagem e o cancelamento não disparam.
+ * Uma pesquisa por demanda (ticket_id único). A mesclagem e o cancelamento não disparam. Um pedido
+ * cancelado antes do envio (ex.: a demanda foi reaberta antes de o cron rodar) volta a valer quando
+ * a demanda é resolvida/encerrada de novo.
  * Pode ser desligada por setor: código sol_pesquisa_satisfacao do NotificacaoEmailService.
  */
 require_once __DIR__ . '/../config/environment.php';
@@ -59,18 +61,29 @@ class PesquisaSatisfacaoService {
             // Nome: o do dono da demanda, se o destinatário for ele; senão, sai do início do e-mail
             $nome = strcasecmp($destino, (string) ($t['usuario_email'] ?? '')) === 0 ? (string) $t['usuario_nome'] : '';
 
-            $ins = $db->prepare("INSERT IGNORE INTO pesquisa_satisfacao
-                                    (ticket_id, protocolo, destinatario_email, destinatario_nome, responsavel_email, setor_nome)
-                                 VALUES (?, ?, ?, ?, ?, ?)");
-            $ins->execute([
-                $ticketId,
+            $dados = [
                 $t['protocolo'],
                 mb_substr($destino, 0, 255),
                 $nome !== '' ? mb_substr($nome, 0, 150) : null,
                 $t['responsavel_email'],
                 $t['setor_nome'] !== null ? mb_substr((string) $t['setor_nome'], 0, 100) : null,
-            ]);
-            return $ins->rowCount() === 1;
+            ];
+            $ins = $db->prepare("INSERT IGNORE INTO pesquisa_satisfacao
+                                    (protocolo, destinatario_email, destinatario_nome, responsavel_email, setor_nome, ticket_id)
+                                 VALUES (?, ?, ?, ?, ?, ?)");
+            $ins->execute([...$dados, $ticketId]);
+            if ($ins->rowCount() === 1) {
+                return true;
+            }
+
+            // Já havia pedido: só um cancelado antes do envio volta para a fila (enviado, quarentena etc. ficam)
+            $reabrir = $db->prepare("UPDATE pesquisa_satisfacao
+                                       SET protocolo = ?, destinatario_email = ?, destinatario_nome = ?, responsavel_email = ?, setor_nome = ?,
+                                           status = 'pendente', tentativas = 0, ultimo_erro = NULL,
+                                           proxima_tentativa_em = NOW(), processado_em = NULL
+                                       WHERE ticket_id = ? AND status = 'cancelada'");
+            $reabrir->execute([...$dados, $ticketId]);
+            return $reabrir->rowCount() === 1;
         } catch (Throwable $e) {
             error_log('[PESQUISA SATISFACAO] Erro ao registrar a demanda #' . $ticketId . ': ' . $e->getMessage());
             return false;

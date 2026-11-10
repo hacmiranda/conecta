@@ -63,7 +63,8 @@ try {
         $destino = filter_var(trim((string) ($corpo['destinatario_email'] ?? '')), FILTER_VALIDATE_EMAIL);
         if ($nome === '' || !$destino) erroPainel(400, 'Informe o nome e um e-mail válido do cidadão.');
 
-        $r = (new PesquisaConviteService($db))->enviar($usuarioId, mb_substr($nome, 0, 150), mb_substr($destino, 0, 255), ['origem' => 'manual']);
+        // E-mail que não entrou na fila desfaz o convite: senão a quarentena barraria a nova tentativa
+        $r = (new PesquisaConviteService($db))->enviar($usuarioId, mb_substr($nome, 0, 150), mb_substr($destino, 0, 255), ['origem' => 'manual'], true);
 
         if ($r['status'] === 'enviado') {
             (new AuditoriaService($db))->registrar($user['id'], 'enviar_convite_avaliacao', 'pesquisa_convites',

@@ -20,13 +20,13 @@ class PesquisaConviteService {
     const ASSUNTO = 'Como foi seu atendimento no CRPRS? Avalie em 1 minuto';
 
     private PDO $db;
-    /** @var callable(string,string,string,string):void  (nome, e-mail, link, protocolo) */
+    /** @var callable(string,string,string,string,?int):void  (nome, e-mail, link, protocolo, id da demanda) */
     private $enviarEmail;
 
     public function __construct(PDO $db, ?callable $enviarEmail = null) {
         $this->db = $db;
-        $this->enviarEmail = $enviarEmail ?? function (string $nome, string $email, string $link, string $protocolo) use ($db): void {
-            self::enviarEmailDoConvite($db, $nome, $email, $link, $protocolo);
+        $this->enviarEmail = $enviarEmail ?? function (string $nome, string $email, string $link, string $protocolo, ?int $ticketId = null) use ($db): void {
+            self::enviarEmailDoConvite($db, $nome, $email, $link, $protocolo, $ticketId);
         };
     }
 
@@ -60,12 +60,15 @@ class PesquisaConviteService {
         return [self::ASSUNTO, $html];
     }
 
-    /** Entrega o e-mail do convite à fila de envio. Lança exceção se nem isso foi possível. */
-    public static function enviarEmailDoConvite(PDO $db, string $nome, string $email, string $link, string $protocolo): void {
+    /**
+     * Entrega o e-mail do convite à fila de envio. Lança exceção se nem isso foi possível.
+     * Com a demanda informada, a fila a registra na linha do tempo dela se desistir do envio.
+     */
+    public static function enviarEmailDoConvite(PDO $db, string $nome, string $email, string $link, string $protocolo, ?int $ticketId = null): void {
         require_once __DIR__ . '/email-sender.php';
         [$assunto, $html] = self::montarEmail($nome, $link, $protocolo);
         $sender = new EmailSender($db);
-        $sender->setEmailContext(null, 'pesquisa_convite');
+        $sender->setEmailContext($ticketId ?: null, 'pesquisa_convite');
         if (!$sender->enviarEmail($email, $assunto, $html)) {
             throw new RuntimeException('Não foi possível enfileirar o e-mail do convite');
         }
@@ -117,7 +120,8 @@ class PesquisaConviteService {
         }
 
         try {
-            ($this->enviarEmail)($nome, $email, self::linkDeAvaliacao($token), (string) ($origem['protocolo'] ?? ''));
+            ($this->enviarEmail)($nome, $email, self::linkDeAvaliacao($token), (string) ($origem['protocolo'] ?? ''),
+                !empty($origem['ticket_id']) ? (int) $origem['ticket_id'] : null);
         } catch (Throwable $e) {
             error_log('[PESQUISA] Falha no e-mail do convite #' . $id . ': ' . $e->getMessage());
             if ($desfazerSeFalhar) {

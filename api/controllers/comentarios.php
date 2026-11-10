@@ -248,14 +248,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     // Notificação agente → agente: o autor é da equipe e comenta na demanda de outro
                     // responsável (o status "nova_resposta" já foi gravado na transação acima)
                     if ($comentario_de_outro_agente) {
-                        // Enviar e-mail ao agente responsável — nota interna nunca vai por e-mail,
-                        // nem para outro agente (só a notificação interna já registrada acima)
-                        if (!$interno) {
-                            try {
-                                $emailSender->notificarComentarioEntreAgentes($ticket_id, $comentario_id, $autor_nome, $ticket['agente_id']);
-                            } catch (Exception $e) {
-                                error_log("[COMENTARIOS] Erro ao enviar e-mail agente→agente: " . $e->getMessage());
-                            }
+                        // E-mail ao responsável, também para nota interna (é um aviso entre a equipe;
+                        // o solicitante nunca recebe a nota). Decisão do usuário em 10/11/2026.
+                        try {
+                            $emailSender->notificarComentarioEntreAgentes($ticket_id, $comentario_id, $autor_nome, $ticket['agente_id']);
+                        } catch (Throwable $e) {
+                            error_log("[COMENTARIOS] Erro ao enviar e-mail agente→agente: " . $e->getMessage());
                         }
                     }
                     // --- FIM NOVA LÓGICA ---
@@ -310,7 +308,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     if ($email_resultado && $email_destino) {
                         $hist_query = "INSERT INTO ticket_historico (ticket_id, usuario_id, acao, valor_novo) VALUES (?, ?, 'email_enviado', ?)";
                         $hist_stmt = $db->prepare($hist_query);
-                        $hist_stmt->execute([$ticket_id, $usuario_id, 'O comentário acima foi enviado por e-mail para: ' . $email_destino]);
+                        $hist_stmt->execute([$ticket_id, $usuario_id, mb_substr('O comentário acima foi enviado por e-mail para: ' . $email_destino, 0, 255)]);
                     }
 
                     if ($email_resultado && $com_copia) {

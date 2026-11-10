@@ -3247,6 +3247,11 @@ select {
     opacity: 0.6;
 }
 
+.config-setor-essencial {
+    color: var(--neutro-600, #666);
+    font-weight: normal;
+}
+
 .config-setor-item-ordem {
     display: flex;
     gap: 0.25rem;
@@ -3594,4 +3599,11 @@ input:disabled+.slider {
         height: 45px;
         font-size: 20px;
     }
+}
+
+/* Arquivo: demanda mesclada em outra não é reaberta (o atendimento segue na principal) */
+.ticket-mesclada-aviso {
+    color: var(--neutro-600, #666);
+    font-size: 0.8rem;
+    font-style: italic;
 }

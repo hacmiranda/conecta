@@ -658,24 +658,17 @@ async function executarAlteracaoPrioridade(ticketId, novaPrioridade, callback) {
     }
 }
 
-// Executar alteração de status
-async function executarAlteracaoStatus(ticketId, novoStatus, callback, observacoes) {
+// Executar alteração de status. Devolve true se gravou e false se não.
+// opcoes.semToast: não mostra o aviso de sucesso (quem chama mostra o seu);
+// opcoes.mensagemErro: texto antes do erro do servidor.
+async function executarAlteracaoStatus(ticketId, novoStatus, callback, opcoes = {}) {
     mostrarLoader();
 
-    const usuario = JSON.parse(localStorage.getItem('cd_usuario'));
-    const dados = { status: novoStatus };
-    if (novoStatus === 'encerrado' || novoStatus === 'cancelado') {
-        dados.fechado_por = usuario.id;
-    }
-    if (observacoes) {
-        dados.observacoes = observacoes;
-    }
-
     try {
-        await Api.put(`tickets.php?id=${ticketId}`, dados);
+        await Api.put(`tickets.php?id=${ticketId}`, { status: novoStatus });
         ocultarLoader();
 
-        const mensagem = (novoStatus === 'aberto' || novoStatus === 'atendimento') ? 'Demanda reaberta com sucesso!' : 'Status alterado com sucesso!';
+        const mensagem = novoStatus === 'reaberto' ? 'Demanda reaberta com sucesso!' : 'Status alterado com sucesso!';
 
         // Se for encerramento, animar remoção da lista
         if (novoStatus === 'encerrado' || novoStatus === 'cancelado') {
@@ -701,10 +694,13 @@ async function executarAlteracaoStatus(ticketId, novoStatus, callback, observaco
             callback();
         }
 
-        mostrarToast('Sucesso', mensagem, 'success');
+        if (!opcoes.semToast) mostrarToast('Sucesso', mensagem, 'success');
+        return true;
     } catch (e) {
         ocultarLoader();
-        mostrarAlert('Atenção', (e.dados && e.dados.error) || 'Erro ao atualizar demanda');
+        const erro = mensagemDeErro(e, 'Erro ao atualizar demanda');
+        mostrarAlert('Atenção', opcoes.mensagemErro ? `${opcoes.mensagemErro} ${erro}` : erro);
+        return false;
     }
 }
 
@@ -1550,7 +1546,7 @@ function mostrarSobre() {
                         </div>
                         <ul style="margin: 0; padding-left: 1.4rem; font-size: 0.88rem; color: var(--text-secondary, #555); line-height: 1.8;">
                             <li>Tela redesenhada, com a identidade visual do CRPRS.</li>
-                            <li>Verificação de segurança (captcha) antes do envio; bloqueio temporário após 5 tentativas.</li>
+                            <li>Verificação de segurança (captcha) antes do envio; pausa na tela após 5 tentativas erradas e, no servidor, limite de tentativas por endereço e espera crescente por conta.</li>
                             <li>Mensagens de erro mais claras para cada situação (captcha, senha incorreta, falha de conexão).</li>
                             <li>Compatível com leitores de tela e com quem prefere menos animações na tela.</li>
                         </ul>

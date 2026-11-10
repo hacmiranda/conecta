@@ -204,7 +204,7 @@ function mostrarTicketsFechadosNaTela(tickets) {
                 <td data-label="Status"><span class="status ${ticket.status}">${ticket.status === 'encerrado' ? '🏁 Encerrado' : ticket.status === 'cancelado' ? '❌ Cancelado' : (typeof formatarNomeStatus === 'function' ? formatarNomeStatus(ticket.status) : ticket.status)}</span></td>
                 <td data-label="Encerramento" style="font-size: 0.8rem; font-weight: bold;">${ticket.fechado_em ? dataDoBanco(ticket.fechado_em).toLocaleDateString('pt-BR') + '<span class="ticket-data-hora">' + dataDoBanco(ticket.fechado_em).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }) + '</span>' : '-'}</td>
                 <td data-label="Ações">
-                    <button class="btn-compact" onclick="${modoMergeFechadosAtivo ? 'event.stopPropagation();' : ''} reabrirTicket(${ticket.id})" style="background-color: #28a745; margin-right: 0.5rem; transition: background 0.2s;" onmouseover="this.style.backgroundColor='#218838'" onmouseout="this.style.backgroundColor='#28a745'">Reabrir</button>
+                    ${ticket.mesclada_em ? '<span class="ticket-mesclada-aviso">Mesclada</span>' : `<button class="btn-compact" onclick="${modoMergeFechadosAtivo ? 'event.stopPropagation();' : ''} reabrirTicket(${ticket.id})" style="background-color: #28a745; margin-right: 0.5rem; transition: background 0.2s;" onmouseover="this.style.backgroundColor='#218838'" onmouseout="this.style.backgroundColor='#28a745'">Reabrir</button>`}
                 </td>
             </tr>
         `;
@@ -322,10 +322,12 @@ function reabrirTicket(ticketId) {
             }
 
             // Usar status 'reaberto' ao reabrir um ticket encerrado
-            setTimeout(() => {
-                executarAlteracaoStatus(ticketId, 'reaberto', function () {
+            setTimeout(async () => {
+                const ok = await executarAlteracaoStatus(ticketId, 'reaberto', function () {
                     carregarTicketsFechados(); // Recarregar lista de fechados
                 });
+                // Falhou: a linha volta a aparecer
+                if (!ok && row) row.classList.remove('ticket-removendo');
             }, 500);
         }
     );

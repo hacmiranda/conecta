@@ -645,7 +645,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'PUT') {
         $params = [':id' => $ticket_id];
 
         // Dados atuais ANTES da atualização
-        $current_stmt = $db->prepare("SELECT titulo, status, prioridade, categoria_id, agente_id, setor_id, usuario_id, excluido_em
+        $current_stmt = $db->prepare("SELECT titulo, status, prioridade, categoria_id, agente_id, setor_id, usuario_id, excluido_em, mesclada_em
                                       FROM tickets WHERE id = ?");
         $current_stmt->execute([$ticket_id]);
         $current_data = $current_stmt->fetch(PDO::FETCH_ASSOC);
@@ -662,6 +662,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'PUT') {
             echo json_encode(['error' => !empty($current_data['excluido_em'])
                 ? 'A demanda está na lixeira. Restaure-a para alterar.'
                 : 'Você não tem permissão para alterar esta demanda']);
+            exit;
+        }
+
+        // Demanda mesclada em outra: o atendimento continua na principal (reabrir esta a deixaria
+        // aberta, mas fora dos indicadores, e as respostas por e-mail iriam para a principal)
+        if (!empty($current_data['mesclada_em'])) {
+            http_response_code(400);
+            echo json_encode(['error' => 'Esta demanda foi mesclada na demanda '
+                . ProtocoloService::rotuloPorId($db, (int) $current_data['mesclada_em']) . '. Faça as alterações na demanda principal.']);
             exit;
         }
 

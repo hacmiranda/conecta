@@ -466,13 +466,13 @@ function renderizarListaConfigSetor(itens, tipo) {
     lista.innerHTML = `
         <div class="config-setor-itens">
             ${itens.map((item, index) => `
-                <div class="config-setor-item ${item.ativo ? '' : 'config-setor-item-inativo'}">
+                <div class="config-setor-item ${(item.ativo || item.essencial) ? '' : 'config-setor-item-inativo'}">
                     <label class="switch-label" style="flex:1;">
                         <label class="switch">
-                            <input type="checkbox" ${item.ativo ? 'checked' : ''} onchange="alternarAtivoConfigSetor(${item.id}, '${tipo}', this.checked)">
+                            <input type="checkbox" ${(item.ativo || item.essencial) ? 'checked' : ''} ${item.essencial ? 'disabled' : ''} onchange="alternarAtivoConfigSetor(${item.id}, '${tipo}', this.checked)">
                             <span class="slider"></span>
                         </label>
-                        <span>${sanitizeHTML(formatarNomeItemConfigSetor(tipo, item.nome))}</span>
+                        <span>${sanitizeHTML(formatarNomeItemConfigSetor(tipo, item.nome))}${item.essencial ? ' <small class="config-setor-essencial">(usado pelo sistema: sempre ativo)</small>' : ''}</span>
                     </label>
                     <div class="config-setor-item-ordem">
                         <button type="button" class="btn-small" ${index === 0 ? 'disabled' : ''} onclick="moverItemConfigSetor(${item.id}, '${tipo}', 'up')" title="Mover para cima">▲</button>

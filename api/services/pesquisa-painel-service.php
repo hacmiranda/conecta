@@ -100,7 +100,7 @@ class PesquisaPainelService {
     public static function evolucao(PDO $db, ?array $escopo, array $f, int $dias = 30): array {
         $dias = max(7, min(365, $dias));
         [$w, $p] = self::whereAvaliacoes($escopo, $f, false);
-        $p[':dias'] = $dias;
+        $p[':dias'] = $dias - 1; // a série tem $dias dias, contando hoje
         $linhas = self::executar($db, "SELECT DATE(a.criado_em) AS data_dia, COUNT(a.id) AS qtd, AVG(a.nota) AS avg_nota
                  " . self::DE_AVALIACOES . " WHERE $w AND a.criado_em >= DATE_SUB(CURDATE(), INTERVAL :dias DAY)
                  GROUP BY DATE(a.criado_em) ORDER BY data_dia", $p)->fetchAll(PDO::FETCH_ASSOC);
@@ -283,7 +283,9 @@ class PesquisaPainelService {
 
     /**
      * Setores que aparecem no painel (pesquisa_painel = 1), cada um com seus servidores e os números de convites
-     * e notas. Servidor = quem está lotado no setor como operador ou gestor, mais quem já enviou convites.
+     * e notas. Servidor = quem está lotado no setor como operador ou gestor, mais quem já enviou convites por
+     * aquele setor. Os números de cada servidor contam só os convites do setor (pesquisa_convites.setor_id),
+     * como o minigráfico e as demais telas: o coordenador de vários setores aparece em cada um, com os seus.
      */
     public static function painelSetores(PDO $db, ?array $escopo, string $ini = '', string $fim = ''): array {
         $p = self::periodos(date('Y-m-d'), $ini, $fim);
@@ -304,11 +306,12 @@ class PesquisaPainelService {
                 MAX(c.enviado_em) AS ultimo_envio,
                 SUM(a.nota = 5) AS n5, SUM(a.nota = 4) AS n4, SUM(a.nota = 3) AS n3, SUM(a.nota = 2) AS n2, SUM(a.nota = 1) AS n1,
                 (SELECT a2.comentario FROM pesquisa_avaliacoes a2 JOIN pesquisa_convites c2 ON c2.id = a2.convite_id
-                    WHERE c2.usuario_id = u.id AND a2.comentario IS NOT NULL ORDER BY a2.criado_em DESC LIMIT 1) AS ultimo_comentario
+                    WHERE c2.usuario_id = u.id AND c2.setor_id = s.id AND a2.comentario IS NOT NULL ORDER BY a2.criado_em DESC LIMIT 1) AS ultimo_comentario
              FROM setores s
-             LEFT JOIN usuarios u ON u.setor_id = s.id AND u.ativo = 1 AND u.tipo IN ('operador', 'gestor', 'coordenador', 'supervisor', 'coordenador_geral')
-                  AND (u.tipo IN ('operador', 'gestor') OR EXISTS (SELECT 1 FROM pesquisa_convites x WHERE x.usuario_id = u.id))
-             LEFT JOIN pesquisa_convites c ON c.usuario_id = u.id
+             LEFT JOIN usuarios u ON u.ativo = 1 AND u.tipo IN ('operador', 'gestor', 'coordenador', 'supervisor', 'coordenador_geral')
+                  AND ((u.setor_id = s.id AND u.tipo IN ('operador', 'gestor'))
+                       OR EXISTS (SELECT 1 FROM pesquisa_convites x WHERE x.usuario_id = u.id AND x.setor_id = s.id))
+             LEFT JOIN pesquisa_convites c ON c.usuario_id = u.id AND c.setor_id = s.id
              LEFT JOIN pesquisa_avaliacoes a ON a.convite_id = c.id
              WHERE s.ativo = 1 AND s.pesquisa_painel = 1 AND " . AcessoService::filtroSetorSql('s.id', $escopo) . "
              GROUP BY s.id, s.nome, u.id, u.nome, u.avatar ORDER BY s.nome, u.nome", $bind)->fetchAll(PDO::FETCH_ASSOC);
@@ -328,21 +331,21 @@ class PesquisaPainelService {
                 'media_nota' => $r['media_nota'] !== null ? (float) $r['media_nota'] : null,
                 'ultimo_envio' => $r['ultimo_envio'], 'ultimo_comentario' => $r['ultimo_comentario'],
                 'rating_dist' => [5 => (int) $r['n5'], 4 => (int) $r['n4'], 3 => (int) $r['n3'], 2 => (int) $r['n2'], 1 => (int) $r['n1']],
-                'historico_mensal' => $historico[$uid] ?? [],
+                'historico_mensal' => $historico[$sid][$uid] ?? [],
             ];
         }
         return ['periodos' => $p, 'setores' => array_values($setores)];
     }
 
-    /** Convites por mês dos últimos 6 meses, por servidor. @return array<int, array<int, array{mes:string,label:string,total:int}>> */
+    /** Convites por mês dos últimos 6 meses, por setor e servidor. @return array<int, array<int, array<int, array{mes:string,label:string,total:int}>>> */
     private static function historicoMensal(PDO $db, ?array $escopo): array {
         $hoje = new DateTimeImmutable('today');
         $inicio = $hoje->modify('first day of -5 months')->format('Y-m-01');
         $fim = $hoje->format('Y-m-t') . ' 23:59:59';
-        $linhas = self::executar($db, "SELECT c.usuario_id, DATE_FORMAT(c.enviado_em, '%Y-%m') AS mes, COUNT(*) AS total
+        $linhas = self::executar($db, "SELECT c.setor_id, c.usuario_id, DATE_FORMAT(c.enviado_em, '%Y-%m') AS mes, COUNT(*) AS total
                  FROM pesquisa_convites c JOIN setores s ON s.id = c.setor_id AND s.pesquisa_painel = 1
                  WHERE c.enviado_em BETWEEN :ini AND :fim AND " . AcessoService::filtroSetorSql('c.setor_id', $escopo) . "
-                 GROUP BY c.usuario_id, mes", [':ini' => $inicio, ':fim' => $fim])->fetchAll(PDO::FETCH_ASSOC);
+                 GROUP BY c.setor_id, c.usuario_id, mes", [':ini' => $inicio, ':fim' => $fim])->fetchAll(PDO::FETCH_ASSOC);
         $rotulos = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
         $meses = [];
         for ($i = 5; $i >= 0; $i--) {
@@ -351,12 +354,14 @@ class PesquisaPainelService {
         }
         $indexado = [];
         foreach ($linhas as $l) {
-            $indexado[(int) $l['usuario_id']][$l['mes']] = (int) $l['total'];
+            $indexado[(int) $l['setor_id']][(int) $l['usuario_id']][$l['mes']] = (int) $l['total'];
         }
         $resultado = [];
-        foreach ($indexado as $uid => $dados) {
-            foreach ($meses as $m) {
-                $resultado[$uid][] = ['mes' => $m['mes'], 'label' => $m['label'], 'total' => $dados[$m['mes']] ?? 0];
+        foreach ($indexado as $sid => $porServidor) {
+            foreach ($porServidor as $uid => $dados) {
+                foreach ($meses as $m) {
+                    $resultado[$sid][$uid][] = ['mes' => $m['mes'], 'label' => $m['label'], 'total' => $dados[$m['mes']] ?? 0];
+                }
             }
         }
         return $resultado;
@@ -405,7 +410,7 @@ class PesquisaPainelService {
             'regras' => PesquisaConfig::regrasConvite($db),
             'frase' => self::fraseDoDia($db),
             'historico' => ['filtro' => $f['situacao'], 'pagina' => $lista['pagina'], 'por_pagina' => 15, 'total' => $lista['total'],
-                            'total_paginas' => (int) ceil($lista['total'] / 15), 'itens' => $itens],
+                            'total_paginas' => max(1, (int) ceil($lista['total'] / 15)), 'itens' => $itens],
         ];
     }
 

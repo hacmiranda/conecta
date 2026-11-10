@@ -143,9 +143,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'DELETE') {
     $setor_id = (int) $setor_id;
 
     try {
+        // Toda chave estrangeira sem CASCADE que aponta para o setor precisa estar aqui,
+        // senão a exclusão cai no erro genérico
         $vinculos = [
-            ['tabela' => 'usuarios', 'coluna' => 'setor_id', 'msg' => 'usuários'],
-            ['tabela' => 'tickets',  'coluna' => 'setor_id', 'msg' => 'demandas'],
+            ['tabela' => 'usuarios',         'coluna' => 'setor_id', 'msg' => 'usuários'],
+            ['tabela' => 'tickets',          'coluna' => 'setor_id', 'msg' => 'demandas'],
+            ['tabela' => 'ticket_setor_log', 'coluna' => 'setor_id', 'msg' => 'demandas que já passaram por ele'],
+            ['tabela' => 'macrocategorias',  'coluna' => 'setor_id', 'msg' => 'categorias'],
+            ['tabela' => 'categorias',       'coluna' => 'setor_id', 'msg' => 'subcategorias'],
         ];
         foreach ($vinculos as $v) {
             $stmt = $db->prepare("SELECT COUNT(*) as total FROM {$v['tabela']} WHERE {$v['coluna']} = ?");
@@ -179,6 +184,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'DELETE') {
 
         echo json_encode(['success' => true]);
     } catch (Exception $e) {
+        error_log('[SETORES DELETE] Erro: ' . $e->getMessage());
         http_response_code(500);
         echo json_encode(['error' => 'Erro ao excluir setor']);
     }

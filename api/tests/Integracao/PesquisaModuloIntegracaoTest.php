@@ -32,6 +32,12 @@ final class PesquisaModuloIntegracaoTest extends TestCase {
             $this->markTestSkipped('Precisa de dois setores ativos.');
         }
         [$this->setorA, $this->setorB] = array_map('intval', $setores);
+        // O teste não depende de como o banco local está configurado: pesquisa ligada nos dois setores
+        // (sem linha = ligado) e os dois no Painel de Setores. Tudo desfeito no rollback.
+        $this->db->prepare("DELETE FROM setor_notificacoes_email WHERE codigo = 'sol_pesquisa_satisfacao' AND setor_id IN (?, ?)")
+                 ->execute([$this->setorA, $this->setorB]);
+        $this->db->prepare("UPDATE setores SET pesquisa_painel = 1 WHERE id IN (?, ?)")->execute([$this->setorA, $this->setorB]);
+        NotificacaoEmailService::limparCache();
         $this->db->prepare("INSERT INTO usuarios (nome, email, senha, tipo, setor_id, ativo, trocar_senha, atendimento_externo)
                             VALUES ('zz Servidor Pesquisa', ?, 'x', 'operador', ?, 1, 0, 1)")
                  ->execute(['zz.pesq.' . bin2hex(random_bytes(4)) . '@teste.local', $this->setorA]);
@@ -43,6 +49,7 @@ final class PesquisaModuloIntegracaoTest extends TestCase {
         if ($this->db->inTransaction()) {
             $this->db->rollBack();
         }
+        NotificacaoEmailService::limparCache();
     }
 
     private function servico(): PesquisaConviteService {
@@ -119,6 +126,16 @@ final class PesquisaModuloIntegracaoTest extends TestCase {
 
         $this->assertSame('ja_avaliado', PesquisaAvaliacaoService::registrar($this->db, $token, 5, '', [])['codigo']);
         $this->assertSame('ja_avaliado', PesquisaAvaliacaoService::estado($this->db, $token)['situacao']);
+    }
+
+    public function test_nota_3_vai_para_a_triagem_sem_alerta(): void {
+        $id = $this->servico()->enviar($this->servidor, 'Regular', $this->email())['convite_id'];
+        $alertas = 0;
+        $r = PesquisaAvaliacaoService::registrar($this->db, $this->tokenDe($id), 3, 'demorou', [], function () use (&$alertas) { $alertas++; });
+        $this->assertSame('critico', $r['tipo']);
+        $this->assertSame('pendente', $this->db->query("SELECT status FROM pesquisa_avaliacoes WHERE convite_id = $id")->fetchColumn(),
+            'a página diz ao cidadão que a nota 3 será analisada');
+        $this->assertSame(0, $alertas, 'o alerta por e-mail é só para 1 e 2');
     }
 
     public function test_nota_alta_entra_resolvida_e_devolve_o_link_do_google(): void {
@@ -199,8 +216,9 @@ final class PesquisaModuloIntegracaoTest extends TestCase {
             }
         }
         $this->assertNotNull($meu, 'o servidor aparece no painel do setor dele');
-        $this->assertSame(2, $meu['total_convites']);
-        $this->assertSame(2, $meu['total_avaliados']);
+        // Só o convite enviado pelo setor A (o do setor B aparece no painel do B)
+        $this->assertSame(1, $meu['total_convites']);
+        $this->assertSame(1, $meu['total_avaliados']);
 
         $sat = PesquisaPainelService::satisfacaoDoServidor($this->db, $this->servidor, date('Y-m-01'), date('Y-m-t'));
         $this->assertSame(2, $sat['total_convites']);
@@ -261,5 +279,78 @@ final class PesquisaModuloIntegracaoTest extends TestCase {
         $this->assertSame('pesquisa_convite', $linha['tipo']);
         $this->assertSame('pendente', $linha['status']);
         $this->assertStringContainsString('avaliar.html#t=', $linha['corpo']);
+    }
+    /** Demanda encerrada (pela tabela, sem passar pela tela) com o servidor de teste como responsável. */
+    private function demandaEncerrada(string $email): int {
+        $this->db->prepare("INSERT INTO tickets (titulo, descricao, usuario_id, email_solicitante, status, prioridade, setor_id, agente_id, fechado_por)
+                            VALUES ('zz demanda pesquisa', '<p>zz</p>', ?, ?, 'encerrado', 'normal', ?, ?, ?)")
+                 ->execute([$this->servidor, $email, $this->setorA, $this->servidor, $this->servidor]);
+        return (int) $this->db->lastInsertId();
+    }
+
+    public function test_pedido_cancelado_por_reabertura_volta_a_fila_ao_encerrar_de_novo(): void {
+        $ticket = $this->demandaEncerrada($this->email());
+        $this->assertTrue(PesquisaSatisfacaoService::registrar($this->db, $ticket));
+
+        // Reaberta antes de o cron rodar: o pedido é cancelado
+        $this->db->exec("UPDATE tickets SET status = 'reaberto' WHERE id = $ticket");
+        $this->db->exec("UPDATE pesquisa_satisfacao SET status = 'cancelada' WHERE ticket_id <> $ticket AND status = 'pendente'");
+        PesquisaSatisfacaoService::processarFila($this->db, 20, function () {
+            $this->fail('demanda reaberta não gera convite');
+        });
+        $this->assertSame('cancelada', $this->db->query("SELECT status FROM pesquisa_satisfacao WHERE ticket_id = $ticket")->fetchColumn());
+
+        // Encerrada de novo: o mesmo pedido volta para a fila
+        $this->db->exec("UPDATE tickets SET status = 'encerrado' WHERE id = $ticket");
+        $this->assertTrue(PesquisaSatisfacaoService::registrar($this->db, $ticket));
+        $p = $this->db->query("SELECT status, tentativas, processado_em FROM pesquisa_satisfacao WHERE ticket_id = $ticket")->fetch(PDO::FETCH_ASSOC);
+        $this->assertSame('pendente', $p['status']);
+        $this->assertSame(0, (int) $p['tentativas']);
+        $this->assertNull($p['processado_em']);
+        $this->assertFalse(PesquisaSatisfacaoService::registrar($this->db, $ticket), 'pendente não é registrado duas vezes');
+    }
+
+    public function test_reenvio_automatico_pula_demanda_reaberta_ou_com_pesquisa_desligada(): void {
+        $email = $this->email();
+        $ticket = $this->demandaEncerrada($email);
+        $id = $this->servico()->enviar($this->servidor, 'Demanda', $email,
+            ['origem' => 'demanda', 'ticket_id' => $ticket, 'setor_id' => $this->setorA, 'chave_integracao' => 'demanda:' . $ticket])['convite_id'];
+        $this->db->exec("UPDATE pesquisa_convites SET enviado_em = DATE_SUB(NOW(), INTERVAL 3 DAY) WHERE id = $id");
+        $nomes = function () {
+            $lista = [];
+            PesquisaProcessadorService::reenviar($this->db, 48, function (string $nome) use (&$lista) { $lista[] = $nome; });
+            return $lista;
+        };
+
+        $this->db->exec("UPDATE tickets SET status = 'reaberto' WHERE id = $ticket");
+        $this->assertNotContains('Demanda', $nomes(), 'demanda reaberta: sem reenvio');
+
+        $this->db->exec("UPDATE tickets SET status = 'encerrado' WHERE id = $ticket");
+        $this->db->prepare("INSERT INTO setor_notificacoes_email (setor_id, codigo, ativo) VALUES (?, 'sol_pesquisa_satisfacao', 0)")
+                 ->execute([$this->setorA]);
+        $this->assertNotContains('Demanda', $nomes(), 'pesquisa desligada no setor: sem reenvio');
+
+        $this->db->prepare("DELETE FROM setor_notificacoes_email WHERE setor_id = ? AND codigo = 'sol_pesquisa_satisfacao'")
+                 ->execute([$this->setorA]);
+        $this->assertContains('Demanda', $nomes(), 'encerrada e ligada: reenvia');
+    }
+
+    public function test_painel_de_setores_conta_so_os_convites_do_setor(): void {
+        // Servidor lotado no setor A que também enviou um convite pelo setor B
+        $this->servico()->enviar($this->servidor, 'Pelo A', $this->email(), ['setor_id' => $this->setorA]);
+        $this->servico()->enviar($this->servidor, 'Pelo B', $this->email(), ['setor_id' => $this->setorB]);
+        $painel = PesquisaPainelService::painelSetores($this->db, [$this->setorA, $this->setorB]);
+        $doServidor = [];
+        foreach ($painel['setores'] as $s) {
+            foreach ($s['servidores'] as $sv) {
+                if ($sv['id'] === $this->servidor) {
+                    $doServidor[$s['id']] = $sv['total_convites'];
+                }
+            }
+        }
+        ksort($doServidor);
+        $esperado = [$this->setorA => 1, $this->setorB => 1];
+        ksort($esperado);
+        $this->assertSame($esperado, $doServidor);
     }
 }

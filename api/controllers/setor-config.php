@@ -9,6 +9,8 @@ header('Content-Type: application/json');
 
 require_once __DIR__ . '/../config/database.php';
 require_once __DIR__ . '/../middleware/auth.php';
+require_once __DIR__ . '/../services/auditoria-service.php';
+require_once __DIR__ . '/../services/catalogo-service.php';
 
 AuthMiddleware::configurarCORS(['GET', 'PUT', 'POST']);
 
@@ -72,8 +74,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
         $stmt = $db->prepare($query);
         $stmt->bindParam(':setor_id', $setor_id, PDO::PARAM_INT);
         $stmt->execute();
-        echo json_encode($stmt->fetchAll());
+        $itens = $stmt->fetchAll();
+        foreach ($itens as &$item) {
+            // Status que o sistema aplica sozinho: a tela mostra o interruptor travado
+            $item['essencial'] = $tipo === 'status' && in_array($item['nome'], CatalogoService::STATUS_ESSENCIAIS, true);
+        }
+        unset($item);
+        echo json_encode($itens);
     } catch (Exception $e) {
+        error_log('[SETOR-CONFIG GET] Erro: ' . $e->getMessage());
         http_response_code(500);
         echo json_encode(['error' => 'Erro ao buscar configuração do setor']);
     }
@@ -100,11 +109,39 @@ if ($_SERVER['REQUEST_METHOD'] === 'PUT') {
     $ativo = $input['ativo'] ? 1 : 0;
 
     try {
+        $atual = $db->prepare("SELECT i.{$cfg['coluna_nome']} AS nome, sc.ativo
+                               FROM {$cfg['tabela_config']} sc
+                               INNER JOIN {$cfg['tabela_item']} i ON i.id = sc.{$cfg['coluna_item']}
+                               WHERE sc.setor_id = ? AND sc.{$cfg['coluna_item']} = ?");
+        $atual->execute([$setor_id, $item_id]);
+        $linha = $atual->fetch(PDO::FETCH_ASSOC);
+        if (!$linha) {
+            http_response_code(404);
+            echo json_encode(['error' => 'Item não encontrado na configuração deste setor']);
+            exit;
+        }
+
+        // O sistema aplica estes status sozinho (abrir, responder, reabrir, Enviar e Fechar)
+        if ($tipo === 'status' && !$ativo && in_array($linha['nome'], CatalogoService::STATUS_ESSENCIAIS, true)) {
+            http_response_code(400);
+            echo json_encode(['error' => 'Este status é usado pelo próprio sistema e não pode ser desativado.']);
+            exit;
+        }
+
         $query = "UPDATE {$cfg['tabela_config']} SET ativo = :ativo WHERE setor_id = :setor_id AND {$cfg['coluna_item']} = :item_id";
         $stmt = $db->prepare($query);
         $stmt->execute([':ativo' => $ativo, ':setor_id' => $setor_id, ':item_id' => $item_id]);
+
+        if ((int) $linha['ativo'] !== $ativo) {
+            (new AuditoriaService($db))->registrar(
+                $user['id'], 'alterar_ativacao_setor', $cfg['tabela_config'], $setor_id,
+                json_encode(['item' => $linha['nome'], 'ativo' => (bool) $linha['ativo']]),
+                json_encode(['item' => $linha['nome'], 'ativo' => (bool) $ativo])
+            );
+        }
         echo json_encode(['success' => true]);
     } catch (Exception $e) {
+        error_log('[SETOR-CONFIG PUT] Erro: ' . $e->getMessage());
         http_response_code(500);
         echo json_encode(['error' => 'Erro ao atualizar configuração']);
     }

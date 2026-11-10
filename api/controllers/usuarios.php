@@ -98,11 +98,27 @@ function validarSetoresAdicionais(PDO $db, $valor, ?int $principal, int $usuario
     return $ids;
 }
 
-/** Troca os setores adicionais do coordenador (apaga os antigos e grava os novos). */
+/**
+ * Troca os setores adicionais do coordenador (apaga os antigos e grava os novos).
+ * Um setor ainda preso a um coordenador DESATIVADO é liberado antes (o banco aceita um só
+ * coordenador por setor em usuario_setores, e a regra de negócio só conta os ativos).
+ */
 function gravarSetoresAdicionais(PDO $db, int $usuarioId, array $ids, int $autorId): void {
     $db->prepare("DELETE FROM usuario_setores WHERE usuario_id = ?")->execute([$usuarioId]);
+    $presos = $db->prepare("SELECT us.usuario_id FROM usuario_setores us
+                             JOIN usuarios u ON u.id = us.usuario_id
+                             WHERE us.setor_id = ? AND u.ativo = 0");
+    $liberar = $db->prepare("DELETE FROM usuario_setores WHERE usuario_id = ? AND setor_id = ?");
     $ins = $db->prepare("INSERT INTO usuario_setores (usuario_id, setor_id, criado_por) VALUES (?, ?, ?)");
     foreach ($ids as $id) {
+        $presos->execute([$id]);
+        foreach ($presos->fetchAll(PDO::FETCH_COLUMN) as $inativo) {
+            $liberar->execute([(int) $inativo, $id]);
+            (new AuditoriaService($db))->registrar(
+                $autorId, 'liberar_setor_coordenador_inativo', 'usuario_setores', (int) $inativo,
+                json_encode(['setor_id' => $id]), json_encode(['novo_coordenador_id' => $usuarioId])
+            );
+        }
         $ins->execute([$usuarioId, $id, $autorId]);
     }
 }
@@ -423,6 +439,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'PUT') {
     $usuario_id = (int) end($path_parts);
 
     $input = json_decode(file_get_contents('php://input'), true);
+    if (!is_array($input)) {
+        http_response_code(400);
+        echo json_encode(['error' => 'Dados inválidos']);
+        exit;
+    }
 
     // Confirma que o alvo pertence ao setor do gestor (admin passa direto)
     $alvo_stmt = $db->prepare("SELECT nome, username, email, tipo, cargo, setor_id, ativo, atendimento_externo FROM usuarios WHERE id = ?");
@@ -461,6 +482,24 @@ if ($_SERVER['REQUEST_METHOD'] === 'PUT') {
             http_response_code(400);
             echo json_encode(['error' => 'Não é possível desativar o último administrador ativo']);
             exit;
+        }
+        // Reativar coordenador: cada setor dele precisa continuar sem outro coordenador ativo
+        if ($ativo && !(int) $alvo['ativo'] && $alvo['tipo'] === 'coordenador') {
+            $setores_dele = setoresAdicionaisDe($db, $usuario_id);
+            if ($alvo['setor_id'] !== null) {
+                array_unshift($setores_dele, (int) $alvo['setor_id']);
+            }
+            $nome_setor = $db->prepare("SELECT nome FROM setores WHERE id = ?");
+            foreach ($setores_dele as $sid) {
+                $outro = coordenadorDoSetor($db, $sid, $usuario_id);
+                if ($outro !== null) {
+                    $nome_setor->execute([$sid]);
+                    http_response_code(409);
+                    echo json_encode(['error' => 'Não é possível reativar: o setor ' . ($nome_setor->fetchColumn() ?: $sid)
+                        . ' já tem coordenador(a) ativo(a): ' . $outro . '. Retire o setor de um dos dois antes.']);
+                    exit;
+                }
+            }
         }
 
         try {
@@ -690,7 +729,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'DELETE') {
             ['tabela' => 'ticket_agente_log',      'colunas' => ['usuario_id'],                             'msg' => 'atendimento de demandas'],
             // Chave estrangeira RESTRICT: sem esta linha, a exclusão dava 500 genérico (auditoria 01/11/2026, BUG-19)
             ['tabela' => 'registros_atividades',   'colunas' => ['usuario_id'],                             'msg' => 'registro de atividades'],
-];
+            ['tabela' => 'pesquisa_convites',      'colunas' => ['usuario_id'],                             'msg' => 'convites da pesquisa de satisfação'],
+        ];
 
         foreach ($tabelas as $t) {
             $where = implode(' OR ', array_map(fn($col) => "$col = ?", $t['colunas']));
