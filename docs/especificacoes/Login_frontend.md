@@ -464,7 +464,7 @@ Substitui o formulário de login no mesmo painel direito (display none/block tog
 
 - **Bloqueio por tentativas:** após 5 erros → formulário desabilitado por 5 minutos, contador regressivo visível
 - **Toggle de senha:** botão dentro do campo alterna `type=password/text`
-- **Turnstile CAPTCHA:** visível apenas em produção; localhost faz bypass automático
+- **Turnstile CAPTCHA:** visível apenas em produção. A tela pergunta a `api/controllers/login-config.php` (mesma regra do servidor: `APP_ENV` de produção e segredo no `.env`); no ambiente local fica desligado para qualquer endereço, inclusive o IP da máquina na rede (desde 12/11/2026; antes só `localhost` era tratado como local)
 - **Transição de seções:** "Esqueci minha senha" troca o `<form>` de login pela `<section>` de recuperação via display none/block
 - **Logo no bloqueio:** fica parado (a animação de queda e a imagem `blocked.png` foram removidas em 06/11/2026)
 - **Saindo:** ao fazer login com sucesso, o card recebe classe `.saindo` (fade out) antes de redirecionar

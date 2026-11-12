@@ -1006,22 +1006,35 @@
         let ultimaTentativa = null;
         const TEMPO_RESET_TENTATIVAS = 15 * 60 * 1000;
         
-        // Em localhost o Turnstile não funciona — bypass automático
-        const isLocalhost = ['localhost', '127.0.0.1', '::1'].includes(location.hostname);
+        // O servidor diz se o Turnstile está ligado (só em produção, com o segredo no .env).
+        // Antes a tela decidia pelo endereço: aberto pelo IP da máquina na rede, mostrava um
+        // CAPTCHA que a Cloudflare recusa e ninguém conseguia entrar.
+        let turnstileAtivo = false;
 
-        // Inicializar Turnstile apenas em Produção
-        if (!isLocalhost) {
+        function iniciarTurnstile(siteKey) {
+            turnstileAtivo = true;
+            const tsContainer = document.getElementById('turnstile-container');
+            if (tsContainer) {
+                const widget = document.createElement('div');
+                widget.className = 'cf-turnstile';
+                widget.dataset.sitekey = siteKey;
+                widget.dataset.theme = 'light';
+                widget.setAttribute('aria-label', 'Verificação de segurança Cloudflare');
+                tsContainer.replaceChildren(widget);
+            }
             const script = document.createElement('script');
             script.src = 'https://challenges.cloudflare.com/turnstile/v0/api.js';
             script.async = true;
             script.defer = true;
             document.head.appendChild(script);
-
-            const tsContainer = document.getElementById('turnstile-container');
-            if (tsContainer) {
-                tsContainer.innerHTML = '<div class="cf-turnstile" data-sitekey="0x4AAAAAACSR9w_nSv0Z5QIO" data-theme="light" aria-label="Verificação de segurança Cloudflare"></div>';
-            }
         }
+
+        fetch(window.APP_CONFIG.apiBase + 'login-config.php', { credentials: 'same-origin', cache: 'no-store' })
+            .then(r => r.ok ? r.json() : null)
+            .then(cfg => {
+                if (cfg && cfg.turnstile && cfg.turnstile_site_key) iniciarTurnstile(cfg.turnstile_site_key);
+            })
+            .catch(() => { /* sem resposta: o servidor continua conferindo o CAPTCHA no login */ });
 
         // Verificar bloqueio ao carregar
         verificarBloqueio();
@@ -1203,10 +1216,8 @@
             const turnstileInput = document.querySelector('[name="cf-turnstile-response"]');
             const turnstileToken = turnstileInput ? turnstileInput.value : '';
 
-            // Em localhost o Turnstile não funciona — bypass automático já setado
-
-            // Bloquear submit se captcha ainda não foi resolvido (apenas em produção)
-            if (!isLocalhost && !turnstileToken) {
+            // Bloquear submit se o captcha está ligado e ainda não foi resolvido
+            if (turnstileAtivo && !turnstileToken) {
                 mostrarAlert('Atenção', 'Por favor, complete a verificação de segurança antes de continuar.');
                 return;
             }
