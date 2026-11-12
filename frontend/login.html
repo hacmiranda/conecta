@@ -226,36 +226,6 @@
             max-width: 100%;
             height: auto;
             filter: drop-shadow(0 4px 20px rgba(0, 0, 0, 0.3));
-            transition: transform var(--transition);
-        }
-
-        /* Estado bloqueado */
-        .brand-logo-wrap.bloqueado img {
-            transform-origin: top left;
-            animation: queda 0.6s ease-out forwards, balanco 2.5s ease-in-out 0.6s 1, despenca 0.8s ease-in 3.1s forwards;
-        }
-
-        .brand-logo-wrap.bloqueado::after {
-            content: '';
-            display: block;
-            width: 110px;
-            height: 110px;
-            background: url('images/blocked.png') no-repeat center;
-            background-size: contain;
-            position: absolute;
-            top: 0;
-            left: 50%;
-            transform: translateX(-50%);
-            opacity: 0;
-            animation: surgir 1s ease-out 4s forwards;
-        }
-
-        .brand-logo-wrap.desbloqueando::after {
-            animation: desaparecer 0.8s ease-out forwards;
-        }
-
-        .brand-logo-wrap.desbloqueando img {
-            animation: restaurar 0.8s ease-out forwards;
         }
 
         /* Texto só para leitor de tela (o nome visível está no logotipo) */
@@ -772,80 +742,6 @@
         }
 
         /* ============================================
-           ANIMAÇÕES BLOQUEIO
-        ============================================ */
-        @keyframes queda {
-            0% {
-                transform: rotate(0deg);
-            }
-
-            100% {
-                transform: rotate(54deg);
-            }
-        }
-
-        @keyframes balanco {
-
-            0%,
-            100% {
-                transform: rotate(54deg);
-            }
-
-            50% {
-                transform: rotate(50deg);
-            }
-        }
-
-        @keyframes despenca {
-            0% {
-                transform: rotate(54deg);
-                top: 0;
-            }
-
-            100% {
-                transform: rotate(90deg);
-                top: 1200px;
-                visibility: hidden;
-            }
-        }
-
-        @keyframes surgir {
-            0% {
-                opacity: 0;
-                transform: translateX(-50%) translateY(-20px);
-            }
-
-            100% {
-                opacity: 1;
-                transform: translateX(-50%) translateY(0);
-            }
-        }
-
-        @keyframes desaparecer {
-            0% {
-                opacity: 1;
-            }
-
-            100% {
-                opacity: 0;
-            }
-        }
-
-        @keyframes restaurar {
-            0% {
-                opacity: 0;
-                transform: rotate(0deg);
-                top: -50px;
-            }
-
-            100% {
-                opacity: 1;
-                transform: rotate(0deg);
-                top: 0;
-            }
-        }
-
-        /* ============================================
            RESPONSIVIDADE
         ============================================ */
         @media (max-width: 680px) {
@@ -969,7 +865,6 @@
         <!-- ===================== PAINEL ESQUERDO ===================== -->
         <aside class="login-brand" aria-label="Identidade Conecta CRPRS">
             <div class="brand-content">
-                <!-- Logo com suporte à animação de bloqueio -->
                 <div class="brand-logo-wrap" id="logo-brand">
                     <!-- Logotipo Conecta: o símbolo do CRPRS é o "C" (versão para fundo escuro) -->
                     <img src="images/logo-conecta-negativo.svg" alt="">
@@ -1113,7 +1008,7 @@
         
         // Em localhost o Turnstile não funciona — bypass automático
         const isLocalhost = ['localhost', '127.0.0.1', '::1'].includes(location.hostname);
-        
+
         // Inicializar Turnstile apenas em Produção
         if (!isLocalhost) {
             const script = document.createElement('script');
@@ -1174,9 +1069,6 @@
                 linkRecuperar.style.opacity = '0.4';
             }
 
-            // Animação no logo
-            document.getElementById('logo-brand').classList.add('bloqueado');
-
             // Criar/mostrar aviso
             let avisoDiv = document.getElementById('aviso-bloqueio');
             if (!avisoDiv) {
@@ -1190,33 +1082,26 @@
         }
 
         function desbloquearFormulario() {
-            const logo = document.getElementById('logo-brand');
-            logo.classList.add('desbloqueando');
+            const form = document.getElementById('form-login');
+            form.querySelectorAll('input, button').forEach(el => {
+                el.disabled = false;
+                el.style.opacity = '';
+                el.style.cursor = '';
+            });
 
-            setTimeout(() => {
-                const form = document.getElementById('form-login');
-                form.querySelectorAll('input, button').forEach(el => {
-                    el.disabled = false;
-                    el.style.opacity = '';
-                    el.style.cursor = '';
-                });
+            const linkRecuperar = document.getElementById('link-recuperar');
+            if (linkRecuperar) {
+                linkRecuperar.style.pointerEvents = '';
+                linkRecuperar.style.opacity = '';
+            }
 
-                const linkRecuperar = document.getElementById('link-recuperar');
-                if (linkRecuperar) {
-                    linkRecuperar.style.pointerEvents = '';
-                    linkRecuperar.style.opacity = '';
-                }
+            const avisoDiv = document.getElementById('aviso-bloqueio');
+            if (avisoDiv) avisoDiv.remove();
 
-                logo.classList.remove('bloqueado', 'desbloqueando');
-
-                const avisoDiv = document.getElementById('aviso-bloqueio');
-                if (avisoDiv) avisoDiv.remove();
-
-                if (timerInterval) {
-                    clearInterval(timerInterval);
-                    timerInterval = null;
-                }
-            }, 800);
+            if (timerInterval) {
+                clearInterval(timerInterval);
+                timerInterval = null;
+            }
         }
 
         function iniciarTimer() {
@@ -1319,7 +1204,7 @@
             const turnstileToken = turnstileInput ? turnstileInput.value : '';
 
             // Em localhost o Turnstile não funciona — bypass automático já setado
-            
+
             // Bloquear submit se captcha ainda não foi resolvido (apenas em produção)
             if (!isLocalhost && !turnstileToken) {
                 mostrarAlert('Atenção', 'Por favor, complete a verificação de segurança antes de continuar.');

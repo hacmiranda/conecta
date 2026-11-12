@@ -55,10 +55,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         // trabalho do PHP; auditoria 01/11/2026, SEG-13)
         $imagens = dirname(__DIR__, 2) . '/frontend/images/';
         if ($tipo === 'header') {
-            $destinos = [
-                $imagens . 'logo_vazado.png',
-                $imagens . 'blocked.png'
-            ];
+            $destinos = [$imagens . 'logo_vazado.png'];
         } else {
             $destinos = [$imagens . 'logo_login.png'];
         }

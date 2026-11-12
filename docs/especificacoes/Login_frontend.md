@@ -466,5 +466,5 @@ Substitui o formulário de login no mesmo painel direito (display none/block tog
 - **Toggle de senha:** botão dentro do campo alterna `type=password/text`
 - **Turnstile CAPTCHA:** visível apenas em produção; localhost faz bypass automático
 - **Transição de seções:** "Esqueci minha senha" troca o `<form>` de login pela `<section>` de recuperação via display none/block
-- **Animação de bloqueio:** logo cai e é substituído por imagem `blocked.png` durante o período de bloqueio
+- **Logo no bloqueio:** fica parado (a animação de queda e a imagem `blocked.png` foram removidas em 06/11/2026)
 - **Saindo:** ao fazer login com sucesso, o card recebe classe `.saindo` (fade out) antes de redirecionar
