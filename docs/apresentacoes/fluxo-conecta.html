@@ -1,0 +1,1924 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Conecta CRPRS — Como Funciona</title>
+<link rel="icon" href="data:,">
+<meta name="description" content="Apresentação ilustrada do Conecta CRPRS, sistema de gestão de demandas por setor do Conselho Regional de Psicologia do Rio Grande do Sul: do e-mail recebido pelo setor até a nota da pesquisa de satisfação.">
+<script>
+  (function () {
+    try {
+      var t = localStorage.getItem('conecta-apresentacao-tema');
+      if (t === 'dark' || t === 'light') { document.documentElement.setAttribute('data-theme', t); }
+    } catch (e) { /* armazenamento indisponível: segue a preferência do sistema */ }
+  })();
+</script>
+<style>
+/* =====================================================================
+   TOKENS — camada primitiva (único lugar com valores literais)
+   ===================================================================== */
+:root {
+  color-scheme: light;
+
+  /* Paleta oficial CRPRS (a mesma do Conecta) */
+  --c-vinho-950: #3d0c09; --c-vinho-900: #5e130e; --c-vinho-700: #8b1d17; --c-vinho-600: #a7241c;
+  --c-vinho-400: #d1453b; --c-vinho-200: #f0b4ae; --c-vinho-100: #f5d3d0; --c-vinho-50: #fbeceb;
+  --c-laranja-800: #7a3f06; --c-laranja-700: #a8590b; --c-laranja-500: #f89327; --c-laranja-300: #fbb877;
+  --c-laranja-100: #ffe6c7; --c-laranja-50: #fff3e3;
+  --c-verde-900: #1f4a0b; --c-verde-700: #2f6b12; --c-verde-600: #4a7a14; --c-verde-500: #70ab2a;
+  --c-verde-300: #a9d17a; --c-verde-100: #dcefc7; --c-verde-50: #eef6e6;
+  --c-n-950: #14100f; --c-n-900: #1f1a18; --c-n-850: #26201e; --c-n-800: #2b2523; --c-n-750: #3a322f;
+  --c-n-700: #4a413d; --c-n-600: #5f5852; --c-n-500: #7a726b; --c-n-400: #8b837b; --c-n-300: #c9c1b8;
+  --c-n-200: #ddd6cd; --c-n-100: #efeae4; --c-n-50: #f7f4f0; --c-white: #ffffff; --c-page: #faf7f4;
+  /* Cores funcionais (situações e prioridades, como no sistema) */
+  --c-ciano-100: #d3f1f6; --c-ciano-800: #0b5966; --c-ambar-100: #fff1c2; --c-ambar-500: #f5b301; --c-ambar-800: #7a5500;
+  --c-vermelho-100: #fde0e2; --c-vermelho-600: #c62834; --c-vermelho-800: #8f1620;
+  --c-rosa-100: #fbdcec; --c-rosa-800: #8c1d55;
+  /* METRICA360 (paleta própria do sistema de avaliação) */
+  --c-m360-azul-900: #003355; --c-m360-azul-700: #004d80; --c-m360-azul-500: #0077b6; --c-m360-azul-50: #e8f2fa;
+  --c-m360-verde-900: #114a1e; --c-m360-verde-800: #165f28; --c-m360-ouro: #f5b301;
+  --c-dot-red: #ff5f57; --c-dot-amber: #febc2e; --c-dot-green: #28c840;
+  --c-scrim: rgba(31, 26, 24, 0.55); --c-glass: rgba(255, 255, 255, 0.12); --c-glass-2: rgba(255, 255, 255, 0.22);
+  --c-glass-line: rgba(255, 255, 255, 0.28); --c-glow: rgba(167, 36, 28, 0.30); --c-glow-laranja: rgba(248, 147, 39, 0.40);
+
+  /* Tipografia */
+  --font: "Inter", "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --font-mono: "Cascadia Mono", Consolas, "SFMono-Regular", Menlo, monospace;
+  --fs-xs: 0.75rem; --fs-sm: 0.875rem; --fs-md: 1rem; --fs-lg: 1.125rem; --fs-xl: 1.375rem;
+  --fs-3xl: clamp(2rem, 1.2rem + 3.4vw, 3.4rem); --fs-h2: clamp(1.6rem, 1.2rem + 1.6vw, 2.25rem);
+  --m-fs-1: 0.5625rem; --m-fs-2: 0.625rem; --m-fs-3: 0.6875rem; --m-fs-4: 0.75rem;
+  --m-fs-5: 0.8125rem; --m-fs-6: 0.9375rem; --m-fs-7: 1.125rem; --m-fs-8: 1.5rem;
+
+  /* Espaçamento, raios, bordas, sombras, medidas */
+  --sp-05: 0.125rem; --sp-1: 0.25rem; --sp-15: 0.375rem; --sp-2: 0.5rem; --sp-3: 0.75rem; --sp-4: 1rem;
+  --sp-5: 1.25rem; --sp-6: 1.5rem; --sp-8: 2rem; --sp-10: 2.5rem; --sp-12: 3rem; --sp-16: 4rem; --sp-20: 5rem;
+  --r-1: 0.25rem; --r-2: 0.375rem; --r-3: 0.5rem; --r-4: 0.75rem; --r-5: 1rem; --r-6: 1.25rem; --r-pill: 999px;
+  --bw-1: 1px; --bw-2: 2px; --bw-3: 3px; --bw-4: 4px;
+  --shadow-sm: 0 1px 2px rgba(31, 26, 24, 0.06), 0 1px 3px rgba(31, 26, 24, 0.08);
+  --shadow-md: 0 4px 14px rgba(31, 26, 24, 0.10);
+  --shadow-lg: 0 18px 40px -12px rgba(31, 26, 24, 0.30);
+  --shadow-modal: 0 24px 60px rgba(31, 26, 24, 0.40);
+  --container: 75rem; --measure: 68ch; --topbar-h: 3.75rem;
+  --ic-xs: 0.75rem; --ic-sm: 0.875rem; --ic-md: 1rem; --ic-lg: 1.25rem; --ic-xl: 1.5rem;
+  --dot: 0.5rem; --dot-lg: 0.625rem; --avatar: 2.25rem; --logo-sm: 1.75rem; --logo-md: 2.5rem; --logo-lg: 7rem;
+  --sidebar-w: 10.5rem; --bar-h: 5.5rem; --ring: 2.1rem;
+
+  /* ---------- Semânticos: página ---------- */
+  --bg-page: var(--c-page);
+  --bg-surface: var(--c-white);
+  --bg-subtle: var(--c-n-100);
+  --bg-sunken: var(--c-n-100);
+  --text-strong: var(--c-n-900);
+  --text-body: var(--c-n-800);
+  --text-muted: var(--c-n-600);
+  --text-title: var(--c-vinho-700);
+  --text-on-brand: var(--c-white);
+  --text-on-brand-soft: var(--c-vinho-100);
+  --link: var(--c-vinho-600);
+  --border: var(--c-n-200);
+  --border-strong: var(--c-n-300);
+  --focus: var(--c-laranja-500);
+  --warm-text: var(--c-laranja-700);
+  --accent: var(--c-laranja-500);
+  --brand: var(--c-vinho-600);
+  --brand-soft: var(--c-vinho-50);
+  --brand-line: var(--c-vinho-100);
+  --ok: var(--c-verde-700);
+  --ok-soft: var(--c-verde-50);
+  --ok-line: var(--c-verde-300);
+  --warn-soft: var(--c-laranja-50);
+  --warn-line: var(--c-laranja-300);
+  --warn-text: var(--c-laranja-700);
+  --hero-bg: radial-gradient(ellipse at 85% 15%, rgba(248, 147, 39, 0.35) 0%, transparent 55%),
+             linear-gradient(135deg, var(--c-vinho-950) 0%, var(--c-vinho-900) 45%, var(--c-vinho-600) 100%);
+  --topbar-bg: rgba(255, 255, 255, 0.90);
+  --step-num-bg: linear-gradient(135deg, var(--c-vinho-600), var(--c-vinho-900));
+
+  /* ---------- Semânticos: telas reproduzidas ---------- */
+  --m-bg: var(--c-n-50);
+  --m-surface: var(--c-white);
+  --m-subtle: var(--c-n-50);
+  --m-muted-bg: var(--c-n-100);
+  --m-border: var(--c-n-200);
+  --m-input: var(--c-white);
+  --m-input-border: var(--c-n-300);
+  --m-text: var(--c-n-800);
+  --m-text-2: var(--c-n-600);
+  --m-text-3: var(--c-n-400);
+  --m-title: var(--c-vinho-700);
+  --m-chrome: var(--c-n-100);
+  --m-th: var(--c-n-100);
+  --m-th-text: var(--c-n-800);
+  --m-th-line: var(--c-vinho-600);
+  --m-row-new: var(--c-laranja-50);
+  --m-sidebar: linear-gradient(180deg, var(--c-vinho-700) 0%, var(--c-vinho-900) 100%);
+  --m-btn: var(--c-vinho-600);
+  --m-btn-ok: var(--c-verde-700);
+  --m-quote: var(--c-n-50);
+  --m-note: var(--c-laranja-50);
+  --m-note-line: var(--c-laranja-500);
+  /* METRICA360 */
+  --mx-bg: var(--c-n-50);
+  --mx-sidebar: linear-gradient(180deg, var(--c-m360-azul-900) 0%, var(--c-m360-azul-700) 100%);
+  --mx-brand: var(--c-m360-azul-700);
+  --mx-brand-soft: var(--c-m360-azul-50);
+  --mx-form-left: linear-gradient(150deg, var(--c-m360-verde-900) 0%, var(--c-m360-verde-800) 100%);
+  --mx-cta: linear-gradient(135deg, var(--c-m360-azul-700), var(--c-m360-azul-500));
+}
+
+/* ---------- Modo escuro: preferência do sistema ---------- */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+    --bg-page: var(--c-n-950); --bg-surface: var(--c-n-900); --bg-subtle: var(--c-n-800); --bg-sunken: var(--c-n-850);
+    --text-strong: var(--c-n-50); --text-body: var(--c-n-200); --text-muted: var(--c-n-300); --text-title: var(--c-vinho-100);
+    --link: var(--c-laranja-300); --border: var(--c-n-750); --border-strong: var(--c-n-600); --brand: var(--c-laranja-300);
+    --brand-soft: var(--c-n-800); --brand-line: var(--c-n-700); --ok: var(--c-verde-300); --ok-soft: var(--c-n-850);
+    --ok-line: var(--c-verde-700); --warn-soft: var(--c-n-850); --warn-line: var(--c-laranja-700); --warn-text: var(--c-laranja-300);
+    --topbar-bg: rgba(20, 16, 15, 0.90); --warm-text: var(--c-laranja-300);
+    --m-bg: var(--c-n-900); --m-surface: var(--c-n-800); --m-subtle: var(--c-n-850); --m-muted-bg: var(--c-n-750);
+    --m-border: var(--c-n-700); --m-input: var(--c-n-850); --m-input-border: var(--c-n-600); --m-text: var(--c-n-100);
+    --m-text-2: var(--c-n-300); --m-text-3: var(--c-n-400); --m-title: var(--c-vinho-100); --m-chrome: var(--c-n-850);
+    --m-th: var(--c-n-900); --m-th-text: var(--c-n-100); --m-row-new: var(--c-n-750); --m-quote: var(--c-n-850);
+    --m-note: var(--c-n-850); --mx-bg: var(--c-n-900); --mx-brand-soft: var(--c-n-850);
+  }
+}
+/* ---------- Modo escuro: escolha manual ---------- */
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --bg-page: var(--c-n-950); --bg-surface: var(--c-n-900); --bg-subtle: var(--c-n-800); --bg-sunken: var(--c-n-850);
+  --text-strong: var(--c-n-50); --text-body: var(--c-n-200); --text-muted: var(--c-n-300); --text-title: var(--c-vinho-100);
+  --link: var(--c-laranja-300); --border: var(--c-n-750); --border-strong: var(--c-n-600); --brand: var(--c-laranja-300);
+  --brand-soft: var(--c-n-800); --brand-line: var(--c-n-700); --ok: var(--c-verde-300); --ok-soft: var(--c-n-850);
+  --ok-line: var(--c-verde-700); --warn-soft: var(--c-n-850); --warn-line: var(--c-laranja-700); --warn-text: var(--c-laranja-300);
+  --topbar-bg: rgba(20, 16, 15, 0.90); --warm-text: var(--c-laranja-300);
+  --m-bg: var(--c-n-900); --m-surface: var(--c-n-800); --m-subtle: var(--c-n-850); --m-muted-bg: var(--c-n-750);
+  --m-border: var(--c-n-700); --m-input: var(--c-n-850); --m-input-border: var(--c-n-600); --m-text: var(--c-n-100);
+  --m-text-2: var(--c-n-300); --m-text-3: var(--c-n-400); --m-title: var(--c-vinho-100); --m-chrome: var(--c-n-850);
+  --m-th: var(--c-n-900); --m-th-text: var(--c-n-100); --m-row-new: var(--c-n-750); --m-quote: var(--c-n-850);
+  --m-note: var(--c-n-850); --mx-bg: var(--c-n-900); --mx-brand-soft: var(--c-n-850);
+}
+
+/* Logotipos (definidos uma única vez) */
+:root { --logo-crprs: url("data:image/png;base64,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"); --logo-m360: url("data:image/png;base64,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"); }
+
+/* =====================================================================
+   BASE
+   ===================================================================== */
+*, *::before, *::after { box-sizing: border-box; }
+html { scroll-behavior: smooth; scroll-padding-top: calc(var(--topbar-h) + var(--sp-4)); -webkit-text-size-adjust: 100%; }
+body { margin: 0; font-family: var(--font); font-size: var(--fs-md); line-height: 1.65; color: var(--text-body); background: var(--bg-page); overflow-x: hidden; }
+h1, h2, h3, h4, h5, h6 { margin: 0; color: var(--text-strong); line-height: 1.2; letter-spacing: -0.01em; }
+p { margin: 0 0 var(--sp-4); }
+a { color: var(--link); text-underline-offset: 0.18em; }
+ul, ol { margin: 0; padding: 0; }
+:focus-visible { outline: var(--bw-3) solid var(--focus); outline-offset: var(--bw-2); border-radius: var(--r-1); }
+.sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
+.skip-link { position: absolute; left: var(--sp-4); top: calc(-1 * var(--sp-20)); z-index: 100; background: var(--bg-surface); color: var(--link); padding: var(--sp-2) var(--sp-4); border-radius: var(--r-3); box-shadow: var(--shadow-md); font-weight: 600; }
+.skip-link:focus { top: var(--sp-3); }
+.container { width: 100%; max-width: var(--container); margin-inline: auto; padding-inline: var(--sp-4); }
+@media (min-width: 48rem) { .container { padding-inline: var(--sp-8); } }
+.ic { width: 1em; height: 1em; flex-shrink: 0; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; vertical-align: -0.125em; }
+.ic--fill { fill: currentColor; stroke: none; }
+
+/* =====================================================================
+   BARRA SUPERIOR
+   ===================================================================== */
+.topbar { position: sticky; top: 0; z-index: 50; background: var(--topbar-bg); backdrop-filter: saturate(1.4) blur(10px); -webkit-backdrop-filter: saturate(1.4) blur(10px); border-bottom: var(--bw-1) solid var(--border); }
+.topbar-inner { display: flex; align-items: center; gap: var(--sp-3); min-height: var(--topbar-h); }
+.brand { display: flex; align-items: center; gap: var(--sp-2); font-weight: 800; color: var(--text-strong); text-decoration: none; white-space: nowrap; font-size: var(--fs-sm); }
+.brand .accent { color: var(--warm-text); }
+.brand-logo { width: var(--logo-sm); height: var(--logo-sm); background: var(--logo-crprs) center / contain no-repeat; }
+.topnav { position: relative; flex: 1; min-width: 0; overflow-x: auto; scrollbar-width: none; }
+.topnav::-webkit-scrollbar { display: none; }
+.topnav ul { list-style: none; display: flex; gap: var(--sp-1); }
+.topnav a { display: block; padding: var(--sp-15) var(--sp-3); border-radius: var(--r-pill); font-size: var(--fs-sm); font-weight: 600; color: var(--text-muted); text-decoration: none; white-space: nowrap; }
+.topnav a:hover { color: var(--text-strong); background: var(--bg-subtle); }
+.topnav a[aria-current="true"] { color: var(--brand); background: var(--brand-soft); }
+.tool-btns { display: flex; gap: var(--sp-1); }
+.icon-btn { display: inline-flex; align-items: center; justify-content: center; min-width: 2.5rem; height: 2.5rem; padding-inline: var(--sp-2); border: var(--bw-1) solid var(--border); background: var(--bg-surface); color: var(--text-body); border-radius: var(--r-pill); cursor: pointer; font: inherit; }
+.icon-btn:hover { border-color: var(--border-strong); color: var(--text-strong); }
+.icon-btn .ic { width: var(--ic-lg); height: var(--ic-lg); }
+.theme-icon-sun { display: none; }
+:root[data-theme="dark"] .theme-icon-sun { display: inline; }
+:root[data-theme="dark"] .theme-icon-moon { display: none; }
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .theme-icon-sun { display: inline; }
+  :root:not([data-theme="light"]) .theme-icon-moon { display: none; }
+}
+@media (max-width: 40rem) { .brand-text { display: none; } }
+
+/* =====================================================================
+   CAPA
+   ===================================================================== */
+.hero { background: var(--hero-bg); color: var(--text-on-brand); padding-block: var(--sp-16) var(--sp-12); position: relative; overflow: hidden; }
+.hero-grid { display: grid; gap: var(--sp-10); align-items: center; }
+@media (min-width: 60rem) { .hero-grid { grid-template-columns: 1.5fr 1fr; } }
+.hero-kicker { font-size: var(--fs-xs); font-weight: 700; letter-spacing: 0.16em; text-transform: uppercase; color: var(--c-laranja-100); margin-bottom: var(--sp-4); }
+.hero h1 { color: var(--text-on-brand); font-size: var(--fs-3xl); font-weight: 900; line-height: 1.05; margin-bottom: var(--sp-5); }
+.hero h1 .accent { color: var(--accent); }
+.hero-lead { font-size: var(--fs-lg); color: var(--text-on-brand-soft); max-width: 40rem; margin-bottom: var(--sp-8); }
+.hero-actions { display: flex; flex-wrap: wrap; gap: var(--sp-3); }
+.btn { display: inline-flex; align-items: center; gap: var(--sp-2); padding: var(--sp-3) var(--sp-5); border-radius: var(--r-pill); font-weight: 700; font-size: var(--fs-sm); text-decoration: none; border: var(--bw-2) solid transparent; }
+.btn--light { background: var(--c-white); color: var(--c-vinho-700); }
+.btn--light:hover { background: var(--c-vinho-50); }
+.btn--ghost { color: var(--text-on-brand); border-color: var(--c-glass-line); background: var(--c-glass); }
+.btn--ghost:hover { background: var(--c-glass-2); }
+.hero-card { background: var(--c-glass); border: var(--bw-1) solid var(--c-glass-line); border-radius: var(--r-6); padding: var(--sp-6); backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px); }
+.hero-logo { width: var(--logo-lg); height: var(--logo-lg); margin: 0 auto var(--sp-5); background: var(--logo-crprs) center / contain no-repeat; }
+.facts { display: grid; grid-template-columns: 1fr 1fr; gap: var(--sp-3); margin: 0; }
+.fact { background: var(--c-glass); border-radius: var(--r-4); padding: var(--sp-3) var(--sp-4); }
+.fact dt { font-size: var(--fs-xl); font-weight: 900; color: var(--text-on-brand); line-height: 1.1; }
+.fact dd { margin: var(--sp-1) 0 0; font-size: var(--fs-xs); color: var(--text-on-brand-soft); line-height: 1.4; }
+
+/* =====================================================================
+   CAPÍTULOS E ETAPAS
+   ===================================================================== */
+.chapter { padding-block: var(--sp-16) var(--sp-8); }
+.chapter + .chapter { border-top: var(--bw-1) solid var(--border); }
+.chapter-head { max-width: var(--measure); margin-bottom: var(--sp-8); }
+.part-tag { display: inline-flex; align-items: center; gap: var(--sp-2); font-size: var(--fs-xs); font-weight: 800; letter-spacing: 0.12em; text-transform: uppercase; color: var(--brand); margin-bottom: var(--sp-3); }
+.part-tag::before { content: ""; width: var(--sp-6); height: var(--bw-3); background: var(--accent); border-radius: var(--r-pill); }
+.chapter-head h2 { font-size: var(--fs-h2); font-weight: 900; margin-bottom: var(--sp-4); }
+.lead { font-size: var(--fs-lg); color: var(--text-muted); }
+.step-index { list-style: none; display: flex; flex-wrap: wrap; gap: var(--sp-2); margin-top: var(--sp-5); }
+.step-index a { display: inline-flex; align-items: center; gap: var(--sp-2); padding: var(--sp-1) var(--sp-3) var(--sp-1) var(--sp-1); background: var(--bg-surface); border: var(--bw-1) solid var(--border); border-radius: var(--r-pill); font-size: var(--fs-sm); font-weight: 600; color: var(--text-body); text-decoration: none; }
+.step-index a:hover { border-color: var(--brand); color: var(--brand); }
+.step-index b { display: inline-flex; align-items: center; justify-content: center; width: 1.6rem; height: 1.6rem; border-radius: 50%; background: var(--brand-soft); color: var(--brand); font-size: var(--fs-xs); }
+
+.step { display: grid; gap: var(--sp-6); padding-block: var(--sp-10); border-top: var(--bw-1) dashed var(--border); }
+@media (min-width: 66rem) {
+  .step { grid-template-columns: minmax(0, 5fr) minmax(0, 7fr); gap: var(--sp-10); align-items: start; }
+  .step--stack { grid-template-columns: 1fr; }
+  .step--stack .step-text { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); column-gap: var(--sp-10); }
+  .step--stack .step-text > .step-kicker, .step--stack .step-text > h3 { grid-column: 1 / -1; }
+  .step-text { position: sticky; top: calc(var(--topbar-h) + var(--sp-6)); }
+  .step--stack .step-text { position: static; }
+}
+.step-kicker { display: flex; align-items: center; flex-wrap: wrap; gap: var(--sp-2); margin-bottom: var(--sp-3); }
+.step-num { display: inline-flex; align-items: center; justify-content: center; width: 2.25rem; height: 2.25rem; border-radius: 50%; background: var(--step-num-bg); color: var(--c-white); font-weight: 900; font-size: var(--fs-sm); box-shadow: 0 4px 12px var(--c-glow); }
+.area-tag { display: inline-flex; align-items: center; gap: var(--sp-1); padding: var(--sp-05) var(--sp-2); border-radius: var(--r-pill); font-size: var(--fs-xs); font-weight: 700; }
+.area-tag--cid { background: var(--c-verde-100); color: var(--c-verde-900); }
+.area-tag--auto { background: var(--c-n-200); color: var(--c-n-800); }
+.area-tag--int { background: var(--c-vinho-100); color: var(--c-vinho-900); }
+.area-tag--mail { background: var(--c-laranja-100); color: var(--c-laranja-800); }
+.area-tag--m360 { background: var(--c-m360-azul-50); color: var(--c-m360-azul-900); }
+.step h3 { font-size: var(--fs-xl); font-weight: 800; color: var(--text-title); margin-bottom: var(--sp-3); }
+.step-text p { max-width: var(--measure); }
+.checks { list-style: none; display: grid; gap: var(--sp-2); margin-bottom: var(--sp-4); }
+.checks li { position: relative; padding-left: var(--sp-6); font-size: var(--fs-sm); }
+.checks li::before { content: ""; position: absolute; left: var(--sp-1); top: 0.3em; width: 0.4rem; height: 0.75rem; border: solid var(--ok); border-width: 0 var(--bw-2) var(--bw-2) 0; transform: rotate(45deg); }
+.callout { display: flex; gap: var(--sp-3); background: var(--warn-soft); border: var(--bw-1) solid var(--warn-line); border-left-width: var(--bw-4); border-radius: var(--r-3); padding: var(--sp-3) var(--sp-4); font-size: var(--fs-sm); color: var(--text-body); }
+.callout .ic { color: var(--warn-text); width: var(--ic-lg); height: var(--ic-lg); margin-top: var(--sp-05); }
+.callout strong { color: var(--text-strong); }
+.callout p { margin: 0; }
+
+/* Palco e moldura das telas */
+.step-visual { margin: 0; min-width: 0; }
+.stage { background: var(--bg-sunken); border-radius: var(--r-6); padding: var(--sp-3); }
+@media (min-width: 40rem) { .stage { padding: var(--sp-6); } }
+.stage--duo { display: grid; gap: var(--sp-5); }
+@media (min-width: 52rem) { .stage--duo { grid-template-columns: 1fr 1fr; align-items: start; } }
+.stage-label { display: block; font-size: var(--fs-xs); font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: var(--text-muted); margin-bottom: var(--sp-2); }
+.step-visual figcaption { margin-top: var(--sp-3); font-size: var(--fs-sm); color: var(--text-muted); text-align: center; }
+.frame { background: var(--m-surface); border: var(--bw-1) solid var(--m-border); border-radius: var(--r-4); box-shadow: var(--shadow-lg); overflow: hidden; }
+.frame-bar { display: flex; align-items: center; gap: var(--sp-3); padding: var(--sp-2) var(--sp-3); background: var(--m-chrome); border-bottom: var(--bw-1) solid var(--m-border); }
+.frame-dots { display: flex; gap: var(--sp-15); }
+.frame-dots i { width: var(--dot-lg); height: var(--dot-lg); border-radius: 50%; background: var(--c-dot-red); }
+.frame-dots i:nth-child(2) { background: var(--c-dot-amber); }
+.frame-dots i:nth-child(3) { background: var(--c-dot-green); }
+.frame-title { flex: 1; min-width: 0; text-align: center; font-size: var(--m-fs-3); color: var(--m-text-2); background: var(--m-surface); border: var(--bw-1) solid var(--m-border); border-radius: var(--r-pill); padding: var(--sp-05) var(--sp-3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.frame-title .ic { color: var(--ok); margin-right: var(--sp-1); }
+.frame-pad { width: var(--sp-10); }
+
+/* =====================================================================
+   TELAS REPRODUZIDAS — elementos comuns
+   ===================================================================== */
+.screen { font-size: var(--m-fs-3); line-height: 1.5; color: var(--m-text); background: var(--m-bg); }
+.screen p { margin: 0 0 var(--sp-2); }
+.screen p:last-child { margin-bottom: 0; }
+.m-muted { color: var(--m-text-2); }
+.m-faint { color: var(--m-text-3); }
+.m-strong { font-weight: 700; color: var(--m-text); }
+.m-center { text-align: center; }
+.m-mono { font-family: var(--font-mono); }
+.m-row { display: flex; align-items: center; gap: var(--sp-2); flex-wrap: wrap; }
+.m-gap { margin-top: var(--sp-3); }
+.m-btn { display: inline-flex; align-items: center; justify-content: center; gap: var(--sp-1); border-radius: var(--r-3); padding: var(--sp-15) var(--sp-3); font-weight: 700; font-size: var(--m-fs-3); border: var(--bw-2) solid transparent; white-space: nowrap; }
+.m-btn .ic { width: var(--ic-sm); height: var(--ic-sm); }
+.m-btn--primary { background: var(--m-btn); color: var(--c-white); }
+.m-btn--ok { background: var(--m-btn-ok); color: var(--c-white); }
+.m-btn--ghost { background: var(--m-muted-bg); color: var(--m-text); border-color: var(--m-border); }
+.m-btn--outline { background: var(--m-surface); color: var(--m-text-2); border-color: var(--m-input-border); border-width: var(--bw-1); }
+.m-btn--sm { padding: var(--sp-1) var(--sp-2); font-size: var(--m-fs-2); }
+.m-label { display: block; font-size: var(--m-fs-2); font-weight: 700; color: var(--m-text); margin-bottom: var(--sp-05); }
+.m-input, .m-select, .m-textarea { display: block; width: 100%; padding: var(--sp-15) var(--sp-2); border: var(--bw-1) solid var(--m-input-border); border-radius: var(--r-2); background: var(--m-input); color: var(--m-text); font-size: var(--m-fs-3); min-height: 1.75rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.m-input.ph { color: var(--m-text-3); }
+.m-textarea { white-space: normal; min-height: 3.5rem; line-height: 1.5; }
+.m-hint { font-size: var(--m-fs-1); color: var(--m-text-3); margin-top: var(--sp-05); line-height: 1.4; }
+
+/* Interruptor (liga/desliga) */
+.sw { display: flex; align-items: center; gap: var(--sp-2); font-size: var(--m-fs-3); margin-bottom: var(--sp-15); }
+.sw::before { content: ""; flex-shrink: 0; width: 1.7rem; height: 0.95rem; border-radius: var(--r-pill); background: var(--c-n-300) radial-gradient(circle at 0.48rem 50%, var(--c-white) 0 0.32rem, transparent 0.34rem); }
+.sw.on::before { background: var(--c-verde-700) radial-gradient(circle at 1.22rem 50%, var(--c-white) 0 0.32rem, transparent 0.34rem); }
+
+/* Janelas (modais) */
+.m-overlay { position: relative; padding: var(--sp-6) var(--sp-3); background: var(--c-scrim); display: flex; align-items: center; justify-content: center; min-height: 14rem; }
+.m-modal { width: 100%; max-width: 26rem; background: var(--m-surface); border-radius: var(--r-5); box-shadow: var(--shadow-modal); overflow: hidden; color: var(--m-text); }
+.m-modal-head { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-2); padding: var(--sp-3) var(--sp-4); background: var(--c-vinho-600); color: var(--c-white); }
+.m-modal-title { font-size: var(--m-fs-5); font-weight: 800; }
+.m-modal-head .ic { width: var(--ic-md); height: var(--ic-md); }
+.m-modal-body { padding: var(--sp-3) var(--sp-4); }
+.m-modal-foot { display: flex; justify-content: flex-end; flex-wrap: wrap; gap: var(--sp-2); padding: var(--sp-3) var(--sp-4); border-top: var(--bw-1) solid var(--m-border); }
+.m-opt { display: flex; align-items: center; gap: var(--sp-2); padding: var(--sp-2) var(--sp-3); border: var(--bw-1) solid var(--m-border); border-radius: var(--r-3); margin-bottom: var(--sp-15); font-size: var(--m-fs-3); }
+.m-opt small { display: block; color: var(--m-text-2); font-size: var(--m-fs-1); }
+.m-opt.on { border-color: var(--c-vinho-600); background: var(--c-vinho-50); color: var(--c-n-900); }
+.m-opt.on small { color: var(--c-n-700); }
+.m-opt .avatar-sm { width: 1.5rem; height: 1.5rem; font-size: var(--m-fs-1); }
+
+/* Situações e prioridades (mesmas cores do sistema) */
+.bdg { display: inline-block; padding: var(--sp-05) var(--sp-2); border-radius: var(--r-pill); font-size: var(--m-fs-1); font-weight: 700; white-space: nowrap; line-height: 1.5; }
+.bdg-novo { background: var(--c-laranja-100); color: var(--c-laranja-800); }
+.bdg-atend { background: var(--c-ciano-100); color: var(--c-ciano-800); }
+.bdg-aguard { background: var(--c-ambar-100); color: var(--c-ambar-800); }
+.bdg-resp { background: var(--c-rosa-100); color: var(--c-rosa-800); }
+.bdg-enc { background: var(--c-n-200); color: var(--c-n-800); }
+.bdg-urg { background: var(--c-vermelho-600); color: var(--c-white); }
+.bdg-alta { background: var(--c-laranja-100); color: var(--c-laranja-800); }
+.bdg-normal { background: var(--c-ciano-100); color: var(--c-ciano-800); }
+.bdg-baixa { background: var(--c-verde-100); color: var(--c-verde-900); }
+.bdg-vazio { background: var(--m-muted-bg); color: var(--m-text-2); border: var(--bw-1) dashed var(--m-input-border); }
+.sla { display: block; font-size: var(--m-fs-1); font-weight: 700; white-space: nowrap; }
+.sla-ok { color: var(--c-verde-700); }
+.sla-alerta { color: var(--c-laranja-700); }
+.sla-pausa { color: var(--m-text-2); }
+
+/* Tabelas */
+.m-table-wrap { border-radius: var(--r-3); overflow: hidden; border: var(--bw-1) solid var(--m-border); background: var(--m-surface); }
+.scroll-x { overflow-x: auto; }
+.m-table { width: 100%; border-collapse: collapse; font-size: var(--m-fs-2); }
+.m-table th { background: var(--m-th); color: var(--m-th-text); text-align: left; font-weight: 700; padding: var(--sp-15) var(--sp-2); white-space: nowrap; border-bottom: var(--bw-2) solid var(--m-th-line); }
+.m-table td { padding: var(--sp-15) var(--sp-2); border-top: var(--bw-1) solid var(--m-border); vertical-align: middle; }
+.m-table tr.is-new td { background: var(--m-row-new); }
+.m-table .prot { color: var(--m-title); font-weight: 800; white-space: nowrap; font-family: var(--font-mono); }
+.m-table .assunto { font-weight: 600; }
+@media (max-width: 46rem) { .hide-sm { display: none; } }
+
+/* Indicadores e gráficos */
+.kpis { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--sp-2); }
+@media (min-width: 36rem) { .kpis { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+.kpi { background: var(--m-surface); border: var(--bw-1) solid var(--m-border); border-radius: var(--r-3); padding: var(--sp-2) var(--sp-3); box-shadow: var(--shadow-sm); }
+.kpi-val { font-size: var(--m-fs-8); font-weight: 900; color: var(--m-text); line-height: 1.1; }
+.kpi-lbl { font-size: var(--m-fs-1); color: var(--m-text-2); }
+.kpi-trend { font-size: var(--m-fs-1); font-weight: 700; color: var(--c-verde-700); }
+.kpi--alerta .kpi-val { color: var(--c-vermelho-600); }
+.vbars { display: flex; align-items: flex-end; gap: var(--sp-1); height: var(--bar-h); padding-top: var(--sp-2); border-bottom: var(--bw-1) solid var(--m-border); }
+.vbar { flex: 1; background: linear-gradient(180deg, var(--c-m360-azul-500), var(--c-m360-azul-700)); border-radius: var(--r-1) var(--r-1) 0 0; }
+.vbar-x { display: flex; gap: var(--sp-1); font-size: var(--m-fs-1); color: var(--m-text-3); margin-top: var(--sp-05); }
+.vbar-x span { flex: 1; text-align: center; }
+.hbars { display: grid; gap: var(--sp-15); }
+.hbar { display: grid; grid-template-columns: 6.5rem 1fr 2rem; align-items: center; gap: var(--sp-2); font-size: var(--m-fs-1); color: var(--m-text-2); }
+.hbar-track { height: 0.55rem; background: var(--m-muted-bg); border-radius: var(--r-pill); overflow: hidden; }
+.hbar-fill { display: block; height: 100%; border-radius: var(--r-pill); background: var(--c-verde-500); }
+.hbar-fill--neg { background: var(--c-vermelho-600); }
+.hbar b { color: var(--m-text); text-align: right; }
+.h50 { height: 50%; } .h60 { height: 60%; } .h65 { height: 65%; } .h70 { height: 70%; } .h75 { height: 75%; }
+.h80 { height: 80%; } .h85 { height: 85%; } .h90 { height: 90%; } .h95 { height: 95%; }
+.w15 { width: 15%; } .w25 { width: 25%; } .w40 { width: 40%; } .w55 { width: 55%; } .w70 { width: 70%; } .w85 { width: 85%; }
+
+/* =====================================================================
+   CONECTA — área da equipe
+   ===================================================================== */
+.cx { display: flex; min-height: 22rem; background: var(--m-bg); }
+.cx-side { width: var(--sidebar-w); flex-shrink: 0; background: var(--m-sidebar); color: var(--c-vinho-100); padding: var(--sp-3) var(--sp-2); display: flex; flex-direction: column; gap: var(--sp-3); }
+@media (max-width: 40rem) { .cx-side { display: none; } }
+.cx-brand { display: flex; align-items: center; gap: var(--sp-1); padding: 0 var(--sp-1); }
+.cx-brand i { width: var(--logo-sm); height: var(--logo-sm); background: var(--logo-crprs) center / contain no-repeat; flex-shrink: 0; }
+.cx-brand b { color: var(--c-white); font-size: var(--m-fs-5); font-weight: 800; line-height: 1.1; }
+.cx-brand b span { color: var(--c-laranja-100); }
+.cx-setor { font-size: var(--m-fs-1); color: var(--c-vinho-100); padding: 0 var(--sp-1); margin-top: calc(-1 * var(--sp-2)); }
+.cx-user { display: flex; align-items: center; gap: var(--sp-2); background: var(--c-glass); border-radius: var(--r-3); padding: var(--sp-2); }
+.avatar { width: var(--avatar); height: var(--avatar); border-radius: 50%; background: linear-gradient(135deg, var(--c-laranja-500), var(--c-vinho-600)); color: var(--c-white); font-weight: 900; font-size: var(--m-fs-4); display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; }
+.avatar--verde { background: linear-gradient(135deg, var(--c-verde-500), var(--c-verde-700)); }
+.avatar--azul { background: linear-gradient(135deg, var(--c-m360-azul-500), var(--c-m360-azul-900)); }
+.cx-user b { display: block; color: var(--c-white); font-size: var(--m-fs-2); line-height: 1.2; }
+.cx-user span:not(.avatar) { font-size: var(--m-fs-1); color: var(--c-vinho-100); }
+.cx-nav { display: flex; flex-direction: column; gap: var(--sp-05); }
+.cx-item { display: flex; align-items: center; gap: var(--sp-2); padding: var(--sp-15) var(--sp-2); border-radius: var(--r-2); border-left: var(--bw-3) solid transparent; font-size: var(--m-fs-2); font-weight: 600; }
+.cx-item .ic { width: var(--ic-sm); height: var(--ic-sm); }
+.cx-item.on { background: var(--c-glass-2); color: var(--c-white); border-left-color: var(--c-laranja-500); }
+.cx-count { margin-left: auto; background: var(--c-laranja-500); color: var(--c-n-900); border-radius: var(--r-pill); padding: 0 var(--sp-15); font-size: var(--m-fs-1); font-weight: 800; }
+.cx-main { flex: 1; min-width: 0; padding: var(--sp-3); display: grid; gap: var(--sp-3); align-content: start; }
+.cx-main > .m-btn { justify-self: start; }
+.cx-head { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-2); }
+.cx-h { font-size: var(--m-fs-6); font-weight: 800; color: var(--m-title); }
+.cx-h small { color: var(--m-text-2); font-weight: 600; }
+.alerta-resp { display: inline-flex; align-items: center; gap: var(--sp-1); background: var(--c-vinho-600); color: var(--c-white); border-radius: var(--r-pill); padding: var(--sp-05) var(--sp-2); font-size: var(--m-fs-1); font-weight: 700; box-shadow: 0 0 0 var(--bw-3) var(--c-vinho-100); }
+.cx-tools { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-2); }
+.cx-tools .m-input { flex: 1; min-width: 9rem; }
+.cx-tools .sw { margin: 0; font-size: var(--m-fs-2); }
+.pills { display: flex; flex-wrap: wrap; gap: var(--sp-1); align-items: center; }
+.pill { padding: var(--sp-05) var(--sp-2); border-radius: var(--r-pill); font-size: var(--m-fs-1); font-weight: 700; background: var(--m-surface); color: var(--m-text-2); border: var(--bw-1) solid var(--m-border); }
+.pill b { margin-left: var(--sp-05); color: var(--m-text); }
+.pill.on { background: var(--c-vinho-600); border-color: var(--c-vinho-600); color: var(--c-white); }
+.pill.on b { color: var(--c-white); }
+.pills .m-btn { margin-left: auto; }
+.btn-nova { background: var(--c-verde-700); color: var(--c-white); }
+
+/* Detalhe da demanda */
+.dt { background: var(--m-surface); border: var(--bw-1) solid var(--m-border); border-radius: var(--r-3); padding: var(--sp-3); display: grid; gap: var(--sp-2); }
+.dt-top { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: var(--sp-2); }
+.dt-prot { font-family: var(--font-mono); font-weight: 900; font-size: var(--m-fs-6); color: var(--m-title); }
+.chips { display: flex; flex-wrap: wrap; gap: var(--sp-1); }
+.chip { padding: var(--sp-05) var(--sp-2); border-radius: var(--r-pill); font-size: var(--m-fs-1); font-weight: 700; background: var(--m-muted-bg); color: var(--m-text); border: var(--bw-1) solid var(--m-border); }
+.chip--vazio { border-style: dashed; color: var(--m-text-2); }
+.dt-title { font-size: var(--m-fs-6); font-weight: 800; color: var(--m-text); }
+.dt-desc { background: var(--m-subtle); border: var(--bw-1) solid var(--m-border); border-radius: var(--r-2); padding: var(--sp-2) var(--sp-3); }
+.dt-meta { display: grid; gap: var(--sp-05); font-size: var(--m-fs-2); color: var(--m-text-2); }
+.dt-meta b { color: var(--m-text); }
+.dt-anexo { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-2); background: var(--m-subtle); border: var(--bw-1) solid var(--m-border); border-radius: var(--r-2); padding: var(--sp-15) var(--sp-2); font-size: var(--m-fs-2); }
+.dt-anexo .ic { color: var(--m-text-2); }
+.dt-acoes { display: flex; flex-wrap: wrap; gap: var(--sp-15); padding-top: var(--sp-2); border-top: var(--bw-1) solid var(--m-border); }
+.dt-sec { font-size: var(--m-fs-4); font-weight: 800; color: var(--m-title); }
+
+/* Interações (comentários e histórico) */
+.cm { border: var(--bw-1) solid var(--m-border); border-left: var(--bw-4) solid var(--c-vinho-600); border-radius: var(--r-2); padding: var(--sp-2) var(--sp-3); background: var(--m-surface); font-size: var(--m-fs-2); }
+.cm--cid { border-left-color: var(--c-verde-500); }
+.cm--evt { border-left-color: var(--c-n-400); background: var(--m-subtle); color: var(--m-text-2); font-style: italic; }
+.cm-head { display: flex; flex-wrap: wrap; justify-content: space-between; gap: var(--sp-1); margin-bottom: var(--sp-05); }
+.cm-head b { color: var(--m-text); font-style: normal; }
+.cm-head span { color: var(--m-text-3); font-size: var(--m-fs-1); }
+.cm-tag { display: inline-block; font-size: var(--m-fs-1); font-weight: 700; padding: 0 var(--sp-15); border-radius: var(--r-pill); background: var(--c-ciano-100); color: var(--c-ciano-800); margin-left: var(--sp-1); }
+.cm-list { display: grid; gap: var(--sp-15); }
+
+/* Editor de resposta */
+.ed { border: var(--bw-1) solid var(--m-input-border); border-radius: var(--r-2); overflow: hidden; background: var(--m-input); }
+.ed-bar { display: flex; flex-wrap: wrap; gap: var(--sp-2); padding: var(--sp-1) var(--sp-2); border-bottom: var(--bw-1) solid var(--m-border); background: var(--m-subtle); font-size: var(--m-fs-2); color: var(--m-text-2); }
+.ed-bar b, .ed-bar i, .ed-bar u { font-family: Georgia, serif; }
+.ed-bar .ic { width: var(--ic-sm); height: var(--ic-sm); }
+.ed-body { padding: var(--sp-2) var(--sp-3); font-size: var(--m-fs-3); color: var(--m-text); }
+.ed-body p { margin: 0 0 var(--sp-1); }
+.ed-assin { color: var(--m-text-3); border-top: var(--bw-1) dashed var(--m-border); padding-top: var(--sp-1); margin-top: var(--sp-2); }
+.ed-row { display: flex; justify-content: space-between; align-items: center; gap: var(--sp-2); flex-wrap: wrap; }
+.ed-row .m-select { width: auto; flex: 0 1 15rem; }
+
+/* Fluxo da criação automática */
+.flow { display: grid; gap: var(--sp-3); align-items: center; padding: var(--sp-4); }
+@media (min-width: 34rem) { .flow { grid-template-columns: 1fr auto 1fr auto 1.3fr; } }
+.flow-box { background: var(--m-surface); border: var(--bw-1) solid var(--m-border); border-radius: var(--r-4); padding: var(--sp-3); text-align: center; box-shadow: var(--shadow-sm); }
+.flow-box .ic { width: var(--ic-xl); height: var(--ic-xl); color: var(--c-vinho-600); }
+.flow-box b { display: block; font-size: var(--m-fs-4); color: var(--m-text); margin-top: var(--sp-1); }
+.flow-box span { font-size: var(--m-fs-1); color: var(--m-text-2); }
+.flow-seta { color: var(--c-laranja-700); text-align: center; }
+.flow-seta .ic { width: var(--ic-xl); height: var(--ic-xl); }
+@media (max-width: 33.99rem) { .flow-seta .ic { transform: rotate(90deg); } }
+.flow-card { text-align: left; border-top: var(--bw-4) solid var(--c-vinho-600); }
+.flow-card .dt-prot { display: block; margin-bottom: var(--sp-1); }
+.flow-card dl { margin: 0; display: grid; grid-template-columns: auto 1fr; gap: var(--sp-05) var(--sp-2); font-size: var(--m-fs-2); }
+.flow-card dt { color: var(--m-text-2); }
+.flow-card dd { margin: 0; color: var(--m-text); font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* =====================================================================
+   E-MAILS
+   ===================================================================== */
+.mail-head { padding: var(--sp-2) var(--sp-4); border-bottom: var(--bw-1) solid var(--m-border); background: var(--m-surface); font-size: var(--m-fs-3); color: var(--m-text-2); display: grid; gap: var(--sp-05); }
+.mail-head b { color: var(--m-text); display: inline-block; min-width: 3.5rem; }
+.mail-subject { font-size: var(--m-fs-5); font-weight: 800; color: var(--m-text); }
+.mail-body { background: var(--m-bg); padding: var(--sp-4) var(--sp-3); }
+/* O corpo do e-mail fica sempre claro, como chega na caixa de entrada */
+.mail-card { max-width: 32rem; margin: 0 auto; background: var(--c-white); color: var(--c-n-800); border-radius: var(--r-3); overflow: hidden; box-shadow: var(--shadow-md); font-size: var(--m-fs-3); }
+.mail-card p { margin: 0 0 var(--sp-2); }
+.mail-card strong { color: var(--c-n-900); }
+/* Cabeçalho "papel timbrado" do Conecta */
+.tb { display: flex; align-items: center; gap: var(--sp-3); padding: var(--sp-3) var(--sp-4); border-bottom: var(--bw-1) solid var(--c-n-200); }
+.tb i { width: var(--logo-md); height: var(--logo-md); background: var(--logo-crprs) center / contain no-repeat; flex-shrink: 0; }
+.tb small { display: block; font-size: var(--m-fs-1); color: var(--c-n-600); letter-spacing: 0.04em; }
+.tb b { display: block; font-size: var(--m-fs-7); color: var(--c-vinho-600); line-height: 1.15; }
+.faixa { display: flex; height: 0.3rem; }
+.faixa span { flex: 1; background: var(--c-laranja-500); }
+.faixa span:nth-child(2) { background: var(--c-verde-500); }
+.faixa span:nth-child(3) { background: var(--c-vinho-600); }
+.mail-content { padding: var(--sp-3) var(--sp-4); }
+.tk-info { border: var(--bw-1) solid var(--c-verde-500); border-radius: var(--r-2); padding: var(--sp-2) var(--sp-3); margin: var(--sp-2) 0 var(--sp-3); }
+.tk-info h6, .resp-box h6, .hist h6 { margin: 0 0 var(--sp-1); font-size: var(--m-fs-3); text-transform: uppercase; letter-spacing: 0.04em; color: var(--c-vinho-600); }
+.tk-info p { margin: 0; line-height: 1.6; }
+.selo { display: inline-block; padding: 0 var(--sp-15); border-radius: var(--r-1); font-size: var(--m-fs-1); font-weight: 800; color: var(--c-white); background: var(--c-verde-700); }
+.selo--vinho { background: var(--c-vinho-600); }
+.mail-list { margin: 0 0 var(--sp-3); padding-left: var(--sp-5); }
+.mail-tip { background: var(--c-n-50); border-radius: var(--r-2); padding: var(--sp-2) var(--sp-3); font-size: var(--m-fs-2); color: var(--c-n-700); margin-bottom: var(--sp-2); }
+.mail-tip--alerta { background: var(--c-laranja-50); border-left: var(--bw-3) solid var(--c-laranja-500); }
+.resp-box { background: var(--c-laranja-50); border-left: var(--bw-4) solid var(--c-laranja-500); border-radius: 0 var(--r-2) var(--r-2) 0; padding: var(--sp-2) var(--sp-3); margin: var(--sp-2) 0 var(--sp-3); }
+.resp-assin { margin-top: var(--sp-2); color: var(--c-n-700); }
+.hist { border-top: var(--bw-1) solid var(--c-n-200); padding-top: var(--sp-2); margin-top: var(--sp-2); }
+.hist-card { border: var(--bw-1) solid var(--c-n-200); border-left: var(--bw-3) solid var(--c-laranja-500); border-radius: var(--r-1); padding: var(--sp-15) var(--sp-2); margin-bottom: var(--sp-15); font-size: var(--m-fs-2); }
+.hist-card--cid { border-left-color: var(--c-n-400); background: var(--c-n-50); }
+.hist-card b { color: var(--c-n-900); }
+.hist-card span { color: var(--c-n-500); font-size: var(--m-fs-1); }
+.mail-sign { padding: var(--sp-3) var(--sp-4); border-top: var(--bw-1) solid var(--c-n-200); font-size: var(--m-fs-2); color: var(--c-n-700); line-height: 1.5; }
+.mail-sign b { color: var(--c-n-900); }
+/* E-mail do METRICA360 */
+.m3-top { background: var(--c-verde-600); color: var(--c-white); text-align: center; padding: var(--sp-4); }
+.m3-top small { display: block; font-weight: 700; font-size: var(--m-fs-3); }
+.m3-top b { display: block; font-size: var(--m-fs-8); line-height: 1.2; }
+.m3-estrelas { text-align: center; font-size: var(--m-fs-8); letter-spacing: 0.3em; color: var(--c-laranja-500); margin: var(--sp-2) 0; }
+.m3-cta { display: flex; justify-content: center; margin: var(--sp-2) 0 var(--sp-3); }
+.m3-cta span { background: var(--mx-cta); color: var(--c-white); font-weight: 800; font-size: var(--m-fs-4); padding: var(--sp-2) var(--sp-6); border-radius: var(--r-3); }
+.m3-link { text-align: center; font-size: var(--m-fs-1); color: var(--c-n-500); }
+.m3-link span { color: var(--c-m360-azul-500); }
+.m3-foot { background: var(--c-n-50); border-top: var(--bw-1) solid var(--c-n-200); text-align: center; font-size: var(--m-fs-1); color: var(--c-n-500); padding: var(--sp-2) var(--sp-4); line-height: 1.6; }
+
+/* =====================================================================
+   METRICA360 — página de avaliação do cidadão
+   ===================================================================== */
+.mf { display: grid; background: var(--c-white); color: var(--c-n-800); }
+@media (min-width: 36rem) { .mf { grid-template-columns: 0.85fr 1.15fr; } }
+.mf-left { background: var(--mx-form-left); color: var(--c-white); padding: var(--sp-5) var(--sp-4); display: flex; flex-direction: column; gap: var(--sp-3); }
+.mf-brand { display: flex; align-items: center; gap: var(--sp-2); }
+.mf-brand i { width: var(--logo-md); height: var(--logo-md); background: var(--logo-crprs) center / contain no-repeat; background-color: var(--c-white); border-radius: var(--r-3); flex-shrink: 0; }
+.mf-brand b { display: block; font-size: var(--m-fs-7); font-weight: 900; }
+.mf-brand b span { color: var(--c-laranja-300); }
+.mf-brand small { font-size: var(--m-fs-1); color: var(--c-verde-100); }
+.mf-left h5 { color: var(--c-white); font-size: var(--m-fs-6); margin: var(--sp-2) 0 0; }
+.mf-left p { font-size: var(--m-fs-2); color: var(--c-verde-50); margin: 0; }
+.mf-stat { display: flex; gap: var(--sp-2); align-items: center; background: var(--c-glass); border-radius: var(--r-3); padding: var(--sp-15) var(--sp-2); font-size: var(--m-fs-2); }
+.mf-right { padding: var(--sp-5) var(--sp-4); display: grid; gap: var(--sp-3); align-content: start; }
+.mf-right h5 { margin: 0; font-size: var(--m-fs-7); color: var(--c-n-900); }
+.mf-right h5 + p { font-size: var(--m-fs-2); color: var(--c-n-600); margin: 0; }
+.mf-q { font-size: var(--m-fs-3); font-weight: 700; color: var(--c-n-900); margin-bottom: var(--sp-1); }
+.notas { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: var(--sp-1); }
+.nota { border: var(--bw-2) solid var(--c-n-200); border-radius: var(--r-3); padding: var(--sp-2) var(--sp-05); text-align: center; font-size: var(--m-fs-1); font-weight: 700; color: var(--c-n-600); }
+.nota .ic { display: block; margin: 0 auto var(--sp-05); width: var(--ic-lg); height: var(--ic-lg); color: var(--c-n-300); }
+.nota--1 .ic, .nota--2 .ic { color: var(--c-vermelho-600); }
+.nota--3 .ic { color: var(--c-laranja-500); }
+.nota--4 .ic, .nota--5 .ic { color: var(--c-verde-500); }
+.nota.on { border-color: var(--c-verde-600); background: var(--c-verde-50); color: var(--c-verde-900); box-shadow: 0 0 0 var(--bw-2) var(--c-verde-100); }
+.mf-chips { display: flex; flex-wrap: wrap; gap: var(--sp-1); }
+.mf-chip { padding: var(--sp-05) var(--sp-2); border: var(--bw-1) solid var(--c-n-300); border-radius: var(--r-pill); font-size: var(--m-fs-2); color: var(--c-n-700); }
+.mf-chip.on { background: var(--c-verde-600); border-color: var(--c-verde-600); color: var(--c-white); }
+.mf-text { border: var(--bw-1) solid var(--c-n-300); border-radius: var(--r-2); padding: var(--sp-2); font-size: var(--m-fs-2); min-height: 3rem; color: var(--c-n-800); }
+.mf-cont { text-align: right; font-size: var(--m-fs-1); color: var(--c-n-500); }
+.mf-enviar { display: flex; align-items: center; justify-content: center; gap: var(--sp-2); background: var(--c-verde-600); color: var(--c-white); border-radius: var(--r-3); padding: var(--sp-2); font-weight: 800; font-size: var(--m-fs-4); }
+.mf-lgpd { font-size: var(--m-fs-1); color: var(--c-n-600); text-align: center; margin: 0; }
+/* Janelas de agradecimento */
+.mm { width: 100%; max-width: 20rem; background: var(--c-white); color: var(--c-n-800); border-radius: var(--r-5); box-shadow: var(--shadow-modal); overflow: hidden; text-align: center; }
+.mm-top { padding: var(--sp-4) var(--sp-4) var(--sp-2); }
+.mm-ic { font-size: 2rem; line-height: 1; display: block; margin-bottom: var(--sp-2); }
+.mm-ic--crit { color: var(--c-vermelho-600); }
+.mm-top b { display: block; font-size: var(--m-fs-6); color: var(--c-n-900); }
+.mm-body { padding: 0 var(--sp-4) var(--sp-4); font-size: var(--m-fs-2); color: var(--c-n-700); }
+.mm-body p { margin: 0 0 var(--sp-3); }
+.mm-google { display: flex; align-items: center; justify-content: center; gap: var(--sp-2); border: var(--bw-1) solid var(--c-n-300); border-radius: var(--r-3); padding: var(--sp-15); font-weight: 700; color: var(--c-n-900); margin-bottom: var(--sp-2); }
+.mm-g { font-weight: 900; color: var(--c-m360-azul-500); }
+.mm-link { color: var(--c-n-600); text-decoration: underline; font-size: var(--m-fs-2); }
+.mm-ok { display: block; background: var(--c-verde-600); color: var(--c-white); border-radius: var(--r-3); padding: var(--sp-15); font-weight: 700; margin-bottom: var(--sp-2); }
+.confete { display: block; height: 0.4rem; background: repeating-linear-gradient(90deg, var(--c-laranja-500) 0 0.6rem, var(--c-verde-500) 0.6rem 1.2rem, var(--c-vinho-600) 1.2rem 1.8rem, var(--c-m360-azul-500) 1.8rem 2.4rem); }
+
+/* =====================================================================
+   METRICA360 — painel da gestão
+   ===================================================================== */
+.mx { display: flex; min-height: 22rem; background: var(--mx-bg); }
+.mx-side { width: var(--sidebar-w); flex-shrink: 0; background: var(--mx-sidebar); color: var(--c-m360-azul-50); padding: var(--sp-3) var(--sp-2); display: flex; flex-direction: column; gap: var(--sp-3); }
+@media (max-width: 40rem) { .mx-side { display: none; } }
+.mx-brand { display: flex; align-items: center; gap: var(--sp-2); padding: 0 var(--sp-1); }
+.mx-brand i { width: var(--logo-md); height: var(--logo-md); background: var(--logo-m360) center / contain no-repeat; background-color: var(--c-white); border-radius: 50%; flex-shrink: 0; }
+.mx-brand b { display: block; color: var(--c-white); font-size: var(--m-fs-4); line-height: 1.1; }
+.mx-brand small { font-size: var(--m-fs-1); color: var(--c-m360-azul-50); }
+.mx-user { display: flex; align-items: center; gap: var(--sp-2); background: var(--c-glass); border-radius: var(--r-3); padding: var(--sp-2); }
+.mx-user b { display: block; color: var(--c-white); font-size: var(--m-fs-2); line-height: 1.2; }
+.mx-user span:not(.avatar) { font-size: var(--m-fs-1); color: var(--c-m360-azul-50); }
+.mx-item { display: flex; align-items: center; gap: var(--sp-2); padding: var(--sp-15) var(--sp-2); border-radius: var(--r-2); font-size: var(--m-fs-2); font-weight: 600; }
+.mx-item .ic { width: var(--ic-sm); height: var(--ic-sm); }
+.mx-item.on { background: var(--c-glass-2); color: var(--c-white); }
+.mx-count { margin-left: auto; background: var(--c-vermelho-600); color: var(--c-white); border-radius: var(--r-pill); padding: 0 var(--sp-15); font-size: var(--m-fs-1); font-weight: 800; }
+.mx-main { flex: 1; min-width: 0; padding: var(--sp-3); display: grid; gap: var(--sp-3); align-content: start; }
+.mx-h b { display: block; font-size: var(--m-fs-6); color: var(--m-text); }
+.mx-h span { font-size: var(--m-fs-2); color: var(--m-text-2); }
+.mx-card { background: var(--m-surface); border: var(--bw-1) solid var(--m-border); border-radius: var(--r-3); padding: var(--sp-3); min-width: 0; }
+.mx-card-t { display: flex; align-items: center; gap: var(--sp-2); font-size: var(--m-fs-4); font-weight: 800; color: var(--m-text); margin-bottom: var(--sp-2); }
+.mx-card-t .ic { width: var(--ic-sm); height: var(--ic-sm); color: var(--c-m360-azul-500); }
+.mx-duo { display: grid; gap: var(--sp-3); }
+@media (min-width: 36rem) { .mx-duo { grid-template-columns: 1.2fr 1fr; } }
+.ring { position: relative; display: inline-flex; align-items: center; justify-content: center; width: var(--ring); height: var(--ring); border-radius: 50%; font-size: var(--m-fs-1); font-weight: 800; color: var(--m-text); }
+.ring::before { content: ""; position: absolute; inset: 0; border-radius: 50%; -webkit-mask: radial-gradient(circle, transparent 58%, var(--c-n-900) 60%); mask: radial-gradient(circle, transparent 58%, var(--c-n-900) 60%); }
+.ring--5::before { background: conic-gradient(var(--c-verde-500) 0 100%); }
+.ring--4::before { background: conic-gradient(var(--c-verde-500) 0 80%, var(--m-muted-bg) 0 100%); }
+.ring--2::before { background: conic-gradient(var(--c-vermelho-600) 0 40%, var(--m-muted-bg) 0 100%); }
+.novo-tag { display: inline-block; background: var(--c-vermelho-600); color: var(--c-white); font-size: var(--m-fs-1); font-weight: 800; border-radius: var(--r-1); padding: 0 var(--sp-1); }
+.st { display: inline-block; padding: var(--sp-05) var(--sp-2); border-radius: var(--r-pill); font-size: var(--m-fs-1); font-weight: 700; white-space: nowrap; }
+.st-pend { background: var(--c-vermelho-100); color: var(--c-vermelho-800); }
+.st-trat { background: var(--c-m360-azul-50); color: var(--c-m360-azul-900); }
+.st-res { background: var(--c-verde-100); color: var(--c-verde-900); }
+.relato { font-size: var(--m-fs-2); color: var(--m-text); }
+.relato small { display: block; color: var(--m-text-3); }
+.drawer { background: var(--m-surface); border-left: var(--bw-4) solid var(--c-m360-azul-700); border-radius: var(--r-3); box-shadow: var(--shadow-lg); padding: var(--sp-3); display: grid; gap: var(--sp-2); }
+.drawer-t { display: flex; justify-content: space-between; align-items: center; font-weight: 800; font-size: var(--m-fs-5); color: var(--m-text); }
+.drawer-t .ic { width: var(--ic-md); height: var(--ic-md); color: var(--m-text-3); }
+.drawer .m-btn--primary { background: var(--c-m360-azul-700); }
+.setor-cards { display: grid; gap: var(--sp-2); }
+.setor-card { background: var(--m-surface); border: var(--bw-1) solid var(--m-border); border-radius: var(--r-3); padding: var(--sp-2) var(--sp-3); display: grid; grid-template-columns: 1fr auto; gap: var(--sp-05) var(--sp-2); align-items: center; }
+.setor-card b { font-size: var(--m-fs-4); color: var(--m-text); }
+.setor-card small { font-size: var(--m-fs-1); color: var(--m-text-2); grid-column: 1; }
+.setor-nota { grid-row: 1 / span 2; grid-column: 2; font-size: var(--m-fs-8); font-weight: 900; color: var(--c-verde-700); line-height: 1; text-align: right; }
+.setor-nota small { display: block; font-size: var(--m-fs-1); color: var(--c-laranja-700); letter-spacing: 0.1em; }
+.destaque { display: inline-block; margin-left: var(--sp-1); background: var(--c-laranja-100); color: var(--c-laranja-800); font-size: var(--m-fs-1); font-weight: 800; border-radius: var(--r-pill); padding: 0 var(--sp-15); }
+
+/* =====================================================================
+   VISÃO GERAL, COMPROMISSOS, RESUMO
+   ===================================================================== */
+.disclaimer { display: flex; gap: var(--sp-3); align-items: flex-start; max-width: var(--measure); background: var(--brand-soft); border: var(--bw-1) solid var(--brand-line); border-radius: var(--r-4); padding: var(--sp-3) var(--sp-4); font-size: var(--fs-sm); color: var(--text-body); margin-bottom: var(--sp-4); }
+.disclaimer .ic { color: var(--brand); width: var(--ic-lg); height: var(--ic-lg); margin-top: var(--sp-05); }
+.disclaimer strong { color: var(--text-strong); }
+.disclaimer p { margin: 0; }
+.disclaimer + .disclaimer { margin-bottom: var(--sp-10); }
+.sub-h { font-size: var(--fs-xl); font-weight: 800; color: var(--text-title); margin: var(--sp-10) 0 var(--sp-5); }
+.actors { list-style: none; display: grid; gap: var(--sp-4); }
+@media (min-width: 40rem) { .actors { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (min-width: 66rem) { .actors { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
+.actor { background: var(--bg-surface); border: var(--bw-1) solid var(--border); border-radius: var(--r-5); padding: var(--sp-5); box-shadow: var(--shadow-sm); }
+.actor-ic { width: 2.75rem; height: 2.75rem; border-radius: var(--r-4); display: inline-flex; align-items: center; justify-content: center; margin-bottom: var(--sp-3); }
+.actor-ic .ic { width: var(--ic-xl); height: var(--ic-xl); }
+.actor h3 { font-size: var(--fs-lg); margin-bottom: var(--sp-2); }
+.actor p { font-size: var(--fs-sm); color: var(--text-muted); margin: 0; }
+.t-verde { background: var(--c-verde-100); color: var(--c-verde-900); }
+.t-vinho { background: var(--c-vinho-100); color: var(--c-vinho-900); }
+.t-laranja { background: var(--c-laranja-100); color: var(--c-laranja-800); }
+.t-azul { background: var(--c-m360-azul-50); color: var(--c-m360-azul-900); }
+.t-neutro { background: var(--c-n-200); color: var(--c-n-800); }
+.t-ciano { background: var(--c-ciano-100); color: var(--c-ciano-800); }
+
+.journey { list-style: none; display: grid; gap: var(--sp-4); }
+@media (min-width: 48rem) { .journey { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--sp-5); } }
+@media (min-width: 72rem) { .journey { grid-template-columns: repeat(6, minmax(0, 1fr)); } }
+.j-step { position: relative; background: var(--bg-surface); border: var(--bw-1) solid var(--border); border-top: var(--bw-4) solid var(--brand); border-radius: var(--r-4); padding: var(--sp-4); }
+.j-step--m360 { border-top-color: var(--c-m360-azul-500); }
+.j-num { display: inline-flex; align-items: center; justify-content: center; width: 1.9rem; height: 1.9rem; border-radius: 50%; background: var(--brand-soft); color: var(--brand); font-weight: 900; font-size: var(--fs-sm); margin-bottom: var(--sp-2); }
+.j-step h3 { font-size: var(--fs-md); margin-bottom: var(--sp-1); }
+.j-who { font-size: var(--fs-xs); font-weight: 700; color: var(--warm-text); text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: var(--sp-2); }
+.j-step p { font-size: var(--fs-sm); color: var(--text-muted); margin: 0 0 var(--sp-2); }
+.j-step a { font-size: var(--fs-xs); font-weight: 700; }
+
+.toc-grid { list-style: none; display: grid; gap: var(--sp-4); }
+@media (min-width: 40rem) { .toc-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (min-width: 66rem) { .toc-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+.toc-card { display: block; height: 100%; background: var(--bg-surface); border: var(--bw-1) solid var(--border); border-radius: var(--r-5); padding: var(--sp-5); text-decoration: none; color: var(--text-body); }
+.toc-card:hover { border-color: var(--brand); box-shadow: var(--shadow-md); }
+.toc-card .part-tag { margin-bottom: var(--sp-2); }
+.toc-card h3 { font-size: var(--fs-lg); color: var(--text-title); margin-bottom: var(--sp-2); }
+.toc-card p { font-size: var(--fs-sm); color: var(--text-muted); margin: 0; }
+
+.commit-grid { list-style: none; display: grid; gap: var(--sp-4); }
+@media (min-width: 40rem) { .commit-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (min-width: 66rem) { .commit-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+.commit { background: var(--bg-surface); border: var(--bw-1) solid var(--border); border-radius: var(--r-5); padding: var(--sp-5); }
+.commit .actor-ic { margin-bottom: var(--sp-2); }
+.commit h3 { font-size: var(--fs-md); margin-bottom: var(--sp-2); }
+.commit p { font-size: var(--fs-sm); color: var(--text-muted); margin: 0; }
+
+.summary { background: var(--hero-bg); color: var(--text-on-brand); border-radius: var(--r-6); padding: var(--sp-8) var(--sp-5); margin-top: var(--sp-12); }
+@media (min-width: 48rem) { .summary { padding: var(--sp-10); } }
+.summary h2 { color: var(--text-on-brand); font-size: var(--fs-h2); text-align: center; margin-bottom: var(--sp-2); }
+.summary > p { text-align: center; color: var(--text-on-brand-soft); margin-bottom: var(--sp-8); }
+.summary-grid { list-style: none; display: grid; gap: var(--sp-3); }
+@media (min-width: 40rem) { .summary-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (min-width: 66rem) { .summary-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+.summary-grid > li { background: var(--c-glass); border: var(--bw-1) solid var(--c-glass-line); border-radius: var(--r-4); padding: var(--sp-4); }
+.summary-grid h3 { color: var(--c-laranja-100); font-size: var(--fs-xs); letter-spacing: 0.1em; text-transform: uppercase; margin-bottom: var(--sp-2); }
+.summary-grid ol { list-style: none; display: grid; gap: var(--sp-1); font-size: var(--fs-sm); }
+.summary-grid a { color: var(--text-on-brand); text-decoration: none; }
+.summary-grid a:hover { text-decoration: underline; }
+.summary-grid b { color: var(--accent); margin-right: var(--sp-1); }
+
+.site-footer { border-top: var(--bw-1) solid var(--border); padding-block: var(--sp-8); text-align: center; font-size: var(--fs-sm); color: var(--text-muted); }
+.site-footer p { margin: 0 0 var(--sp-1); }
+
+/* Animação de entrada (respeita redução de movimento) */
+@media (prefers-reduced-motion: no-preference) {
+  .reveal { animation: sobe 0.6s ease-out both; }
+  @keyframes sobe { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: none; } }
+}
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+  *, *::before, *::after { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; transition-duration: 0.01ms !important; }
+}
+
+/* Impressão: gera um material de apoio limpo */
+@media print {
+  .topbar, .hero-actions, .skip-link { display: none !important; }
+  body { background: var(--c-white); }
+  .hero, .summary, .cx-side, .mx-side, .mf-left, .m3-top { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  .step { break-inside: avoid; page-break-inside: avoid; }
+  .step-text { position: static !important; }
+  .stage { background: none; padding: 0; }
+  .frame { box-shadow: none; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  .chapter { padding-block: var(--sp-6); }
+}
+</style>
+</head>
+<body>
+<a class="skip-link" href="#conteudo">Pular para o conteúdo principal</a>
+
+<!-- Ícones (definidos uma única vez e reutilizados) -->
+<svg width="0" height="0" class="sr-only" aria-hidden="true" focusable="false">
+  <defs>
+    <symbol id="i-check" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></symbol>
+    <symbol id="i-check-circle" viewBox="0 0 24 24"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></symbol>
+    <symbol id="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></symbol>
+    <symbol id="i-mail" viewBox="0 0 24 24"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></symbol>
+    <symbol id="i-user" viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></symbol>
+    <symbol id="i-users" viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></symbol>
+    <symbol id="i-briefcase" viewBox="0 0 24 24"><rect x="2" y="7" width="20" height="14" rx="2" ry="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></symbol>
+    <symbol id="i-inbox" viewBox="0 0 24 24"><polyline points="22 12 16 12 14 15 10 15 8 12 2 12"/><path d="M5.45 5.11L2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"/></symbol>
+    <symbol id="i-archive" viewBox="0 0 24 24"><polyline points="21 8 21 21 3 21 3 8"/><rect x="1" y="3" width="22" height="5"/><line x1="10" y1="12" x2="14" y2="12"/></symbol>
+    <symbol id="i-chart" viewBox="0 0 24 24"><line x1="12" y1="20" x2="12" y2="10"/><line x1="18" y1="20" x2="18" y2="4"/><line x1="6" y1="20" x2="6" y2="16"/></symbol>
+    <symbol id="i-sliders" viewBox="0 0 24 24"><line x1="4" y1="21" x2="4" y2="14"/><line x1="4" y1="10" x2="4" y2="3"/><line x1="12" y1="21" x2="12" y2="12"/><line x1="12" y1="8" x2="12" y2="3"/><line x1="20" y1="21" x2="20" y2="16"/><line x1="20" y1="12" x2="20" y2="3"/><line x1="1" y1="14" x2="7" y2="14"/><line x1="9" y1="8" x2="15" y2="8"/><line x1="17" y1="16" x2="23" y2="16"/></symbol>
+    <symbol id="i-shield" viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></symbol>
+    <symbol id="i-bell" viewBox="0 0 24 24"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></symbol>
+    <symbol id="i-help" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></symbol>
+    <symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></symbol>
+    <symbol id="i-lock" viewBox="0 0 24 24"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></symbol>
+    <symbol id="i-grid" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="9"/><rect x="14" y="3" width="7" height="5"/><rect x="14" y="12" width="7" height="9"/><rect x="3" y="16" width="7" height="5"/></symbol>
+    <symbol id="i-eye" viewBox="0 0 24 24"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></symbol>
+    <symbol id="i-printer" viewBox="0 0 24 24"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></symbol>
+    <symbol id="i-clip" viewBox="0 0 24 24"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></symbol>
+    <symbol id="i-send" viewBox="0 0 24 24"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></symbol>
+    <symbol id="i-arrow-right" viewBox="0 0 24 24"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></symbol>
+    <symbol id="i-arrow-down" viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><polyline points="19 12 12 19 5 12"/></symbol>
+    <symbol id="i-moon" viewBox="0 0 24 24"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></symbol>
+    <symbol id="i-sun" viewBox="0 0 24 24"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></symbol>
+    <symbol id="i-file" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></symbol>
+    <symbol id="i-info" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></symbol>
+    <symbol id="i-refresh" viewBox="0 0 24 24"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></symbol>
+    <symbol id="i-plus" viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></symbol>
+    <symbol id="i-x" viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></symbol>
+    <symbol id="i-message" viewBox="0 0 24 24"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></symbol>
+    <symbol id="i-link" viewBox="0 0 24 24"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></symbol>
+    <symbol id="i-download" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></symbol>
+    <symbol id="i-edit" viewBox="0 0 24 24"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></symbol>
+    <symbol id="i-trend" viewBox="0 0 24 24"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></symbol>
+    <symbol id="i-list" viewBox="0 0 24 24"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></symbol>
+    <symbol id="i-tag" viewBox="0 0 24 24"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/></symbol>
+    <symbol id="i-accessibility" viewBox="0 0 24 24"><circle cx="12" cy="4" r="2"/><path d="M4 8l8 2 8-2"/><path d="M12 10v5l-3 6"/><path d="M12 15l3 6"/></symbol>
+    <symbol id="i-star" viewBox="0 0 24 24"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></symbol>
+    <symbol id="i-heart" viewBox="0 0 24 24"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></symbol>
+    <symbol id="i-building" viewBox="0 0 24 24"><rect x="4" y="2" width="16" height="20" rx="1"/><line x1="9" y1="22" x2="9" y2="18"/><line x1="15" y1="22" x2="15" y2="18"/><line x1="8" y1="6" x2="8.01" y2="6"/><line x1="12" y1="6" x2="12.01" y2="6"/><line x1="16" y1="6" x2="16.01" y2="6"/><line x1="8" y1="10" x2="8.01" y2="10"/><line x1="12" y1="10" x2="12.01" y2="10"/><line x1="16" y1="10" x2="16.01" y2="10"/><line x1="8" y1="14" x2="8.01" y2="14"/><line x1="12" y1="14" x2="12.01" y2="14"/><line x1="16" y1="14" x2="16.01" y2="14"/></symbol>
+    <symbol id="i-reply" viewBox="0 0 24 24"><polyline points="9 17 4 12 9 7"/><path d="M20 18v-2a4 4 0 0 0-4-4H4"/></symbol>
+    <symbol id="i-repeat" viewBox="0 0 24 24"><polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><polyline points="7 23 3 19 7 15"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></symbol>
+    <symbol id="i-image" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></symbol>
+    <symbol id="i-zap" viewBox="0 0 24 24"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></symbol>
+    <symbol id="i-columns" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="9" y1="3" x2="9" y2="21"/><line x1="15" y1="3" x2="15" y2="21"/></symbol>
+  </defs>
+</svg>
+
+<header class="topbar">
+  <div class="container topbar-inner">
+    <a class="brand" href="#inicio"><span class="brand-logo" role="img" aria-label="Símbolo do CRPRS"></span><span class="brand-text">Conecta <span class="accent">CRPRS</span></span></a>
+    <nav class="topnav" aria-label="Partes da apresentação">
+      <ul>
+        <li><a href="#visao-geral">Visão geral</a></li>
+        <li><a href="#chegada">1. Chegada</a></li>
+        <li><a href="#organizacao">2. Organização</a></li>
+        <li><a href="#atendimento">3. Atendimento</a></li>
+        <li><a href="#encerramento">4. Encerramento</a></li>
+        <li><a href="#pesquisa">5. Pesquisa</a></li>
+        <li><a href="#resultado">6. Resultado</a></li>
+        <li><a href="#compromissos">Compromissos</a></li>
+      </ul>
+    </nav>
+    <div class="tool-btns">
+      <button type="button" class="icon-btn" id="btn-imprimir" aria-label="Imprimir esta apresentação"><svg class="ic" aria-hidden="true"><use href="#i-printer"/></svg></button>
+      <button type="button" class="icon-btn" id="btn-tema" aria-label="Alternar entre modo claro e modo escuro"><svg class="ic theme-icon-moon" aria-hidden="true"><use href="#i-moon"/></svg><svg class="ic theme-icon-sun" aria-hidden="true"><use href="#i-sun"/></svg></button>
+    </div>
+  </div>
+</header>
+
+<section class="hero" id="inicio" aria-labelledby="titulo-principal">
+  <div class="container hero-grid">
+    <div class="reveal">
+      <p class="hero-kicker">Conselho Regional de Psicologia do Rio Grande do Sul</p>
+      <h1 id="titulo-principal">Conecta <span class="accent">CRPRS</span></h1>
+      <p class="hero-lead">Um percurso guiado pelo caminho de uma demanda: da mensagem que a pessoa envia por e-mail ao setor do Conselho até a nota que ela dá ao atendimento recebido, com a apresentação de cada tela envolvida.</p>
+      <div class="hero-actions">
+        <a class="btn btn--light" href="#visao-geral">Iniciar o percurso <svg class="ic" aria-hidden="true"><use href="#i-arrow-down"/></svg></a>
+        <a class="btn btn--ghost" href="#resumo">Ver o resumo do fluxo</a>
+      </div>
+    </div>
+    <div class="hero-card reveal">
+      <div class="hero-logo" role="img" aria-label="Símbolo do Conselho Regional de Psicologia do Rio Grande do Sul"></div>
+      <dl class="facts">
+        <div class="fact"><dt>1</dt><dd>caixa de e-mail própria para cada setor</dd></div>
+        <div class="fact"><dt>1</dt><dd>número de protocolo para cada demanda</dd></div>
+        <div class="fact"><dt>4</dt><dd>níveis de prioridade, cada um com seu prazo</dd></div>
+        <div class="fact"><dt>5</dt><dd>notas possíveis na pesquisa, de Péssimo a Excelente</dd></div>
+      </dl>
+    </div>
+  </div>
+</section>
+
+<main id="conteudo">
+
+<!-- ============================ VISÃO GERAL ============================ -->
+<section class="chapter" id="visao-geral" aria-labelledby="visao-geral-titulo">
+  <div class="container">
+    <div class="chapter-head">
+      <p class="part-tag">Visão geral</p>
+      <h2 id="visao-geral-titulo">Cada mensagem vira uma demanda acompanhada do início ao fim</h2>
+      <p class="lead">O Conecta organiza os pedidos que chegam por e-mail aos setores do Conselho. Cada mensagem ganha um número de protocolo, um responsável e um prazo. Nada fica perdido numa caixa de entrada, e a pessoa atendida é informada por e-mail a cada passo importante. Ao final, ela é convidada a avaliar o atendimento.</p>
+    </div>
+
+    <div class="disclaimer" role="note">
+      <svg class="ic" aria-hidden="true"><use href="#i-info"/></svg>
+      <p><strong>Dados ilustrativos.</strong> Todas as telas desta apresentação foram reproduzidas para fins de demonstração. Nomes, endereços de e-mail, números de protocolo, notas e indicadores exibidos são <strong>fictícios</strong> e não correspondem a pessoas ou atendimentos reais.</p>
+    </div>
+    <div class="disclaimer" role="note">
+      <svg class="ic" aria-hidden="true"><use href="#i-star"/></svg>
+      <p><strong>Pesquisa de satisfação.</strong> As etapas da pesquisa (partes 5 e 6) são apresentadas com as telas do <strong>METRICA360</strong>, o sistema de avaliação do atendimento do CRPRS, que está sendo incorporado ao Conecta.</p>
+    </div>
+
+    <h3 class="sub-h">Quem participa</h3>
+    <ul class="actors">
+      <li class="actor">
+        <span class="actor-ic t-verde"><svg class="ic" aria-hidden="true"><use href="#i-user"/></svg></span>
+        <h3>Quem faz o pedido</h3>
+        <p>Psicólogas, psicólogos, empresas e qualquer pessoa que escreve para o e-mail de um setor do Conselho. Não precisa de cadastro nem de senha.</p>
+      </li>
+      <li class="actor">
+        <span class="actor-ic t-vinho"><svg class="ic" aria-hidden="true"><use href="#i-briefcase"/></svg></span>
+        <h3>Gestão do setor</h3>
+        <p>A pessoa que coordena o setor acompanha tudo o que chegou, define prioridades e distribui as demandas entre a equipe.</p>
+      </li>
+      <li class="actor">
+        <span class="actor-ic t-laranja"><svg class="ic" aria-hidden="true"><use href="#i-users"/></svg></span>
+        <h3>Servidores</h3>
+        <p>Atendem as demandas que recebem: conversam com a pessoa, registram o que foi feito e encerram quando o pedido está resolvido.</p>
+      </li>
+      <li class="actor">
+        <span class="actor-ic t-azul"><svg class="ic" aria-hidden="true"><use href="#i-chart"/></svg></span>
+        <h3>Coordenação e administração</h3>
+        <p>Acompanham os indicadores, as notas da pesquisa de satisfação e dão atenção especial às avaliações negativas.</p>
+      </li>
+    </ul>
+
+    <h3 class="sub-h">O caminho de uma demanda</h3>
+    <ol class="journey">
+      <li class="j-step">
+        <span class="j-num" aria-hidden="true">1</span>
+        <h3>Chegada</h3>
+        <p class="j-who">Quem faz o pedido</p>
+        <p>A pessoa escreve ao setor. A demanda é aberta sozinha, com número de protocolo, e ela recebe a confirmação.</p>
+        <a href="#chegada">Ver etapas 1 a 3</a>
+      </li>
+      <li class="j-step">
+        <span class="j-num" aria-hidden="true">2</span>
+        <h3>Organização</h3>
+        <p class="j-who">Gestão do setor</p>
+        <p>A demanda aparece na lista do setor, é classificada e encaminhada a um servidor.</p>
+        <a href="#organizacao">Ver etapas 4 a 6</a>
+      </li>
+      <li class="j-step">
+        <span class="j-num" aria-hidden="true">3</span>
+        <h3>Atendimento</h3>
+        <p class="j-who">Servidor</p>
+        <p>O servidor escreve a resposta no sistema, e ela chega por e-mail a quem fez o pedido.</p>
+        <a href="#atendimento">Ver etapas 7 a 9</a>
+      </li>
+      <li class="j-step">
+        <span class="j-num" aria-hidden="true">4</span>
+        <h3>Encerramento</h3>
+        <p class="j-who">Servidor</p>
+        <p>Com o pedido resolvido, a demanda é encerrada e a pessoa é avisada.</p>
+        <a href="#encerramento">Ver etapas 10 e 11</a>
+      </li>
+      <li class="j-step j-step--m360">
+        <span class="j-num" aria-hidden="true">5</span>
+        <h3>Pesquisa</h3>
+        <p class="j-who">Quem fez o pedido</p>
+        <p>Chega o convite para avaliar o atendimento. A nota é dada em menos de um minuto.</p>
+        <a href="#pesquisa">Ver etapas 12 a 14</a>
+      </li>
+      <li class="j-step j-step--m360">
+        <span class="j-num" aria-hidden="true">6</span>
+        <h3>Resultado</h3>
+        <p class="j-who">Coordenação</p>
+        <p>A nota entra no painel. As avaliações negativas recebem acompanhamento até serem resolvidas.</p>
+        <a href="#resultado">Ver etapas 15 e 16</a>
+      </li>
+    </ol>
+
+    <h3 class="sub-h">Como esta apresentação está organizada</h3>
+    <ul class="toc-grid">
+      <li><a class="toc-card" href="#chegada"><p class="part-tag">Parte 1 · Etapas 1 a 3</p><h3>Chegada da mensagem</h3><p>O e-mail enviado ao setor, a abertura automática da demanda e a confirmação para quem fez o pedido.</p></a></li>
+      <li><a class="toc-card" href="#organizacao"><p class="part-tag">Parte 2 · Etapas 4 a 6</p><h3>Organização no setor</h3><p>A lista de demandas, a tela de cada demanda e o encaminhamento a um servidor.</p></a></li>
+      <li><a class="toc-card" href="#atendimento"><p class="part-tag">Parte 3 · Etapas 7 a 9</p><h3>Atendimento e resposta</h3><p>A resposta escrita no sistema, o e-mail que a pessoa recebe e a continuação da conversa.</p></a></li>
+      <li><a class="toc-card" href="#encerramento"><p class="part-tag">Parte 4 · Etapas 10 e 11</p><h3>Encerramento</h3><p>O fechamento da demanda, o aviso final e o arquivo das demandas concluídas.</p></a></li>
+      <li><a class="toc-card" href="#pesquisa"><p class="part-tag">Parte 5 · Etapas 12 a 14 · METRICA360</p><h3>Pesquisa de satisfação</h3><p>O convite por e-mail, o formulário de avaliação e a mensagem de agradecimento.</p></a></li>
+      <li><a class="toc-card" href="#resultado"><p class="part-tag">Parte 6 · Etapas 15 e 16 · METRICA360</p><h3>Resultado da avaliação</h3><p>A nota no painel, a atenção às notas baixas e a comparação entre setores.</p></a></li>
+    </ul>
+  </div>
+</section>
+
+<!-- ============================ PARTE 1 · CHEGADA ============================ -->
+<section class="chapter" id="chegada" aria-labelledby="chegada-titulo">
+  <div class="container">
+    <div class="chapter-head">
+      <p class="part-tag">Parte 1 · Chegada da mensagem</p>
+      <h2 id="chegada-titulo">O e-mail vira uma demanda, sem ninguém precisar digitar nada</h2>
+      <p class="lead">Cada setor tem sua própria caixa de e-mail ligada ao Conecta. A cada dois minutos, o sistema confere essas caixas e transforma cada mensagem nova em uma demanda do setor que a recebeu.</p>
+      <ul class="step-index" aria-label="Etapas desta parte">
+        <li><a href="#etapa-1"><b>1</b>Mensagem ao setor</a></li>
+        <li><a href="#etapa-2"><b>2</b>Abertura automática</a></li>
+        <li><a href="#etapa-3"><b>3</b>E-mail de confirmação</a></li>
+      </ul>
+    </div>
+
+    <!-- Etapa 1 -->
+    <article class="step" id="etapa-1" aria-labelledby="etapa-1-t">
+      <div class="step-text">
+        <p class="step-kicker"><span class="step-num">1</span><span class="area-tag area-tag--cid">Quem faz o pedido</span></p>
+        <h3 id="etapa-1-t">A mensagem enviada ao setor</h3>
+        <p>Tudo começa como sempre começou: a pessoa escreve para o e-mail do setor, do jeito que preferir, e pode anexar documentos. Ela não precisa conhecer o Conecta, criar conta ou preencher formulário.</p>
+        <ul class="checks">
+          <li>Funciona com qualquer serviço de e-mail, no computador ou no celular.</li>
+          <li>Documentos anexados (PDF, imagens, planilhas e textos) acompanham o pedido.</li>
+          <li>Propagandas e mensagens automáticas podem ser barradas por filtros que o próprio setor cadastra.</li>
+        </ul>
+      </div>
+      <figure class="step-visual">
+        <div class="stage">
+          <div class="frame" role="img" aria-label="Ilustração de um e-mail enviado pela cidadã fictícia Maria Exemplo ao setor de Cadastro, pedindo a segunda via da carteira profissional, com um arquivo PDF anexado.">
+            <div class="frame-bar"><span class="frame-dots"><i></i><i></i><i></i></span><span class="frame-title"><svg class="ic"><use href="#i-mail"/></svg>E-mail · Nova mensagem</span><span class="frame-pad"></span></div>
+            <div class="screen">
+              <div class="mail-head">
+                <span><b>De:</b> Maria Exemplo &lt;maria.exemplo@example.com&gt;</span>
+                <span><b>Para:</b> cadastro@example.com</span>
+                <span class="mail-subject">Segunda via da carteira profissional</span>
+              </div>
+              <div class="mail-body">
+                <div class="mail-card">
+                  <div class="mail-content">
+                    <p>Bom dia!</p>
+                    <p>Perdi minha carteira de identidade profissional e gostaria de solicitar a segunda via. Envio em anexo o comprovante de pagamento da taxa.</p>
+                    <p>Fico no aguardo das orientações.</p>
+                    <p>Atenciosamente,<br>Maria Exemplo<br>CRP 07/00000</p>
+                  </div>
+                  <div class="mail-sign"><svg class="ic" aria-hidden="true"><use href="#i-clip"/></svg> comprovante-taxa.pdf (180 KB)</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <figcaption>Mensagem enviada ao e-mail do setor de Cadastro.</figcaption>
+      </figure>
+    </article>
+
+    <!-- Etapa 2 -->
+    <article class="step" id="etapa-2" aria-labelledby="etapa-2-t">
+      <div class="step-text">
+        <p class="step-kicker"><span class="step-num">2</span><span class="area-tag area-tag--auto">Automático</span></p>
+        <h3 id="etapa-2-t">A demanda é aberta sozinha, com número de protocolo</h3>
+        <p>O Conecta lê a mensagem e cria a demanda no setor que a recebeu. O assunto do e-mail vira o título, o texto vira a descrição e os anexos ficam guardados junto. A demanda recebe um <strong>número de protocolo</strong>, que a identifica em todos os contatos.</p>
+        <ul class="checks">
+          <li>Protocolo no formato ano e sequência (por exemplo, CRPRS2026-0137), que nunca muda.</li>
+          <li>Se a pessoa responder depois sobre o mesmo assunto, a resposta entra na mesma demanda, sem abrir outra.</li>
+          <li>Se a mesma mensagem for enviada a dois setores, cada setor recebe a sua demanda.</li>
+          <li>O prazo para a primeira resposta começa a contar, conforme a prioridade e o horário de expediente do setor.</li>
+        </ul>
+      </div>
+      <figure class="step-visual">
+        <div class="stage">
+          <div class="frame" role="img" aria-label="Esquema: a caixa de e-mail do setor de Cadastro, o Conecta lendo a mensagem e a demanda criada com o protocolo fictício CRPRS2026-0137.">
+            <div class="frame-bar"><span class="frame-dots"><i></i><i></i><i></i></span><span class="frame-title"><svg class="ic"><use href="#i-refresh"/></svg>Conecta · Leitura automática das caixas de e-mail</span><span class="frame-pad"></span></div>
+            <div class="screen">
+              <div class="flow">
+                <div class="flow-box"><svg class="ic" aria-hidden="true"><use href="#i-inbox"/></svg><b>Caixa do setor</b><span>cadastro@example.com</span></div>
+                <div class="flow-seta" aria-hidden="true"><svg class="ic"><use href="#i-arrow-right"/></svg></div>
+                <div class="flow-box"><svg class="ic" aria-hidden="true"><use href="#i-refresh"/></svg><b>Conecta</b><span>confere as caixas a cada 2 minutos</span></div>
+                <div class="flow-seta" aria-hidden="true"><svg class="ic"><use href="#i-arrow-right"/></svg></div>
+                <div class="flow-box flow-card">
+                  <span class="dt-prot">#CRPRS2026-0137</span>
+                  <dl>
+                    <dt>Título</dt><dd>Segunda via da carteira profissional</dd>
+                    <dt>Solicitante</dt><dd>Maria Exemplo</dd>
+                    <dt>Setor</dt><dd>Cadastro</dd>
+                    <dt>Situação</dt><dd><span class="bdg bdg-novo">Novo</span></dd>
+                    <dt>Prioridade</dt><dd><span class="bdg bdg-normal">Normal</span></dd>
+                    <dt>Anexos</dt><dd>1 arquivo</dd>
+                  </dl>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <figcaption>Da caixa de e-mail à demanda registrada, sem intervenção da equipe.</figcaption>
+      </figure>
+    </article>
+
+    <!-- Etapa 3 -->
+    <article class="step" id="etapa-3" aria-labelledby="etapa-3-t">
+      <div class="step-text">
+        <p class="step-kicker"><span class="step-num">3</span><span class="area-tag area-tag--mail">E-mail automático</span></p>
+        <h3 id="etapa-3-t">Confirmação para quem fez o pedido</h3>
+        <p>Em seguida, a pessoa recebe um e-mail confirmando que o pedido foi registrado, com o número de protocolo e uma explicação simples do que acontece a partir dali.</p>
+        <ul class="checks">
+          <li>Identidade visual do Conselho e assinatura da equipe do setor.</li>
+          <li>Orientação para responder ao próprio e-mail se quiser acrescentar algo ao pedido.</li>
+          <li>Ao mesmo tempo, a gestão do setor é avisada da nova demanda por e-mail e pelo sino do sistema.</li>
+          <li>Cada setor escolhe quais e-mails automáticos quer enviar.</li>
+        </ul>
+      </div>
+      <figure class="step-visual">
+        <div class="stage">
+          <div class="frame" role="img" aria-label="Ilustração do e-mail de confirmação recebido por Maria Exemplo, com o protocolo CRPRS2026-0137, a situação Aberto e as orientações sobre os próximos passos.">
+            <div class="frame-bar"><span class="frame-dots"><i></i><i></i><i></i></span><span class="frame-title"><svg class="ic"><use href="#i-mail"/></svg>Caixa de entrada · Maria Exemplo</span><span class="frame-pad"></span></div>
+            <div class="screen">
+              <div class="mail-head">
+                <span class="mail-subject">[#CRPRS2026-0137] Demanda criada - Segunda via da carteira profissional</span>
+                <span><b>De:</b> Cadastro CRPRS &lt;cadastro@example.com&gt;</span>
+                <span><b>Para:</b> maria.exemplo@example.com</span>
+              </div>
+              <div class="mail-body">
+                <div class="mail-card">
+                  <div class="tb"><i></i><div><small>Conselho Regional de Psicologia do Rio Grande do Sul</small><b>Demanda criada</b></div></div>
+                  <div class="faixa" aria-hidden="true"><span></span><span></span><span></span></div>
+                  <div class="mail-content">
+                    <p>Olá <strong>Maria Exemplo</strong>,</p>
+                    <p>Recebemos sua solicitação e criamos uma demanda para acompanhar seu atendimento.</p>
+                    <div class="tk-info">
+                      <h6>Informações da demanda</h6>
+                      <p><strong>Número:</strong> #CRPRS2026-0137<br><strong>Título:</strong> Segunda via da carteira profissional<br><strong>Status:</strong> <span class="selo">ABERTO</span><br><strong>Data de abertura:</strong> 12/11/2026 09:14</p>
+                    </div>
+                    <p><strong>O que acontece agora?</strong></p>
+                    <ul class="mail-list">
+                      <li>Sua demanda foi registrada em nosso sistema</li>
+                      <li>Nossa equipe analisará sua solicitação</li>
+                      <li>Você receberá atualizações por e-mail</li>
+                    </ul>
+                    <p class="mail-tip">Caso tenha algo a acrescentar ao seu pedido, basta responder a este e-mail mantendo o número da demanda no assunto.</p>
+                  </div>
+                  <div class="mail-sign"><b>Equipe Cadastro</b><br>cadastro@example.com<br>Conselho Regional de Psicologia do Rio Grande do Sul</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <figcaption>Confirmação recebida pela pessoa, com o número de protocolo.</figcaption>
+      </figure>
+    </article>
+  </div>
+</section>
+
+<!-- ============================ PARTE 2 · ORGANIZAÇÃO ============================ -->
+<section class="chapter" id="organizacao" aria-labelledby="organizacao-titulo">
+  <div class="container">
+    <div class="chapter-head">
+      <p class="part-tag">Parte 2 · Organização no setor</p>
+      <h2 id="organizacao-titulo">A equipe enxerga tudo o que chegou e sabe quem cuida de quê</h2>
+      <p class="lead">A equipe entra no Conecta com usuário e senha. Cada pessoa vê as demandas do seu setor, com a situação, o responsável e o prazo de cada uma. A gestão do setor distribui o trabalho.</p>
+      <ul class="step-index" aria-label="Etapas desta parte">
+        <li><a href="#etapa-4"><b>4</b>Lista de demandas</a></li>
+        <li><a href="#etapa-5"><b>5</b>Tela da demanda</a></li>
+        <li><a href="#etapa-6"><b>6</b>Encaminhamento</a></li>
+      </ul>
+    </div>
+
+    <!-- Etapa 4 -->
+    <article class="step step--stack" id="etapa-4" aria-labelledby="etapa-4-t">
+      <div class="step-text">
+        <p class="step-kicker"><span class="step-num">4</span><span class="area-tag area-tag--int">Área da equipe</span></p>
+        <h3 id="etapa-4-t">Lista de demandas do setor</h3>
+        <div>
+          <p>A nova demanda aparece na lista do setor com a situação <strong>Novo</strong>, ainda sem responsável. Cada linha mostra o protocolo, a data, o assunto, quem pediu, quem está cuidando, a classificação, a situação e a prioridade.</p>
+          <p>Embaixo da prioridade, um contador mostra quanto tempo falta para responder. Ele muda de cor quando o prazo se aproxima.</p>
+        </div>
+        <ul class="checks">
+          <li>Filtros de um clique: novas, em atendimento, aguardando, com nova resposta e urgentes.</li>
+          <li>Opção "Minhas Demandas", para cada servidor ver só o que está com ele.</li>
+          <li>Busca por protocolo, assunto, texto ou nome de quem pediu.</li>
+          <li>Visão em quadro, com uma coluna por situação, e atualização automática da lista.</li>
+        </ul>
+      </div>
+      <figure class="step-visual">
+        <div class="stage">
+          <div class="frame" role="img" aria-label="Ilustração da lista de demandas abertas do setor de Cadastro, com o menu lateral do Conecta, filtros por situação e cinco demandas fictícias; a primeira, CRPRS2026-0137, está destacada como nova.">
+            <div class="frame-bar"><span class="frame-dots"><i></i><i></i><i></i></span><span class="frame-title"><svg class="ic"><use href="#i-lock"/></svg>Conecta CRPRS · Demandas</span><span class="frame-pad"></span></div>
+            <div class="screen cx">
+              <div class="cx-side">
+                <div class="cx-brand"><i></i><b>onecta <span>CRPRS</span></b></div>
+                <div class="cx-setor">Setor: Cadastro</div>
+                <div class="cx-user"><span class="avatar">AE</span><div><b>Ana Exemplo</b><span>Gestora</span></div></div>
+                <div class="cx-nav">
+                  <span class="cx-item on"><svg class="ic"><use href="#i-inbox"/></svg>Demandas</span>
+                  <span class="cx-item"><svg class="ic"><use href="#i-archive"/></svg>Arquivo</span>
+                  <span class="cx-item"><svg class="ic"><use href="#i-grid"/></svg>Dashboard</span>
+                  <span class="cx-item"><svg class="ic"><use href="#i-chart"/></svg>Relatórios</span>
+                  <span class="cx-item"><svg class="ic"><use href="#i-list"/></svg>Atividades</span>
+                  <span class="cx-item"><svg class="ic"><use href="#i-help"/></svg>Ajuda</span>
+                  <span class="cx-item"><svg class="ic"><use href="#i-sliders"/></svg>Configurações</span>
+                  <span class="cx-item"><svg class="ic"><use href="#i-bell"/></svg>Notificações<span class="cx-count">2</span></span>
+                </div>
+              </div>
+              <div class="cx-main">
+                <div class="cx-head">
+                  <span class="cx-h">Demandas Abertas <small>(5)</small></span>
+                  <span class="alerta-resp"><svg class="ic" aria-hidden="true"><use href="#i-message"/></svg>1 nova resposta</span>
+                </div>
+                <div class="cx-tools">
+                  <span class="sw">Minhas Demandas</span>
+                  <span class="m-input ph"><svg class="ic" aria-hidden="true"><use href="#i-search"/></svg> Buscar por título, descrição ou solicitante...</span>
+                </div>
+                <div class="pills">
+                  <span class="pill on">Todos <b>5</b></span>
+                  <span class="pill">Novo <b>2</b></span>
+                  <span class="pill">Em atendimento <b>1</b></span>
+                  <span class="pill">Aguardando <b>1</b></span>
+                  <span class="pill">Nova resposta <b>1</b></span>
+                  <span class="pill">Urgente <b>1</b></span>
+                  <span class="m-btn m-btn--outline m-btn--sm"><svg class="ic" aria-hidden="true"><use href="#i-columns"/></svg>Kanban</span>
+                  <span class="m-btn m-btn--sm btn-nova"><svg class="ic" aria-hidden="true"><use href="#i-plus"/></svg>Nova Demanda</span>
+                </div>
+                <div class="m-table-wrap scroll-x">
+                  <table class="m-table">
+                    <thead><tr><th scope="col">Nº Demanda</th><th scope="col" class="hide-sm">Abertura</th><th scope="col">Assunto</th><th scope="col" class="hide-sm">Solicitante</th><th scope="col">Responsável</th><th scope="col" class="hide-sm">Categoria/subcategoria</th><th scope="col">Status</th><th scope="col">Prioridade</th></tr></thead>
+                    <tbody>
+                      <tr class="is-new"><td class="prot">#CRPRS2026-0137</td><td class="hide-sm">12/11 09:14</td><td class="assunto">Segunda via da carteira profissional</td><td class="hide-sm">Maria Exemplo</td><td><span class="bdg bdg-vazio">Não atribuído</span></td><td class="hide-sm m-faint">Sem subcategoria</td><td><span class="bdg bdg-novo">Novo</span></td><td><span class="bdg bdg-normal">Normal</span><span class="sla sla-ok">Responder em 11h 46min</span></td></tr>
+                      <tr><td class="prot">#CRPRS2026-0136</td><td class="hide-sm">12/11 08:40</td><td class="assunto">Pedido de inscrição de pessoa jurídica</td><td class="hide-sm">Clínica Exemplo</td><td><span class="bdg bdg-vazio">Não atribuído</span></td><td class="hide-sm">Inscrição - Pessoa Jurídica</td><td><span class="bdg bdg-novo">Novo</span></td><td><span class="bdg bdg-urg">Urgente</span><span class="sla sla-alerta">Responder em 25min</span></td></tr>
+                      <tr><td class="prot">#CRPRS2026-0131</td><td class="hide-sm">11/11 15:02</td><td class="assunto">Transferência para o CRP de SC</td><td class="hide-sm">João Exemplo</td><td>Pedro Exemplo</td><td class="hide-sm">Transferência - Pessoa Física</td><td><span class="bdg bdg-resp">Nova resposta</span></td><td><span class="bdg bdg-alta">Alta</span><span class="sla sla-ok">Resolver em 5h 10min</span></td></tr>
+                      <tr><td class="prot">#CRPRS2026-0128</td><td class="hide-sm">11/11 10:27</td><td class="assunto">Reativação de registro profissional</td><td class="hide-sm">Luísa Exemplo</td><td>Carla Exemplo</td><td class="hide-sm">Reativação/reinscrição - Pessoa Física</td><td><span class="bdg bdg-atend">Em atendimento</span></td><td><span class="bdg bdg-normal">Normal</span><span class="sla sla-ok">Resolver em 14h</span></td></tr>
+                      <tr><td class="prot">#CRPRS2026-0119</td><td class="hide-sm">10/11 14:51</td><td class="assunto">Certificado de regularidade</td><td class="hide-sm">Instituto Exemplo</td><td>Pedro Exemplo</td><td class="hide-sm">Certificado - Pessoa Jurídica</td><td><span class="bdg bdg-aguard">Aguardando resposta</span></td><td><span class="bdg bdg-baixa">Baixa</span><span class="sla sla-pausa">Prazo pausado</span></td></tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <figcaption>Lista de demandas abertas do setor, com a nova demanda em destaque (dados fictícios).</figcaption>
+      </figure>
+    </article>
+
+    <!-- Etapa 5 -->
+    <article class="step" id="etapa-5" aria-labelledby="etapa-5-t">
+      <div class="step-text">
+        <p class="step-kicker"><span class="step-num">5</span><span class="area-tag area-tag--int">Área da equipe</span></p>
+        <h3 id="etapa-5-t">A tela da demanda: tudo em um só lugar</h3>
+        <p>Ao abrir a demanda, a equipe vê o pedido completo: o texto da pessoa, os anexos e as informações de controle. No alto, etiquetas mostram o responsável, a classificação, a situação e a prioridade. Basta clicar numa delas para alterá-la.</p>
+        <ul class="checks">
+          <li>Anexos abertos na própria tela, sem precisar baixar.</li>
+          <li>Classificação por categoria e subcategoria do setor, usada depois nos relatórios.</li>
+          <li>Lembretes com data, para a equipe não esquecer de retomar um assunto.</li>
+          <li>Botões para encaminhar a um servidor ou transferir para outro setor.</li>
+        </ul>
+      </div>
+      <figure class="step-visual">
+        <div class="stage">
+          <div class="frame" role="img" aria-label="Ilustração da tela da demanda CRPRS2026-0137: etiquetas de responsável, subcategoria, situação e prioridade; título, descrição, dados do pedido, anexo em PDF e botões de encaminhamento.">
+            <div class="frame-bar"><span class="frame-dots"><i></i><i></i><i></i></span><span class="frame-title"><svg class="ic"><use href="#i-lock"/></svg>Conecta CRPRS · Demanda #CRPRS2026-0137</span><span class="frame-pad"></span></div>
+            <div class="screen cx-main">
+              <span class="m-btn m-btn--outline m-btn--sm">← Voltar</span>
+              <div class="dt">
+                <div class="dt-top">
+                  <span class="dt-prot">#CRPRS2026-0137</span>
+                  <div class="chips">
+                    <span class="chip chip--vazio">Não atribuído</span>
+                    <span class="chip">Carteira profissional - Pessoa Física</span>
+                    <span class="bdg bdg-novo">Novo</span>
+                    <span class="bdg bdg-normal">Normal</span>
+                  </div>
+                </div>
+                <div class="dt-title">Segunda via da carteira profissional</div>
+                <div class="dt-desc">
+                  <p>Bom dia!</p>
+                  <p>Perdi minha carteira de identidade profissional e gostaria de solicitar a segunda via. Envio em anexo o comprovante de pagamento da taxa.</p>
+                </div>
+                <div class="dt-meta">
+                  <span><b>Criado por:</b> maria.exemplo@example.com (Maria Exemplo)</span>
+                  <span><b>Data:</b> 12/11/2026 09:14</span>
+                </div>
+                <div class="dt-sec">Anexos (1)</div>
+                <div class="dt-anexo"><span><svg class="ic" aria-hidden="true"><use href="#i-file"/></svg> <b>comprovante-taxa.pdf</b> · 0,18 MB</span><span class="m-row"><span class="m-btn m-btn--outline m-btn--sm"><svg class="ic" aria-hidden="true"><use href="#i-eye"/></svg>Visualizar</span><span class="m-btn m-btn--outline m-btn--sm"><svg class="ic" aria-hidden="true"><use href="#i-download"/></svg>Download</span></span></div>
+                <div class="dt-acoes">
+                  <span class="m-btn m-btn--primary"><svg class="ic" aria-hidden="true"><use href="#i-user"/></svg>Encaminhar a Operador</span>
+                  <span class="m-btn m-btn--primary"><svg class="ic" aria-hidden="true"><use href="#i-building"/></svg>Transferir para Outro Setor</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <figcaption>A demanda aberta, já classificada pela gestora.</figcaption>
+      </figure>
+    </article>
+
+    <!-- Etapa 6 -->
+    <article class="step" id="etapa-6" aria-labelledby="etapa-6-t">
+      <div class="step-text">
+        <p class="step-kicker"><span class="step-num">6</span><span class="area-tag area-tag--int">Área da equipe</span></p>
+        <h3 id="etapa-6-t">Encaminhamento a um servidor</h3>
+        <p>A gestora escolhe quem vai atender e escreve uma orientação. Essa orientação fica registrada no histórico da demanda. O servidor é avisado na hora, e a pessoa que fez o pedido recebe um e-mail informando que o atendimento já começou.</p>
+        <ul class="checks">
+          <li>Aviso ao servidor por e-mail e pelo sino do sistema.</li>
+          <li>O servidor pode devolver a demanda à gestão ou repassá-la a um colega.</li>
+          <li>Se o assunto for de outra área, a demanda é transferida para o setor certo, com o histórico completo.</li>
+          <li>Toda mudança de mãos exige uma justificativa, que fica registrada.</li>
+        </ul>
+      </div>
+      <figure class="step-visual">
+        <div class="stage stage--duo">
+          <div>
+            <span class="stage-label">1. Escolha do responsável</span>
+            <div class="frame" role="img" aria-label="Janela de escolha do responsável, com Pedro Exemplo selecionado entre os servidores do setor.">
+              <div class="screen m-overlay">
+                <div class="m-modal">
+                  <div class="m-modal-head"><span class="m-modal-title">Encaminhar Demanda</span><svg class="ic" aria-hidden="true"><use href="#i-x"/></svg></div>
+                  <div class="m-modal-body">
+                    <p class="m-muted">Selecione quem vai assumir:</p>
+                    <div class="m-opt on"><span class="avatar avatar-sm">PE</span><span><b>Pedro Exemplo</b><small>Operador · Cadastro</small></span></div>
+                    <div class="m-opt"><span class="avatar avatar-sm avatar--verde">CE</span><span><b>Carla Exemplo</b><small>Operadora · Cadastro</small></span></div>
+                  </div>
+                  <div class="m-modal-foot"><span class="m-btn m-btn--ghost">Cancelar</span><span class="m-btn m-btn--primary">Continuar</span></div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div>
+            <span class="stage-label">2. Orientação ao servidor</span>
+            <div class="frame" role="img" aria-label="Janela para escrever a orientação do encaminhamento, com o texto: Pedro, a taxa já foi paga; por favor, emita a segunda via e informe a data de retirada.">
+              <div class="screen m-overlay">
+                <div class="m-modal">
+                  <div class="m-modal-head"><span class="m-modal-title">Encaminhar Demanda</span><svg class="ic" aria-hidden="true"><use href="#i-x"/></svg></div>
+                  <div class="m-modal-body">
+                    <span class="m-label">Orientação para Pedro Exemplo:</span>
+                    <div class="m-textarea">Pedro, a taxa já foi paga. Por favor, emita a segunda via e informe a data de retirada.</div>
+                  </div>
+                  <div class="m-modal-foot"><span class="m-btn m-btn--ghost">Cancelar</span><span class="m-btn m-btn--primary">Encaminhar</span></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <figcaption>A gestora escolhe o servidor e deixa a orientação registrada.</figcaption>
+      </figure>
+    </article>
+  </div>
+</section>
+
+<!-- ============================ PARTE 3 · ATENDIMENTO ============================ -->
+<section class="chapter" id="atendimento" aria-labelledby="atendimento-titulo">
+  <div class="container">
+    <div class="chapter-head">
+      <p class="part-tag">Parte 3 · Atendimento e resposta</p>
+      <h2 id="atendimento-titulo">A resposta é escrita no sistema e chega por e-mail</h2>
+      <p class="lead">O servidor conversa com a pessoa sem sair do Conecta. Tudo o que é escrito fica guardado na demanda, e a pessoa recebe as respostas no e-mail de sempre.</p>
+      <ul class="step-index" aria-label="Etapas desta parte">
+        <li><a href="#etapa-7"><b>7</b>Escrevendo a resposta</a></li>
+        <li><a href="#etapa-8"><b>8</b>E-mail com a resposta</a></li>
+        <li><a href="#etapa-9"><b>9</b>A conversa continua</a></li>
+      </ul>
+    </div>
+
+    <!-- Etapa 7 -->
+    <article class="step" id="etapa-7" aria-labelledby="etapa-7-t">
+      <div class="step-text">
+        <p class="step-kicker"><span class="step-num">7</span><span class="area-tag area-tag--int">Área da equipe</span></p>
+        <h3 id="etapa-7-t">Escrevendo a resposta</h3>
+        <p>Na própria tela da demanda, o servidor escreve a resposta num editor de texto simples. A assinatura com o nome e o setor dele aparece embaixo e é colocada no e-mail automaticamente.</p>
+        <ul class="checks">
+          <li><strong>Respostas rápidas:</strong> modelos prontos para as respostas mais comuns do setor.</li>
+          <li>Imagens coladas no texto e até cinco arquivos anexados.</li>
+          <li><strong>Nota interna:</strong> um recado só para a equipe, que nunca chega à pessoa atendida.</li>
+          <li>Opção de enviar uma cópia da resposta para outro endereço.</li>
+          <li>O botão <strong>Enviar e Fechar</strong> responde e encerra a demanda de uma vez.</li>
+        </ul>
+      </div>
+      <figure class="step-visual">
+        <div class="stage">
+          <div class="frame" role="img" aria-label="Ilustração do formulário de resposta: editor com o texto da resposta a Maria Exemplo, assinatura automática de Pedro Exemplo, opções de nota interna e envio por e-mail, e os botões de envio.">
+            <div class="frame-bar"><span class="frame-dots"><i></i><i></i><i></i></span><span class="frame-title"><svg class="ic"><use href="#i-lock"/></svg>Conecta CRPRS · Demanda #CRPRS2026-0137</span><span class="frame-pad"></span></div>
+            <div class="screen cx-main">
+              <div class="dt">
+                <div class="ed-row">
+                  <span class="m-label">Adicionar comentário:</span>
+                  <span class="m-select"><svg class="ic" aria-hidden="true"><use href="#i-zap"/></svg> Usar Resposta Rápida...</span>
+                </div>
+                <div class="ed">
+                  <div class="ed-bar"><b>N</b><i>I</i><u>S</u><span>Lista</span><span>Link</span><svg class="ic" aria-hidden="true"><use href="#i-image"/></svg></div>
+                  <div class="ed-body">
+                    <p>Olá, Maria!</p>
+                    <p>A segunda via da sua carteira já foi emitida. Ela pode ser retirada na sede do Conselho a partir de segunda-feira, das 9h às 17h. Basta apresentar um documento com foto.</p>
+                    <p class="ed-assin">Atenciosamente,<br>Pedro Exemplo<br>Cadastro</p>
+                  </div>
+                </div>
+                <span class="sw">Nota interna (não vai para o solicitante)</span>
+                <span class="sw on">Enviar comentário por e-mail para o solicitante</span>
+                <span class="sw">Enviar cópia para outro e-mail</span>
+                <div class="m-row">
+                  <span class="m-btn m-btn--primary"><svg class="ic" aria-hidden="true"><use href="#i-send"/></svg>Adicionar Comentário e Enviar E-mail</span>
+                  <span class="m-btn m-btn--ok"><svg class="ic" aria-hidden="true"><use href="#i-check"/></svg>Enviar e Fechar</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <figcaption>Resposta escrita pelo servidor, com a assinatura automática.</figcaption>
+      </figure>
+    </article>
+
+    <!-- Etapa 8 -->
+    <article class="step" id="etapa-8" aria-labelledby="etapa-8-t">
+      <div class="step-text">
+        <p class="step-kicker"><span class="step-num">8</span><span class="area-tag area-tag--mail">E-mail automático</span></p>
+        <h3 id="etapa-8-t">A resposta na caixa de entrada da pessoa</h3>
+        <p>A resposta chega em um e-mail com o protocolo no assunto. Ela aparece em destaque, assinada por quem respondeu. Abaixo vem o histórico da conversa, para a pessoa não precisar procurar mensagens antigas.</p>
+        <ul class="checks">
+          <li>Texto sempre com a mesma fonte e o mesmo tamanho, não importa como foi digitado ou colado.</li>
+          <li>Histórico com o pedido original e as mensagens trocadas, da mais recente para a mais antiga.</li>
+          <li>As notas internas da equipe nunca aparecem no histórico.</li>
+          <li>Para continuar a conversa, basta responder ao e-mail.</li>
+        </ul>
+      </div>
+      <figure class="step-visual">
+        <div class="stage">
+          <div class="frame" role="img" aria-label="Ilustração do e-mail Resposta da equipe recebido por Maria Exemplo: dados da demanda, a resposta de Pedro Exemplo em destaque com assinatura e o histórico das interações com o pedido original.">
+            <div class="frame-bar"><span class="frame-dots"><i></i><i></i><i></i></span><span class="frame-title"><svg class="ic"><use href="#i-mail"/></svg>Caixa de entrada · Maria Exemplo</span><span class="frame-pad"></span></div>
+            <div class="screen">
+              <div class="mail-head">
+                <span class="mail-subject">[#CRPRS2026-0137] Resposta da Equipe - Segunda via da carteira profissional</span>
+                <span><b>De:</b> Cadastro CRPRS &lt;cadastro@example.com&gt;</span>
+                <span><b>Para:</b> maria.exemplo@example.com</span>
+              </div>
+              <div class="mail-body">
+                <div class="mail-card">
+                  <div class="tb"><i></i><div><small>Conselho Regional de Psicologia do Rio Grande do Sul</small><b>Resposta da equipe</b></div></div>
+                  <div class="faixa" aria-hidden="true"><span></span><span></span><span></span></div>
+                  <div class="mail-content">
+                    <p>Olá <strong>Maria Exemplo</strong>,</p>
+                    <p>Você recebeu uma nova resposta da nossa equipe:</p>
+                    <div class="tk-info">
+                      <p><strong>Demanda:</strong> #CRPRS2026-0137<br><strong>Assunto:</strong> Segunda via da carteira profissional<br><strong>Responsável:</strong> Pedro Exemplo<br><strong>Data da resposta:</strong> 12/11/2026 10:20</p>
+                    </div>
+                    <div class="resp-box">
+                      <h6>Resposta da equipe</h6>
+                      <p>Olá, Maria!</p>
+                      <p>A segunda via da sua carteira já foi emitida. Ela pode ser retirada na sede do Conselho a partir de segunda-feira, das 9h às 17h. Basta apresentar um documento com foto.</p>
+                      <p class="resp-assin">Atenciosamente,<br><strong>Pedro Exemplo</strong><br>Cadastro</p>
+                    </div>
+                    <div class="hist">
+                      <h6>Histórico das interações</h6>
+                      <div class="hist-card hist-card--cid"><b>Demanda registrada</b> · Maria Exemplo <span>12/11/2026 09:14</span><br>Perdi minha carteira de identidade profissional e gostaria de solicitar a segunda via…</div>
+                    </div>
+                    <p class="mail-tip"><strong>Como responder:</strong> para continuar a conversa, basta responder a este e-mail. Sua resposta será adicionada à demanda.</p>
+                  </div>
+                  <div class="mail-sign"><b>Equipe Cadastro</b><br>cadastro@example.com<br>Conselho Regional de Psicologia do Rio Grande do Sul</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <figcaption>E-mail com a resposta do servidor e o histórico da conversa.</figcaption>
+      </figure>
+    </article>
+
+    <!-- Etapa 9 -->
+    <article class="step" id="etapa-9" aria-labelledby="etapa-9-t">
+      <div class="step-text">
+        <p class="step-kicker"><span class="step-num">9</span><span class="area-tag area-tag--int">Área da equipe</span></p>
+        <h3 id="etapa-9-t">Se a pessoa responder, a conversa continua na mesma demanda</h3>
+        <p>Quando a pessoa responde ao e-mail, a mensagem dela entra na demanda como uma nova interação. A situação muda para <strong>Nova resposta</strong>, e o servidor responsável é avisado.</p>
+        <ul class="checks">
+          <li>Todas as interações e mudanças ficam na mesma linha do tempo, com data, hora e autor.</li>
+          <li>Por segurança, só entra na demanda a resposta de quem participa dela.</li>
+          <li>Mensagens de outras pessoas, ou sobre outro assunto, abrem uma demanda nova.</li>
+        </ul>
+      </div>
+      <figure class="step-visual">
+        <div class="stage">
+          <div class="frame" role="img" aria-label="Ilustração da linha do tempo da demanda: abertura por e-mail, encaminhamento por Ana Exemplo a Pedro Exemplo, resposta de Pedro enviada por e-mail e a nova mensagem de Maria Exemplo perguntando se outra pessoa pode retirar o documento.">
+            <div class="frame-bar"><span class="frame-dots"><i></i><i></i><i></i></span><span class="frame-title"><svg class="ic"><use href="#i-lock"/></svg>Conecta CRPRS · Demanda #CRPRS2026-0137</span><span class="frame-pad"></span></div>
+            <div class="screen cx-main">
+              <div class="dt">
+                <div class="dt-top"><span class="dt-sec">Interações (4)</span><span class="bdg bdg-resp">Nova resposta</span></div>
+                <div class="cm-list">
+                  <div class="cm cm--cid"><div class="cm-head"><b>Maria Exemplo <span class="cm-tag">por e-mail</span></b><span>12/11/2026 11:02</span></div>Obrigada pela rapidez! Uma colega pode retirar o documento por mim, com uma autorização assinada?</div>
+                  <div class="cm"><div class="cm-head"><b>Pedro Exemplo <span class="cm-tag">enviado por e-mail</span></b><span>12/11/2026 10:20</span></div>Olá, Maria! A segunda via da sua carteira já foi emitida. Ela pode ser retirada na sede…</div>
+                  <div class="cm cm--evt"><div class="cm-head"><b>Ana Exemplo</b><span>12/11/2026 09:31</span></div>Demanda encaminhada para Pedro Exemplo: "a taxa já foi paga; por favor, emita a segunda via e informe a data de retirada."</div>
+                  <div class="cm cm--evt"><div class="cm-head"><b>Sistema</b><span>12/11/2026 09:14</span></div>Demanda aberta a partir de e-mail recebido em cadastro@example.com.</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <figcaption>A nova mensagem de Maria aparece no topo da linha do tempo da demanda.</figcaption>
+      </figure>
+    </article>
+  </div>
+</section>
+
+<!-- ============================ PARTE 4 · ENCERRAMENTO ============================ -->
+<section class="chapter" id="encerramento" aria-labelledby="encerramento-titulo">
+  <div class="container">
+    <div class="chapter-head">
+      <p class="part-tag">Parte 4 · Encerramento</p>
+      <h2 id="encerramento-titulo">Demanda concluída, pessoa avisada</h2>
+      <p class="lead">Quando o pedido está resolvido, o servidor encerra a demanda. A pessoa recebe o aviso final, e a demanda vai para o arquivo do setor, onde pode ser consultada ou reaberta.</p>
+      <ul class="step-index" aria-label="Etapas desta parte">
+        <li><a href="#etapa-10"><b>10</b>Encerramento e aviso</a></li>
+        <li><a href="#etapa-11"><b>11</b>Arquivo</a></li>
+      </ul>
+    </div>
+
+    <!-- Etapa 10 -->
+    <article class="step" id="etapa-10" aria-labelledby="etapa-10-t">
+      <div class="step-text">
+        <p class="step-kicker"><span class="step-num">10</span><span class="area-tag area-tag--int">Área da equipe</span><span class="area-tag area-tag--mail">E-mail automático</span></p>
+        <h3 id="etapa-10-t">Encerramento e aviso final</h3>
+        <p>O servidor responde à última pergunta e usa o botão <strong>Enviar e Fechar</strong>. O sistema pede uma confirmação, grava a resposta, encerra a demanda e envia à pessoa o e-mail de encerramento.</p>
+        <ul class="checks">
+          <li>Fica registrado quem encerrou e quando, e o tempo total do atendimento entra nos indicadores.</li>
+          <li>Se a pessoa responder ao aviso, a demanda é reaberta e volta para a lista do setor.</li>
+          <li>Para um assunto novo, ela é orientada a enviar um novo e-mail, que abrirá outra demanda.</li>
+        </ul>
+      </div>
+      <figure class="step-visual">
+        <div class="stage stage--duo">
+          <div>
+            <span class="stage-label">Confirmação no sistema</span>
+            <div class="frame" role="img" aria-label="Janela de confirmação: Deseja adicionar o comentário e encerrar esta demanda? Com os botões Cancelar e Confirmar.">
+              <div class="screen m-overlay">
+                <div class="m-modal">
+                  <div class="m-modal-head"><span class="m-modal-title">Enviar e Fechar Demanda</span><svg class="ic" aria-hidden="true"><use href="#i-x"/></svg></div>
+                  <div class="m-modal-body"><p>Deseja adicionar o comentário e encerrar esta demanda?</p></div>
+                  <div class="m-modal-foot"><span class="m-btn m-btn--ghost">Cancelar</span><span class="m-btn m-btn--ok">Confirmar</span></div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div>
+            <span class="stage-label">E-mail recebido pela pessoa</span>
+            <div class="frame" role="img" aria-label="E-mail Demanda encerrada recebido por Maria Exemplo, com a situação Fechado, o nome de quem encerrou e a orientação para reabrir respondendo ao e-mail.">
+              <div class="screen">
+                <div class="mail-head">
+                  <span class="mail-subject">[#CRPRS2026-0137] Demanda encerrada</span>
+                  <span><b>Para:</b> maria.exemplo@example.com</span>
+                </div>
+                <div class="mail-body">
+                  <div class="mail-card">
+                    <div class="tb"><i></i><div><small>Conselho Regional de Psicologia do RS</small><b>Demanda encerrada</b></div></div>
+                    <div class="faixa" aria-hidden="true"><span></span><span></span><span></span></div>
+                    <div class="mail-content">
+                      <p>Olá <strong>Maria Exemplo</strong>,</p>
+                      <p>Sua demanda foi encerrada com sucesso. A solicitação foi atendida pela nossa equipe.</p>
+                      <div class="tk-info"><p><strong>Número:</strong> #CRPRS2026-0137<br><strong>Status:</strong> <span class="selo selo--vinho">FECHADO</span><br><strong>Fechado por:</strong> Pedro Exemplo<br><strong>Data:</strong> 12/11/2026 11:15</p></div>
+                      <p class="mail-tip mail-tip--alerta">Responda a este e-mail apenas se desejar reabrir esta demanda. Para outro assunto, envie um novo e-mail.</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <figcaption>O servidor confirma o encerramento e a pessoa recebe o aviso final.</figcaption>
+      </figure>
+    </article>
+
+    <!-- Etapa 11 -->
+    <article class="step" id="etapa-11" aria-labelledby="etapa-11-t">
+      <div class="step-text">
+        <p class="step-kicker"><span class="step-num">11</span><span class="area-tag area-tag--int">Área da equipe</span></p>
+        <h3 id="etapa-11-t">Arquivo das demandas concluídas</h3>
+        <p>As demandas encerradas e canceladas saem da lista de trabalho e vão para o <strong>Arquivo</strong>. Ali ficam guardadas com todo o histórico, para consulta a qualquer momento.</p>
+        <ul class="checks">
+          <li>Busca por protocolo, assunto ou nome de quem pediu.</li>
+          <li>Botão para reabrir uma demanda encerrada por engano.</li>
+          <li>O Dashboard e os Relatórios usam esses dados: volume por setor, tempo médio de resposta e assuntos mais pedidos.</li>
+        </ul>
+      </div>
+      <figure class="step-visual">
+        <div class="stage">
+          <div class="frame" role="img" aria-label="Ilustração do Arquivo com três demandas encerradas, entre elas a CRPRS2026-0137, cada uma com o botão Reabrir.">
+            <div class="frame-bar"><span class="frame-dots"><i></i><i></i><i></i></span><span class="frame-title"><svg class="ic"><use href="#i-lock"/></svg>Conecta CRPRS · Arquivo</span><span class="frame-pad"></span></div>
+            <div class="screen cx-main">
+              <div class="cx-head"><span class="cx-h">Arquivo <small>(encerradas e canceladas)</small></span></div>
+              <span class="m-input ph"><svg class="ic" aria-hidden="true"><use href="#i-search"/></svg> Buscar no arquivo...</span>
+              <div class="m-table-wrap scroll-x">
+                <table class="m-table">
+                  <thead><tr><th scope="col">Nº Demanda</th><th scope="col">Assunto</th><th scope="col" class="hide-sm">Responsável</th><th scope="col">Status</th><th scope="col" class="hide-sm">Encerrada em</th><th scope="col">Ações</th></tr></thead>
+                  <tbody>
+                    <tr><td class="prot">#CRPRS2026-0137</td><td class="assunto">Segunda via da carteira profissional</td><td class="hide-sm">Pedro Exemplo</td><td><span class="bdg bdg-enc">Encerrado</span></td><td class="hide-sm">12/11 11:15</td><td><span class="m-btn m-btn--outline m-btn--sm"><svg class="ic" aria-hidden="true"><use href="#i-refresh"/></svg>Reabrir</span></td></tr>
+                    <tr><td class="prot">#CRPRS2026-0125</td><td class="assunto">Atualização de endereço</td><td class="hide-sm">Carla Exemplo</td><td><span class="bdg bdg-enc">Encerrado</span></td><td class="hide-sm">11/11 16:40</td><td><span class="m-btn m-btn--outline m-btn--sm"><svg class="ic" aria-hidden="true"><use href="#i-refresh"/></svg>Reabrir</span></td></tr>
+                    <tr><td class="prot">#CRPRS2026-0122</td><td class="assunto">Cancelamento de inscrição</td><td class="hide-sm">Pedro Exemplo</td><td><span class="bdg bdg-enc">Encerrado</span></td><td class="hide-sm">11/11 09:05</td><td><span class="m-btn m-btn--outline m-btn--sm"><svg class="ic" aria-hidden="true"><use href="#i-refresh"/></svg>Reabrir</span></td></tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </div>
+        <figcaption>Arquivo do setor, com a demanda de Maria já encerrada.</figcaption>
+      </figure>
+    </article>
+  </div>
+</section>
+
+<!-- ============================ PARTE 5 · PESQUISA ============================ -->
+<section class="chapter" id="pesquisa" aria-labelledby="pesquisa-titulo">
+  <div class="container">
+    <div class="chapter-head">
+      <p class="part-tag">Parte 5 · Pesquisa de satisfação · METRICA360</p>
+      <h2 id="pesquisa-titulo">A pessoa avalia o atendimento em menos de um minuto</h2>
+      <p class="lead">Quando uma demanda de alguém de fora do Conselho é concluída, essa pessoa é convidada a avaliar o atendimento. A pesquisa é feita pelo METRICA360, o sistema de avaliação do CRPRS.</p>
+      <ul class="step-index" aria-label="Etapas desta parte">
+        <li><a href="#etapa-12"><b>12</b>Convite por e-mail</a></li>
+        <li><a href="#etapa-13"><b>13</b>Formulário de avaliação</a></li>
+        <li><a href="#etapa-14"><b>14</b>Agradecimento</a></li>
+      </ul>
+    </div>
+
+    <!-- Etapa 12 -->
+    <article class="step" id="etapa-12" aria-labelledby="etapa-12-t">
+      <div class="step-text">
+        <p class="step-kicker"><span class="step-num">12</span><span class="area-tag area-tag--mail">E-mail automático</span><span class="area-tag area-tag--m360">METRICA360</span></p>
+        <h3 id="etapa-12-t">Convite para avaliar o atendimento</h3>
+        <p>Depois do encerramento, a pessoa recebe um e-mail curto. Ele cita o número da demanda e traz um botão que leva direto ao formulário de avaliação.</p>
+        <ul class="checks">
+          <li>Enviado apenas a quem é de fora do Conselho, e só uma vez por demanda.</li>
+          <li>Evita convites repetidos à mesma pessoa em pouco tempo.</li>
+          <li>O link é pessoal e vale por 7 dias.</li>
+          <li>Se não houver resposta, um lembrete é enviado automaticamente.</li>
+        </ul>
+      </div>
+      <figure class="step-visual">
+        <div class="stage">
+          <div class="frame" role="img" aria-label="Ilustração do e-mail de convite do METRICA360 enviado a Maria Exemplo: cabeçalho verde Pesquisa de Satisfação, a menção à solicitação CRPRS2026-0137, cinco estrelas e o botão Avaliar Atendimento.">
+            <div class="frame-bar"><span class="frame-dots"><i></i><i></i><i></i></span><span class="frame-title"><svg class="ic"><use href="#i-mail"/></svg>Caixa de entrada · Maria Exemplo</span><span class="frame-pad"></span></div>
+            <div class="screen">
+              <div class="mail-head">
+                <span class="mail-subject">Como foi seu atendimento no CRPRS? Avalie em 1 minuto</span>
+                <span><b>De:</b> CRPRS &lt;pesquisa@example.com&gt;</span>
+                <span><b>Para:</b> maria.exemplo@example.com</span>
+              </div>
+              <div class="mail-body">
+                <div class="mail-card">
+                  <div class="m3-top"><small>Conselho Regional de Psicologia do RS</small><b>Pesquisa de Satisfação</b></div>
+                  <div class="mail-content">
+                    <p>Olá, <strong>Maria Exemplo</strong>!</p>
+                    <p>Informamos que a sua solicitação <strong>#CRPRS2026-0137</strong> junto ao CRPRS foi finalizada.</p>
+                    <p>Queremos saber como foi a sua experiência. A sua avaliação é muito importante para aprimorarmos nossos processos e garantirmos um serviço cada vez melhor. Leva menos de <strong>1 minuto</strong>!</p>
+                    <p class="m3-estrelas" aria-hidden="true">★★★★★</p>
+                    <div class="m3-cta"><span>Avaliar Atendimento →</span></div>
+                    <p class="m3-link">Se o botão não funcionar, copie e cole este link no navegador:<br><span>https://example.com/avaliar?token=…</span></p>
+                  </div>
+                  <div class="m3-foot">Conselho Regional de Psicologia do Rio Grande do Sul — CRPRS<br>Este e-mail foi enviado automaticamente. Por favor, não responda.</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <figcaption>Convite enviado pelo METRICA360 depois do encerramento.</figcaption>
+      </figure>
+    </article>
+
+    <!-- Etapa 13 -->
+    <article class="step step--stack" id="etapa-13" aria-labelledby="etapa-13-t">
+      <div class="step-text">
+        <p class="step-kicker"><span class="step-num">13</span><span class="area-tag area-tag--cid">Página da pessoa atendida</span><span class="area-tag area-tag--m360">METRICA360</span></p>
+        <h3 id="etapa-13-t">Formulário de avaliação</h3>
+        <div>
+          <p>O botão do convite abre uma página simples. A pessoa escolhe uma nota, de <strong>Péssimo</strong> a <strong>Excelente</strong>. Em seguida aparecem as opções para marcar o que está avaliando e um espaço para deixar um depoimento ou sugestão.</p>
+          <p>O botão de envio só é liberado depois que a nota é escolhida. Comentário e categorias são opcionais.</p>
+        </div>
+        <ul class="checks">
+          <li>Funciona bem no computador e no celular.</li>
+          <li>A página só abre pelo link do convite, que serve uma única vez.</li>
+          <li>Aviso claro sobre o tratamento dos dados, conforme a Lei Geral de Proteção de Dados (LGPD).</li>
+        </ul>
+      </div>
+      <figure class="step-visual">
+        <div class="stage">
+          <div class="frame" role="img" aria-label="Ilustração do formulário de avaliação do METRICA360: painel verde à esquerda com a marca do CRPRS e três compromissos; à direita, a pergunta sobre o nível de satisfação com a nota Excelente selecionada, categorias marcadas, um depoimento e o botão Enviar Avaliação.">
+            <div class="frame-bar"><span class="frame-dots"><i></i><i></i><i></i></span><span class="frame-title"><svg class="ic"><use href="#i-lock"/></svg>METRICA360 · Pesquisa de Satisfação</span><span class="frame-pad"></span></div>
+            <div class="screen mf">
+              <div class="mf-left">
+                <div class="mf-brand"><i></i><div><b>CRP<span>RS</span></b><small>Conselho Regional de Psicologia do RS</small></div></div>
+                <h5>Juntos construímos o nosso Conselho de Psicologia</h5>
+                <p>Nossa missão é garantir um atendimento de excelência. Seu feedback nos ajuda a aprimorar nossos processos diariamente.</p>
+                <span class="mf-stat"><svg class="ic" aria-hidden="true"><use href="#i-lock"/></svg>Avaliação vinculada ao seu convite</span>
+                <span class="mf-stat"><svg class="ic" aria-hidden="true"><use href="#i-eye"/></svg>Cada avaliação é lida e considerada</span>
+                <span class="mf-stat"><svg class="ic" aria-hidden="true"><use href="#i-users"/></svg>Trabalhamos continuamente para melhorar</span>
+              </div>
+              <div class="mf-right">
+                <div><h5>Pesquisa de Satisfação</h5><p>Leva menos de um minuto para responder.</p></div>
+                <div>
+                  <div class="mf-q">Qual o seu nível de satisfação com o atendimento?</div>
+                  <div class="notas">
+                    <span class="nota nota--1"><svg class="ic ic--fill" aria-hidden="true"><use href="#i-star"/></svg>Péssimo</span>
+                    <span class="nota nota--2"><svg class="ic ic--fill" aria-hidden="true"><use href="#i-star"/></svg>Ruim</span>
+                    <span class="nota nota--3"><svg class="ic ic--fill" aria-hidden="true"><use href="#i-star"/></svg>Regular</span>
+                    <span class="nota nota--4"><svg class="ic ic--fill" aria-hidden="true"><use href="#i-star"/></svg>Bom</span>
+                    <span class="nota nota--5 on"><svg class="ic ic--fill" aria-hidden="true"><use href="#i-star"/></svg>Excelente</span>
+                  </div>
+                </div>
+                <div>
+                  <div class="mf-q">O que você avaliou?</div>
+                  <div class="mf-chips"><span class="mf-chip on">Agilidade</span><span class="mf-chip on">Cordialidade</span><span class="mf-chip">Clareza das informações</span><span class="mf-chip on">Solução do pedido</span></div>
+                </div>
+                <div>
+                  <div class="mf-q">Depoimento / Sugestão</div>
+                  <div class="mf-text">Atendimento rápido e muito atencioso. Recebi a resposta no mesmo dia, com todas as orientações!</div>
+                  <div class="mf-cont">98 / 1000</div>
+                </div>
+                <span class="mf-enviar">Enviar Avaliação <svg class="ic" aria-hidden="true"><use href="#i-arrow-right"/></svg></span>
+                <p class="mf-lgpd">Esta avaliação é identificada: está vinculada ao convite enviado. Seus dados são tratados com sigilo, conforme a LGPD.</p>
+              </div>
+            </div>
+          </div>
+        </div>
+        <figcaption>Formulário de avaliação do METRICA360, aberto pelo link do convite (categorias ilustrativas).</figcaption>
+      </figure>
+    </article>
+
+    <!-- Etapa 14 -->
+    <article class="step" id="etapa-14" aria-labelledby="etapa-14-t">
+      <div class="step-text">
+        <p class="step-kicker"><span class="step-num">14</span><span class="area-tag area-tag--cid">Página da pessoa atendida</span><span class="area-tag area-tag--m360">METRICA360</span></p>
+        <h3 id="etapa-14-t">Agradecimento conforme a nota</h3>
+        <p>Assim que a avaliação é enviada, uma mensagem de agradecimento aparece na tela. O texto muda conforme a nota dada.</p>
+        <ul class="checks">
+          <li><strong>Notas Bom e Excelente:</strong> agradecimento com convite opcional para avaliar o Conselho também no Google.</li>
+          <li><strong>Notas mais baixas:</strong> mensagem de acolhimento, com o compromisso de analisar a avaliação com prioridade.</li>
+          <li>A coordenação é avisada por e-mail quando chega uma avaliação crítica.</li>
+        </ul>
+      </div>
+      <figure class="step-visual">
+        <div class="stage stage--duo">
+          <div>
+            <span class="stage-label">Nota positiva</span>
+            <div class="frame" role="img" aria-label="Janela de agradecimento para nota positiva: Muito obrigado pela sua avaliação, com o botão Compartilhar no Google Reviews e a opção Prefiro não avaliar no Google agora.">
+              <div class="screen m-overlay">
+                <div class="mm">
+                  <span class="confete" aria-hidden="true"></span>
+                  <div class="mm-top"><span class="mm-ic" aria-hidden="true">🎉</span><b>Muito obrigado pela sua avaliação!</b></div>
+                  <div class="mm-body">
+                    <p>Ficamos felizes que sua experiência com o CRPRS foi positiva! Que tal compartilhar no Google? Leva apenas <strong>30 segundos</strong>.</p>
+                    <span class="mm-google"><span class="mm-g">G</span>Compartilhar no Google Reviews</span>
+                    <span class="mm-link">Prefiro não avaliar no Google agora</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div>
+            <span class="stage-label">Nota crítica</span>
+            <div class="frame" role="img" aria-label="Janela de agradecimento para nota crítica: Obrigado pelo seu retorno, informando que a avaliação será analisada com prioridade, com o botão Entendido, obrigado.">
+              <div class="screen m-overlay">
+                <div class="mm">
+                  <div class="mm-top"><span class="mm-ic mm-ic--crit" aria-hidden="true">♥</span><b>Obrigado pelo seu retorno</b></div>
+                  <div class="mm-body">
+                    <p>Sentimos muito pela experiência. Sua avaliação foi registrada e será analisada pela nossa equipe <strong>com prioridade</strong>. O CRPRS se compromete a investigar e a retornar com melhorias concretas.</p>
+                    <span class="mm-ok">Entendido, obrigado</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <figcaption>A mensagem final se adapta à nota dada pela pessoa.</figcaption>
+      </figure>
+    </article>
+  </div>
+</section>
+
+<!-- ============================ PARTE 6 · RESULTADO ============================ -->
+<section class="chapter" id="resultado" aria-labelledby="resultado-titulo">
+  <div class="container">
+    <div class="chapter-head">
+      <p class="part-tag">Parte 6 · Resultado da avaliação · METRICA360</p>
+      <h2 id="resultado-titulo">A nota chega a quem acompanha a qualidade do atendimento</h2>
+      <p class="lead">Cada avaliação entra no painel da coordenação no momento em que é enviada. As notas altas mostram o que está funcionando. As notas baixas são tratadas uma a uma, até serem resolvidas.</p>
+      <ul class="step-index" aria-label="Etapas desta parte">
+        <li><a href="#etapa-15"><b>15</b>Central de Feedbacks</a></li>
+        <li><a href="#etapa-16"><b>16</b>Tratamento e comparação</a></li>
+      </ul>
+    </div>
+
+    <!-- Etapa 15 -->
+    <article class="step step--stack" id="etapa-15" aria-labelledby="etapa-15-t">
+      <div class="step-text">
+        <p class="step-kicker"><span class="step-num">15</span><span class="area-tag area-tag--int">Área da coordenação</span><span class="area-tag area-tag--m360">METRICA360</span></p>
+        <h3 id="etapa-15-t">Central de Feedbacks</h3>
+        <div>
+          <p>A avaliação de Maria aparece no topo da lista, marcada como nova, com a nota 5 de 5 e o depoimento que ela escreveu. No alto da tela ficam os números gerais: total de avaliações, quantas aguardam análise e a nota média do Conselho.</p>
+          <p>Um gráfico mostra a evolução da nota média, e outro aponta os aspectos mais elogiados e os mais criticados.</p>
+        </div>
+        <ul class="checks">
+          <li>Filtros por situação, nota, período e palavra no relato.</li>
+          <li>Cada avaliação tem uma situação: <strong>Pendente</strong>, <strong>Em tratativa</strong> ou <strong>Resolvido</strong>.</li>
+          <li>Exportação da lista para planilha.</li>
+        </ul>
+      </div>
+      <figure class="step-visual">
+        <div class="stage">
+          <div class="frame" role="img" aria-label="Ilustração da Central de Feedbacks do METRICA360: menu lateral azul, seis indicadores (128 avaliações, 2 pendentes, 1 em tratativa, 125 resolvidas, 3 hoje, média 4,6), gráfico da evolução da nota média, aspectos mais elogiados e criticados e a lista de avaliações recebidas com a nota 5 de Maria Exemplo no topo.">
+            <div class="frame-bar"><span class="frame-dots"><i></i><i></i><i></i></span><span class="frame-title"><svg class="ic"><use href="#i-lock"/></svg>METRICA360 · Central de Feedbacks</span><span class="frame-pad"></span></div>
+            <div class="screen mx">
+              <div class="mx-side">
+                <div class="mx-brand"><i></i><div><b>CRPRS</b><small>Métrica360</small></div></div>
+                <div class="mx-user"><span class="avatar avatar--azul">BE</span><div><b>Beatriz Exemplo</b><span>Coordenadora Geral</span></div></div>
+                <div class="cx-nav">
+                  <span class="mx-item on"><svg class="ic"><use href="#i-grid"/></svg>Central de Feedbacks<span class="mx-count">2</span></span>
+                  <span class="mx-item"><svg class="ic"><use href="#i-building"/></svg>Painel de Avaliação</span>
+                  <span class="mx-item"><svg class="ic"><use href="#i-send"/></svg>Histórico de Convites</span>
+                  <span class="mx-item"><svg class="ic"><use href="#i-sliders"/></svg>Configurações</span>
+                  <span class="mx-item"><svg class="ic"><use href="#i-help"/></svg>Ajuda</span>
+                </div>
+              </div>
+              <div class="mx-main">
+                <div class="mx-h"><b>Central de Feedbacks</b><span>Gerencie e faça a triagem dos feedbacks recebidos dos cidadãos.</span></div>
+                <div class="kpis">
+                  <div class="kpi"><div class="kpi-val">128</div><div class="kpi-lbl">Total de avaliações <span class="kpi-trend">+9</span></div></div>
+                  <div class="kpi kpi--alerta"><div class="kpi-val">2</div><div class="kpi-lbl">Pendentes</div></div>
+                  <div class="kpi"><div class="kpi-val">1</div><div class="kpi-lbl">Em tratativa</div></div>
+                  <div class="kpi"><div class="kpi-val">125</div><div class="kpi-lbl">Resolvidos</div></div>
+                  <div class="kpi"><div class="kpi-val">3</div><div class="kpi-lbl">Hoje</div></div>
+                  <div class="kpi"><div class="kpi-val">4,6</div><div class="kpi-lbl">Média CRPRS</div></div>
+                </div>
+                <div class="mx-duo">
+                  <div class="mx-card">
+                    <div class="mx-card-t"><svg class="ic" aria-hidden="true"><use href="#i-trend"/></svg>Evolução de Nota Média</div>
+                    <div class="vbars"><span class="vbar h80"></span><span class="vbar h85"></span><span class="vbar h75"></span><span class="vbar h90"></span><span class="vbar h85"></span><span class="vbar h95"></span><span class="vbar h90"></span></div>
+                    <div class="vbar-x"><span>06</span><span>07</span><span>08</span><span>09</span><span>10</span><span>11</span><span>12</span></div>
+                  </div>
+                  <div class="mx-card">
+                    <div class="mx-card-t"><svg class="ic" aria-hidden="true"><use href="#i-tag"/></svg>Categorias mais mencionadas</div>
+                    <div class="hbars">
+                      <div class="hbar"><span>Cordialidade</span><span class="hbar-track"><span class="hbar-fill w85"></span></span><b>92%</b></div>
+                      <div class="hbar"><span>Agilidade</span><span class="hbar-track"><span class="hbar-fill w70"></span></span><b>81%</b></div>
+                      <div class="hbar"><span>Tempo de espera</span><span class="hbar-track"><span class="hbar-fill hbar-fill--neg w25"></span></span><b>12%</b></div>
+                    </div>
+                  </div>
+                </div>
+                <div class="m-table-wrap scroll-x">
+                  <table class="m-table">
+                    <thead><tr><th scope="col">Registro</th><th scope="col">Avaliação</th><th scope="col">Relato do Cidadão</th><th scope="col">Status</th><th scope="col" class="hide-sm">Ações</th></tr></thead>
+                    <tbody>
+                      <tr class="is-new"><td>#0412 <span class="novo-tag">NEW</span><br><span class="m-faint">12/11 · Cadastro</span></td><td><span class="ring ring--5">5/5</span></td><td class="relato">Atendimento rápido e muito atencioso. Recebi a resposta no mesmo dia…<small>Maria Exemplo · Pedro Exemplo</small></td><td><span class="st st-res">Resolvido</span></td><td class="hide-sm"><span class="m-btn m-btn--outline m-btn--sm"><svg class="ic" aria-hidden="true"><use href="#i-edit"/></svg></span></td></tr>
+                      <tr><td>#0411<br><span class="m-faint">12/11 · Cobrança</span></td><td><span class="ring ring--2">2/5</span></td><td class="relato">Demorei a receber o boleto correto e precisei escrever duas vezes.<small>Roberto Exemplo · Carla Exemplo</small></td><td><span class="st st-pend">Pendente</span></td><td class="hide-sm"><span class="m-btn m-btn--outline m-btn--sm"><svg class="ic" aria-hidden="true"><use href="#i-edit"/></svg></span></td></tr>
+                      <tr><td>#0410<br><span class="m-faint">11/11 · Geral</span></td><td><span class="ring ring--4">4/5</span></td><td class="relato">Fui bem orientado sobre a documentação necessária.<small>João Exemplo · Luísa Exemplo</small></td><td><span class="st st-res">Resolvido</span></td><td class="hide-sm"><span class="m-btn m-btn--outline m-btn--sm"><svg class="ic" aria-hidden="true"><use href="#i-edit"/></svg></span></td></tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <figcaption>Central de Feedbacks do METRICA360, com a avaliação de Maria no topo (dados fictícios).</figcaption>
+      </figure>
+    </article>
+
+    <!-- Etapa 16 -->
+    <article class="step" id="etapa-16" aria-labelledby="etapa-16-t">
+      <div class="step-text">
+        <p class="step-kicker"><span class="step-num">16</span><span class="area-tag area-tag--int">Área da coordenação</span><span class="area-tag area-tag--m360">METRICA360</span></p>
+        <h3 id="etapa-16-t">Tratamento das notas baixas e comparação entre setores</h3>
+        <p>Cada avaliação negativa é acompanhada até a solução. A coordenação muda a situação para <strong>Em tratativa</strong> e registra numa anotação interna o que foi feito, por exemplo um contato com a pessoa. Quando o caso termina, marca como <strong>Resolvido</strong>.</p>
+        <p>O <strong>Painel de Avaliação</strong> reúne as notas por setor, para ver onde o atendimento vai bem e onde precisa de atenção.</p>
+        <ul class="checks">
+          <li>A anotação interna é vista só pela coordenação, nunca pela pessoa que avaliou.</li>
+          <li>Painel com a nota média e a taxa de resposta de cada setor.</li>
+          <li>O ciclo se fecha: o que a pessoa disse vira ação de melhoria no setor.</li>
+        </ul>
+      </div>
+      <figure class="step-visual">
+        <div class="stage stage--duo">
+          <div>
+            <span class="stage-label">Anotação interna</span>
+            <div class="frame" role="img" aria-label="Painel de anotação interna da avaliação 0411, nota 2, com a situação Em tratativa e a anotação: contato por telefone em 12/11, boleto corrigido e reenviado; setor de Cobrança vai revisar o modelo de resposta.">
+              <div class="screen mx-main">
+                <div class="drawer">
+                  <div class="drawer-t">Anotação Interna · #0411 <svg class="ic" aria-hidden="true"><use href="#i-x"/></svg></div>
+                  <div class="m-row"><span class="ring ring--2">2/5</span><span class="relato">Demorei a receber o boleto correto e precisei escrever duas vezes.</span></div>
+                  <div><span class="m-label">Situação</span><span class="m-select">Em Tratativa</span></div>
+                  <div><span class="m-label">Anotação interna (visível apenas para a coordenação)</span><div class="m-textarea">Contato por telefone em 12/11. Boleto corrigido e reenviado. O setor de Cobrança vai revisar o modelo de resposta.</div></div>
+                  <div class="m-row"><span class="m-btn m-btn--ghost">Cancelar</span><span class="m-btn m-btn--primary">Salvar</span></div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div>
+            <span class="stage-label">Painel de Avaliação por setor</span>
+            <div class="frame" role="img" aria-label="Painel de Avaliação com três setores fictícios: Cadastro com nota 4,7 e 62% de resposta, em destaque; Geral com 4,6 e 55%; Cobrança com 4,1 e 48%.">
+              <div class="screen mx-main">
+                <div class="mx-h"><b>Painel de Avaliação</b><span>Últimos 30 dias</span></div>
+                <div class="setor-cards">
+                  <div class="setor-card"><b>Cadastro<span class="destaque">Destaque</span></b><small>48 avaliações · 62% de resposta</small><span class="setor-nota">4,7<small>★★★★★</small></span></div>
+                  <div class="setor-card"><b>Geral</b><small>51 avaliações · 55% de resposta</small><span class="setor-nota">4,6<small>★★★★★</small></span></div>
+                  <div class="setor-card"><b>Cobrança</b><small>29 avaliações · 48% de resposta</small><span class="setor-nota">4,1<small>★★★★</small></span></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <figcaption>Tratamento de uma nota baixa e comparação das notas entre setores.</figcaption>
+      </figure>
+    </article>
+  </div>
+</section>
+
+<!-- ============================ COMPROMISSOS E RESUMO ============================ -->
+<section class="chapter" id="compromissos" aria-labelledby="compromissos-titulo">
+  <div class="container">
+    <div class="chapter-head">
+      <p class="part-tag">Encerramento</p>
+      <h2 id="compromissos-titulo">Os compromissos que orientam o sistema</h2>
+      <p class="lead">Cada tela apresentada responde a um princípio: atender bem quem procura o Conselho, organizar o trabalho das equipes e ouvir quem foi atendido.</p>
+    </div>
+    <ul class="commit-grid">
+      <li class="commit"><span class="actor-ic t-vinho"><svg class="ic" aria-hidden="true"><use href="#i-inbox"/></svg></span><h3>Nenhum pedido se perde</h3><p>Toda mensagem enviada a um setor vira uma demanda, com número de protocolo, responsável e histórico.</p></li>
+      <li class="commit"><span class="actor-ic t-laranja"><svg class="ic" aria-hidden="true"><use href="#i-clock"/></svg></span><h3>Prazos à vista</h3><p>Cada prioridade tem seu prazo, contado no horário de expediente do setor e pausado enquanto a equipe aguarda o retorno da pessoa.</p></li>
+      <li class="commit"><span class="actor-ic t-verde"><svg class="ic" aria-hidden="true"><use href="#i-mail"/></svg></span><h3>Comunicação clara</h3><p>Confirmação, respostas e encerramento chegam por e-mail, sempre com o protocolo e o histórico da conversa.</p></li>
+      <li class="commit"><span class="actor-ic t-neutro"><svg class="ic" aria-hidden="true"><use href="#i-list"/></svg></span><h3>Tudo registrado</h3><p>Cada encaminhamento, resposta e mudança fica guardado, com data, hora e o nome de quem fez.</p></li>
+      <li class="commit"><span class="actor-ic t-ciano"><svg class="ic" aria-hidden="true"><use href="#i-shield"/></svg></span><h3>Segurança e privacidade</h3><p>Acesso com senha individual, cada pessoa vê só o que é do seu setor, e as notas internas nunca saem da equipe.</p></li>
+      <li class="commit"><span class="actor-ic t-azul"><svg class="ic" aria-hidden="true"><use href="#i-star"/></svg></span><h3>Escuta de quem é atendido</h3><p>Ao final de cada atendimento, a pessoa é convidada a avaliar. As notas baixas recebem acompanhamento até a solução.</p></li>
+    </ul>
+
+    <div class="summary" id="resumo" aria-labelledby="resumo-titulo">
+      <h2 id="resumo-titulo">Resumo do fluxo completo</h2>
+      <p>As dezesseis etapas apresentadas, organizadas em seis momentos.</p>
+      <ul class="summary-grid">
+        <li><h3>1 · Chegada</h3><ol><li><a href="#etapa-1"><b>1</b>Mensagem ao setor</a></li><li><a href="#etapa-2"><b>2</b>Abertura automática</a></li><li><a href="#etapa-3"><b>3</b>E-mail de confirmação</a></li></ol></li>
+        <li><h3>2 · Organização</h3><ol><li><a href="#etapa-4"><b>4</b>Lista de demandas</a></li><li><a href="#etapa-5"><b>5</b>Tela da demanda</a></li><li><a href="#etapa-6"><b>6</b>Encaminhamento</a></li></ol></li>
+        <li><h3>3 · Atendimento</h3><ol><li><a href="#etapa-7"><b>7</b>Escrevendo a resposta</a></li><li><a href="#etapa-8"><b>8</b>E-mail com a resposta</a></li><li><a href="#etapa-9"><b>9</b>A conversa continua</a></li></ol></li>
+        <li><h3>4 · Encerramento</h3><ol><li><a href="#etapa-10"><b>10</b>Encerramento e aviso</a></li><li><a href="#etapa-11"><b>11</b>Arquivo</a></li></ol></li>
+        <li><h3>5 · Pesquisa (METRICA360)</h3><ol><li><a href="#etapa-12"><b>12</b>Convite por e-mail</a></li><li><a href="#etapa-13"><b>13</b>Formulário de avaliação</a></li><li><a href="#etapa-14"><b>14</b>Agradecimento</a></li></ol></li>
+        <li><h3>6 · Resultado (METRICA360)</h3><ol><li><a href="#etapa-15"><b>15</b>Central de Feedbacks</a></li><li><a href="#etapa-16"><b>16</b>Tratamento e comparação</a></li></ol></li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+</main>
+
+<footer class="site-footer">
+  <div class="container">
+    <p><strong>Conecta CRPRS</strong> · Conselho Regional de Psicologia do Rio Grande do Sul (CRPRS)</p>
+    <p>Apresentação ilustrativa. Todos os nomes, contatos, protocolos, notas e indicadores exibidos são fictícios.</p>
+    <p>Setor de Tecnologia da Informação</p>
+  </div>
+</footer>
+
+<script>
+  (function () {
+    var root = document.documentElement;
+    var mq = window.matchMedia ? window.matchMedia('(prefers-color-scheme: dark)') : null;
+
+    function escuroAtivo() {
+      var t = root.getAttribute('data-theme');
+      if (t) { return t === 'dark'; }
+      return !!(mq && mq.matches);
+    }
+
+    // Botão de modo claro/escuro (a escolha fica guardada neste navegador)
+    var btnTema = document.getElementById('btn-tema');
+    function sincronizar() {
+      if (!btnTema) { return; }
+      var escuro = escuroAtivo();
+      btnTema.setAttribute('aria-pressed', String(escuro));
+      btnTema.setAttribute('aria-label', escuro ? 'Ativar modo claro' : 'Ativar modo escuro');
+    }
+    if (btnTema) {
+      btnTema.addEventListener('click', function () {
+        var proximo = escuroAtivo() ? 'light' : 'dark';
+        root.setAttribute('data-theme', proximo);
+        try { localStorage.setItem('conecta-apresentacao-tema', proximo); } catch (e) { /* sem armazenamento */ }
+        sincronizar();
+      });
+    }
+    if (mq && mq.addEventListener) { mq.addEventListener('change', sincronizar); }
+    sincronizar();
+
+    var btnImprimir = document.getElementById('btn-imprimir');
+    if (btnImprimir) { btnImprimir.addEventListener('click', function () { window.print(); }); }
+
+    // Destaca, no menu superior, a parte que está sendo lida
+    var links = Array.prototype.slice.call(document.querySelectorAll('.topnav a[href^="#"]'));
+    if ('IntersectionObserver' in window && links.length) {
+      var mapa = {};
+      links.forEach(function (l) { mapa[l.getAttribute('href').slice(1)] = l; });
+      var obs = new IntersectionObserver(function (entradas) {
+        entradas.forEach(function (en) {
+          if (!en.isIntersecting) { return; }
+          links.forEach(function (l) { l.removeAttribute('aria-current'); });
+          var ativo = mapa[en.target.id];
+          if (ativo) {
+            ativo.setAttribute('aria-current', 'true');
+            var nav = ativo.closest ? ativo.closest('.topnav') : null;
+            if (nav) { nav.scrollLeft = Math.max(0, ativo.offsetLeft - 16); }
+          }
+        });
+      }, { rootMargin: '-40% 0px -55% 0px' });
+      Object.keys(mapa).forEach(function (id) {
+        var sec = document.getElementById(id);
+        if (sec) { obs.observe(sec); }
+      });
+    }
+  })();
+</script>
+</body>
+</html>
