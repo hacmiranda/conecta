@@ -33,14 +33,19 @@ $senha = (string) ($input['senha'] ?? '');
 $turnstileToken = $input['cf-turnstile-response'] ?? '';
 $ip = RedeService::ipCliente();
 
+// Limite de tentativas desligável temporariamente pelo .env (LOGIN_LIMITE_TENTATIVAS_* = 0); sem a chave, ligado
+$limiteLigado = RateLimitService::limiteDeLoginLigado();
+
 // Por IP: até 20 tentativas em 15 min (o escritório inteiro pode sair pelo mesmo IP). A tentativa é
 // registrada antes de conferir (consumir), então requisições simultâneas não furam o limite.
-$rateLimit = RateLimitService::consumir($ip, 'login', 20, 900);
-if ($rateLimit['bloqueado']) {
-    $minutos = (int) ceil($rateLimit['segundos_restantes'] / 60);
-    http_response_code(429);
-    echo json_encode(['error' => "Muitas tentativas de login. Tente novamente em {$minutos} minuto(s)."]);
-    exit;
+if ($limiteLigado) {
+    $rateLimit = RateLimitService::consumir($ip, 'login', 20, 900);
+    if ($rateLimit['bloqueado']) {
+        $minutos = (int) ceil($rateLimit['segundos_restantes'] / 60);
+        http_response_code(429);
+        echo json_encode(['error' => "Muitas tentativas de login. Tente novamente em {$minutos} minuto(s)."]);
+        exit;
+    }
 }
 
 // Valida Turnstile
@@ -88,10 +93,12 @@ try {
     }
 
     if (!$senhaValida) {
-        RateLimitService::registrar($chaveConta, 'login_conta');
-        $falhasConta = RateLimitService::contar($chaveConta, 'login_conta', 900);
-        if ($falhasConta > 5) {
-            usleep(min($falhasConta - 5, 5) * 1000000);
+        if ($limiteLigado) {
+            RateLimitService::registrar($chaveConta, 'login_conta');
+            $falhasConta = RateLimitService::contar($chaveConta, 'login_conta', 900);
+            if ($falhasConta > 5) {
+                usleep(min($falhasConta - 5, 5) * 1000000);
+            }
         }
         // E-mail inteiro só se a conta existe; senão mascarado (às vezes é a senha digitada no campo errado)
         $auditoriaService->registrarLogin($usuario['id'] ?? null, $emailAuditoria, 'login_falha');

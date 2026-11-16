@@ -12,6 +12,7 @@ header('X-Content-Type-Options: nosniff');
 header('Cache-Control: no-store');
 
 require_once __DIR__ . '/../config/turnstile.php';
+require_once __DIR__ . '/../services/rate-limit-service.php';
 
 if ($_SERVER['REQUEST_METHOD'] !== 'GET') {
     http_response_code(405);
@@ -24,6 +25,8 @@ try {
     echo json_encode([
         'turnstile' => $ativo,
         'turnstile_site_key' => $ativo ? TURNSTILE_SITE_KEY : null,
+        // false: a tela não trava o formulário depois de 5 erros (mesma chave que auth.php confere)
+        'limite_tentativas' => RateLimitService::limiteDeLoginLigado(),
     ]);
 } catch (Throwable $e) {
     error_log('[LOGIN CONFIG] Erro: ' . $e->getMessage());

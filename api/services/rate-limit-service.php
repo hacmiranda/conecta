@@ -22,6 +22,15 @@ class RateLimitService {
         return self::$db;
     }
 
+    /**
+     * Limite de tentativas do login (por IP e atraso por conta, em auth.php, e a trava da tela de login)
+     * ligado? Desligável TEMPORARIAMENTE com LOGIN_LIMITE_TENTATIVAS_LOCAL (ou _PROD) = 0 no .env
+     * (16/11/2026, a pedido do usuário). Sem a chave, fica ligado.
+     */
+    public static function limiteDeLoginLigado(): bool {
+        return (string) Environment::get('login_limite_tentativas', '1') !== '0';
+    }
+
     private static function hash(string $chave, string $acao): string {
         return sha1($chave . '|' . $acao);
     }

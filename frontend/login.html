@@ -1011,6 +1011,19 @@
         // CAPTCHA que a Cloudflare recusa e ninguém conseguia entrar.
         let turnstileAtivo = false;
 
+        // O servidor também diz se o limite de tentativas está ligado (desligável pelo .env,
+        // LOGIN_LIMITE_TENTATIVAS_*). Até a resposta chegar, vale a trava de 5 erros.
+        let limiteTentativasAtivo = true;
+
+        function desligarLimiteTentativas() {
+            limiteTentativasAtivo = false;
+            localStorage.removeItem('cd_loginBloqueado');
+            tentativasLogin = 0;
+            bloqueadoAte = null;
+            ultimaTentativa = null;
+            desbloquearFormulario();
+        }
+
         function iniciarTurnstile(siteKey) {
             turnstileAtivo = true;
             const tsContainer = document.getElementById('turnstile-container');
@@ -1033,6 +1046,7 @@
             .then(r => r.ok ? r.json() : null)
             .then(cfg => {
                 if (cfg && cfg.turnstile && cfg.turnstile_site_key) iniciarTurnstile(cfg.turnstile_site_key);
+                if (cfg && cfg.limite_tentativas === false) desligarLimiteTentativas();
             })
             .catch(() => { /* sem resposta: o servidor continua conferindo o CAPTCHA no login */ });
 
@@ -1142,6 +1156,11 @@
         }
 
         function registrarTentativaFalhada() {
+            // Limite desligado no servidor: só avisa, sem contar nem travar
+            if (!limiteTentativasAtivo) {
+                mostrarAlert('Erro', 'E-mail/usuário ou senha incorretos.');
+                return;
+            }
             ultimaTentativa = new Date();
             tentativasLogin++;
 
@@ -1204,7 +1223,7 @@
         document.getElementById('form-login').addEventListener('submit', function (e) {
             e.preventDefault();
 
-            if (bloqueadoAte && new Date() < bloqueadoAte) {
+            if (limiteTentativasAtivo && bloqueadoAte && new Date() < bloqueadoAte) {
                 mostrarAlert('Acesso Bloqueado', 'Aguarde o tempo de bloqueio expirar.');
                 return;
             }

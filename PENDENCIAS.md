@@ -52,6 +52,8 @@ Plano: `C:\Users\hugo.miranda\.claude\plans\1-quero-continuar-iterative-quasar.m
 
 ## 4. Antes do primeiro deploy em produção
 
+- [ ] **Religar o limite de tentativas do login** (desligado temporariamente em 16/11/2026): apagar `LOGIN_LIMITE_TENTATIVAS_LOCAL=0` do `api/config/.env` local; no `.env` de produção nunca pôr 0
+
 - [ ] Definir no `.env` do servidor todas as chaves `*_PROD` (`SETOR_EMAIL_ENCRYPTION_KEY_PROD`, `INTEGRATION_API_KEY_PROD`, `CRON_KEY_PROD`, JWT/CSRF etc.; lista em `.env.example`)
 - [ ] Confirmar `db_host` e `db_user` de produção
 - [ ] Aplicar as migrações 9–40 com backup (`php database/migrar.php`), ou confirmar que a réplica do banco local já vem com elas
