@@ -191,6 +191,14 @@ final class AcessoServiceTest extends TestCase {
         unset($_GET['setor_id']);
     }
 
+    public function test_rotulo_do_papel_igual_ao_da_tela(): void {
+        // Espelho de Papeis.rotulo (frontend/papeis.js): usado no CSV do Painel de Setores
+        $this->assertSame('Operador', AcessoService::rotuloPapel('operador'));
+        $this->assertSame('Coordenador(a) Geral', AcessoService::rotuloPapel('coordenador_geral'));
+        $this->assertSame('Supervisor(a)', AcessoService::rotuloPapel('supervisor'));
+        $this->assertSame('Operador', AcessoService::rotuloPapel('desconhecido'), 'papel desconhecido cai em Operador, como na tela');
+    }
+
     public function test_mesmo_setor_do_middleware_vale_para_coordenador_e_visao_total(): void {
         $this->assertTrue(AuthMiddleware::mesmoSetor($this->coordenador(), 5));
         $this->assertFalse(AuthMiddleware::mesmoSetor($this->coordenador(), 7));

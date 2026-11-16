@@ -57,20 +57,27 @@ try {
     $dados = PesquisaPainelService::painelSetores($db, $escopo, $filtros['data_ini'], $filtros['data_fim']);
 
     if (($_GET['acao'] ?? '') === 'csv') {
+        // Mesmas colunas do CSV do METRICA360 (painel_setores_controller::exportCsv), mais Coordenador(a)
         $p = $dados['periodos'];
         $linhas = [];
         foreach ($dados['setores'] as $s) {
             foreach ($s['servidores'] as $sv) {
                 $taxa = $sv['total_convites'] > 0 ? round($sv['total_avaliados'] / $sv['total_convites'] * 100) . '%' : '';
-                $linhas[] = [$s['nome'], $s['coordenador_nome'] ?? '', $sv['nome'], $sv['sem_atual'], $sv['sem_ant'], $sv['mes_atual'], $sv['mes_ant'],
-                    $sv['custom'], $sv['total_convites'], $sv['total_avaliados'], $taxa,
-                    $sv['media_nota'] !== null ? number_format($sv['media_nota'], 1, ',', '') : ''];
+                $linhas[] = [$s['nome'], $s['coordenador_nome'] ?? '', $sv['nome'], AcessoService::rotuloPapel((string) $sv['tipo']),
+                    $sv['sem_ant'], $sv['sem_atual'], $sv['mes_ant'], $sv['mes_atual'], $sv['custom'],
+                    $sv['total_convites'], $sv['total_avaliados'], $taxa,
+                    $sv['media_nota'] !== null ? number_format($sv['media_nota'], 1, ',', '') : '',
+                    $sv['ultimo_envio'] ? date('d/m/Y', strtotime($sv['ultimo_envio'])) : ''];
             }
         }
-        AtividadesAcompanhamentoService::enviarCsv('painel-setores-' . date('Ymd-His') . '.csv',
-            ['Setor', 'Coordenador(a)', 'Servidor', 'Convites na semana atual', 'Convites na semana anterior', 'Convites no mês atual',
-             'Convites no mês anterior', 'Convites no período (' . $p['custom_ini'] . ' a ' . $p['custom_fim'] . ')', 'Total de convites',
-             'Total avaliado', 'Taxa de resposta', 'Nota média'], $linhas);
+        AtividadesAcompanhamentoService::enviarCsv('painel_setores_' . $p['custom_ini'] . '_' . $p['custom_fim'] . '.csv',
+            ['Setor', 'Coordenador(a)', 'Atendente', 'Perfil',
+             'Semana Ant. (' . $p['sem_ant_ini'] . ' – ' . $p['sem_ant_fim'] . ')',
+             'Semana Atual (' . $p['sem_atual_ini'] . ' – ' . $p['sem_atual_fim'] . ')',
+             'Mês Ant. (' . $p['mes_ant_ini'] . ' – ' . $p['mes_ant_fim'] . ')',
+             'Mês Atual (' . $p['mes_atual_ini'] . ' – ' . $p['mes_atual_fim'] . ')',
+             'Período (' . $p['custom_ini'] . ' – ' . $p['custom_fim'] . ')',
+             'Total Convites', 'Avaliações Respondidas', 'Taxa de Resposta (%)', 'Média de Nota', 'Último Envio'], $linhas);
         exit;
     }
     echo json_encode($dados, JSON_UNESCAPED_UNICODE);

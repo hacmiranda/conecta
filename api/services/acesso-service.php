@@ -32,6 +32,22 @@ class AcessoService {
     /** Quem entra no módulo Satisfação (o gestor e o operador não) */
     const PAPEIS_SATISFACAO = ['admin', 'coordenador_geral', 'supervisor', 'coordenador'];
 
+    /** Nome de cada papel na interface: espelho de Papeis.rotulo (frontend/papeis.js); mudar os dois juntos */
+    const ROTULOS_PAPEIS = [
+        'admin'             => 'Administrador',
+        'coordenador_geral' => 'Coordenador(a) Geral',
+        'supervisor'        => 'Supervisor(a)',
+        'coordenador'       => 'Coordenador(a)',
+        'gestor'            => 'Gestor',
+        'operador'          => 'Operador',
+        'cliente'           => 'Solicitante',
+    ];
+
+    /** Rótulo do papel; desconhecido vira "Operador", como na tela */
+    public static function rotuloPapel(string $tipo): string {
+        return self::ROTULOS_PAPEIS[$tipo] ?? 'Operador';
+    }
+
     public static function ehVisaoTotal(array $user): bool {
         return in_array($user['tipo'] ?? '', self::PAPEIS_VISAO_TOTAL, true);
     }

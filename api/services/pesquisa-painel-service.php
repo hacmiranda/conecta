@@ -293,10 +293,14 @@ class PesquisaPainelService {
         foreach ($p as $k => $v) {
             $bind[':' . $k] = $v;
         }
+        // Coordenador do setor (um por setor; o lotado no setor vem antes do que o tem como adicional)
+        $coordenador = "FROM usuarios cu WHERE cu.tipo = 'coordenador' AND cu.ativo = 1
+                    AND (cu.setor_id = s.id OR cu.id IN (SELECT usuario_id FROM usuario_setores WHERE setor_id = s.id))
+                    ORDER BY (cu.setor_id = s.id) DESC, cu.id LIMIT 1";
         $linhas = self::executar($db, "SELECT s.id AS setor_id, s.nome AS setor_nome,
-                (SELECT cu.nome FROM usuarios cu WHERE cu.tipo = 'coordenador' AND cu.ativo = 1
-                    AND (cu.setor_id = s.id OR cu.id IN (SELECT usuario_id FROM usuario_setores WHERE setor_id = s.id)) LIMIT 1) AS coordenador_nome,
-                u.id AS usuario_id, u.nome AS usuario_nome, u.avatar AS usuario_avatar,
+                (SELECT cu.nome $coordenador) AS coordenador_nome,
+                (SELECT cu.avatar $coordenador) AS coordenador_avatar,
+                u.id AS usuario_id, u.nome AS usuario_nome, u.avatar AS usuario_avatar, u.tipo AS usuario_tipo,
                 SUM(DATE(c.enviado_em) BETWEEN :sem_atual_ini AND :sem_atual_fim) AS sem_atual,
                 SUM(DATE(c.enviado_em) BETWEEN :sem_ant_ini AND :sem_ant_fim) AS sem_ant,
                 SUM(DATE(c.enviado_em) BETWEEN :mes_atual_ini AND :mes_atual_fim) AS mes_atual,
@@ -314,17 +318,18 @@ class PesquisaPainelService {
              LEFT JOIN pesquisa_convites c ON c.usuario_id = u.id AND c.setor_id = s.id
              LEFT JOIN pesquisa_avaliacoes a ON a.convite_id = c.id
              WHERE s.ativo = 1 AND s.pesquisa_painel = 1 AND " . AcessoService::filtroSetorSql('s.id', $escopo) . "
-             GROUP BY s.id, s.nome, u.id, u.nome, u.avatar ORDER BY s.nome, u.nome", $bind)->fetchAll(PDO::FETCH_ASSOC);
+             GROUP BY s.id, s.nome, u.id, u.nome, u.avatar, u.tipo ORDER BY s.nome, u.nome", $bind)->fetchAll(PDO::FETCH_ASSOC);
 
         $historico = self::historicoMensal($db, $escopo);
         $setores = [];
         foreach ($linhas as $r) {
             $sid = (int) $r['setor_id'];
-            $setores[$sid] ??= ['id' => $sid, 'nome' => $r['setor_nome'], 'coordenador_nome' => $r['coordenador_nome'], 'servidores' => []];
+            $setores[$sid] ??= ['id' => $sid, 'nome' => $r['setor_nome'], 'coordenador_nome' => $r['coordenador_nome'],
+                'coordenador_avatar' => $r['coordenador_avatar'], 'servidores' => []];
             if ($r['usuario_id'] === null) continue;
             $uid = (int) $r['usuario_id'];
             $setores[$sid]['servidores'][] = [
-                'id' => $uid, 'nome' => $r['usuario_nome'], 'avatar' => $r['usuario_avatar'],
+                'id' => $uid, 'nome' => $r['usuario_nome'], 'avatar' => $r['usuario_avatar'], 'tipo' => $r['usuario_tipo'],
                 'sem_atual' => (int) $r['sem_atual'], 'sem_ant' => (int) $r['sem_ant'],
                 'mes_atual' => (int) $r['mes_atual'], 'mes_ant' => (int) $r['mes_ant'], 'custom' => (int) $r['custom'],
                 'total_convites' => (int) $r['total_convites'], 'total_avaliados' => (int) $r['total_avaliados'],

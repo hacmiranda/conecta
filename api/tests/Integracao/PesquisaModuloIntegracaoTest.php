@@ -335,6 +335,26 @@ final class PesquisaModuloIntegracaoTest extends TestCase {
         $this->assertContains('Demanda', $nomes(), 'encerrada e ligada: reenvia');
     }
 
+    public function test_painel_de_setores_traz_papel_e_foto_do_coordenador(): void {
+        // Coordenador próprio do setor A (os que já existem ficam inativos dentro da transação)
+        $this->db->prepare("UPDATE usuarios SET ativo = 0 WHERE tipo = 'coordenador'
+                            AND (setor_id = ? OR id IN (SELECT usuario_id FROM usuario_setores WHERE setor_id = ?))")
+                 ->execute([$this->setorA, $this->setorA]);
+        $this->db->prepare("INSERT INTO usuarios (nome, email, senha, tipo, setor_id, ativo, trocar_senha, avatar)
+                            VALUES ('zz Coordenador Painel', ?, 'x', 'coordenador', ?, 1, 0, 'zz-foto.png')")
+                 ->execute(['zz.coord.' . bin2hex(random_bytes(4)) . '@teste.local', $this->setorA]);
+        $painel = PesquisaPainelService::painelSetores($this->db, [$this->setorA]);
+        $setor = $painel['setores'][0] ?? null;
+        $this->assertNotNull($setor);
+        $this->assertSame('zz Coordenador Painel', $setor['coordenador_nome']);
+        $this->assertSame('zz-foto.png', $setor['coordenador_avatar']);
+        $tipos = [];
+        foreach ($setor['servidores'] as $sv) {
+            $tipos[$sv['id']] = $sv['tipo'];
+        }
+        $this->assertSame('operador', $tipos[$this->servidor] ?? null, 'cada servidor vem com o papel (coluna Perfil)');
+    }
+
     public function test_painel_de_setores_conta_so_os_convites_do_setor(): void {
         // Servidor lotado no setor A que também enviou um convite pelo setor B
         $this->servico()->enviar($this->servidor, 'Pelo A', $this->email(), ['setor_id' => $this->setorA]);

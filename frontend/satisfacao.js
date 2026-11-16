@@ -3,7 +3,7 @@
  * seção #satisfacao, subtela em cd_subSecaoAtiva.
  *   Avaliações        indicadores, evolução da nota, categorias mais citadas e a lista com a triagem
  *                     (situação e anotação)
- *   Painel de Setores por setor, os servidores com convites enviados, taxa de resposta e notas
+ *   Painel de Setores igual ao do METRICA360: em satisfacao-setores.js (16/11/2026)
  *   Convites          histórico dos convites enviados (somente leitura)
  * Quem vê: administrador, coordenador geral, supervisor e coordenador (Papeis.veSatisfacao). Os perfis de consulta
  * só fazem a triagem. O servidor limita o que cada um enxerga; o seletor de setor do cabeçalho vale aqui (urlComSetor).
@@ -25,7 +25,6 @@ const satEstado = {
 };
 let satUltimaEvolucao = null;
 let satListaAtual = [];
-let satVisaoSetores = 'cartoes';
 
 function podeVerSatisfacao() {
     return Papeis.veSatisfacao();
@@ -301,70 +300,7 @@ function desenharGraficoSat() {
 }
 
 // ═══════════════ Painel de Setores ═══════════════
-async function carregarSatSetores() {
-    const filtros = satEstado.setores.filtros;
-    try {
-        const d = await Api.get(satUrl('pesquisa-setores.php', filtros));
-        const p = d.periodos;
-        const csv = window.APP_CONFIG.apiBase + satUrl('pesquisa-setores.php', Object.assign({ acao: 'csv' }, filtros));
-        const total = d.setores.reduce((n, s) => n + s.servidores.length, 0);
-        document.getElementById('satisfacao-conteudo').innerHTML = `
-            <form class="sat-filtros" data-acao-form="setores">
-                <label>Período personalizado — de <input type="date" name="data_ini" value="${sanitizeHTML(filtros.data_ini || p.custom_ini)}"></label>
-                <label>até <input type="date" name="data_fim" value="${sanitizeHTML(filtros.data_fim || p.custom_fim)}"></label>
-                <button type="submit" class="btn-primary">Aplicar</button>
-                <div class="sat-periodos" role="group" aria-label="Forma de exibição">
-                    <button type="button" class="btn-small ${satVisaoSetores === 'cartoes' ? 'sat-ativo' : ''}" data-acao="visao" data-visao="cartoes" aria-pressed="${satVisaoSetores === 'cartoes'}">Cartões</button>
-                    <button type="button" class="btn-small ${satVisaoSetores === 'tabela' ? 'sat-ativo' : ''}" data-acao="visao" data-visao="tabela" aria-pressed="${satVisaoSetores === 'tabela'}">Tabela</button>
-                </div>
-                <a class="btn-small" href="${sanitizeHTML(csv)}" download>⬇️ Exportar CSV</a>
-            </form>
-            ${d.setores.length ? (satVisaoSetores === 'tabela' ? tabelaSetoresSat(d) : d.setores.map(s => cartaoSetorSat(s, p)).join('')) : '<p class="sat-vazio">Nenhum setor no painel.</p>'}
-            <p class="sat-rodape">${total} servidor(es) em ${d.setores.length} setor(es). Semana: segunda a sexta. Taxa de resposta = avaliações recebidas ÷ convites enviados.</p>`;
-        requestAnimationFrame(aplicarLargurasSat);
-    } catch (e) {
-        satErro(e, 'Erro ao carregar o painel de setores.');
-    }
-}
-
-function taxaSat(sv) {
-    return sv.total_convites > 0 ? Math.round(sv.total_avaliados / sv.total_convites * 100) : null;
-}
-
-function cartaoSetorSat(setor, p) {
-    const melhor = Math.max(...setor.servidores.map(s => s.media_nota ?? 0), 0);
-    const linhas = setor.servidores.map(sv => {
-        const taxa = taxaSat(sv);
-        const maxMes = Math.max(...(sv.historico_mensal || []).map(m => m.total), 1);
-        return `<tr>
-            <th scope="row">${sanitizeHTML(sv.nome)}${melhor > 0 && sv.media_nota === melhor && sv.total_avaliados >= 3 ? ' <span class="sat-destaque" title="Maior nota média do setor">★ Destaque</span>' : ''}</th>
-            <td data-label="Semana atual">${sv.sem_atual}</td><td data-label="Semana anterior">${sv.sem_ant}</td>
-            <td data-label="Mês atual">${sv.mes_atual}</td><td data-label="Mês anterior">${sv.mes_ant}</td>
-            <td data-label="No período">${sv.custom}</td>
-            <td data-label="Taxa de resposta">${taxa === null ? '—' : taxa + '%'}</td>
-            <td data-label="Nota média">${sv.media_nota === null ? '—' : satEstrelas(Math.round(sv.media_nota)) + ' ' + satNumero(sv.media_nota, 1)}</td>
-            <td data-label="Últimos 6 meses"><span class="sat-mini" role="img" aria-label="Convites por mês: ${(sv.historico_mensal || []).map(m => m.label + ' ' + m.total).join(', ')}">${(sv.historico_mensal || []).map(m => `<i data-altura="${Math.round(m.total / maxMes * 100)}" title="${m.label}: ${m.total}"></i>`).join('')}</span></td>
-        </tr>`;
-    }).join('');
-    return `<section class="sat-bloco" aria-label="Setor ${sanitizeHTML(setor.nome)}">
-        <div class="sat-bloco-topo"><h3>${sanitizeHTML(setor.nome)}</h3>${setor.coordenador_nome ? `<small>Coordenação: ${sanitizeHTML(setor.coordenador_nome)}</small>` : ''}</div>
-        ${setor.servidores.length ? `<div class="sat-tabela-rolagem"><table class="sat-tabela">
-            <thead><tr><th scope="col">Servidor</th><th scope="col">Semana atual</th><th scope="col">Semana anterior</th><th scope="col">Mês atual</th><th scope="col">Mês anterior</th><th scope="col">No período</th><th scope="col">Taxa de resposta</th><th scope="col">Nota média</th><th scope="col">Últimos 6 meses</th></tr></thead>
-            <tbody>${linhas}</tbody></table></div>` : '<p class="sat-vazio">Nenhum servidor neste setor.</p>'}
-    </section>`;
-}
-
-function tabelaSetoresSat(d) {
-    const linhas = d.setores.flatMap(s => s.servidores.map(sv => {
-        const taxa = taxaSat(sv);
-        return `<tr><td data-label="Setor">${sanitizeHTML(s.nome)}</td><th scope="row">${sanitizeHTML(sv.nome)}</th><td data-label="Convites no mês">${sv.mes_atual}</td>
-            <td data-label="Total de convites">${sv.total_convites}</td><td data-label="Avaliados">${sv.total_avaliados}</td>
-            <td data-label="Taxa">${taxa === null ? '—' : taxa + '%'}</td><td data-label="Nota média">${satNumero(sv.media_nota, 1)}</td></tr>`;
-    })).join('');
-    return `<div class="sat-tabela-rolagem"><table class="sat-tabela"><caption class="sr-only">Servidores por setor</caption>
-        <thead><tr><th scope="col">Setor</th><th scope="col">Servidor</th><th scope="col">Convites no mês</th><th scope="col">Total de convites</th><th scope="col">Avaliados</th><th scope="col">Taxa</th><th scope="col">Nota média</th></tr></thead>
-        <tbody>${linhas}</tbody></table></div>`;
-}
+// Em satisfacao-setores.js desde 16/11/2026 (igual ao do METRICA360): carregarSatSetores() e a montagem.
 
 // Larguras/alturas vêm de data-*: o estilo fica no CSS (sem style inline)
 function aplicarLargurasSat() {
@@ -445,9 +381,6 @@ function ligarAcoesSatisfacao(conteudo) {
             satEstado.convites.filtros = {};
             satEstado.convites.pagina = 1;
             carregarSatConvites();
-        } else if (acao === 'visao') {
-            satVisaoSetores = alvo.dataset.visao === 'tabela' ? 'tabela' : 'cartoes';
-            carregarSatSetores();
         }
     });
 
@@ -470,7 +403,12 @@ function ligarAcoesSatisfacao(conteudo) {
             satEstado.convites.pagina = 1;
             carregarSatConvites();
         } else if (tipo === 'setores') {
-            satEstado.setores.filtros = filtrosDoFormSat(form);
+            const filtros = filtrosDoFormSat(form);
+            if (filtros.data_ini && filtros.data_fim && filtros.data_ini > filtros.data_fim) {
+                mostrarAlert('Atenção', 'A data inicial do período deve ser anterior ou igual à data final.');
+                return;
+            }
+            satEstado.setores.filtros = filtros;
             carregarSatSetores();
         }
     });

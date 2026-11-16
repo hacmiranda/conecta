@@ -235,31 +235,6 @@
 .sat-selo-aguardando { background: var(--laranja-50); color: var(--laranja-texto); }
 .sat-selo-expirado { background: var(--neutro-100); color: var(--neutro-600); }
 
-.sat-destaque {
-    padding: 0 0.375rem;
-    border-radius: 999px;
-    background: var(--laranja-100);
-    color: var(--laranja-texto);
-    font-size: 0.7rem;
-    white-space: nowrap;
-}
-
-/* Minigráfico dos últimos 6 meses */
-.sat-mini {
-    display: inline-flex;
-    align-items: flex-end;
-    gap: 2px;
-    height: 1.5rem;
-}
-
-.sat-mini i {
-    display: block;
-    width: 6px;
-    min-height: 2px;
-    background: var(--vinho-600);
-    border-radius: 1px;
-}
-
 .sat-paginacao {
     display: flex;
     align-items: center;
