@@ -139,10 +139,15 @@ function criarDemanda(PDO $db, string $titulo, int $setorId, ?int $agenteId = nu
     return $id;
 }
 
-// Dois setores reais e distintos do banco (não criamos setor — evita migrar views/relatórios que dependem deles)
-$setores = $db->query("SELECT id FROM setores WHERE ativo = 1 ORDER BY id LIMIT 2")->fetchAll(PDO::FETCH_COLUMN);
+// Dois setores reais e distintos do banco (não criamos setor — evita migrar views/relatórios que dependem deles).
+// Sem coordenador: a seção [9] cadastra um coordenador de teste com o A como principal e o B como adicional, e
+// cada setor tem um coordenador só (desde a importação do METRICA360, 16/11/2026, Cadastro e Cobrança têm).
+$setores = $db->query("SELECT s.id FROM setores s WHERE s.ativo = 1
+                         AND NOT EXISTS (SELECT 1 FROM usuario_setores us WHERE us.setor_id = s.id)
+                         AND NOT EXISTS (SELECT 1 FROM usuarios u WHERE u.tipo = 'coordenador' AND u.ativo = 1 AND u.setor_id = s.id)
+                       ORDER BY s.id LIMIT 2")->fetchAll(PDO::FETCH_COLUMN);
 if (count($setores) < 2) {
-    fwrite(STDERR, "É preciso ao menos 2 setores ativos no banco local para rodar a matriz de acesso.\n");
+    fwrite(STDERR, "É preciso ao menos 2 setores ativos e sem coordenador no banco local para rodar a matriz de acesso.\n");
     exit(1);
 }
 [$setorA, $setorB] = $setores;
