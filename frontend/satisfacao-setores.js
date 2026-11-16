@@ -174,10 +174,27 @@ function montarPainelSetores(d, filtros) {
                     <span class="material-symbols-outlined" aria-hidden="true">table_rows</span></button>
             </div>
         </div>
-        ${setores.length
-            ? setores.map(s => spsSetor(s, p, temFiltro, filtros, visao)).join('')
-            : spsVazio('corporate_fare', 'Nenhum setor encontrado', 'Cadastre setores e vincule atendentes nas Configurações para visualizar o painel.')}
+        ${setores.length ? setores.map(s => spsSetor(s, p, temFiltro, filtros, visao)).join('') : spsSemSetores()}
     </div>`;
+}
+
+// Lista vazia. Com um setor escolhido no cabeçalho, o motivo quase sempre é esse setor estar fora do Painel de
+// Setores (setores.pesquisa_painel = 0): a tela diz isso em vez de mandar cadastrar setores.
+function spsSemSetores() {
+    const setorId = window.CabecalhoSetor ? window.CabecalhoSetor.obterSetorContexto() : null;
+    if (!setorId) {
+        return spsVazio('corporate_fare', 'Nenhum setor encontrado', 'Cadastre setores e vincule atendentes nas Configurações para visualizar o painel.');
+    }
+    const seletor = document.getElementById('seletor-setor');
+    const opcao = seletor ? Array.from(seletor.options).find(o => Number(o.value) === Number(setorId)) : null;
+    let nome = opcao ? opcao.textContent.trim() : '';
+    if (!nome) {
+        try { nome = (JSON.parse(localStorage.getItem('cd_usuario') || '{}').setor_nome) || ''; } catch (e) { nome = ''; }
+    }
+    const temSeletor = seletor && !document.getElementById('cabecalho-setor-seletor')?.hidden;
+    return spsVazio('corporate_fare', 'Setor fora do Painel de Setores',
+        `O setor ${nome ? '<strong>' + sanitizeHTML(nome) + '</strong>' : 'escolhido'}${temSeletor ? ', escolhido no cabeçalho,' : ''} não faz parte do Painel de Setores.`
+        + (temSeletor ? ' Escolha <strong>Todos os setores</strong> no cabeçalho para ver os setores do painel.' : ''));
 }
 
 function spsVazio(icone, titulo, texto) {

@@ -1074,7 +1074,7 @@ body.modo-escuro .sps-painel {
 
 .sps-vazio-icone .material-symbols-outlined { font-size: 2rem; }
 .sps-vazio-titulo { color: var(--sps-texto); font-size: 1rem; font-weight: 700; }
-.sps-vazio-texto { max-width: 260px; color: var(--sps-suave); font-size: 0.84rem; line-height: 1.5; }
+.sps-vazio-texto { max-width: 420px; color: var(--sps-suave); font-size: 0.84rem; line-height: 1.5; }
 
 /* ── Celular ── */
 @media (max-width: 600px) {
