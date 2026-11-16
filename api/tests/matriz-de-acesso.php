@@ -648,6 +648,31 @@ try {
     verifica('Sair de todos os dispositivos (200)', $c === 200, (string) $c);
     [$c] = reqCookie('GET', $baseUrl . 'notificacoes.php', $ck2['valor'] ?? '');
     verifica('a outra sessão também foi encerrada (401)', $c === 401, (string) $c);
+
+    echo "\n[8b] Login por e-mail ou nome de usuário\n";
+    $usernameA2 = 'zz_matriz_' . bin2hex(random_bytes(3));
+    $db->prepare('UPDATE usuarios SET username = ? WHERE id = ?')->execute([$usernameA2, $operadorA2]);
+    $db->prepare('UPDATE usuarios SET username = ? WHERE id = ?')->execute([$usernameA2 . 'c', $cliente]);
+    [$c, $j] = reqCookie('POST', $baseUrl . 'auth.php', null, null, ['login' => $usernameA2, 'senha' => 'Zz@Teste12345']);
+    verifica('entra pelo nome de usuário (200)', $c === 200 && (int) ($j['usuario']['id'] ?? 0) === $operadorA2, (string) $c);
+    [$c] = reqCookie('POST', $baseUrl . 'auth.php', null, null, ['login' => '  ' . strtoupper($usernameA2) . ' ', 'senha' => 'Zz@Teste12345']);
+    verifica('nome de usuário com maiúsculas e espaços também entra (200)', $c === 200, (string) $c);
+    [$c, $j] = reqCookie('POST', $baseUrl . 'auth.php', null, null, ['login' => $usernameA2, 'senha' => 'Errada@12345']);
+    verifica('senha errada pelo nome de usuário (401, mesma mensagem)', $c === 401 && ($j['error'] ?? '') === 'Credenciais inválidas', (string) $c);
+    [$c, $j] = reqCookie('POST', $baseUrl . 'auth.php', null, null, ['login' => 'zz_matriz_nao_existe', 'senha' => 'Zz@Teste12345']);
+    verifica('nome de usuário inexistente (401, mesma mensagem)', $c === 401 && ($j['error'] ?? '') === 'Credenciais inválidas', (string) $c);
+    [$c] = reqCookie('POST', $baseUrl . 'auth.php', null, null, ['login' => $usernameA2 . 'c', 'senha' => 'Zz@Teste12345']);
+    verifica('solicitante não entra nem pelo nome de usuário (401)', $c === 401, (string) $c);
+    [$c] = reqCookie('POST', $baseUrl . 'auth.php', null, null, ['login' => '', 'senha' => 'Zz@Teste12345']);
+    verifica('sem e-mail/usuário (400)', $c === 400, (string) $c);
+    $ultimoLogin = $db->prepare("SELECT email FROM auditoria_login WHERE usuario_id = ? AND acao = 'login_sucesso' ORDER BY id DESC LIMIT 1");
+    $ultimoLogin->execute([$operadorA2]);
+    verifica('a auditoria grava o e-mail da conta, não o nome de usuário', str_starts_with((string) $ultimoLogin->fetchColumn(), 'zz_matriz_'));
+    [$c] = req('POST', $baseUrl . 'usuarios.php', $T['admin'], ['nome' => 'zz y', 'username' => 'zz@matriz', 'email' => 'zz_matriz_y@teste.local', 'tipo' => 'operador', 'senha' => 'Zz@Teste12345', 'setor_id' => $setorA]);
+    verifica('cadastro recusa nome de usuário com @ (400)', $c === 400, (string) $c);
+    [$c] = req('PUT', $baseUrl . 'usuarios.php/' . $operadorA2, $T['gestorA'], ['nome' => 'zz Operador A2', 'username' => '', 'email' => $emailOperadorA2, 'tipo' => 'operador', 'setor_id' => $setorA]);
+    $usernameDepois = (string) $db->query("SELECT username FROM usuarios WHERE id = $operadorA2")->fetchColumn();
+    verifica('editar com o nome de usuário em branco mantém o atual', $c === 200 && $usernameDepois === $usernameA2, "$c $usernameDepois");
 } finally {
     echo "\n[limpeza]\n";
     $idsTickets = implode(',', array_filter($ticketsCriados)) ?: '0';
@@ -657,6 +682,8 @@ try {
     $db->exec("DELETE FROM auditoria WHERE tabela = 'tickets' AND registro_id IN ($idsTickets)");
     $db->exec("DELETE FROM tickets WHERE id IN ($idsTickets)"); // cascata cuida do resto
     $db->exec("DELETE FROM auditoria_login WHERE email LIKE 'zz_matriz_%'"); // logins de teste da seção [8]
+    // Login com nome de usuário inexistente da seção [8b]: grava só a 1ª letra mascarada ("z***")
+    $db->exec("DELETE FROM auditoria_login WHERE usuario_id IS NULL AND email = 'z***' AND criado_em >= NOW() - INTERVAL 1 HOUR");
     $db->exec("DELETE FROM filtros_email WHERE termo LIKE 'zz_matriz_%'"); // filtros de e-mail da seção [7b]
     $db->exec("DELETE FROM auditoria WHERE tabela = 'filtros_email' AND (dados_novos LIKE '%zz_matriz_%' OR dados_anteriores LIKE '%zz_matriz_%')");
     // Registro de Atividades (seção [7c]): registros dos usuários de teste, atividades zz_matriz_ e regras do setor A

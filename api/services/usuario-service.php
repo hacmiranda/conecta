@@ -5,6 +5,26 @@
 class UsuarioService {
 
     /**
+     * Nome de usuário: minúsculas, números, ponto, hífen e sublinhado, de 3 a 50 caracteres. Nunca tem "@":
+     * o login decide pelo "@" se o texto é e-mail ou nome de usuário (16/11/2026).
+     */
+    const PADRAO_USERNAME = '/^[a-z0-9._-]{3,50}$/';
+
+    public static function usernameValido(string $username): bool {
+        return preg_match(self::PADRAO_USERNAME, $username) === 1;
+    }
+
+    /** Coluna procurada no login: "email" se o texto tem "@", senão "username" */
+    public static function campoDoLogin(string $identificador): string {
+        return strpos($identificador, '@') !== false ? 'email' : 'username';
+    }
+
+    /** Texto do campo do login como é comparado no banco (e-mail e nome de usuário são gravados em minúsculas) */
+    public static function normalizarLogin(string $identificador): string {
+        return strtolower(trim($identificador));
+    }
+
+    /**
      * Nome de usuário livre a partir do nome completo: "primeiro.ultimo" sem acentos; com repetição,
      * acrescenta 2, 3, ... ($reservados = nomes já escolhidos nesta mesma carga, ainda não gravados).
      */

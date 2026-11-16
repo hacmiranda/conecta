@@ -25,7 +25,7 @@
     <!-- Ícones: só os usados (icon_names, em ordem alfabética; ~12 KB em vez de ~1 MB). Ícone novo em
          class="material-symbols-outlined" precisa entrar nesta lista, senão aparece o nome em texto. -->
     <link
-        href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&icon_names=bar_chart,check_circle,hourglass_top,lock,lock_reset,login,mail,notifications_active,send,visibility,visibility_off&display=block"
+        href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&icon_names=bar_chart,check_circle,hourglass_top,lock,lock_reset,login,mail,notifications_active,person,send,visibility,visibility_off&display=block"
         rel="stylesheet">
     <!-- Cloudflare Turnstile (Carregado dinamicamente via JS) -->
     <style>
@@ -908,13 +908,13 @@
             <!-- ---- FORMULÁRIO DE LOGIN ---- -->
             <form id="form-login" novalidate>
 
-                <!-- Campo Email -->
+                <!-- Campo E-mail ou usuário (o servidor decide pelo "@") -->
                 <div class="field-group">
-                    <label class="field-label" for="email">E-mail</label>
+                    <label class="field-label" for="login">E-mail ou usuário</label>
                     <div class="field-input-wrap">
-                        <span class="material-symbols-outlined field-icon" aria-hidden="true">mail</span>
-                        <input type="email" id="email" name="email" class="field-input" placeholder="seu@email.com"
-                            required aria-required="true" autocomplete="email">
+                        <span class="material-symbols-outlined field-icon" aria-hidden="true">person</span>
+                        <input type="text" id="login" name="login" class="field-input" placeholder="seu@email.com ou nome.sobrenome"
+                            required aria-required="true" autocomplete="username" autocapitalize="none" spellcheck="false">
                     </div>
                 </div>
 
@@ -1160,7 +1160,7 @@
                     ultimaTentativa: ultimaTentativa.toISOString()
                 }));
                 const restantes = 5 - tentativasLogin;
-                mostrarAlert('Erro', `Email ou senha incorretos. ${restantes} tentativa(s) restante(s).`);
+                mostrarAlert('Erro', `E-mail/usuário ou senha incorretos. ${restantes} tentativa(s) restante(s).`);
             }
         }
 
@@ -1209,8 +1209,14 @@
                 return;
             }
 
-            const email = document.getElementById('email').value;
+            const login = document.getElementById('login').value.trim();
             const senha = document.getElementById('senha').value;
+
+            // Campos vazios: avisa aqui (o 400 do servidor seria lido como falha do captcha)
+            if (!login || !senha) {
+                mostrarAlert('Atenção', 'Informe o e-mail ou usuário e a senha.');
+                return;
+            }
 
             // Capturar token do Turnstile
             const turnstileInput = document.querySelector('[name="cf-turnstile-response"]');
@@ -1273,7 +1279,7 @@
                 mostrarAlert('Erro', 'Erro de conexão. Verifique sua internet e tente novamente.');
             };
 
-            xhr.send(JSON.stringify({ email, senha, 'cf-turnstile-response': turnstileToken }));
+            xhr.send(JSON.stringify({ login, senha, 'cf-turnstile-response': turnstileToken }));
         });
 
         // Toggle visibilidade da senha

@@ -937,6 +937,17 @@
     color: var(--neutro-200);
 }
 
+/* Dica abaixo do campo "Nome de usuário" (cadastro e edição) */
+.ajuda-campo-usuario {
+    margin: 0.25rem 0 0 0;
+    font-size: 0.8rem;
+    color: var(--neutro-600);
+}
+
+.modo-escuro .ajuda-campo-usuario {
+    color: var(--neutro-200);
+}
+
 /* ===== Configurar e-mail: remetente global (somente leitura) ===== */
 .config-email-aviso {
     background: var(--vinho-50);

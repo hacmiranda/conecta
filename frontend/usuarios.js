@@ -268,7 +268,9 @@ function gerarPainelEquipe(usuarios, setores, usuarioLogado, ehAdmin) {
                     <div class="form-group">
                         <label for="username-usuario">Nome de usuário:</label>
                         <input type="text" id="username-usuario" placeholder="gerado automaticamente (nome.sobrenome)"
+                            maxlength="50" autocapitalize="none" spellcheck="false" aria-describedby="username-usuario-ajuda"
                             oninput="this.dataset.editadoManualmente='true'">
+                        <p id="username-usuario-ajuda" class="ajuda-campo-usuario">${TEXTO_REGRA_USERNAME}</p>
                     </div>
                 </div>
                 <div class="form-row">
@@ -347,6 +349,17 @@ function filtrarSolicitantes() {
     grid.innerHTML = renderGridSolicitantes(filtrados, usuarioLogado);
 }
 
+// Regra do nome de usuário (a mesma de UsuarioService::PADRAO_USERNAME no servidor). O login aceita e-mail
+// ou nome de usuário e decide pelo "@", por isso o nome de usuário nunca tem "@".
+const PADRAO_USERNAME = /^[a-z0-9._-]{3,50}$/;
+const TEXTO_REGRA_USERNAME = 'Usado no login. De 3 a 50 letras minúsculas, números, ponto, hífen ou sublinhado (sem @ e sem acento).';
+
+// Mensagem de erro do nome de usuário digitado, ou null se está certo ('' = gerado pelo sistema)
+function erroUsernameDigitado(username) {
+    if (username === '' || PADRAO_USERNAME.test(username)) return null;
+    return 'Nome de usuário inválido. ' + TEXTO_REGRA_USERNAME;
+}
+
 // Sugere um username (nome.sobrenome) a partir do nome completo digitado, sem sobrescrever edição manual
 function sugerirUsername() {
     const campoUsername = document.getElementById('username-usuario');
@@ -369,7 +382,7 @@ async function criarUsuario(event) {
     event.preventDefault();
 
     const nome = document.getElementById('nome-usuario').value;
-    const username = document.getElementById('username-usuario').value.trim();
+    const username = document.getElementById('username-usuario').value.trim().toLowerCase();
     const email = document.getElementById('email-usuario').value;
     const cargo = document.getElementById('cargo-usuario').value;
     const tipo = document.getElementById('tipo-usuario').value;
@@ -380,6 +393,12 @@ async function criarUsuario(event) {
 
     if (tipo !== 'admin' && campoSetor && !setor_id) {
         mostrarAlert('Erro', 'Selecione o setor de lotação (obrigatório para todos os perfis, menos Administrador).');
+        return;
+    }
+
+    const erroUsername = erroUsernameDigitado(username);
+    if (erroUsername) {
+        mostrarAlert('Erro', erroUsername);
         return;
     }
 
@@ -466,7 +485,9 @@ function mostrarFormularioEdicaoUsuario(usuario, setores) {
         </div>
         <div class="form-group">
             <label for="edit-username">Nome de usuário:</label>
-            <input type="text" id="edit-username" value="${sanitizeHTML(usuario.username || '')}">
+            <input type="text" id="edit-username" value="${sanitizeHTML(usuario.username || '')}"
+                maxlength="50" autocapitalize="none" spellcheck="false" aria-describedby="edit-username-ajuda">
+            <p id="edit-username-ajuda" class="ajuda-campo-usuario">${TEXTO_REGRA_USERNAME} Em branco, mantém o atual.</p>
         </div>
         <div class="form-group">
             <label for="edit-cargo">Cargo/Função:</label>
@@ -492,7 +513,7 @@ function mostrarFormularioEdicaoUsuario(usuario, setores) {
     modalCallback = function (confirmado) {
         if (confirmado) {
             const nome = document.getElementById('edit-nome').value;
-            const username = document.getElementById('edit-username').value.trim();
+            const username = document.getElementById('edit-username').value.trim().toLowerCase();
             const cargo = document.getElementById('edit-cargo').value;
             const tipo = document.getElementById('edit-tipo').value;
             const campoSetorEl = document.getElementById('edit-setor');
@@ -500,6 +521,12 @@ function mostrarFormularioEdicaoUsuario(usuario, setores) {
 
             if (tipo !== 'admin' && tipo !== 'cliente' && campoSetorEl && !setor_id) {
                 mostrarAlert('Erro', 'Selecione o setor de lotação (obrigatório para todos os perfis, menos Administrador).');
+                return;
+            }
+
+            const erroUsername = erroUsernameDigitado(username);
+            if (erroUsername) {
+                mostrarAlert('Erro', erroUsername);
                 return;
             }
 

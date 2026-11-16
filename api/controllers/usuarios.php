@@ -27,6 +27,21 @@ function gerarUsernameUnico(PDO $db, string $nomeCompleto): string {
 }
 
 /**
+ * Nome de usuário enviado pela tela, em minúsculas e sem espaços nas pontas ('' = não informado).
+ * Informado fora do padrão (UsuarioService::PADRAO_USERNAME): responde 400 e encerra. O login aceita o
+ * nome de usuário e decide pelo "@" se é e-mail, por isso ele nunca pode ter "@".
+ */
+function lerUsernameInformado(array $input): string {
+    $username = strtolower(trim((string) ($input['username'] ?? '')));
+    if ($username !== '' && !UsuarioService::usernameValido($username)) {
+        http_response_code(400);
+        echo json_encode(['error' => 'Nome de usuário inválido: use de 3 a 50 letras minúsculas, números, ponto, hífen ou sublinhado (sem @ e sem acento)']);
+        exit;
+    }
+    return $username;
+}
+
+/**
  * Papéis que quem está logado pode atribuir: admin (todos, menos solicitante); gestor e coordenador (operador).
  * Solicitante externo (cliente) nunca é cadastrado por aqui.
  */
@@ -297,7 +312,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $email = strtolower(trim($input['email'] ?? ''));
     $tipo = $input['tipo'] ?? 'operador';
     $cargo = HtmlSanitizer::texto($input['cargo'] ?? '', 100) ?: null;
-    $username = HtmlSanitizer::texto($input['username'] ?? '', 100);
+    $username = lerUsernameInformado($input);
     $setor_id = !empty($input['setor_id']) ? (int) $input['setor_id'] : null;
     $senha = (string) ($input['senha'] ?? '');
 
@@ -538,7 +553,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'PUT') {
     $email = strtolower(trim($input['email'] ?? ''));
     $tipo = $input['tipo'] ?? '';
     $cargo = HtmlSanitizer::texto($input['cargo'] ?? '', 100) ?: null;
-    $username = HtmlSanitizer::texto($input['username'] ?? '', 100);
+    $username = lerUsernameInformado($input);
     if (!array_key_exists('setor_id', $input)) {
         $setor_id = $alvo['setor_id'];
     } else {
@@ -611,8 +626,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'PUT') {
         exit;
     }
 
-    if (empty($username)) {
-        $username = gerarUsernameUnico($db, $nome);
+    if ($username === '') {
+        // Campo vazio na edição mantém o nome atual (gerar de novo daria "nome.sobrenome2", porque o atual
+        // já está ocupado pela própria pessoa, e mudaria o login dela); só gera se ainda não havia
+        $username = (string) ($alvo['username'] ?? '') !== '' ? (string) $alvo['username'] : gerarUsernameUnico($db, $nome);
     } elseif ($username !== $alvo['username']) {
         $checkUser = $db->prepare("SELECT id FROM usuarios WHERE username = :username AND id != :id");
         $checkUser->execute([':username' => $username, ':id' => $usuario_id]);

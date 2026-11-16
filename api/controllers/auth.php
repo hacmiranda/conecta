@@ -10,6 +10,7 @@ require_once __DIR__ . '/../services/rate-limit-service.php';
 require_once __DIR__ . '/../services/acesso-service.php';
 require_once __DIR__ . '/../services/rede-service.php';
 require_once __DIR__ . '/../services/log-service.php';
+require_once __DIR__ . '/../services/usuario-service.php';
 require_once __DIR__ . '/../config/turnstile.php';
 
 AuthMiddleware::configurarCORS(['POST']);
@@ -25,13 +26,12 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
 }
 
 $input = json_decode(file_get_contents('php://input'), true) ?? [];
-$email = strtolower(trim((string) ($input['email'] ?? '')));
+// O campo aceita e-mail ou nome de usuário (16/11/2026): com "@" procura pelo e-mail, sem "@" pelo
+// nome de usuário (que nunca tem "@"). "login" é o campo novo; "email" continua aceito (testes, integrações).
+$login = UsuarioService::normalizarLogin((string) ($input['login'] ?? $input['email'] ?? ''));
 $senha = (string) ($input['senha'] ?? '');
 $turnstileToken = $input['cf-turnstile-response'] ?? '';
 $ip = RedeService::ipCliente();
-// Por conta não há bloqueio (senão qualquer um trancaria a conta do administrador errando a senha):
-// a partir da 6ª falha em 15 min, cada resposta de erro demora mais (até 5 s)
-$chaveConta = 'conta_' . sha1($email);
 
 // Por IP: até 20 tentativas em 15 min (o escritório inteiro pode sair pelo mesmo IP). A tentativa é
 // registrada antes de conferir (consumir), então requisições simultâneas não furam o limite.
@@ -50,9 +50,9 @@ if (!validateTurnstile($turnstileToken, $ip)) {
     exit;
 }
 
-if ($email === '' || $senha === '') {
+if ($login === '' || $senha === '') {
     http_response_code(400);
-    echo json_encode(['error' => 'Email e senha são obrigatórios']);
+    echo json_encode(['error' => 'Informe o e-mail ou usuário e a senha']);
     exit;
 }
 
@@ -60,9 +60,18 @@ try {
     $db = (new Database())->getConnection();
     $auditoriaService = new AuditoriaService($db);
 
-    $stmt = $db->prepare("SELECT u.*, s.nome AS setor_nome FROM usuarios u LEFT JOIN setores s ON s.id = u.setor_id WHERE u.email = :email");
-    $stmt->execute([':email' => $email]);
+    // Coluna escolhida por uma regra fixa (UsuarioService::campoDoLogin), nunca pelo texto recebido
+    $coluna = UsuarioService::campoDoLogin($login) === 'email' ? 'u.email' : 'u.username';
+    $stmt = $db->prepare("SELECT u.*, s.nome AS setor_nome FROM usuarios u LEFT JOIN setores s ON s.id = u.setor_id WHERE $coluna = :login");
+    $stmt->execute([':login' => $login]);
     $usuario = $stmt->fetch();
+
+    // Por conta não há bloqueio (senão qualquer um trancaria a conta do administrador errando a senha):
+    // a partir da 6ª falha em 15 min, cada resposta de erro demora mais (até 5 s). A contagem é pela conta
+    // encontrada, não pelo texto digitado: alternar e-mail e nome de usuário não zera o atraso.
+    $chaveConta = 'conta_' . ($usuario ? 'id' . $usuario['id'] : sha1($login));
+    // Na auditoria vai o e-mail da conta (mesmo quando a pessoa entrou pelo nome de usuário)
+    $emailAuditoria = $usuario ? (string) $usuario['email'] : LogService::mascararLogin($login);
 
     // Senha conferida antes de qualquer outra informação sobre a conta (não revela se o e-mail existe).
     // Só aceita hash: senhas em texto puro (legado) não entram mais. Sem conta (ou sem senha), confere
@@ -85,7 +94,7 @@ try {
             usleep(min($falhasConta - 5, 5) * 1000000);
         }
         // E-mail inteiro só se a conta existe; senão mascarado (às vezes é a senha digitada no campo errado)
-        $auditoriaService->registrarLogin($usuario['id'] ?? null, $usuario ? $email : LogService::mascararEmail($email), 'login_falha');
+        $auditoriaService->registrarLogin($usuario['id'] ?? null, $emailAuditoria, 'login_falha');
         http_response_code(401);
         echo json_encode(['error' => 'Credenciais inválidas']);
         exit;
@@ -93,7 +102,7 @@ try {
 
     // Conta desativada: informado só a quem acertou a senha
     if ((int) ($usuario['ativo'] ?? 1) === 0) {
-        $auditoriaService->registrarLogin($usuario['id'], $email, 'login_falha');
+        $auditoriaService->registrarLogin($usuario['id'], $emailAuditoria, 'login_falha');
         http_response_code(403);
         echo json_encode(['error' => 'Usuário desativado. Entre em contato com o administrador.']);
         exit;
@@ -115,7 +124,7 @@ try {
     $token = AuthMiddleware::gerarToken($usuario);
     AuthMiddleware::definirCookieSessao($token);
 
-    $auditoriaService->registrarLogin($usuario['id'], $email, 'login_sucesso');
+    $auditoriaService->registrarLogin($usuario['id'], $emailAuditoria, 'login_sucesso');
 
     echo json_encode([
         'success'    => true,

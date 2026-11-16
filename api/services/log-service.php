@@ -56,6 +56,17 @@ class LogService {
         return substr($email, 0, 1) . '***@' . substr($email, $arroba + 1);
     }
 
+    /**
+     * O que foi digitado no campo do login, mascarado: e-mail como em mascararEmail(); nome de usuário só com
+     * a primeira letra (às vezes é a senha digitada no campo errado).
+     */
+    public static function mascararLogin(string $login): string {
+        if ($login === '') {
+            return '';
+        }
+        return strpos($login, '@') !== false ? self::mascararEmail($login) : mb_substr($login, 0, 1) . '***';
+    }
+
     /** Troca o diretório dos logs (testes). null volta ao padrão. */
     public static function usarDiretorio(?string $diretorio, bool $ecoarNoTerminal = true): void {
         self::$diretorio = $diretorio !== null ? rtrim($diretorio, '/\\') : null;

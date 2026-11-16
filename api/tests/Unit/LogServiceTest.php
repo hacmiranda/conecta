@@ -34,6 +34,12 @@ final class LogServiceTest extends TestCase {
         $this->assertStringContainsString('INFO linha um', (string) file_get_contents($arquivo));
     }
 
+    public function test_mascarar_login_serve_para_email_e_para_nome_de_usuario(): void {
+        $this->assertSame('h***@crprs.org.br', LogService::mascararLogin('hugo@crprs.org.br'));
+        $this->assertSame('h***', LogService::mascararLogin('hugo.miranda'));
+        $this->assertSame('', LogService::mascararLogin(''));
+    }
+
     public function test_limpeza_apaga_so_os_vencidos_do_mesmo_canal(): void {
         foreach (['email-cron-2026-09-01.log', 'email-cron-2026-10-01.log', 'email-cron-2026-10-31.log',
                   'email-cron.log', 'email-cron-x-2026-01-01.log', 'outro-2026-01-01.log'] as $f) {
