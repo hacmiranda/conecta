@@ -228,6 +228,22 @@ final class PesquisaModuloIntegracaoTest extends TestCase {
         $this->assertSame(2, $meuPainel['historico']['total']);
     }
 
+    public function test_indicadores_tem_tendencia_de_pendentes_e_resolvidos(): void {
+        // Central de Feedbacks (igual ao METRICA360): tendência de 7 dias também em Pendentes e Resolvidos
+        $antes = PesquisaPainelService::indicadores($this->db, [$this->setorA])['tendencia'];
+        foreach (['pendentes_atual', 'pendentes_anterior', 'resolvidos_atual', 'resolvidos_anterior'] as $chave) {
+            $this->assertArrayHasKey($chave, $antes);
+        }
+        $baixa = $this->servico()->enviar($this->servidor, 'Baixa', $this->email())['convite_id'];
+        PesquisaAvaliacaoService::registrar($this->db, $this->tokenDe($baixa), 2, '', [], function () {});
+        $alta = $this->servico()->enviar($this->servidor, 'Alta', $this->email())['convite_id'];
+        PesquisaAvaliacaoService::registrar($this->db, $this->tokenDe($alta), 5, '', [], function () {});
+        $depois = PesquisaPainelService::indicadores($this->db, [$this->setorA])['tendencia'];
+        $this->assertSame($antes['pendentes_atual'] + 1, $depois['pendentes_atual'], 'nota 2 entra pendente');
+        $this->assertSame($antes['resolvidos_atual'] + 1, $depois['resolvidos_atual'], 'nota 5 entra resolvida');
+        $this->assertSame($antes['pendentes_anterior'], $depois['pendentes_anterior']);
+    }
+
     public function test_triagem_muda_status_e_anotacao(): void {
         $id = $this->servico()->enviar($this->servidor, 'T', $this->email())['convite_id'];
         PesquisaAvaliacaoService::registrar($this->db, $this->tokenDe($id), 1, 'x', [], function () {});

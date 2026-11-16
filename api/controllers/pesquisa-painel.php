@@ -7,6 +7,7 @@
  *   GET ?acao=resumo[&dias=7|30|90|180]   indicadores, evolução da nota, categorias, meta e frase do dia
  *   GET ?acao=lista&pagina=&status=&nota=&busca=&data_ini=&data_fim=   avaliações (20 por página)
  *   GET ?acao=csv&...mesmos filtros       exportação (auditada)
+ *   GET ?acao=pendentes                   {pendentes} para o contador do menu "Avaliações"
  * A triagem (status e anotação) é em pesquisa-triagem.php.
  */
 header('Content-Type: application/json');
@@ -49,6 +50,12 @@ try {
             'frase'       => PesquisaPainelService::fraseDoDia($db),
             'pode_triar'  => true,
         ], JSON_UNESCAPED_UNICODE);
+        exit;
+    }
+
+    // Número de avaliações pendentes (contador do menu "Avaliações", como o do METRICA360), no escopo de quem pede
+    if ($acao === 'pendentes') {
+        echo json_encode(['pendentes' => PesquisaPainelService::indicadores($db, $escopo)['pendentes']]);
         exit;
     }
 

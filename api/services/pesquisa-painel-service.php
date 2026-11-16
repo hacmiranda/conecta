@@ -77,7 +77,11 @@ class PesquisaPainelService {
                     SUM(a.criado_em >= DATE_SUB(CURDATE(), INTERVAL 7 DAY)) AS total_atual,
                     COALESCE(AVG(CASE WHEN a.criado_em >= DATE_SUB(CURDATE(), INTERVAL 7 DAY) THEN a.nota END), 0) AS media_atual,
                     SUM(a.criado_em >= DATE_SUB(CURDATE(), INTERVAL 14 DAY) AND a.criado_em < DATE_SUB(CURDATE(), INTERVAL 7 DAY)) AS total_anterior,
-                    COALESCE(AVG(CASE WHEN a.criado_em >= DATE_SUB(CURDATE(), INTERVAL 14 DAY) AND a.criado_em < DATE_SUB(CURDATE(), INTERVAL 7 DAY) THEN a.nota END), 0) AS media_anterior
+                    COALESCE(AVG(CASE WHEN a.criado_em >= DATE_SUB(CURDATE(), INTERVAL 14 DAY) AND a.criado_em < DATE_SUB(CURDATE(), INTERVAL 7 DAY) THEN a.nota END), 0) AS media_anterior,
+                    SUM(a.criado_em >= DATE_SUB(CURDATE(), INTERVAL 7 DAY) AND a.status = 'pendente') AS pendentes_atual,
+                    SUM(a.criado_em >= DATE_SUB(CURDATE(), INTERVAL 14 DAY) AND a.criado_em < DATE_SUB(CURDATE(), INTERVAL 7 DAY) AND a.status = 'pendente') AS pendentes_anterior,
+                    SUM(a.criado_em >= DATE_SUB(CURDATE(), INTERVAL 7 DAY) AND a.status = 'resolvido') AS resolvidos_atual,
+                    SUM(a.criado_em >= DATE_SUB(CURDATE(), INTERVAL 14 DAY) AND a.criado_em < DATE_SUB(CURDATE(), INTERVAL 7 DAY) AND a.status = 'resolvido') AS resolvidos_anterior
                  " . self::DE_AVALIACOES . " WHERE $w", $p)->fetch(PDO::FETCH_ASSOC);
         return [
             'total'      => (int) $m['total'],
@@ -89,6 +93,9 @@ class PesquisaPainelService {
             'tendencia'  => [
                 'total_atual' => (int) $m['total_atual'], 'total_anterior' => (int) $m['total_anterior'],
                 'media_atual' => round((float) $m['media_atual'], 1), 'media_anterior' => round((float) $m['media_anterior'], 1),
+                // Como no METRICA360: avaliações dos últimos 7 dias que estão pendentes/resolvidas agora, x os 7 anteriores
+                'pendentes_atual' => (int) $m['pendentes_atual'], 'pendentes_anterior' => (int) $m['pendentes_anterior'],
+                'resolvidos_atual' => (int) $m['resolvidos_atual'], 'resolvidos_anterior' => (int) $m['resolvidos_anterior'],
             ],
         ];
     }

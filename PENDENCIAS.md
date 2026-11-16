@@ -47,7 +47,7 @@ Plano: `C:\Users\hugo.miranda\.claude\plans\1-quero-continuar-iterative-quasar.m
 - [x] Fase 7 — página pública `avaliar.html`
 - [x] Fase 8 — código: `Metrica360Client` e as chaves `METRICA360_*` removidos; roteiro novo em `docs/implantacao-producao.md` (seção 7)
 - [x] Importação executada em 16/11/2026 (backup e relatório em `C:\Users\hugo.miranda\conecta-backup-banco-2026-11-16\`). O login aceita e-mail ou nome de usuário (o mesmo `nome.sobrenome` do METRICA360)
-- [ ] **Você:** conferir as telas novas com dados reais (grupo Satisfação, Configurações → Pesquisa de satisfação, `avaliar.html`) e decidir se quer o widget do Google Reviews também no painel de avaliações
+- [ ] **Você:** conferir as telas novas com dados reais (grupo Satisfação, Configurações → Pesquisa de satisfação, `avaliar.html`). Decidido em 16/11/2026: o widget do Google Reviews fica também no topo da Central de Feedbacks; a Central e o Painel de Setores foram refeitos iguais aos do METRICA360
 - [ ] **Quando o METRICA360 sair do ar:** redirecionar `/metrica360` (301) para `/conecta/` no servidor e arquivar o repositório dele no GitHub (não apagar)
 
 ## 4. Antes do primeiro deploy em produção

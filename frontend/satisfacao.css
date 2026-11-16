@@ -17,23 +17,6 @@
     padding: 1rem 0;
 }
 
-.sat-frase {
-    margin: 0 0 1rem;
-    padding: 0.75rem 1rem;
-    border-left: 4px solid var(--laranja-500);
-    border-radius: 0 var(--sat-raio) var(--sat-raio) 0;
-    background: var(--laranja-50);
-    color: var(--neutro-800);
-    font-style: italic;
-}
-
-.sat-frase footer {
-    margin-top: 0.25rem;
-    font-size: 0.85rem;
-    font-style: normal;
-    color: var(--neutro-600);
-}
-
 /* Indicadores */
 .sat-kpis {
     display: grid;
@@ -64,16 +47,6 @@
     color: var(--neutro-600);
 }
 
-.sat-tendencia,
-.sat-meta {
-    font-size: 0.75rem;
-}
-
-.sat-sobe { color: var(--verde-700); }
-.sat-desce { color: var(--vinho-700); }
-.sat-igual,
-.sat-meta { color: var(--neutro-600); }
-
 /* Blocos */
 .sat-bloco {
     margin-bottom: 1.5rem;
@@ -83,68 +56,11 @@
     background: var(--neutro-50);
 }
 
-.sat-bloco-topo {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: baseline;
-    justify-content: space-between;
-    gap: 0.5rem;
-    margin-bottom: 0.75rem;
-}
-
 .sat-bloco h3,
 .sat-bloco h4 {
     margin: 0;
     color: var(--vinho-700);
 }
-
-.sat-periodos {
-    display: inline-flex;
-    gap: 0.25rem;
-}
-
-.sat-ativo {
-    background: var(--vinho-600);
-    border-color: var(--vinho-600);
-    color: #fff;
-}
-
-.sat-grafico {
-    display: block;
-    max-width: 100%;
-}
-
-/* Categorias */
-.sat-cat-grade {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr));
-    gap: 1.25rem;
-}
-
-.sat-cat-linha {
-    display: grid;
-    grid-template-columns: minmax(7rem, 1.2fr) 2fr auto;
-    align-items: center;
-    gap: 0.5rem;
-    margin-top: 0.5rem;
-}
-
-.sat-barra {
-    display: block;
-    height: 0.6rem;
-    border-radius: 999px;
-    background: var(--neutro-200);
-    overflow: hidden;
-}
-
-.sat-barra i {
-    display: block;
-    height: 100%;
-    border-radius: 999px;
-}
-
-.sat-barra-boa { background: var(--verde-500); }
-.sat-barra-ruim { background: var(--vinho-600); }
 
 /* Filtros */
 .sat-filtros {
@@ -193,34 +109,10 @@
     letter-spacing: 0.02em;
 }
 
-.sat-comentario p {
-    margin: 0 0 0.25rem;
-}
-
-.sat-anotacao {
-    padding: 0.25rem 0.5rem;
-    border-left: 3px solid var(--laranja-500);
-    background: var(--laranja-50);
-    font-size: 0.85rem;
-}
-
 .sat-estrelas {
     color: var(--laranja-texto);
     letter-spacing: 1px;
     white-space: nowrap;
-}
-
-.sat-chips {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0.25rem;
-}
-
-.sat-chip {
-    padding: 0.0625rem 0.5rem;
-    border-radius: 999px;
-    background: var(--neutro-100);
-    font-size: 0.75rem;
 }
 
 .sat-selo {
@@ -305,8 +197,7 @@ body.modo-escuro .sat-bloco h4 {
     color: var(--laranja-500);
 }
 
-body.modo-escuro .sat-tabela thead th,
-body.modo-escuro .sat-chip {
+body.modo-escuro .sat-tabela thead th {
     background: var(--neutro-800);
     color: var(--neutro-50);
 }
@@ -315,12 +206,6 @@ body.modo-escuro .sat-tabela th,
 body.modo-escuro .sat-tabela td,
 body.modo-escuro .satcfg-linha {
     border-color: var(--neutro-600);
-}
-
-body.modo-escuro .sat-frase,
-body.modo-escuro .sat-anotacao {
-    background: var(--neutro-800);
-    color: var(--neutro-50);
 }
 
 /* Celular: tabelas viram cartões empilhados */
