@@ -136,6 +136,29 @@ final class ImportacaoMetrica360Test extends TestCase {
         $this->assertCount(3, $plano['avisos']);
     }
 
+    public function test_emails_ignorados_ficam_de_fora_e_nao_puxam_setor(): void {
+        // O ignorado é o único lotado em Ouvidoria (id 4): o setor também não entra
+        $plano = ImportacaoMetrica360::planejar($this->setoresOrigem(), [
+            $this->u(1, 'Generico@X.org', 'admin', 4),
+            $this->u(2, 'a@x.org', 'atendente', 3),
+        ], $this->setoresDestino(), [], ['generico@x.org']);
+        $this->assertSame(['a@x.org'], array_column($plano['usuarios'], 'email'));
+        $this->assertSame(['generico@x.org'], $plano['ignorados']);
+        $this->assertNotContains('Ouvidoria', array_column($plano['setores'], 'nome'));
+
+        $texto = ImportacaoMetrica360::relatorio($plano, [], false);
+        $this->assertStringContainsString('IGNORADOS A PEDIDO (1)', $texto);
+        $this->assertStringContainsString('generico@x.org', $texto);
+    }
+
+    public function test_ignorado_que_coordena_nao_puxa_os_setores_que_coordenava(): void {
+        // coord (id 10) coordena Cobrança e Cadastro na origem; ignorado, nenhum dos dois entra só por ele
+        $plano = ImportacaoMetrica360::planejar($this->setoresOrigem(), [$this->u(10, 'coord@x.org', 'coordenador', null)],
+            $this->setoresDestino(), [], ['coord@x.org']);
+        $this->assertSame([], $plano['setores']);
+        $this->assertSame([], $plano['usuarios']);
+    }
+
     public function test_relatorio_resume_o_plano(): void {
         $plano = $this->planejar([$this->u(1, 'a@x.org', 'atendente', 4)]);
         $texto = ImportacaoMetrica360::relatorio($plano, ['convites' => 214, 'feedbacks' => 221, 'categorias' => 7, 'frases' => 34], false);

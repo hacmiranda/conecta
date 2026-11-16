@@ -8,6 +8,7 @@
  *   php database/importar-metrica360.php --executar            grava no banco do Conecta (local)
  *   php database/importar-metrica360.php --relatorio=ARQ.txt   também grava o relatório num arquivo
  *   php database/importar-metrica360.php --origem-env=CAMINHO  .env do METRICA360 (padrão: ../metrica360/.env.local)
+ *   php database/importar-metrica360.php --ignorar=a@x,b@y     e-mails que não entram (separados por vírgula)
  *
  * A origem é lida só para leitura (sessão somente leitura) e precisa ser um banco LOCAL: o script recusa um
  * host remoto, para nunca tocar no banco de produção do METRICA360. No Conecta, recusa rodar com APP_ENV de
@@ -29,12 +30,15 @@ if (Environment::isProduction()) {
 
 $executar = false;
 $relatorioArquivo = null;
+$emailsIgnorados = [];
 $envOrigem = realpath(__DIR__ . '/../../metrica360') ? __DIR__ . '/../../metrica360/.env.local' : null;
 foreach (array_slice($argv, 1) as $arg) {
     if ($arg === '--executar') {
         $executar = true;
     } elseif (strpos($arg, '--relatorio=') === 0) {
         $relatorioArquivo = substr($arg, 12);
+    } elseif (strpos($arg, '--ignorar=') === 0) {
+        $emailsIgnorados = array_merge($emailsIgnorados, array_filter(array_map('trim', explode(',', substr($arg, 10)))));
     } elseif (strpos($arg, '--origem-env=') === 0) {
         $envOrigem = substr($arg, 13);
     } else {
@@ -83,7 +87,7 @@ $contagens = [
 $setoresDestino = $db->query("SELECT id, nome FROM setores")->fetchAll(PDO::FETCH_ASSOC);
 $usuariosDestino = $db->query("SELECT id, email, nome, tipo, setor_id, atendimento_externo FROM usuarios WHERE tipo <> 'cliente'")->fetchAll(PDO::FETCH_ASSOC);
 
-$plano = ImportacaoMetrica360::planejar($setoresOrigem, $usuariosOrigem, $setoresDestino, $usuariosDestino);
+$plano = ImportacaoMetrica360::planejar($setoresOrigem, $usuariosOrigem, $setoresDestino, $usuariosDestino, $emailsIgnorados);
 
 $resultado = null;
 if ($executar) {
@@ -96,7 +100,8 @@ if ($resultado) {
         . $resultado['atendimento_externo_ligado'] . ' atendimentos externos ligados, ' . $resultado['categorias'] . ' categorias, '
         . $resultado['frases'] . ' frases, ' . $resultado['regras'] . " regras.\n";
 } else {
-    $texto .= "\nNada foi gravado. Para gravar: php database/importar-metrica360.php --executar\n";
+    $texto .= "\nNada foi gravado. Para gravar: php database/importar-metrica360.php --executar"
+        . ($emailsIgnorados ? ' --ignorar=' . implode(',', $emailsIgnorados) : '') . "\n";
 }
 echo $texto;
 if ($relatorioArquivo !== null) {

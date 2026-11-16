@@ -62,10 +62,30 @@ class ImportacaoMetrica360 {
      * @param array[] $usuariosOrigem [{id, email, name, username, role, setor_id, atendimento_externo}] só os ativos
      * @param array[] $setoresDestino [{id, nome}]
      * @param array[] $usuariosDestino [{id, email, nome, tipo, setor_id, atendimento_externo}]
-     * @return array{setores: array[], usuarios: array[], avisos: string[]}
+     * @param string[] $emailsIgnorados e-mails que não entram (a pedido); também não puxam setores
+     * @return array{setores: array[], usuarios: array[], avisos: string[], ignorados: string[]}
      */
-    public static function planejar(array $setoresOrigem, array $usuariosOrigem, array $setoresDestino, array $usuariosDestino): array {
+    public static function planejar(array $setoresOrigem, array $usuariosOrigem, array $setoresDestino, array $usuariosDestino, array $emailsIgnorados = []): array {
         $avisos = [];
+
+        // Contas deixadas de fora a pedido (ex.: administradores genéricos, sem dono): saem antes de tudo,
+        // então não contam para os setores que entram nem para a coordenação
+        $ignorar = [];
+        foreach ($emailsIgnorados as $e) {
+            $e = strtolower(trim((string) $e));
+            if ($e !== '') {
+                $ignorar[$e] = true;
+            }
+        }
+        $ignorados = [];
+        $usuariosOrigem = array_values(array_filter($usuariosOrigem, function ($u) use ($ignorar, &$ignorados) {
+            $email = strtolower(trim((string) $u['email']));
+            if (isset($ignorar[$email])) {
+                $ignorados[] = $email;
+                return false;
+            }
+            return true;
+        }));
 
         $destinoPorChave = [];   // chave do nome → setor do Conecta
         $destinoNomePorId = [];
@@ -247,7 +267,7 @@ class ImportacaoMetrica360 {
             $usuarios[] = $linha;
         }
 
-        return ['setores' => $setores, 'usuarios' => $usuarios, 'avisos' => $avisos];
+        return ['setores' => $setores, 'usuarios' => $usuarios, 'avisos' => $avisos, 'ignorados' => $ignorados];
     }
 
     /** Texto do relatório do ensaio/execução */
@@ -294,6 +314,13 @@ class ImportacaoMetrica360 {
             }
             if ($u['atualizar_atendimento_externo']) {
                 $l[] = '       - atendimento externo será ligado';
+            }
+        }
+        if (!empty($plano['ignorados'])) {
+            $l[] = '';
+            $l[] = 'IGNORADOS A PEDIDO (' . count($plano['ignorados']) . ')';
+            foreach ($plano['ignorados'] as $e) {
+                $l[] = '  ' . $e;
             }
         }
         if ($plano['avisos']) {

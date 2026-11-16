@@ -41,12 +41,12 @@ Plano: `C:\Users\hugo.miranda\.claude\plans\1-quero-continuar-iterative-quasar.m
 - [x] Fase 1 — decisões nos documentos
 - [x] Fase 2 — papéis novos no backend (migração 39: `coordenador`, `supervisor`, `coordenador_geral`, `usuario_setores`, `atendimento_externo`)
 - [x] Fase 3 — papéis novos no frontend (somente leitura, seletor de setores, tela de usuários)
-- [~] Fase 4 — migração 40 e importador prontos; **falta você revisar o ensaio** (`C:\Users\hugo.miranda\ensaio-importacao-metrica360.txt`) e autorizar o `--executar`
+- [x] Fase 4 — migração 40 e importador; `--executar` feito em 16/11/2026 (17 setores, 35 contas; sem os admins genéricos `admin@crprs.org.br` e `administrador@crrs.org.br`)
 - [x] Fase 5 — backend do módulo (convites, avaliações, painéis, página pública)
 - [x] Fase 6 — telas do grupo "Satisfação" e Configurações → Pesquisa de satisfação
 - [x] Fase 7 — página pública `avaliar.html`
 - [x] Fase 8 — código: `Metrica360Client` e as chaves `METRICA360_*` removidos; roteiro novo em `docs/implantacao-producao.md` (seção 7)
-- [ ] **Você:** revisar o ensaio e autorizar `php database/importar-metrica360.php --executar` (cria os 18 setores e 38 contas no banco local, que vai para produção)
+- [x] Importação executada em 16/11/2026 (backup e relatório em `C:\Users\hugo.miranda\conecta-backup-banco-2026-11-16\`). O login aceita e-mail ou nome de usuário (o mesmo `nome.sobrenome` do METRICA360)
 - [ ] **Você:** conferir as telas novas com dados reais (grupo Satisfação, Configurações → Pesquisa de satisfação, `avaliar.html`) e decidir se quer o widget do Google Reviews também no painel de avaliações
 - [ ] **Quando o METRICA360 sair do ar:** redirecionar `/metrica360` (301) para `/conecta/` no servidor e arquivar o repositório dele no GitHub (não apagar)
 
@@ -61,7 +61,7 @@ Plano: `C:\Users\hugo.miranda\.claude\plans\1-quero-continuar-iterative-quasar.m
 - [ ] Agendar o cron de e-mail no cron-job.org (a cada 2 min, via HTTP com o cabeçalho `X-Cron-Key`)
 - [ ] Checklist pós-deploy: login do primeiro admin, `migrar.php --status`, matriz de acesso, teste real de e-mail por setor, HTTPS e cabeçalhos de segurança, backup automático
 - [ ] Pesquisa de satisfação: com o módulo dentro do Conecta não há mais deploy do METRICA360 nem chaves de integração; basta a migração 40 e o cron de e-mail já agendado (roteiro novo em `docs/implantacao-producao.md` ao fim da Fase 8)
-- [ ] Criar no Conecta as contas e os setores dos servidores que só existem no METRICA360 — agora é a Fase 4 da unificação (`database/importar-metrica360.php`, casando setores por nome; senha desconhecida + "Esqueci a senha")
+- [x] Criar no Conecta as contas e os setores dos servidores que só existem no METRICA360 (feito em 16/11/2026; cada pessoa entra pelo "Esqueci a senha", que depende da fila de e-mail rodando)
 - [ ] Registro de Atividades: cadastrar atividades e regras por setor e avisar os servidores (passos 2, 3 e 5 da seção 7 de `docs/implantacao-producao.md`)
 - [ ] Passada com leitor de tela (NVDA) nos fluxos principais e teclado nas telas de Configurações
 

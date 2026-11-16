@@ -143,7 +143,8 @@ mais API entre os dois, nem `INTEGRACAO_CONECTA_API_KEY`, `METRICA360_URL_*` ou 
 
 1. **Banco:** `php database/migrar.php` (aplica a 39, papéis de coordenação, e a 40, módulo Satisfação), ou
    confirmar com `--status` que a réplica do banco local já vem com elas.
-2. **Pessoas e setores:** o banco local recebe as contas e os setores dos servidores com
+2. **Pessoas e setores:** **já feito no banco local em 16/11/2026** (17 setores e 35 contas, sem os dois
+   administradores genéricos do METRICA360; o login aceita e-mail ou nome de usuário `nome.sobrenome`), com
    `php database/importar-metrica360.php` (ensaio primeiro, depois `--executar`; só roda no banco local, nunca
    no de produção). As contas novas nascem com senha desconhecida e troca obrigatória: cada pessoa usa
    **"Esqueci a senha"** no primeiro acesso (o e-mail precisa estar certo e a caixa de envio configurada).
