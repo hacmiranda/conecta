@@ -132,6 +132,8 @@ Single HTML shell (`frontend/index.html`) with no framework router and no build 
 - Error message pattern: `mostrarAlert('Erro', (e.dados && e.dados.error) || 'texto padrão')` — only where the server message should reach the user; never `e.message` alone (always filled).
 - Dead code is removed only with the user's approval. The list approved in auditoria fase 8 is gone (see that entry); new findings go into CLAUDE.md first.
 
+**Modal colors (17/11/2026):** `frontend/modais-tema.css` (loaded right before `acessibilidade.css`) has the final say on the COLORS of every `#modal-overlay` dialog (headers, buttons, body text), only brand tokens: header vinho (default/erro/atribuição/vermelho), `laranja` = dark orange→vinho, `sucesso` = dark green; primary vinho, danger dark vinho, `btn-laranja-modal` dark orange, secondary (Cancelar) neutral outline. The older definitions in `style.css`/`modal-modern.css`/`funcionalidades.css` still set size/spacing; don't add colors there. `mostrarConfirm(..., isPerigoso)` labels the button with the title's verb ("Desativar Usuário" → Desativar; it used to say "Excluir" for every dangerous confirm).
+
 CSS follows a per-feature file convention (`tickets-melhorias.css`, `status-sla.css`, `notificacoes.css`, etc.). Colors: see "Sistema de cores" below (vinho/laranja/verde tokens; text in orange must use `--laranja-texto`, white text on orange `--laranja-fundo`, focus ring `--foco-anel`). Dark mode is the class `modo-escuro` on `body`.
 
 ### Key Data Models

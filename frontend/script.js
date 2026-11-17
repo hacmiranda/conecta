@@ -828,9 +828,12 @@ function mostrarConfirm(titulo, mensagem, callback, isPerigoso = false) {
         btnConfirm.classList.add('btn-primary-modal');
         btnConfirm.textContent = 'Confirmar';
     } else if (isPerigoso) {
+        // O botão diz a ação do título ("Desativar Usuário" → Desativar, "Remover abono" → Remover,
+        // "Sair de todos os dispositivos" → Sair). Antes todo modal perigoso dizia "Excluir".
         header.classList.add('erro');
         btnConfirm.classList.add('btn-danger-modal');
-        btnConfirm.textContent = 'Excluir';
+        const verbo = String(titulo).trim().split(/\s+/)[0].replace(/[?!.:]+$/, '');
+        btnConfirm.textContent = verbo ? verbo.charAt(0).toUpperCase() + verbo.slice(1).toLowerCase() : 'Confirmar';
     } else {
         btnConfirm.classList.add('btn-primary-modal');
         btnConfirm.textContent = 'Confirmar';

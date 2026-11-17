@@ -1,0 +1,172 @@
+/*
+ * Cores dos modais do sistema, no tom institucional do CRPRS (17/11/2026).
+ * Os cabeçalhos e botões dos modais eram definidos em cinco arquivos que se sobrepunham (style.css,
+ * modal-modern.css, funcionalidades.css, modern-enhancements.css e responsive.css), com cores fora da paleta
+ * (laranja-avermelhado #ff6b35, vermelho #dc2626/#e53e3e, cinza #495057) e o botão primário verde num arquivo e
+ * vinho em outro. Este arquivo, carregado depois deles, é a palavra final sobre as CORES (o tamanho e o
+ * espaçamento continuam nos outros). Só tokens de style.css. O !important vence as variantes antigas que já
+ * usavam !important (modal-modern.css).
+ *
+ * Regra:
+ *   Cabeçalho     vinho (padrão, atribuição, erro, exclusão); verde escuro (sucesso); laranja escuro (atenção)
+ *   Primário      vinho          Perigo (excluir/desativar)  vinho escuro
+ *   Atenção       laranja escuro Sucesso                     verde escuro
+ *   Secundário    contorno neutro (Cancelar), sem preenchimento
+ * Todos com texto branco passam no contraste 4,5:1 (laranja escuro = --laranja-fundo, 5,1:1).
+ */
+
+/* ── Cabeçalhos ── */
+.modal-header,
+.modal-header.erro,
+.modal-header.atribuicao,
+.modal-header.vermelho,
+.modal-select-header {
+    background: linear-gradient(135deg, var(--vinho-700) 0%, var(--vinho-900) 100%) !important;
+    color: var(--branco) !important;
+    border-bottom: 3px solid var(--laranja-500);
+}
+
+.modal-header.laranja {
+    background: linear-gradient(135deg, var(--laranja-fundo) 0%, var(--vinho-700) 100%) !important;
+    color: var(--branco) !important;
+}
+
+.modal-header.sucesso {
+    background: linear-gradient(135deg, var(--verde-700) 0%, var(--neutro-900) 160%) !important;
+    color: var(--branco) !important;
+    border-bottom-color: var(--verde-500);
+}
+
+.modal-header h3,
+.modal-select-header h3 {
+    color: var(--branco);
+}
+
+/* Brilho girando no cabeçalho (modal-modern.css): tirado, o tom institucional pede um cabeçalho sóbrio */
+.modal-header::before {
+    animation: none;
+    opacity: 0;
+}
+
+.btn-close-modal {
+    background: color-mix(in srgb, var(--branco) 15%, transparent);
+    color: var(--branco);
+    border: 1px solid color-mix(in srgb, var(--branco) 25%, transparent);
+}
+
+.btn-close-modal:hover {
+    background: color-mix(in srgb, var(--branco) 28%, transparent);
+}
+
+/* ── Botões ── */
+.btn-modal {
+    border: 1.5px solid transparent;
+    border-radius: var(--radius-sm);
+    font-weight: 600;
+    background-image: none;
+}
+
+.btn-modal::before {
+    display: none;
+}
+
+.btn-primary-modal,
+.modo-escuro .btn-primary-modal {
+    background: var(--vinho-600);
+    border-color: var(--vinho-600);
+    color: var(--branco);
+}
+
+.btn-primary-modal:hover,
+.modo-escuro .btn-primary-modal:hover {
+    background: var(--vinho-700);
+    border-color: var(--vinho-700);
+}
+
+.btn-danger-modal,
+.btn-vermelho-modal,
+.modo-escuro .btn-danger-modal,
+.modo-escuro .btn-vermelho-modal {
+    background: var(--vinho-900);
+    border-color: var(--vinho-900);
+    color: var(--branco);
+}
+
+.btn-danger-modal:hover,
+.btn-vermelho-modal:hover,
+.modo-escuro .btn-danger-modal:hover,
+.modo-escuro .btn-vermelho-modal:hover {
+    background: var(--vinho-700);
+    border-color: var(--vinho-700);
+}
+
+.btn-laranja-modal,
+.modo-escuro .btn-laranja-modal {
+    background: var(--laranja-fundo);
+    border-color: var(--laranja-fundo);
+    color: var(--branco);
+}
+
+.btn-laranja-modal:hover,
+.modo-escuro .btn-laranja-modal:hover {
+    background: var(--vinho-700);
+    border-color: var(--vinho-700);
+}
+
+.btn-success-modal,
+.modo-escuro .btn-success-modal {
+    background: var(--verde-700);
+    border-color: var(--verde-700);
+    color: var(--branco);
+}
+
+.btn-success-modal:hover {
+    background: var(--neutro-900);
+    border-color: var(--neutro-900);
+}
+
+/* Secundário (Cancelar): contorno, sem competir com a ação principal */
+.btn-secondary-modal {
+    background: var(--branco);
+    border-color: var(--neutro-200);
+    color: var(--neutro-800);
+}
+
+.btn-secondary-modal:hover {
+    background: var(--neutro-100);
+    border-color: var(--neutro-400);
+    color: var(--neutro-900);
+}
+
+.modo-escuro .btn-secondary-modal {
+    background: transparent;
+    border-color: var(--neutro-400);
+    color: var(--neutro-50);
+}
+
+.modo-escuro .btn-secondary-modal:hover {
+    background: var(--neutro-800);
+    border-color: var(--neutro-200);
+}
+
+/* ── Corpo ── */
+.modal-body,
+.modal-select-body #modal-select-message,
+.modal-anexo-header {
+    color: var(--neutro-800);
+}
+
+.modo-escuro .modal-body,
+.modo-escuro .modal-body p,
+.modo-escuro .modal-select-body #modal-select-message,
+.modo-escuro .modal-anexo-header {
+    color: var(--neutro-50);
+}
+
+.modal-footer {
+    border-top: 1px solid var(--neutro-200);
+}
+
+.modo-escuro .modal-footer {
+    border-top-color: var(--neutro-600);
+}
