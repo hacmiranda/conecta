@@ -1,6 +1,6 @@
 /**
  * Tela de login: constelação sobre o fundo (17/11/2026). Pontos que flutuam devagar e se ligam por linhas quando
- * estão perto; perto do mouse as ligações ficam mais fortes. Cores da marca (branco e laranja). Para quando a aba
+ * estão perto; perto do mouse as ligações ficam mais fortes. Cores da marca (branco, laranja e verde). Para quando a aba
  * está escondida; com "menos movimento" o desenho fica parado. Canvas #constelacao (estilo em login-animacao.css).
  */
 (function () {
@@ -11,6 +11,11 @@
     const parado = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     const DISTANCIA = 140;          // até onde dois pontos se ligam (px)
     const RAIO_MOUSE = 180;         // alcance do mouse (px)
+    const CORES = {
+        branco: 'rgba(255, 255, 255, 0.8)',
+        laranja: 'rgba(248, 147, 39, 0.9)',   // #F89327
+        verde: 'rgba(112, 171, 42, 0.95)',    // #70AB2A
+    };
     let pontos = [];
     let largura = 0;
     let altura = 0;
@@ -31,7 +36,8 @@
             vx: (Math.random() - 0.5) * 0.35,
             vy: (Math.random() - 0.5) * 0.35,
             r: Math.random() * 1.6 + 0.8,
-            laranja: Math.random() < 0.18,
+            // Cores oficiais do CRPRS: laranja e verde entre os pontos brancos
+            cor: (() => { const sorteio = Math.random(); return sorteio < 0.18 ? 'laranja' : sorteio < 0.36 ? 'verde' : 'branco'; })(),
         }));
     }
 
@@ -74,7 +80,7 @@
         pontos.forEach(p => {
             ctx.beginPath();
             ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
-            ctx.fillStyle = p.laranja ? 'rgba(248, 147, 39, 0.9)' : 'rgba(255, 255, 255, 0.8)';
+            ctx.fillStyle = CORES[p.cor];
             ctx.fill();
         });
     }
