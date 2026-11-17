@@ -1,6 +1,6 @@
 /**
  * Tela de login: constelação sobre o fundo (17/11/2026). Pontos que flutuam devagar e se ligam por linhas quando
- * estão perto; perto do mouse as ligações ficam mais fortes. Cores da marca (branco, laranja e verde). Para quando a aba
+ * estão perto; perto do mouse as ligações ficam mais fortes. Cores da marca (branco, laranja, verde e vinho). Para quando a aba
  * está escondida; com "menos movimento" o desenho fica parado. Canvas #constelacao (estilo em login-animacao.css).
  */
 (function () {
@@ -15,6 +15,7 @@
         branco: 'rgba(255, 255, 255, 0.8)',
         laranja: 'rgba(248, 147, 39, 0.9)',   // #F89327
         verde: 'rgba(112, 171, 42, 0.95)',    // #70AB2A
+        vinho: 'rgba(167, 36, 28, 1)',        // #A7241C
     };
     let pontos = [];
     let largura = 0;
@@ -35,9 +36,9 @@
             y: Math.random() * altura,
             vx: (Math.random() - 0.5) * 0.35,
             vy: (Math.random() - 0.5) * 0.35,
-            r: Math.random() * 1.6 + 0.8,
-            // Cores oficiais do CRPRS: laranja e verde entre os pontos brancos
-            cor: (() => { const sorteio = Math.random(); return sorteio < 0.18 ? 'laranja' : sorteio < 0.36 ? 'verde' : 'branco'; })(),
+            r: (Math.random() * 1.6 + 0.8) * 1.2,
+            // Cores oficiais do CRPRS: laranja, verde e vinho entre os pontos brancos
+            cor: (() => { const sorteio = Math.random(); return sorteio < 0.15 ? 'laranja' : sorteio < 0.30 ? 'verde' : sorteio < 0.45 ? 'vinho' : 'branco'; })(),
         }));
     }
 

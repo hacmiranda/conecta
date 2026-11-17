@@ -873,20 +873,13 @@
                          animada de login-animacao.css: o símbolo do CRPRS é o "C" -->
                     <svg class="logo-revelacao" viewBox="-14 -3 404 95" aria-hidden="true" focusable="false">
                         <defs>
-                            <!-- Contorno branco fino: o traço vinho do símbolo não some sobre fundo vinho -->
-                            <filter id="contornoBranco" x="-10%" y="-10%" width="120%" height="120%">
-                                <feMorphology in="SourceAlpha" operator="dilate" radius="1.2" result="borda"/>
-                                <feFlood flood-color="#FFFFFF"/>
-                                <feComposite in2="borda" operator="in"/>
-                                <feMerge><feMergeNode/><feMergeNode in="SourceGraphic"/></feMerge>
-                            </filter>
                             <radialGradient id="brilhoSimbolo">
                                 <stop offset="0%" stop-color="#F89327" stop-opacity="0.9"/>
                                 <stop offset="100%" stop-color="#F89327" stop-opacity="0"/>
                             </radialGradient>
                         </defs>
                         <circle class="lr-brilho" cx="19.2" cy="32" r="39" fill="url(#brilhoSimbolo)" opacity="0"/>
-                        <image class="lr-simbolo" filter="url(#contornoBranco)" x="-12.7" y="-1.8" width="63.7" height="67.6" href="images/logo_vazado.png"/>
+                        <image class="lr-simbolo" x="-12.7" y="-1.8" width="63.7" height="67.6" href="images/logo_vazado.png"/>
                         <text class="lr-onecta" x="51" y="54" font-family="Inter, 'Segoe UI', sans-serif" font-size="50" font-weight="800" letter-spacing="-1" fill="#FFFFFF">onecta</text>
                         <text class="lr-crprs" x="228" y="54" font-family="Inter, 'Segoe UI', sans-serif" font-size="50" font-weight="800" letter-spacing="-1" fill="#F89327">CRPRS</text>
                         <rect class="lr-traco" x="1.2" y="70" width="36" height="4" rx="2" fill="#70AB2A"/>
@@ -1374,7 +1367,7 @@
             }
         });
     </script>
-    <script src="login-constelacao.js?v=2"></script>
+    <script src="login-constelacao.js?v=3"></script>
 </body>
 
 </html>
