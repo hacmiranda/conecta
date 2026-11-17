@@ -58,7 +58,7 @@
                         if (dm < RAIO_MOUSE) alfa += (1 - dm / RAIO_MOUSE) * 0.4;
                     }
                     ctx.strokeStyle = `rgba(255, 255, 255, ${alfa.toFixed(3)})`;
-                    ctx.lineWidth = 0.8;
+                    ctx.lineWidth = 1.04; // 0,8 + 30%
                     ctx.beginPath();
                     ctx.moveTo(a.x, a.y);
                     ctx.lineTo(b.x, b.y);
@@ -70,7 +70,7 @@
                 const dm = Math.hypot(a.x - mouse.x, a.y - mouse.y);
                 if (dm < RAIO_MOUSE) {
                     ctx.strokeStyle = `rgba(248, 147, 39, ${((1 - dm / RAIO_MOUSE) * 0.55).toFixed(3)})`;
-                    ctx.lineWidth = 1;
+                    ctx.lineWidth = 1.3;  // 1 + 30%
                     ctx.beginPath();
                     ctx.moveTo(a.x, a.y);
                     ctx.lineTo(mouse.x, mouse.y);
