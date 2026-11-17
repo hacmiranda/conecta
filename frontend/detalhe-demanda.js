@@ -214,6 +214,8 @@ function formatarAcaoHistorico(acao, valorAnterior, valorNovo, demandaMescladaEm
             return `mesclou as demandas <strong>${valorNovo}</strong> nesta demanda`;
         case 'atribuicao_supervisor':
             return `encaminhou a demanda para <strong>${valorNovo}</strong>`;
+        case 'assumiu':
+            return 'assumiu a demanda';
         case 'devolucao':
             return `devolveu a demanda ao gestor (estava com <strong>${valorAnterior}</strong>)`;
         case 'reatribuicao_colega':
@@ -243,6 +245,11 @@ function gerarAcoesDemandaHTML(ticket) {
     const ehResponsavelAtual = ticket.agente_id && ticket.agente_id == usuario.id;
     const setorDaDemanda = ticket.setor_id ? Number(ticket.setor_id) : 'null';
     const botoes = [];
+
+    // Sem responsável: o operador da fila do setor (e a gestão, como atalho) assume para si
+    if (ticket.pode_assumir) {
+        botoes.push(`<button type="button" class="btn-primary btn-acao-assumir" data-acao-demanda="assumir" data-id="${Number(ticket.id)}">🙋 Assumir demanda</button>`);
+    }
 
     if (Papeis.administraSetor(usuario)) {
         botoes.push(`<button class="btn-primary btn-acao-encaminhar" onclick="atribuirTicket(${ticket.id}, ${setorDaDemanda})">👤 Encaminhar a Operador</button>`);
@@ -379,6 +386,9 @@ function mostrarDetalhesTicket(ticket) {
         faixaAviso = `<div class="faixa-aviso-demanda faixa-lixeira" role="status">🗑️ Esta demanda está na <strong>lixeira</strong> desde ${ticket.excluido_em ? new Date(ticket.excluido_em.replace(' ', 'T')).toLocaleString('pt-BR') : ''}${ticket.excluido_por_nome ? ' (excluída por ' + sanitizeHTML(ticket.excluido_por_nome) + ')' : ''}. Restaure-a para voltar a trabalhar nela.</div>`;
         botoesTopo = `<button class="btn-reabrir" onclick="restaurarDemanda(${Number(ticket.id)})" style="margin-left: 1rem; background-color: #28a745;">♻️ Restaurar</button>
             <button class="btn-excluir" onclick="excluirDefinitivo(${Number(ticket.id)})" style="margin-left: 1rem; background-color: var(--vermelho);">🗑️ Excluir definitivamente</button>`;
+    } else if (ticket.fila_do_setor) {
+        faixaAviso = `<div class="faixa-aviso-demanda faixa-fila-setor" role="status">📥 Esta demanda está na <strong>fila do setor</strong>, sem responsável. Para atendê-la, assuma-a: você passa a ser o responsável e pode alterar e responder.
+            <button type="button" class="btn-primary btn-acao-assumir" data-acao-demanda="assumir" data-id="${Number(ticket.id)}">🙋 Assumir demanda</button></div>`;
     } else if (ticket.acesso_historico) {
         faixaAviso = `<div class="faixa-aviso-demanda" role="status">👁️ Você está vendo o <strong>histórico</strong> desta demanda, que passou pelo seu atendimento. Ela está hoje no setor <strong>${sanitizeHTML(ticket.setor_nome || '—')}</strong>${ticket.agente_nome ? ' com <strong>' + sanitizeHTML(ticket.agente_nome) + '</strong>' : ' sem responsável'}. Somente leitura.</div>`;
     } else if (ticket.perfil_consulta) {
@@ -390,7 +400,7 @@ function mostrarDetalhesTicket(ticket) {
             `<button class="btn-reabrir" onclick="reabrirTicket(${ticket.id})" style="margin-left: 1rem; background-color: #28a745;">🔄 Reabrir</button>` : ''}
             <button class="btn-excluir" onclick="excluirTicket(${ticket.id})" style="margin-left: 1rem; background-color: var(--vermelho);">🗑️ Excluir</button>`;
     }
-    const classeAcesso = (ticket.na_lixeira || ticket.acesso_historico || ticket.perfil_consulta) ? 'detalhe-somente-leitura detalhe-sem-comentar'
+    const classeAcesso = (ticket.na_lixeira || ticket.acesso_historico || ticket.perfil_consulta || ticket.fila_do_setor) ? 'detalhe-somente-leitura detalhe-sem-comentar'
         : (ticket.somente_leitura ? 'detalhe-somente-leitura' : '');
 
     detalhesDiv.innerHTML = `
@@ -1208,3 +1218,13 @@ document.addEventListener('pointerdown', function (e) {
         caixa.style.height = r.height + 'px';
     }
 }, true);
+
+// Assumir a demanda (fila do setor): o botão fica na faixa e nas Ações da Demanda; ouvinte delegado (sem onclick)
+document.addEventListener('click', (ev) => {
+    const botao = ev.target.closest('[data-acao-demanda="assumir"]');
+    if (!botao) return;
+    const id = Number(botao.dataset.id);
+    mostrarConfirm('Assumir demanda', 'Você passa a ser o responsável por esta demanda e ela sai da fila do setor. Deseja assumi-la?', (ok) => {
+        if (ok) executarAcaoDemanda(id, 'assumir', {}, '', 'Demanda assumida. Agora você é o responsável.');
+    });
+});

@@ -1012,7 +1012,8 @@ class EmailSender {
         }
     }
     
-    public function notificarAtribuicaoTicket($ticket_id, $agente_id, $atribuido_por_nome, $era_sem_atribuicao = false) {
+    /** $avisar_responsavel = false: quem assumiu a demanda sozinho não recebe "atribuída para você" (17/11/2026) */
+    public function notificarAtribuicaoTicket($ticket_id, $agente_id, $atribuido_por_nome, $era_sem_atribuicao = false, $avisar_responsavel = true) {
         $this->usarRemetenteGlobal();
         try {
             // Buscar agente
@@ -1036,7 +1037,7 @@ class EmailSender {
             $rotulo = ProtocoloService::rotulo($ticket['protocolo'] ?? null, (int) $ticket_id);
 
             // Notificar agente
-            if ($agente['email'] && $this->emailAtivo('int_demanda_atribuida', $ticket_id)) {
+            if ($avisar_responsavel && $agente['email'] && $this->emailAtivo('int_demanda_atribuida', $ticket_id)) {
                 $msg = "👤 DEMANDA ATRIBUÍDA PARA VOCÊ\n\n";
                 $msg .= "Demanda: " . $rotulo . "\n";
                 $msg .= "Título: " . $ticket['titulo'] . "\n";

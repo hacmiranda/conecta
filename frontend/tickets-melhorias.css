@@ -1078,6 +1078,18 @@
 
 .modo-escuro .lixeira-aviso { background: var(--neutro-800); color: var(--neutro-200); }
 .modo-escuro .faixa-aviso-demanda { background: var(--neutro-800); color: var(--vinho-100); }
+
+/* Fila do setor (17/11/2026): demanda sem responsável que o operador pode assumir */
+.faixa-aviso-demanda.faixa-fila-setor {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    border-left-color: var(--laranja-500);
+}
+
+.faixa-fila-setor .btn-acao-assumir { flex-shrink: 0; }
 .modo-escuro .faixa-aviso-demanda.faixa-lixeira { background: #450a0a; color: #fecaca; }
 
 /* Fase 6 das melhorias adiadas: nota interna (nunca vai por e-mail ao solicitante) */

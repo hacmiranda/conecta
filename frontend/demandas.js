@@ -519,14 +519,17 @@ function renderizarKanbanTela(tickets) {
                 <div class="kanban-cards">
         `;
 
+        // Operador: só arrasta e muda o status das demandas dele (as da fila do setor ele lê e assume)
+        const usuarioKanban = JSON.parse(localStorage.getItem('cd_usuario') || '{}');
         col.tickets.forEach(ticket => {
             const isNovaResposta = ticket.status === 'nova_resposta';
+            const podeMover = usuarioKanban.tipo !== 'operador' || Number(ticket.agente_id) === Number(usuarioKanban.id);
             const tituloSeguro = sanitizeHTML(ticket.titulo || '');
             const slaInfo = calcularTextoSLA(ticket);
             const slaBadge = slaInfo ? `<span class="sla-badge sla-badge--kanban ${slaInfo.classe}"><span aria-hidden="true">⏱</span> ${sanitizeHTML(slaInfo.texto)}</span>` : '';
 
             kanbanHTML += `
-                <div class="kanban-card ${isNovaResposta ? 'kanban-nova-resposta' : ''}" draggable="true" ondragstart="dragKanban(event)" data-id="${ticket.id}" onclick="verDetalhes(${ticket.id})">
+                <div class="kanban-card ${isNovaResposta ? 'kanban-nova-resposta' : ''}" draggable="${podeMover}" ${podeMover ? 'ondragstart="dragKanban(event)"' : ''} data-id="${ticket.id}" onclick="verDetalhes(${ticket.id})">
                     <div class="kanban-card-header">
                         <span class="kanban-ticket-id">${numeroDemanda(ticket)}</span>
                         <span class="kanban-ticket-prioridade p-${ticket.prioridade || 'normal'}">${(ticket.prioridade || 'normal').toUpperCase()}</span>
@@ -540,10 +543,10 @@ function renderizarKanbanTela(tickets) {
                         <span class="kanban-agente">${sanitizeHTML(ticket.agente_nome || 'Livre')}</span>
                         <span class="kanban-data">${dataDoBanco(ticket.criado_em).toLocaleDateString('pt-BR')}</span>
                     </div>
-                    <button type="button" class="kanban-mover" data-acao="mover-kanban" data-id="${Number(ticket.id)}"
+                    ${podeMover ? `<button type="button" class="kanban-mover" data-acao="mover-kanban" data-id="${Number(ticket.id)}"
                         aria-label="Mudar status da demanda ${sanitizeHTML(numeroDemanda(ticket))}">
                         <span aria-hidden="true">⇄</span> Mudar status
-                    </button>
+                    </button>` : ''}
                 </div>
             `;
         });

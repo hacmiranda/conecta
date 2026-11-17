@@ -212,6 +212,32 @@ try {
     [$c] = req('PUT', $baseUrl . "tickets.php?id=$demandaA", $T['operadorA'], ['prioridade' => 'alta']);
     verifica('operador responsável altera (200)', $c === 200, (string) $c);
 
+    echo "\n[2b] Fila do setor: operador lê a demanda sem responsável e assume (17/11/2026)\n";
+    $demandaFila = criarDemanda($db, 'zz demanda da fila do setor A', $setorA, null);
+    $ticketsCriados[] = $demandaFila;
+    [$c, $j] = req('GET', $baseUrl . "tickets.php?id=$demandaFila", $T['operadorA2']);
+    verifica('operador do setor lê a demanda sem responsável (200, fila e pode assumir)',
+        $c === 200 && ($j['fila_do_setor'] ?? false) === true && ($j['pode_assumir'] ?? false) === true, (string) $c);
+    [$c, $j] = req('GET', $baseUrl . 'tickets.php?escopo=abertas', $T['operadorA2']);
+    verifica('a demanda da fila aparece na lista do operador', $c === 200 && in_array($demandaFila, array_map('intval', array_column($j ?? [], 'id')), true), (string) $c);
+    [$c] = req('GET', $baseUrl . "tickets.php?id=$demandaFila", $T['gestorB']);
+    verifica('gestor de outro setor não lê a demanda da fila (403)', $c === 403, (string) $c);
+    [$c] = req('PUT', $baseUrl . "tickets.php?id=$demandaFila", $T['operadorA2'], ['prioridade' => 'alta']);
+    verifica('operador não altera a demanda da fila antes de assumir (403)', $c === 403, (string) $c);
+    [$c] = req('POST', $baseUrl . 'comentarios.php', $T['operadorA2'], ['ticket_id' => $demandaFila, 'comentario' => '<p>zz</p>']);
+    verifica('operador não comenta a demanda da fila antes de assumir (403)', $c === 403, (string) $c);
+    [$c] = req('POST', $baseUrl . 'demanda-acoes.php', $T['gestorB'], ['ticket_id' => $demandaFila, 'acao' => 'assumir']);
+    verifica('gestor de outro setor não assume (403)', $c === 403, (string) $c);
+    [$c] = req('POST', $baseUrl . 'demanda-acoes.php', $T['operadorA2'], ['ticket_id' => $demandaFila, 'acao' => 'assumir']);
+    $resp = (int) $db->query("SELECT COALESCE(agente_id, 0) FROM tickets WHERE id = $demandaFila")->fetchColumn();
+    verifica('operador assume a demanda sem comentário (200) e vira o responsável', $c === 200 && $resp === $operadorA2, (string) $c);
+    [$c] = req('POST', $baseUrl . 'demanda-acoes.php', $T['operadorA'], ['ticket_id' => $demandaFila, 'acao' => 'assumir']);
+    verifica('outro operador não assume depois (409)', $c === 409, (string) $c);
+    [$c] = req('GET', $baseUrl . "tickets.php?id=$demandaFila", $T['operadorA']);
+    verifica('assumida, ela sai da fila dos colegas (403)', $c === 403, (string) $c);
+    [$c] = req('PUT', $baseUrl . "tickets.php?id=$demandaFila", $T['operadorA2'], ['prioridade' => 'alta']);
+    verifica('quem assumiu altera (200)', $c === 200, (string) $c);
+
     echo "\n[3] Escopo por setor (?setor_id= é ignorado para quem não é admin)\n";
     [$c, $j] = req('GET', $baseUrl . "tickets.php?escopo=abertas&setor_id=$setorB", $T['gestorA']);
     $vazamento = array_filter($j ?? [], fn($t) => (int) $t['id'] === $demandaB);

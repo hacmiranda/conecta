@@ -191,6 +191,30 @@ final class AcessoServiceTest extends TestCase {
         unset($_GET['setor_id']);
     }
 
+    public function test_fila_do_setor_operador_ve_sem_responsavel_do_proprio_setor(): void {
+        $op = $this->usuario('operador', 5, 2);
+        $this->assertTrue(AcessoService::naFilaDoSetor($op, $this->demanda(['status' => 'novo'])));
+        $this->assertTrue(AcessoService::naFilaDoSetor($op, $this->demanda(['status' => 'em_atendimento'])));
+        $this->assertFalse(AcessoService::naFilaDoSetor($op, $this->demanda(['status' => 'novo', 'agente_id' => 9])), 'já tem responsável');
+        $this->assertFalse(AcessoService::naFilaDoSetor($op, $this->demanda(['status' => 'novo', 'setor_id' => 3])), 'outro setor');
+        $this->assertFalse(AcessoService::naFilaDoSetor($op, $this->demanda(['status' => 'encerrado'])), 'arquivada');
+        $this->assertFalse(AcessoService::naFilaDoSetor($op, $this->demanda(['status' => 'novo', 'excluido_em' => '2026-11-17 10:00:00'])), 'na lixeira');
+        $this->assertFalse(AcessoService::naFilaDoSetor($this->usuario('gestor', 6, 2), $this->demanda(['status' => 'novo'])), 'fila é do operador');
+        // Ver a fila não é operar: comentar e alterar continuam exigindo ser o responsável
+        $this->assertFalse(AcessoService::podeVerTicket($op, $this->demanda(['status' => 'novo'])));
+        $this->assertFalse(AcessoService::podeOperarTicket($op, $this->demanda(['status' => 'novo'])));
+    }
+
+    public function test_quem_pode_assumir(): void {
+        $sem = $this->demanda(['status' => 'novo']);
+        $this->assertTrue(AcessoService::podeAssumirTicket($this->usuario('operador', 5, 2), $sem));
+        $this->assertTrue(AcessoService::podeAssumirTicket($this->usuario('gestor', 6, 2), $sem));
+        $this->assertFalse(AcessoService::podeAssumirTicket($this->usuario('operador', 5, 3), $sem), 'operador de outro setor');
+        $this->assertFalse(AcessoService::podeAssumirTicket($this->usuario('gestor', 6, 3), $sem), 'gestor de outro setor');
+        $this->assertFalse(AcessoService::podeAssumirTicket($this->usuario('operador', 5, 2), $this->demanda(['status' => 'novo', 'agente_id' => 9])), 'já tem responsável');
+        $this->assertFalse(AcessoService::podeAssumirTicket($this->usuario('supervisor', 7, 2), $sem), 'perfil de consulta');
+    }
+
     public function test_rotulo_do_papel_igual_ao_da_tela(): void {
         // Espelho de Papeis.rotulo (frontend/papeis.js): usado no CSV do Painel de Setores
         $this->assertSame('Operador', AcessoService::rotuloPapel('operador'));

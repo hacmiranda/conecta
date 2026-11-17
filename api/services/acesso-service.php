@@ -207,6 +207,39 @@ class AcessoService {
     }
 
     /**
+     * Fila do setor (17/11/2026): demanda aberta, fora da lixeira e SEM responsável, no setor do operador. O operador
+     * a enxerga (lista e detalhe, só leitura) para poder assumi-la sem esperar o gestor; só altera e comenta depois de
+     * assumir (podeVerTicket/podeOperarTicket não mudam: comentar exige ser o responsável).
+     */
+    public static function naFilaDoSetor(array $user, array $ticket): bool {
+        if (($user['tipo'] ?? '') !== 'operador') {
+            return false;
+        }
+        if (!empty($ticket['excluido_em']) || !empty($ticket['agente_id'])
+            || in_array((string) ($ticket['status'] ?? ''), self::STATUS_ARQUIVO, true)) {
+            return false;
+        }
+        $setor = isset($ticket['setor_id']) ? (int) $ticket['setor_id'] : 0;
+        return $setor > 0 && $setor === (int) ($user['setor_id'] ?? 0);
+    }
+
+    /**
+     * Quem pode ASSUMIR a demanda (ação "assumir" de demanda-acoes.php): ela está aberta e sem responsável, e quem
+     * pede é operador da fila do setor ou gestor/coordenador do setor (para eles é um atalho de "atribuir a mim").
+     */
+    public static function podeAssumirTicket(array $user, array $ticket): bool {
+        if (!empty($ticket['excluido_em']) || !empty($ticket['agente_id'])
+            || in_array((string) ($ticket['status'] ?? ''), self::STATUS_ARQUIVO, true)) {
+            return false;
+        }
+        if (self::naFilaDoSetor($user, $ticket)) {
+            return true;
+        }
+        return self::ehGestao($user)
+            && self::temAcessoAoSetor($user, isset($ticket['setor_id']) ? (int) $ticket['setor_id'] : null);
+    }
+
+    /**
      * Quem pode ALTERAR a demanda (status, prioridade, categoria, comentar como responsável).
      * Operador só altera a demanda em que é o responsável atual; cliente nunca altera.
      */
@@ -260,6 +293,9 @@ class AcessoService {
         }
         if (!empty($ticket['excluido_em'])) {
             return false;
+        }
+        if (self::naFilaDoSetor($user, $ticket)) {
+            return true; // operador: demanda sem responsável do setor dele (só leitura, até assumir)
         }
         $tipo = $user['tipo'] ?? '';
         $ticketId = (int) ($ticket['id'] ?? 0);

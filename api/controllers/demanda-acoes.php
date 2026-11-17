@@ -48,12 +48,18 @@ $acao = trim($input['acao'] ?? '');
 $comentario_texto = trim((string) ($input['comentario'] ?? ''));
 $comentario = nl2br(htmlspecialchars($comentario_texto, ENT_QUOTES, 'UTF-8'), false);
 
-$acoes_validas = ['atribuir', 'devolver', 'reatribuir_colega', 'transferir_setor'];
+$acoes_validas = ['atribuir', 'assumir', 'devolver', 'reatribuir_colega', 'transferir_setor'];
 
 if (!$ticket_id || !in_array($acao, $acoes_validas, true)) {
     http_response_code(400);
     echo json_encode(['error' => 'ticket_id e acao (válida) são obrigatórios']);
     exit;
+}
+
+// Assumir (pegar para si uma demanda sem responsável do setor) não exige comentário: vai um texto padrão
+if ($acao === 'assumir' && $comentario_texto === '') {
+    $comentario_texto = 'Assumiu a demanda para atendimento.';
+    $comentario = $comentario_texto;
 }
 
 if ($comentario_texto === '') {
@@ -104,6 +110,13 @@ try {
     if ($acao === 'atribuir') {
         AuthMiddleware::verificarGestor($user);
     }
+    // Assumir: operador da fila do setor (ou gestão do setor) e a demanda ainda sem responsável
+    if ($acao === 'assumir' && !AcessoService::podeAssumirTicket($user, $ticket)) {
+        $ocupada = !empty($ticket['agente_id']);
+        http_response_code($ocupada ? 409 : 403);
+        echo json_encode(['error' => $ocupada ? 'Esta demanda já tem responsável.' : 'Você não pode assumir esta demanda.']);
+        exit;
+    }
     if (in_array($acao, ['devolver', 'reatribuir_colega', 'transferir_setor'], true)
         && $tipo === 'operador' && (int) ($ticket['agente_id'] ?? 0) !== (int) $user['id']) {
         http_response_code(403);
@@ -117,6 +130,10 @@ try {
     $ticket = array_merge($ticket, $trava->fetch(PDO::FETCH_ASSOC) ?: []);
     if (in_array($ticket['status'], AcessoService::STATUS_ARQUIVO, true)) {
         throw new InvalidArgumentException('A demanda acabou de ser encerrada ou cancelada');
+    }
+    // Dois colegas clicando "Assumir" ao mesmo tempo: a linha está travada; o segundo encontra o responsável
+    if ($acao === 'assumir' && !empty($ticket['agente_id'])) {
+        throw new DomainException('Um colega acabou de assumir esta demanda.', 409);
     }
     $auditoria = new AuditoriaService($db);
     $pos_commit_atribuicao = null; // [destino_id, era_sem_responsavel] para os e-mails depois do commit
@@ -135,8 +152,9 @@ try {
 
     $notificar = []; // [usuario_id => mensagem]
 
-    if ($acao === 'atribuir') {
-        $destino_id = isset($input['usuario_id']) ? (int) $input['usuario_id'] : 0;
+    if ($acao === 'atribuir' || $acao === 'assumir') {
+        // Assumir = atribuir a si mesmo (mesmos efeitos: status, SLA, janela do responsável, primeira resposta)
+        $destino_id = $acao === 'assumir' ? (int) $user['id'] : (isset($input['usuario_id']) ? (int) $input['usuario_id'] : 0);
         if (!$destino_id) {
             throw new InvalidArgumentException('usuario_id do destinatário é obrigatório');
         }
@@ -175,10 +193,18 @@ try {
 
         $hist_valor_anterior = $agente_anterior_nome;
         $hist_valor_novo = $destino['nome'];
-        $hist_acao = 'atribuicao_supervisor';
+        $hist_acao = $acao === 'assumir' ? 'assumiu' : 'atribuicao_supervisor';
 
         $auditoria->registrarTicket($ticket_id, $user['id'], 'agente', $agente_anterior_nome, $destino['nome']);
-        $notificar[$destino_id] = "A demanda (" . ProtocoloService::rotuloPorId($db, (int) $ticket_id) . ") foi atribuída a você por {$nome_ator}.";
+        if ($acao === 'assumir') {
+            // Avisa a gestão do setor (quem assumiu não precisa ser avisado nem receber o e-mail de atribuição)
+            foreach (AcessoService::destinatariosInternosDoSetor($db, $ticket['setor_id'] ? (int) $ticket['setor_id'] : null, (int) $user['id']) as $dest) {
+                $notificar[$dest['id']] = "{$nome_ator} assumiu a demanda (" . ProtocoloService::rotuloPorId($db, (int) $ticket_id) . ").";
+            }
+            $pos_commit_atribuicao[] = false;
+        } else {
+            $notificar[$destino_id] = "A demanda (" . ProtocoloService::rotuloPorId($db, (int) $ticket_id) . ") foi atribuída a você por {$nome_ator}.";
+        }
 
     } elseif ($acao === 'devolver') {
         $agente_anterior_nome = $responsavel_atual_nome;
@@ -342,7 +368,8 @@ try {
     if ($pos_commit_atribuicao !== null) {
         try {
             require_once __DIR__ . '/../services/email-sender.php';
-            (new EmailSender($db))->notificarAtribuicaoTicket($ticket_id, $pos_commit_atribuicao[0], $nome_ator, $pos_commit_atribuicao[1]);
+            (new EmailSender($db))->notificarAtribuicaoTicket($ticket_id, $pos_commit_atribuicao[0], $nome_ator, $pos_commit_atribuicao[1],
+                $pos_commit_atribuicao[2] ?? true);
         } catch (Exception $e) {
             error_log('[DEMANDA-ACOES] Ação salva; falha ao enviar e-mails: ' . $e->getMessage());
         }
@@ -355,6 +382,13 @@ try {
         $db->rollBack();
     }
     http_response_code(400);
+    echo json_encode(['error' => $e->getMessage()]);
+} catch (DomainException $e) {
+    // Conflito (ex.: outro colega assumiu a demanda ao mesmo tempo)
+    if ($db->inTransaction()) {
+        $db->rollBack();
+    }
+    http_response_code($e->getCode() === 409 ? 409 : 400);
     echo json_encode(['error' => $e->getMessage()]);
 } catch (Exception $e) {
     if ($db->inTransaction()) {

@@ -233,6 +233,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
             $ticket['acesso_historico'] = !AcessoService::podeVerTicket($user, $ticket);   // só leitura do histórico
             $ticket['somente_leitura'] = !AcessoService::podeOperarTicket($user, $ticket); // não pode alterar
             $ticket['perfil_consulta'] = AcessoService::ehSomenteLeitura($user);           // coordenador geral / supervisor: nem comentar
+            // Fila do setor: o operador lê a demanda sem responsável e pode assumi-la (demanda-acoes.php, acao=assumir)
+            $ticket['fila_do_setor'] = AcessoService::naFilaDoSetor($user, $ticket);
+            $ticket['pode_assumir'] = AcessoService::podeAssumirTicket($user, $ticket);
 
             // Para o formulário de comentário desabilitar "Enviar por e-mail"/"Com cópia" quando
             // desligados no setor atual da demanda (NotificacaoEmailService)
@@ -374,9 +377,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
                         $params[':self_id3'] = $usuario_logado_id;
                         $params[':self_id4'] = $usuario_logado_id;
                     } else {
-                        $where[] = "(t.agente_id = :self_id OR t.usuario_id = :self_id2)";
+                        // As dele e a fila do setor: abertas e sem responsável no setor dele, para assumir
+                        // sem esperar o gestor (17/11/2026; AcessoService::naFilaDoSetor)
+                        $where[] = "(t.agente_id = :self_id OR t.usuario_id = :self_id2
+                                     OR (t.agente_id IS NULL AND t.setor_id = :self_setor AND t.status NOT IN ($arquivados)))";
                         $params[':self_id'] = $usuario_logado_id;
                         $params[':self_id2'] = $usuario_logado_id;
+                        $params[':self_setor'] = (int) ($user['setor_id'] ?? 0);
                     }
                 } else {
                     // cliente: apenas as próprias demandas
