@@ -114,12 +114,40 @@
     pointer-events: none;
 }
 
+/* ── Painel esquerdo em três faixas na altura toda: logo e subtítulo no alto, recursos no meio, copyright no pé ── */
+.login-brand {
+    justify-content: space-between;
+    padding: 3rem 2.5rem 1.25rem;
+}
+
+.login-brand .brand-content {
+    display: flex;
+    flex: 1;
+    flex-direction: column;
+    justify-content: space-around;
+    width: 100%;
+}
+
+.login-brand .brand-logo-wrap { margin-bottom: 0.75rem; }
+.login-brand .brand-subtitle { font-size: 0.92rem; }
+.login-brand .brand-meio { display: flex; flex-direction: column; align-items: center; }
+.login-brand .brand-divider { margin: 0 auto 1.75rem; }
+.login-brand .brand-features { margin-top: 0; }
+
+.login-brand .brand-features li {
+    margin-bottom: 1rem;
+    font-size: 0.88rem;
+}
+
+.login-brand .brand-features li:last-child { margin-bottom: 0; }
+
 /* ── Rodapé do painel esquerdo: copyright ── */
 .brand-rodape {
-    position: absolute;
-    right: 1.5rem;
-    bottom: 1rem;
-    left: 1.5rem;
+    position: relative;
+    margin-top: 2rem;
+    padding-top: 1rem;
+    border-top: 1px solid rgba(255, 255, 255, 0.1);
+    width: 100%;
     z-index: 1;
     color: rgba(255, 255, 255, 0.6);
     font-size: 0.72rem;
@@ -129,4 +157,11 @@
 
 @media (prefers-reduced-motion: no-preference) {
     .brand-rodape { animation: lr-sobe 0.5s ease-out 2.9s both; }
+}
+
+/* Celular: o painel fica em cima do formulário, compacto (os recursos já somem em login.html) */
+@media (max-width: 680px) {
+    .login-brand { padding: 2rem 1.5rem 1rem; }
+    .login-brand .brand-divider { margin: 1rem auto 0; }
+    .brand-rodape { margin-top: 1rem; padding-top: 0.75rem; }
 }

@@ -852,7 +852,7 @@
             outline: 2px solid var(--azul-light);
         }
     </style>
-    <link rel="stylesheet" href="login-animacao.css?v=2">
+    <link rel="stylesheet" href="login-animacao.css?v=3">
 </head>
 
 <body>
@@ -868,6 +868,7 @@
         <!-- ===================== PAINEL ESQUERDO ===================== -->
         <aside class="login-brand" aria-label="Identidade Conecta CRPRS">
             <div class="brand-content">
+                <div class="brand-topo">
                 <div class="brand-logo-wrap" id="logo-brand">
                     <!-- Logotipo Conecta (o mesmo de images/logo-conecta-negativo.svg), em partes para a revelação
                          animada de login-animacao.css: o símbolo do CRPRS é o "C" -->
@@ -889,7 +890,9 @@
 
                 <h2 class="brand-name sr-only">Conecta CRPRS — gestão de demandas por setor</h2>
                 <p class="brand-subtitle">Conselho Regional de Psicologia RS</p>
+                </div>
 
+                <div class="brand-meio">
                 <div class="brand-divider" aria-hidden="true"></div>
 
                 <ul class="brand-features" aria-label="Recursos do sistema">
@@ -910,6 +913,7 @@
                         Dashboard e relatórios gerenciais
                     </li>
                 </ul>
+                </div>
             </div>
             <footer class="brand-rodape">
                 &copy; <span id="ano-copyright">2026</span> CRPRS &mdash; Conselho Regional de Psicologia do Rio Grande do Sul.
