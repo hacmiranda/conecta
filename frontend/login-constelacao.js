@@ -119,3 +119,9 @@
     });
     iniciar();
 })();
+
+// Rodapé do painel esquerdo: o ano do copyright acompanha o ano atual
+(function () {
+    const ano = document.getElementById('ano-copyright');
+    if (ano) ano.textContent = String(new Date().getFullYear());
+})();

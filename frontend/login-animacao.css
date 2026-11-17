@@ -113,3 +113,20 @@
     height: 100%;
     pointer-events: none;
 }
+
+/* ── Rodapé do painel esquerdo: copyright ── */
+.brand-rodape {
+    position: absolute;
+    right: 1.5rem;
+    bottom: 1rem;
+    left: 1.5rem;
+    z-index: 1;
+    color: rgba(255, 255, 255, 0.6);
+    font-size: 0.72rem;
+    line-height: 1.4;
+    text-align: center;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+    .brand-rodape { animation: lr-sobe 0.5s ease-out 2.9s both; }
+}
