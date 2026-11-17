@@ -1,0 +1,172 @@
+/*
+ * Tempo trabalhado na demanda (17/11/2026): seção #tempos-demanda do detalhe. Só tokens; modo escuro por
+ * body.modo-escuro.
+ */
+.tempos-demanda {
+    margin-top: 1.5rem;
+    padding-top: 1rem;
+    border-top: 1px solid var(--neutro-200);
+}
+
+.tempos-titulo {
+    margin: 0 0 0.5rem;
+    color: var(--vinho-700);
+    font-size: 1.1rem;
+}
+
+.tempos-total {
+    margin: 0 0 0.75rem;
+    color: var(--neutro-800);
+}
+
+.tempos-vazio,
+.tempos-sem {
+    color: var(--neutro-600);
+    font-style: italic;
+}
+
+.tempos-rolagem { overflow-x: auto; }
+
+.tempos-tabela {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.9rem;
+}
+
+.tempos-tabela th {
+    padding: 8px 10px;
+    border-bottom: 2px solid var(--vinho-600);
+    background: var(--neutro-100);
+    color: var(--neutro-900);
+    font-size: 0.8rem;
+    text-align: left;
+}
+
+.tempos-tabela td {
+    padding: 8px 10px;
+    border-bottom: 1px solid var(--neutro-200);
+    vertical-align: middle;
+}
+
+.tempos-acoes {
+    white-space: nowrap;
+    text-align: right;
+}
+
+.tempos-botao-icone {
+    min-width: 32px;
+    min-height: 32px;
+    border: 1px solid var(--neutro-200);
+    border-radius: var(--radius-sm);
+    background: var(--branco);
+    cursor: pointer;
+}
+
+.tempos-botao-icone:hover { border-color: var(--vinho-600); }
+
+.tempos-form { margin-top: 1rem; }
+
+.tempos-form fieldset {
+    margin: 0;
+    padding: 0.75rem 1rem 1rem;
+    border: 1px solid var(--neutro-200);
+    border-radius: var(--radius-md);
+    background: var(--neutro-50);
+}
+
+.tempos-form legend {
+    padding: 0 0.4rem;
+    color: var(--vinho-700);
+    font-weight: 700;
+}
+
+.tempos-campos {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-end;
+    gap: 0.75rem;
+}
+
+.tempos-campo {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.tempos-campo[hidden] { display: none; }
+
+.tempos-campo label,
+.tempos-rotulo {
+    color: var(--neutro-800);
+    font-size: 0.82rem;
+    font-weight: 600;
+}
+
+.tempos-campo input[type="date"],
+.tempos-campo input[type="time"],
+.tempos-campo input[type="text"] {
+    width: auto;
+    margin: 0;
+    padding: 6px 8px;
+    border: 1.5px solid var(--neutro-200);
+    border-radius: var(--radius-sm);
+    background: var(--branco);
+    color: var(--neutro-900);
+    font-family: inherit;
+}
+
+.tempos-campo input[name="duracao"] { width: 6rem; }
+.tempos-descricao { flex: 1; min-width: 12rem; }
+.tempos-descricao input[type="text"] { width: 100%; }
+
+.tempos-modo {
+    flex-direction: column;
+    gap: 2px;
+}
+
+.tempos-opcao {
+    white-space: nowrap;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-weight: 400;
+}
+
+.tempos-erro {
+    margin: 0.5rem 0 0;
+    color: var(--vinho-700);
+    font-weight: 600;
+}
+
+.tempos-botoes {
+    display: flex;
+    gap: 0.5rem;
+    margin-top: 0.75rem;
+}
+
+.tempos-botoes [hidden] { display: none; }
+
+body.modo-escuro .tempos-titulo,
+body.modo-escuro .tempos-form legend { color: var(--laranja-500); }
+body.modo-escuro .tempos-total,
+body.modo-escuro .tempos-campo label,
+body.modo-escuro .tempos-rotulo { color: var(--neutro-50); }
+body.modo-escuro .tempos-vazio,
+body.modo-escuro .tempos-sem { color: var(--neutro-200); }
+body.modo-escuro .tempos-tabela th { background: var(--neutro-900); color: var(--neutro-50); }
+body.modo-escuro .tempos-tabela td,
+body.modo-escuro .tempos-demanda { border-color: var(--neutro-600); }
+body.modo-escuro .tempos-form fieldset { background: var(--neutro-800); border-color: var(--neutro-600); }
+body.modo-escuro .tempos-campo input[type="date"],
+body.modo-escuro .tempos-campo input[type="time"],
+body.modo-escuro .tempos-campo input[type="text"],
+body.modo-escuro .tempos-botao-icone { background: var(--neutro-900); color: var(--neutro-50); border-color: var(--neutro-600); }
+body.modo-escuro .tempos-erro { color: var(--vinho-100); }
+
+@media (max-width: 600px) {
+    .tempos-campos { flex-direction: column; align-items: stretch; }
+    .tempos-campo input[type="date"],
+    .tempos-campo input[type="time"],
+    .tempos-campo input[type="text"],
+    .tempos-campo input[name="duracao"] { width: 100%; }
+}

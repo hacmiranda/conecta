@@ -135,6 +135,10 @@ function exibirRelatorio(dados) {
                 <h3>Tempo Médio 1º Atendimento</h3>
                 <div class="resumo-numero">${formatarTempo(dados.estatisticas.tempoMedioPrimeiroAtendimentoSegundos)}</div>
             </div>
+            <div class="resumo-card">
+                <h3>Tempo Trabalhado</h3>
+                <div class="resumo-numero">${relatorioHoras(dados.estatisticas.totalMinutosTrabalhados)}</div>
+            </div>
         </div>
 
         <div class="relatorio-tabela">
@@ -151,6 +155,7 @@ function exibirRelatorio(dados) {
                         <th scope="col">Status</th>
                         <th scope="col">Prioridade</th>
                         <th scope="col">Fechamento</th>
+                        <th scope="col">Tempo trabalhado</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -181,6 +186,7 @@ function exibirRelatorio(dados) {
                 <td>${ticket.status.charAt(0).toUpperCase() + ticket.status.slice(1)}</td>
                 <td>${ticket.prioridade.charAt(0).toUpperCase() + ticket.prioridade.slice(1)}</td>
                 <td><small style=""color: #666;"">${dataFechamento}</small></td>
+                <td>${Number(ticket.minutos_trabalhados) > 0 ? relatorioHoras(ticket.minutos_trabalhados) : '-'}</td>
             </tr>
         `;
     });
@@ -192,6 +198,14 @@ function exibirRelatorio(dados) {
     `;
 
     container.innerHTML = html;
+}
+
+// Tempo trabalhado (minutos) como "3h05" / "45 min" (17/11/2026, ticket_tempos)
+function relatorioHoras(minutos) {
+    const m = Math.max(0, Number(minutos) || 0);
+    const h = Math.floor(m / 60);
+    const r = m % 60;
+    return h ? `${h}h${r ? String(r).padStart(2, '0') : ''}` : `${r} min`;
 }
 
 // Exportar relatório
@@ -213,7 +227,7 @@ function exportarRelatorio(formato) {
 function exportarExcel() {
     const dados = dadosRelatorioAtual;
     let csv = '\uFEFF'; // BOM UTF-8
-    csv += 'Nº Demanda;Data Abertura;Hora Abertura;Assunto;Solicitante;Responsável;Subcategoria;Status;Prioridade;Data Fechamento;Hora Fechamento\n';
+    csv += 'Nº Demanda;Data Abertura;Hora Abertura;Assunto;Solicitante;Responsável;Subcategoria;Status;Prioridade;Data Fechamento;Hora Fechamento;Minutos trabalhados\n';
 
     dados.tickets.forEach(ticket => {
         const dataAbertura = dataDoBanco(ticket.criado_em);
@@ -237,7 +251,7 @@ function exportarExcel() {
         const status = ticket.status.charAt(0).toUpperCase() + ticket.status.slice(1);
         const prioridade = ticket.prioridade.charAt(0).toUpperCase() + ticket.prioridade.slice(1);
 
-        csv += `${numero};${dataAberturaFormatada};${horaAberturaFormatada};${titulo};${solicitante};${responsavel};${categoria};${status};${prioridade};${dataFechamento};${horaFechamento}\n`;
+        csv += `${numero};${dataAberturaFormatada};${horaAberturaFormatada};${titulo};${solicitante};${responsavel};${categoria};${status};${prioridade};${dataFechamento};${horaFechamento};${Number(ticket.minutos_trabalhados) || 0}\n`;
     });
 
     const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });

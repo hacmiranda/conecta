@@ -149,6 +149,7 @@ async function verDetalhes(ticketId) {
             toggleCampoComCopia(); // o envio por e-mail já vem marcado: mostra o campo de cópia e ajusta o botão
 
             carregarLembretes(ticketId);
+            if (typeof carregarTemposDemanda === 'function') carregarTemposDemanda(ticketId);
             if (typeof carregarSeletorMacros === 'function') carregarSeletorMacros();
         }, 100);
     } catch (e) {
@@ -387,7 +388,7 @@ function mostrarDetalhesTicket(ticket) {
         botoesTopo = `<button class="btn-reabrir" onclick="restaurarDemanda(${Number(ticket.id)})" style="margin-left: 1rem; background-color: #28a745;">♻️ Restaurar</button>
             <button class="btn-excluir" onclick="excluirDefinitivo(${Number(ticket.id)})" style="margin-left: 1rem; background-color: var(--vermelho);">🗑️ Excluir definitivamente</button>`;
     } else if (ticket.fila_do_setor) {
-        faixaAviso = `<div class="faixa-aviso-demanda faixa-fila-setor" role="status">📥 Esta demanda está na <strong>fila do setor</strong>, sem responsável. Para atendê-la, assuma-a: você passa a ser o responsável e pode alterar e responder.
+        faixaAviso = `<div class="faixa-aviso-demanda faixa-fila-setor" role="status"><span>📥 Esta demanda está na <strong>fila do setor</strong>, sem responsável. Para atendê-la, assuma-a: você passa a ser o responsável e pode alterar e responder.</span>
             <button type="button" class="btn-primary btn-acao-assumir" data-acao-demanda="assumir" data-id="${Number(ticket.id)}">🙋 Assumir demanda</button></div>`;
     } else if (ticket.acesso_historico) {
         faixaAviso = `<div class="faixa-aviso-demanda" role="status">👁️ Você está vendo o <strong>histórico</strong> desta demanda, que passou pelo seu atendimento. Ela está hoje no setor <strong>${sanitizeHTML(ticket.setor_nome || '—')}</strong>${ticket.agente_nome ? ' com <strong>' + sanitizeHTML(ticket.agente_nome) + '</strong>' : ' sem responsável'}. Somente leitura.</div>`;
@@ -456,6 +457,8 @@ function mostrarDetalhesTicket(ticket) {
         }
 
             ${gerarAcoesDemandaHTML(ticket)}
+
+            <section class="tempos-demanda" id="tempos-demanda" data-ticket-id="${Number(ticket.id)}" aria-labelledby="tempos-demanda-titulo"></section>
 
             ${ticket.anexos.length > 0 ? `
                 <div class="anexos-section" style="margin-top: 1.5rem; border-top: 1px solid #eee; padding-top: 1rem;">

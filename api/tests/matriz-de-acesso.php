@@ -238,6 +238,27 @@ try {
     [$c] = req('PUT', $baseUrl . "tickets.php?id=$demandaFila", $T['operadorA2'], ['prioridade' => 'alta']);
     verifica('quem assumiu altera (200)', $c === 200, (string) $c);
 
+    echo "\n[2c] Tempo trabalhado na demanda (17/11/2026)\n";
+    $tempos = $baseUrl . 'demanda-tempos.php';
+    $hoje = date('Y-m-d');
+    [$c, $j] = req('POST', $tempos, $T['operadorA'], ['ticket_id' => $demandaA, 'data_trabalho' => $hoje, 'hora_inicio' => '08:00', 'hora_fim' => '09:30']);
+    $lancA = (int) ($j['itens'][0]['id'] ?? 0);
+    verifica('responsável lança tempo (201) e o total soma 90 min', $c === 201 && ($j['total_minutos'] ?? 0) === 90, (string) $c);
+    [$c] = req('POST', $tempos, $T['operadorA2'], ['ticket_id' => $demandaA, 'data_trabalho' => $hoje, 'duracao' => '1:00']);
+    verifica('quem nunca atendeu a demanda não lança (403)', $c === 403, (string) $c);
+    [$c] = req('POST', $tempos, $T['operadorA'], ['ticket_id' => $demandaA, 'data_trabalho' => $hoje, 'hora_inicio' => '10:00', 'hora_fim' => '09:00']);
+    verifica('fim antes do início é recusado (400)', $c === 400, (string) $c);
+    [$c] = req('PUT', $tempos . '?id=' . $lancA, $T['operadorA2'], ['data_trabalho' => $hoje, 'duracao' => '2:00']);
+    verifica('colega não altera o lançamento de outro (403)', $c === 403, (string) $c);
+    [$c, $j] = req('PUT', $tempos . '?id=' . $lancA, $T['gestorA'], ['data_trabalho' => $hoje, 'duracao' => '2:00']);
+    verifica('gestão do setor corrige o lançamento (200)', $c === 200 && ($j['total_minutos'] ?? 0) === 120, (string) $c);
+    [$c] = req('GET', $tempos . '?ticket_id=' . $demandaA, $T['gestorB']);
+    verifica('gestor de outro setor não vê o tempo (403)', $c === 403, (string) $c);
+    [$c, $j] = req('GET', $tempos . '?ticket_id=' . $demandaA, $T['operadorA']);
+    verifica('responsável vê os lançamentos e pode lançar', $c === 200 && ($j['pode_lancar'] ?? false) === true && count($j['itens'] ?? []) === 1, (string) $c);
+    [$c] = req('DELETE', $tempos . '?id=' . $lancA, $T['operadorA']);
+    verifica('autor exclui o lançamento (200)', $c === 200, (string) $c);
+
     echo "\n[3] Escopo por setor (?setor_id= é ignorado para quem não é admin)\n";
     [$c, $j] = req('GET', $baseUrl . "tickets.php?escopo=abertas&setor_id=$setorB", $T['gestorA']);
     $vazamento = array_filter($j ?? [], fn($t) => (int) $t['id'] === $demandaB);
@@ -707,6 +728,8 @@ try {
 } finally {
     echo "\n[limpeza]\n";
     $idsTickets = implode(',', array_filter($ticketsCriados)) ?: '0';
+    // Auditoria dos lançamentos de tempo feitos pelas contas de teste (seção [2c])
+    $db->exec("DELETE FROM auditoria WHERE tabela = 'ticket_tempos' AND usuario_id IN (" . (implode(',', array_filter($usuariosCriados)) ?: '0') . ")");
     $db->exec("DELETE FROM notificacoes WHERE ticket_id IN ($idsTickets)");
     // Auditoria não tem chave estrangeira (fica mesmo se a demanda some): apaga a das demandas de teste
     $db->exec("DELETE FROM auditoria_tickets WHERE ticket_id IN ($idsTickets)");

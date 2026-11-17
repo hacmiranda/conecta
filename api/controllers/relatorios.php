@@ -39,7 +39,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
                   a.nome as agente_nome,
                   NULLIF(CONCAT_WS(' - ', c.nome, mc.nome), '') as categoria_nome,
                   ts.primeira_resposta_em, ts.tempo_primeira_resposta_segundos,
-                  ts.resolvido_em, ts.tempo_resolucao_segundos
+                  ts.resolvido_em, ts.tempo_resolucao_segundos,
+                  (SELECT COALESCE(SUM(tt.minutos), 0) FROM ticket_tempos tt WHERE tt.ticket_id = t.id) AS minutos_trabalhados
                   FROM tickets t
                   LEFT JOIN usuarios u ON t.usuario_id = u.id
                   LEFT JOIN usuarios a ON t.agente_id = a.id
@@ -137,7 +138,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
                 'totalTickets' => $totalTickets,
                 'ticketsEncerrados' => $ticketsEncerradosCount,
                 'tempoMedioSegundos' => $tempoMedioSegundos,
-                'tempoMedioPrimeiroAtendimentoSegundos' => $tempoPrimeiroAtendimentoSegundos
+                'tempoMedioPrimeiroAtendimentoSegundos' => $tempoPrimeiroAtendimentoSegundos,
+                // Tempo trabalhado lançado nas demandas do relatório (17/11/2026, ticket_tempos)
+                'totalMinutosTrabalhados' => array_sum(array_map(fn($t) => (int) $t['minutos_trabalhados'], $tickets)),
             ]
         ];
 
