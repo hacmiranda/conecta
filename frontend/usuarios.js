@@ -156,10 +156,12 @@ const GRUPOS_EQUIPE_USUARIOS = [
     ['operador', '👥 Operadores']
 ];
 
-// Quem já coordena cada setor (principal ou adicional), para o admin não dar o mesmo setor a dois coordenadores
-function coordenadorDeCadaSetor() {
+// Quem já coordena cada setor (principal ou adicional), para o admin não dar o mesmo setor a dois coordenadores.
+// `equipe` = lista de usuários a consultar; sem ela, a da aba aberta (na aba Solicitantes ela não tem coordenadores:
+// a promoção passa a equipe buscada à parte)
+function coordenadorDeCadaSetor(equipe) {
     const mapa = {};
-    usuariosCacheAtual.filter(u => u.tipo === 'coordenador' && (u.ativo === 1 || u.ativo === '1')).forEach(u => {
+    (equipe || usuariosCacheAtual).filter(u => u.tipo === 'coordenador' && (u.ativo === 1 || u.ativo === '1')).forEach(u => {
         if (u.setor_id) mapa[String(u.setor_id)] = { id: Number(u.id), nome: u.nome };
         (u.setores_adicionais || []).forEach(s => { mapa[String(s.id)] = { id: Number(u.id), nome: u.nome }; });
     });
@@ -167,9 +169,9 @@ function coordenadorDeCadaSetor() {
 }
 
 // Caixas de seleção dos setores adicionais de um coordenador (só o admin vê)
-function caixasSetoresAdicionais(setores, selecionados, usuarioId) {
+function caixasSetoresAdicionais(setores, selecionados, usuarioId, equipe) {
     const marcados = new Set((selecionados || []).map(String));
-    const ocupados = coordenadorDeCadaSetor();
+    const ocupados = coordenadorDeCadaSetor(equipe);
     return setores.map(s => {
         const dono = ocupados[String(s.id)];
         const ocupadoPorOutro = dono && Number(dono.id) !== Number(usuarioId || 0);
@@ -205,14 +207,14 @@ function opcoesPerfilUsuario(ehAdmin, atual) {
 }
 
 // Campos que só o admin preenche: setores adicionais do coordenador e atendimento externo
-function camposSoAdminUsuario(prefixo, setores, usuario) {
+function camposSoAdminUsuario(prefixo, setores, usuario, equipe) {
     const extras = ((usuario && usuario.setores_adicionais) || []).map(s => s.id);
     return `
         <div class="form-group" id="${prefixo}grupo-setores-adicionais" ${usuario && usuario.tipo === 'coordenador' ? '' : 'hidden'}>
             <details class="fieldset-setores-adicionais" open>
                 <summary>Setores adicionais do coordenador (além do setor principal)
                     <span class="contagem-setores-adicionais" data-contagem-setores>${contagemSetoresAdicionais(extras.length)}</span></summary>
-                <div class="caixas-setores-adicionais" role="group" aria-label="Setores adicionais do coordenador">${caixasSetoresAdicionais(setores, extras, usuario ? usuario.id : null)}</div>
+                <div class="caixas-setores-adicionais" role="group" aria-label="Setores adicionais do coordenador">${caixasSetoresAdicionais(setores, extras, usuario ? usuario.id : null, equipe)}</div>
                 <small>Cada setor tem um único coordenador. Clique no título para recolher a lista.</small>
             </details>
         </div>
@@ -567,13 +569,15 @@ async function promoverSolicitante(usuarioId) {
     const usuario = usuariosCacheAtual.find(u => Number(u.id) === usuarioId);
     if (!usuario) return;
     let setores = [];
+    let equipe = [];
     try {
-        setores = await Api.get('setores.php');
+        // A equipe (não a lista de solicitantes da aba aberta) diz quais setores já têm coordenador
+        [setores, equipe] = await Promise.all([Api.get('setores.php'), Api.get('usuarios.php?tipo=equipe')]);
     } catch (e) {
-        mostrarAlert('Erro', mensagemDeErro(e, 'Erro ao carregar os setores.'));
+        mostrarAlert('Erro', mensagemDeErro(e, 'Erro ao carregar os setores e a equipe.'));
         return;
     }
-    mostrarFormularioPromocao(usuario, setores.filter(s => s.ativo === undefined || Number(s.ativo) === 1));
+    mostrarFormularioPromocao(usuario, setores.filter(s => s.ativo === undefined || Number(s.ativo) === 1), equipe);
 }
 
 // Nome de usuário sugerido (nome.sobrenome, sem acento), como no cadastro
@@ -584,7 +588,7 @@ function usernameSugerido(nome) {
     return partes.length === 1 ? partes[0] : `${partes[0]}.${partes[partes.length - 1]}`;
 }
 
-function mostrarFormularioPromocao(usuario, setores) {
+function mostrarFormularioPromocao(usuario, setores, equipe) {
     document.getElementById('modal-prompt-message').innerHTML = `
         <p class="aviso-promocao">${sanitizeHTML(usuario.nome)} (${sanitizeHTML(usuario.email)}) passa a entrar no sistema.
             As demandas que abriu continuam com ele(a) como solicitante.</p>
@@ -599,7 +603,7 @@ function mostrarFormularioPromocao(usuario, setores) {
                 ${setores.map(s => `<option value="${Number(s.id)}">${sanitizeHTML(s.nome)}</option>`).join('')}
             </select>
         </div>
-        ${camposSoAdminUsuario('promo-', setores, null)}
+        ${camposSoAdminUsuario('promo-', setores, null, equipe)}
         <div class="form-group">
             <label for="promo-username">Nome de usuário:</label>
             <input type="text" id="promo-username" value="${sanitizeHTML(usuario.username || usernameSugerido(usuario.nome))}"
