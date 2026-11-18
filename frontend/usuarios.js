@@ -174,10 +174,22 @@ function caixasSetoresAdicionais(setores, selecionados, usuarioId) {
         const ocupadoPorOutro = dono && Number(dono.id) !== Number(usuarioId || 0);
         return `<label class="caixa-setor-adicional">
             <input type="checkbox" name="setor-adicional" value="${Number(s.id)}" ${marcados.has(String(s.id)) ? 'checked' : ''} ${ocupadoPorOutro ? 'disabled' : ''}>
-            ${sanitizeHTML(s.nome)}${ocupadoPorOutro ? ` <small>(coordenador(a): ${sanitizeHTML(dono.nome)})</small>` : ''}
+            <span>${sanitizeHTML(s.nome)}${ocupadoPorOutro ? ` <small>(coordenador(a): ${sanitizeHTML(dono.nome)})</small>` : ''}</span>
         </label>`;
     }).join('');
 }
+
+function contagemSetoresAdicionais(n) {
+    return n === 0 ? '(nenhum marcado)' : `(${n} marcado${n > 1 ? 's' : ''})`;
+}
+
+// Atualiza a contagem no título da lista ao marcar/desmarcar (ouvinte delegado, vale para o cadastro e o modal)
+document.addEventListener('change', (ev) => {
+    if (!ev.target.matches('input[name="setor-adicional"]')) return;
+    const grupo = ev.target.closest('.fieldset-setores-adicionais');
+    const rotulo = grupo && grupo.querySelector('[data-contagem-setores]');
+    if (rotulo) rotulo.textContent = contagemSetoresAdicionais(grupo.querySelectorAll('input[name="setor-adicional"]:checked').length);
+});
 
 // Mostra os setores adicionais só quando o perfil escolhido é Coordenador
 function atualizarCamposPerfilUsuario(idSelect, idGrupo) {
@@ -196,14 +208,15 @@ function camposSoAdminUsuario(prefixo, setores, usuario) {
     const extras = ((usuario && usuario.setores_adicionais) || []).map(s => s.id);
     return `
         <div class="form-group" id="${prefixo}grupo-setores-adicionais" ${usuario && usuario.tipo === 'coordenador' ? '' : 'hidden'}>
-            <fieldset class="fieldset-setores-adicionais">
-                <legend>Setores adicionais do coordenador (além do setor principal)</legend>
-                <div class="caixas-setores-adicionais">${caixasSetoresAdicionais(setores, extras, usuario ? usuario.id : null)}</div>
-                <small>Cada setor tem um único coordenador.</small>
-            </fieldset>
+            <details class="fieldset-setores-adicionais" open>
+                <summary>Setores adicionais do coordenador (além do setor principal)
+                    <span class="contagem-setores-adicionais" data-contagem-setores>${contagemSetoresAdicionais(extras.length)}</span></summary>
+                <div class="caixas-setores-adicionais" role="group" aria-label="Setores adicionais do coordenador">${caixasSetoresAdicionais(setores, extras, usuario ? usuario.id : null)}</div>
+                <small>Cada setor tem um único coordenador. Clique no título para recolher a lista.</small>
+            </details>
         </div>
         <div class="form-group">
-            <label class="switch-label">
+            <label class="switch-label switch-label-quebra">
                 <span class="switch"><input type="checkbox" id="${prefixo}atendimento-externo" ${usuario && usuario.atendimento_externo ? 'checked' : ''}><span class="slider"></span></span>
                 <span>Faz atendimento externo (pode enviar pesquisas de satisfação no Meu Painel)</span>
             </label>
