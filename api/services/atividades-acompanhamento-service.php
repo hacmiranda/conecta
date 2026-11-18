@@ -370,6 +370,47 @@ class AtividadesAcompanhamentoService {
         ];
     }
 
+    /**
+     * Atividades de um SETOR no período (Cruzamento de Dados por setor, 17/11/2026): soma dos servidores lotados
+     * (série diária de tarefas, relatórios enviados/esperados, pendências), as atividades mais feitas e os números
+     * de cada servidor (mesmas regras de atividadesDoUsuario).
+     */
+    public function atividadesDoSetor(int $setorId, string $ini, string $fim): array {
+        $servidores = [];
+        $porDia = [];
+        $tot = ['total_enviados' => 0, 'total_esperado' => 0, 'total_tarefas' => 0, 'pendencias_atrasadas' => 0, 'pendencias_abonadas' => 0];
+        foreach ($this->usuariosDoEscopo([$setorId]) as $u) {
+            $a = $this->atividadesDoUsuario((int) $u['id'], $ini, $fim);
+            foreach ($a['serie_diaria'] as $d) {
+                $porDia[$d['data']] ??= ['data' => $d['data'], 'enviados' => 0, 'atividades' => 0, 'tarefas' => 0];
+                $porDia[$d['data']]['enviados'] += $d['enviado'] ? 1 : 0;
+                $porDia[$d['data']]['atividades'] += $d['atividades'];
+                $porDia[$d['data']]['tarefas'] += $d['tarefas'];
+            }
+            foreach (array_keys($tot) as $k) $tot[$k] += $a[$k];
+            $servidores[] = ['id' => (int) $u['id'], 'nome' => $u['nome'], 'total_enviados' => $a['total_enviados'],
+                'total_esperado' => $a['total_esperado'], 'total_tarefas' => $a['total_tarefas'],
+                'pendencias_atrasadas' => $a['pendencias_atrasadas'], 'pendencias_abonadas' => $a['pendencias_abonadas']];
+        }
+        // Dias sem nenhum servidor também entram (o gráfico mostra o calendário real)
+        $serie = [];
+        for ($d = new DateTimeImmutable($ini); $d->format('Y-m-d') <= $fim; $d = $d->modify('+1 day')) {
+            $k = $d->format('Y-m-d');
+            $l = $porDia[$k] ?? ['data' => $k, 'enviados' => 0, 'atividades' => 0, 'tarefas' => 0];
+            $serie[] = ['data' => $k, 'enviado' => $l['enviados'] > 0, 'enviados' => $l['enviados'], 'atividades' => $l['atividades'], 'tarefas' => $l['tarefas']];
+        }
+        $stmt = $this->db->prepare("
+            SELECT t.nome AS atividade_nome, SUM(i.quantidade) AS total
+            FROM registros_atividades_itens i
+            JOIN registros_atividades r ON r.id = i.registro_id
+            JOIN atividades_tipos t ON t.id = i.atividade_tipo_id
+            WHERE t.setor_id = ? AND r.status = 'enviado' AND r.data_referencia BETWEEN ? AND ? AND i.quantidade > 0
+            GROUP BY t.id, t.nome ORDER BY total DESC LIMIT 5");
+        $stmt->execute([$setorId, $ini, $fim]);
+        $top = array_map(fn($r) => ['atividade_nome' => $r['atividade_nome'], 'total' => (int) $r['total']], $stmt->fetchAll(PDO::FETCH_ASSOC));
+        return $tot + ['atividades_top' => $top, 'serie_diaria' => $serie, 'servidores' => $servidores];
+    }
+
     // ── CSV ─────────────────────────────────────────────────────────────────────
 
     /** Célula de CSV sem fórmula (=, +, -, @ no início viram texto). */

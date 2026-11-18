@@ -427,6 +427,44 @@ class PesquisaPainelService {
     }
 
     /** Satisfação de um servidor num período (Cruzamento com as atividades): agregado, comentários e série diária. */
+    /**
+     * Satisfação de um SETOR no período (Cruzamento de Dados por setor, 17/11/2026): os convites enviados pelo setor
+     * (pesquisa_convites.setor_id), série diária da nota média, distribuição e os números de cada servidor.
+     */
+    public static function satisfacaoDoSetor(PDO $db, int $setorId, string $ini, string $fim): array {
+        $p = [':s' => $setorId, ':ini' => $ini, ':fim' => $fim];
+        $agr = self::executar($db, "SELECT COUNT(c.id) AS total_convites, COUNT(a.id) AS total_avaliados, AVG(a.nota) AS media,
+                    SUM(a.nota = 5) AS n5, SUM(a.nota = 4) AS n4, SUM(a.nota = 3) AS n3, SUM(a.nota = 2) AS n2, SUM(a.nota = 1) AS n1
+                 FROM pesquisa_convites c LEFT JOIN pesquisa_avaliacoes a ON a.convite_id = c.id
+                 WHERE c.setor_id = :s AND DATE(c.enviado_em) BETWEEN :ini AND :fim", $p)->fetch(PDO::FETCH_ASSOC);
+        $porDia = array_column(self::executar($db, "SELECT DATE(c.enviado_em) AS data_dia, COUNT(a.id) AS qtd, AVG(a.nota) AS avg_rating
+                 FROM pesquisa_convites c JOIN pesquisa_avaliacoes a ON a.convite_id = c.id
+                 WHERE c.setor_id = :s AND DATE(c.enviado_em) BETWEEN :ini AND :fim GROUP BY DATE(c.enviado_em)", $p)->fetchAll(PDO::FETCH_ASSOC), null, 'data_dia');
+        $serie = [];
+        for ($d = new DateTimeImmutable($ini); $d <= new DateTimeImmutable($fim); $d = $d->modify('+1 day')) {
+            $k = $d->format('Y-m-d');
+            $serie[] = isset($porDia[$k])
+                ? ['data_dia' => $k, 'qtd' => (int) $porDia[$k]['qtd'], 'avg_rating' => round((float) $porDia[$k]['avg_rating'], 1)]
+                : ['data_dia' => $k, 'qtd' => 0, 'avg_rating' => null];
+        }
+        $porServidor = [];
+        foreach (self::executar($db, "SELECT c.usuario_id, u.nome, COUNT(c.id) AS convites, COUNT(a.id) AS avaliados, AVG(a.nota) AS media
+                 FROM pesquisa_convites c JOIN usuarios u ON u.id = c.usuario_id LEFT JOIN pesquisa_avaliacoes a ON a.convite_id = c.id
+                 WHERE c.setor_id = :s AND DATE(c.enviado_em) BETWEEN :ini AND :fim GROUP BY c.usuario_id, u.nome", $p)->fetchAll(PDO::FETCH_ASSOC) as $l) {
+            $porServidor[(int) $l['usuario_id']] = ['nome' => $l['nome'], 'convites' => (int) $l['convites'], 'avaliados' => (int) $l['avaliados'],
+                'media_nota' => $l['media'] !== null ? round((float) $l['media'], 1) : null];
+        }
+        $totalConvites = (int) $agr['total_convites'];
+        $totalAvaliados = (int) $agr['total_avaliados'];
+        return [
+            'total_convites' => $totalConvites, 'total_avaliados' => $totalAvaliados,
+            'media_nota' => $agr['media'] !== null ? round((float) $agr['media'], 1) : null,
+            'taxa_resposta' => $totalConvites > 0 ? (int) round($totalAvaliados / $totalConvites * 100) : null,
+            'rating_dist' => [5 => (int) $agr['n5'], 4 => (int) $agr['n4'], 3 => (int) $agr['n3'], 2 => (int) $agr['n2'], 1 => (int) $agr['n1']],
+            'serie_diaria' => $serie, 'por_servidor' => $porServidor,
+        ];
+    }
+
     public static function satisfacaoDoServidor(PDO $db, int $usuarioId, string $ini, string $fim): array {
         $agr = self::executar($db, "SELECT COUNT(c.id) AS total_convites, COUNT(a.id) AS total_avaliados, AVG(a.nota) AS media,
                     SUM(a.nota = 5) AS n5, SUM(a.nota = 4) AS n4, SUM(a.nota = 3) AS n3, SUM(a.nota = 2) AS n2, SUM(a.nota = 1) AS n1

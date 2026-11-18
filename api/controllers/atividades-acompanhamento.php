@@ -8,7 +8,9 @@
  *   GET    ?acao=detalhe&id=                                        itens de um relatório enviado
  *   GET    ?acao=historico&data_ini=&data_fim=                      Histórico de ausências
  *   GET    ?acao=cruzamento&usuario_id=&data_ini=&data_fim=         Cruzamento atividades × satisfação (módulo Satisfação)
- *   GET    ?acao=csv-relatorio | csv-historico | csv-cruzamento     mesmos filtros, arquivo CSV
+ *   GET    ?acao=cruzamento-setor&setor_cruzamento=&data_ini=&data_fim=   Cruzamento por setor (soma do setor + uma linha por servidor)
+ *   GET    ?acao=csv-relatorio | csv-historico | csv-cruzamento | csv-cruzamento-setor   mesmos filtros, arquivo CSV
+ *   O Cruzamento (as duas formas) é só de administrador, coordenador geral, supervisor e coordenador (nos setores dele).
  *   POST   ?acao=abonar {usuario_id, data, tipo, justificativa}
  *   DELETE ?acao=abono&id=
  */
@@ -132,6 +134,58 @@ try {
             exit;
         }
         echo json_encode(['data_ini' => $ini, 'data_fim' => $fim, 'ausencias' => $lista], JSON_UNESCAPED_UNICODE);
+        exit;
+    }
+
+    // Cruzamento de Dados (17/11/2026): só administrador, coordenador geral, supervisor e coordenador (este nos setores dele,
+    // pelo escopo); gestor não vê a página.
+    if (str_contains($acao, 'cruzamento') && !AcessoService::ehVisaoTotal($user) && ($user['tipo'] ?? '') !== 'coordenador') {
+        erroAcomp(403, 'O Cruzamento de Dados é só para coordenação e administração.');
+    }
+
+    if ($metodo === 'GET' && in_array($acao, ['cruzamento-setor', 'csv-cruzamento-setor'], true)) {
+        // Setores que a pessoa pode ver (seguindo o seletor do cabeçalho); o setor escolhido vai em setor_cruzamento
+        // (setor_id é o parâmetro do seletor, que urlComSetor anexa)
+        $sql = "SELECT id, nome FROM setores WHERE ativo = 1" . ($setorId === null ? '' : ' AND ' . AcessoService::filtroSetorSql('id', $setorId)) . " ORDER BY nome";
+        $setores = array_map(fn($s) => ['id' => (int) $s['id'], 'nome' => $s['nome']], $db->query($sql)->fetchAll(PDO::FETCH_ASSOC));
+        [$ini, $fim] = periodo(date('Y-m-01'), date('Y-m-t'));
+        $pedido = (int) ($_GET['setor_cruzamento'] ?? 0);
+        if (!$pedido && count($setores) === 1) $pedido = $setores[0]['id'];
+        $resposta = ['data_ini' => $ini, 'data_fim' => $fim, 'setores' => $setores];
+        if (!$pedido) {
+            if ($ehCsv) erroAcomp(400, 'Escolha um setor.');
+            echo json_encode($resposta, JSON_UNESCAPED_UNICODE);
+            exit;
+        }
+        $alvo = null;
+        foreach ($setores as $s) if ($s['id'] === $pedido) $alvo = $s;
+        if (!$alvo) erroAcomp(403, 'Você não tem acesso a este setor.');
+
+        $atividades = $servico->atividadesDoSetor($pedido, $ini, $fim);
+        $satisfacao = PesquisaPainelService::satisfacaoDoSetor($db, $pedido, $ini, $fim);
+        // Uma linha por servidor: quem está lotado no setor e quem enviou convites por ele no período
+        $servidores = [];
+        foreach ($atividades['servidores'] as $s) $servidores[$s['id']] = $s + ['convites' => 0, 'avaliados' => 0, 'media_nota' => null];
+        foreach ($satisfacao['por_servidor'] as $id => $s) {
+            $servidores[$id] ??= ['id' => $id, 'nome' => $s['nome'], 'total_enviados' => null, 'total_esperado' => null,
+                'total_tarefas' => null, 'pendencias_atrasadas' => null, 'pendencias_abonadas' => null];
+            $servidores[$id] = array_merge($servidores[$id], ['convites' => $s['convites'], 'avaliados' => $s['avaliados'], 'media_nota' => $s['media_nota']]);
+        }
+        $servidores = array_values($servidores);
+        usort($servidores, fn($a, $b) => strcoll($a['nome'], $b['nome']));
+        unset($atividades['servidores'], $satisfacao['por_servidor']);
+
+        if ($ehCsv) {
+            $nota = fn($v) => $v !== null ? number_format((float) $v, 1, ',', '') : '';
+            AtividadesAcompanhamentoService::enviarCsv('cruzamento-setor-' . $alvo['nome'] . "_{$ini}_{$fim}.csv",
+                ['Servidor', 'Relatórios enviados', 'Relatórios esperados', 'Tarefas', 'Pendências atrasadas', 'Abonadas', 'Convites enviados', 'Avaliações', 'Nota média'],
+                array_map(fn($s) => [$s['nome'], $s['total_enviados'] ?? '', $s['total_esperado'] ?? '', $s['total_tarefas'] ?? '',
+                    $s['pendencias_atrasadas'] ?? '', $s['pendencias_abonadas'] ?? '', $s['convites'], $s['avaliados'], $nota($s['media_nota'])], $servidores));
+            exit;
+        }
+        $resposta += ['setor' => $alvo, 'atividades' => $atividades, 'satisfacao' => $satisfacao, 'servidores' => $servidores,
+            'aviso_satisfacao' => $satisfacao['total_convites'] === 0 ? 'O setor não enviou convites de avaliação neste período: não há notas a cruzar.' : null];
+        echo json_encode($resposta, JSON_UNESCAPED_UNICODE);
         exit;
     }
 

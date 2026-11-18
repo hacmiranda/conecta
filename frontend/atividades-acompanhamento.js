@@ -13,7 +13,9 @@ const ACOMP_TELAS = {
 };
 let acompTela = 'painel-atividades';
 let acompUltimoCruzamento = null;
-const acompFiltros = { relatorio: { p: 1 }, historico: {}, cruzamento: {} };
+const acompFiltros = { relatorio: { p: 1 }, historico: {}, cruzamento: {}, cruzamentoSetor: {} };
+// Cruzamento: 'setor' (por setor, padrão) ou 'servidor'
+let acompCruzModo = 'setor';
 
 function podeAcompanharAtividades() {
     const u = JSON.parse(localStorage.getItem('cd_usuario') || '{}');
@@ -22,6 +24,8 @@ function podeAcompanharAtividades() {
 
 function mostrarAcompanhamentoAtividades(tela) {
     acompTela = ACOMP_TELAS[tela] ? tela : 'painel-atividades';
+    // Cruzamento só para visão total e coordenador (o servidor também recusa)
+    if (acompTela === 'cruzamento-dados' && !Papeis.veCruzamento(Papeis.usuario())) acompTela = 'painel-atividades';
     mostrarSecao('atividades');
     localStorage.setItem('cd_subSecaoAtiva', acompTela);
     document.getElementById('atividades-titulo').textContent = ACOMP_TELAS[acompTela].titulo;
@@ -371,10 +375,11 @@ function montarHistoricoAusencias(d) {
 
 // ═══════════════ Cruzamento de dados ═══════════════
 async function carregarCruzamentoDados() {
+    if (acompCruzModo === 'setor') return carregarCruzamentoSetor();
     const f = acompFiltros.cruzamento;
     try {
         const d = await Api.get(acompUrl('cruzamento', f));
-        document.getElementById('atividades-conteudo').innerHTML = montarCruzamentoDados(d, f);
+        document.getElementById('atividades-conteudo').innerHTML = abasCruzamento() + montarCruzamentoDados(d, f);
         acompUltimoCruzamento = d.usuario ? d : null;
         if (d.usuario) desenharGraficoCruzamento(d);
     } catch (e) {
@@ -445,6 +450,96 @@ function montarCruzamentoDados(d, f) {
             <div class="acomp-grafico-wrap"><canvas id="acomp-grafico-cruzamento" width="900" height="260" role="img"></canvas></div>
             <p class="acomp-legenda"><span class="acomp-legenda-barra"></span> Tarefas no dia <span class="acomp-legenda-linha"></span> Nota média do dia (0 a 5)</p>
         </section>`;
+}
+
+// Abas "Por setor" / "Por servidor" do Cruzamento
+function abasCruzamento() {
+    const aba = (modo, texto) => `<button type="button" role="tab" class="aba-usuarios-btn" id="aba-cruz-${modo}" data-acao="cruz-modo"
+        data-modo="${modo}" aria-selected="${acompCruzModo === modo}" tabindex="${acompCruzModo === modo ? '0' : '-1'}">${texto}</button>`;
+    return `<div class="abas-usuarios acomp-abas-cruzamento" role="tablist" aria-label="Forma do cruzamento">
+        ${aba('setor', '🏢 Por setor')}${aba('servidor', '👤 Por servidor')}</div>`;
+}
+
+// ── Cruzamento por setor (17/11/2026): soma do setor + uma linha por servidor ──
+async function carregarCruzamentoSetor() {
+    const f = acompFiltros.cruzamentoSetor;
+    try {
+        const d = await Api.get(acompUrl('cruzamento-setor', f));
+        document.getElementById('atividades-conteudo').innerHTML = abasCruzamento() + montarCruzamentoSetor(d, f);
+        acompUltimoCruzamento = d.setor ? d : null;
+        if (d.setor) desenharGraficoCruzamento(d);
+    } catch (e) {
+        acompErro(e, 'Erro ao carregar o cruzamento por setor.');
+    }
+}
+
+function acompNota(v) {
+    return v === null || v === undefined ? '—' : Number(v).toFixed(1).replace('.', ',') + '★';
+}
+
+function montarCruzamentoSetor(d, f) {
+    if (!d.setores.length) return '<p class="acomp-aviso">Nenhum setor disponível para você.</p>';
+    const escolhido = d.setor ? d.setor.id : Number(f.setor_cruzamento || 0);
+    const opcoes = '<option value="">Selecione...</option>' + d.setores.map(s =>
+        `<option value="${Number(s.id)}" ${Number(s.id) === escolhido ? 'selected' : ''}>${sanitizeHTML(s.nome)}</option>`).join('');
+    const filtros = `
+        <form class="acomp-filtros" data-acao-form="cruzamento-setor" autocomplete="off">
+            <div class="form-group"><label for="acomp-cs-setor">Setor</label>
+                <select id="acomp-cs-setor" name="setor_cruzamento" required>${opcoes}</select></div>
+            <div class="form-group"><label for="acomp-cs-ini">Data início</label><input type="date" id="acomp-cs-ini" name="data_ini" value="${sanitizeHTML(d.data_ini)}"></div>
+            <div class="form-group"><label for="acomp-cs-fim">Data fim</label><input type="date" id="acomp-cs-fim" name="data_fim" value="${sanitizeHTML(d.data_fim)}"></div>
+            <div class="acomp-filtros-botoes">
+                <button type="submit" class="btn-primary">🔍 Cruzar dados</button>
+                ${d.setor ? `<a class="btn-small" href="${sanitizeHTML(window.APP_CONFIG.apiBase + acompUrl('csv-cruzamento-setor', { setor_cruzamento: d.setor.id, data_ini: d.data_ini, data_fim: d.data_fim }))}" download>⬇️ Exportar CSV</a>` : ''}
+            </div>
+        </form>`;
+    if (!d.setor) {
+        return `<p class="acomp-intro">Compare, para um setor inteiro, as atividades registradas pela equipe com a satisfação dos cidadãos atendidos.</p>
+            ${filtros}<p class="acomp-aviso">Escolha um setor no filtro acima e, se quiser, ajuste o período.</p>`;
+    }
+    const a = d.atividades;
+    const s = d.satisfacao;
+    const linhas = d.servidores.map(v => `<tr>
+            <th scope="row">${sanitizeHTML(v.nome)}</th>
+            <td>${v.total_esperado === null ? '—' : `${v.total_enviados} / ${v.total_esperado}`}</td>
+            <td>${v.total_tarefas ?? '—'}</td>
+            <td class="${v.pendencias_atrasadas ? 'acomp-celula-alerta' : ''}">${v.pendencias_atrasadas ?? '—'}</td>
+            <td>${Number(v.convites)}</td>
+            <td>${Number(v.avaliados)}</td>
+            <td>${acompNota(v.media_nota)}</td>
+        </tr>`).join('');
+    return `
+        ${filtros}
+        <p class="acomp-intro"><strong>${sanitizeHTML(d.setor.nome)}</strong> · ${acompBr(d.data_ini)} a ${acompBr(d.data_fim)}</p>
+        <dl class="acomp-mini-kpis acomp-kpis-setor">
+            <div><dt>Relatórios enviados / esperados</dt><dd>${a.total_enviados} / ${a.total_esperado}</dd></div>
+            <div><dt>Tarefas realizadas</dt><dd>${a.total_tarefas}</dd></div>
+            <div class="${a.pendencias_atrasadas ? 'acomp-mini-kpis--alerta' : ''}"><dt>Pendências em atraso</dt><dd>${a.pendencias_atrasadas}</dd></div>
+            <div><dt>Convites avaliados</dt><dd>${s.total_avaliados} / ${s.total_convites}</dd></div>
+            <div><dt>Nota média</dt><dd>${acompNota(s.media_nota)}</dd></div>
+            <div><dt>Taxa de resposta</dt><dd>${s.taxa_resposta === null ? '—' : s.taxa_resposta + '%'}</dd></div>
+        </dl>
+        ${d.aviso_satisfacao ? `<p class="acomp-aviso" role="status">${sanitizeHTML(d.aviso_satisfacao)}</p>` : ''}
+        <section class="acomp-bloco" aria-labelledby="acomp-cs-graf">
+            <h3 class="acomp-bloco-titulo" id="acomp-cs-graf">Nota diária do setor × Tarefas da equipe por dia</h3>
+            <p class="acomp-dica">Tarefas: soma dos servidores lotados no setor. Nota: média das avaliações dos convites enviados pelo setor, pelo dia do envio.</p>
+            <div class="acomp-grafico-wrap"><canvas id="acomp-grafico-cruzamento" width="900" height="260" role="img"></canvas></div>
+            <p class="acomp-legenda"><span class="acomp-legenda-barra"></span> Tarefas no dia <span class="acomp-legenda-linha"></span> Nota média do dia (0 a 5)</p>
+        </section>
+        <section class="acomp-bloco" aria-labelledby="acomp-cs-serv">
+            <h3 class="acomp-bloco-titulo" id="acomp-cs-serv">Por servidor</h3>
+            ${d.servidores.length ? `<div class="acomp-tabela-wrap"><table class="acomp-tabela">
+                <caption class="sr-only">Atividades e satisfação de cada servidor do setor ${sanitizeHTML(d.setor.nome)}</caption>
+                <thead><tr><th scope="col">Servidor</th><th scope="col">Relatórios</th><th scope="col">Tarefas</th><th scope="col">Atrasos</th>
+                    <th scope="col">Convites</th><th scope="col">Avaliações</th><th scope="col">Nota média</th></tr></thead>
+                <tbody>${linhas}</tbody></table></div>
+                ${d.servidores.some(v => v.total_esperado === null) ? `<p class="acomp-dica">“—” em Relatórios: a pessoa enviou convites pelo setor, mas não está lotada nele (ex.: coordenador de vários setores).</p>` : ''}`
+                : '<p class="acomp-aviso">Nenhum servidor neste setor.</p>'}
+        </section>
+        ${a.atividades_top.length ? `<section class="acomp-bloco" aria-labelledby="acomp-cs-top">
+            <h3 class="acomp-bloco-titulo" id="acomp-cs-top">Atividades mais realizadas no setor</h3>
+            <ol class="acomp-top">${a.atividades_top.map(t => `<li><span>${sanitizeHTML(t.atividade_nome)}</span><strong>${Number(t.total)}</strong></li>`).join('')}</ol>
+        </section>` : ''}`;
 }
 
 // Barras de tarefas (eixo esquerdo) + linha da nota (eixo direito, 0 a 5), desenhadas no canvas, cores dos tokens
@@ -556,6 +651,7 @@ function ligarAcoesAcompanhamento(conteudo) {
         } else if (acao === 'abonar') abonarPendencia(alvo);
         else if (acao === 'remover-abono') removerAbono(Number(alvo.dataset.id));
         else if (acao === 'detalhe') abrirDetalheRegistro(alvo);
+        else if (acao === 'cruz-modo') trocarModoCruzamento(alvo.dataset.modo);
         else if (acao === 'expandir') {
             const painel = document.getElementById(alvo.getAttribute('aria-controls'));
             const abrir = alvo.getAttribute('aria-expanded') !== 'true';
@@ -586,8 +682,27 @@ function ligarAcoesAcompanhamento(conteudo) {
             if (!dados.usuario_id) return mostrarAlert('Atenção', 'Escolha um servidor.');
             acompFiltros.cruzamento = dados;
             carregarCruzamentoDados();
+        } else if (tipo === 'cruzamento-setor') {
+            if (!dados.setor_cruzamento) return mostrarAlert('Atenção', 'Escolha um setor.');
+            acompFiltros.cruzamentoSetor = dados;
+            carregarCruzamentoSetor();
         }
     });
+
+    // Setas ←/→ trocam a aba do Cruzamento
+    conteudo.addEventListener('keydown', (ev) => {
+        if (!ev.target.closest('[data-acao="cruz-modo"]') || !['ArrowLeft', 'ArrowRight'].includes(ev.key)) return;
+        ev.preventDefault();
+        trocarModoCruzamento(acompCruzModo === 'setor' ? 'servidor' : 'setor');
+    });
+}
+
+function trocarModoCruzamento(modo) {
+    modo = modo === 'servidor' ? 'servidor' : 'setor';
+    if (modo === acompCruzModo) return;
+    acompCruzModo = modo;
+    // O conteúdo é refeito: devolve o foco à aba escolhida
+    carregarCruzamentoDados().then(() => document.getElementById('aba-cruz-' + acompCruzModo)?.focus());
 }
 
 // Itens do menu (sem onclick no HTML) e troca de setor no cabeçalho (admin)

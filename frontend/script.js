@@ -1014,6 +1014,8 @@ function aplicarVisibilidadePorPapel(tipo) {
     // Acompanhamento das atividades: gestão do setor e visão total
     const itemAcomp = document.getElementById('nav-atividades-item');
     if (itemAcomp) itemAcomp.hidden = !(Papeis.administraSetor(perfil) || Papeis.visaoTotal(perfil));
+    const itemCruzamento = document.querySelector('#nav-atividades-dropdown [data-subsecao="cruzamento-dados"]');
+    if (itemCruzamento) itemCruzamento.hidden = !Papeis.veCruzamento(perfil);
 
     // Operador já vê só as suas demandas: o filtro "Minhas Demandas" não faz sentido para ele
     ['filtro-meus-tickets', 'filtro-meus-tickets-fechados'].forEach(id => {

@@ -63,6 +63,8 @@ const Papeis = (function () {
             return REGISTRAM_ATIVIDADES.includes(usuario.tipo) && !!usuario.setor_id;
         },
         veSatisfacao: (u) => SATISFACAO.includes(tipoDe(u)),
+        /** Cruzamento de Dados (17/11/2026): visão total e coordenador (nos setores dele); gestor não */
+        veCruzamento: (u) => VISAO_TOTAL.includes(tipoDe(u)) || tipoDe(u) === 'coordenador',
         setores,
         /** Mostra o seletor de setor no cabeçalho: visão total ou mais de um setor */
         variosSetores: (u) => {

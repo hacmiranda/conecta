@@ -446,8 +446,21 @@ try {
     verifica('gestor de outro setor não remove o abono (403)', $c === 403, (string) $c);
     [$c] = req('DELETE', "$acomp?acao=abono&id=$abonoMatriz", $T['gestorA']);
     verifica('gestor do setor remove o abono (200)', $c === 200, (string) $c);
-    [$c] = req('GET', "$acomp?acao=cruzamento&usuario_id=$gestorB", $T['gestorA']);
-    verifica('cruzamento de servidor de outro setor é recusado (403)', $c === 403, (string) $c);
+    [$c] = req('GET', "$acomp?acao=cruzamento&usuario_id=$gestorB", $T['admin']);
+    verifica('admin cruza os dados de um servidor de qualquer setor (200)', $c === 200, (string) $c);
+    // Cruzamento de Dados (17/11/2026): gestor não vê a página, nem por servidor nem por setor
+    [$c] = req('GET', "$acomp?acao=cruzamento&usuario_id=$operadorA", $T['gestorA']);
+    verifica('gestor não abre o Cruzamento por servidor, nem do próprio setor (403)', $c === 403, (string) $c);
+    [$c] = req('GET', "$acomp?acao=cruzamento-setor&setor_cruzamento=$setorA", $T['gestorA']);
+    verifica('gestor não abre o Cruzamento por setor (403)', $c === 403, (string) $c);
+    [$c, $j] = req('GET', "$acomp?acao=cruzamento-setor&setor_cruzamento=$setorA&data_ini=2026-01-01&data_fim=2026-01-31", $T['admin']);
+    $daMatriz = array_column($j['servidores'] ?? [], 'id');
+    verifica('admin cruza o setor: soma e linha por servidor (200)', $c === 200 && ($j['setor']['id'] ?? 0) == $setorA
+        && in_array((int) $operadorA, array_map('intval', $daMatriz), true) && ($j['atividades']['total_enviados'] ?? 0) >= 1, (string) $c);
+    [$c] = req('GET', "$acomp?acao=csv-cruzamento-setor&setor_cruzamento=$setorB", $T['admin']);
+    verifica('admin exporta o CSV do cruzamento por setor (200)', $c === 200, (string) $c);
+    [$c] = req('GET', "$acomp?acao=cruzamento-setor&setor_cruzamento=999999", $T['admin']);
+    verifica('setor que não existe ou está fora do escopo é recusado (403)', $c === 403, (string) $c);
     [$c] = req('GET', "$acomp?acao=historico&data_ini=2026-01-01&data_fim=2026-12-31", $T['admin']);
     verifica('admin vê o histórico de ausências de todos (200)', $c === 200, (string) $c);
     [$c] = req('GET', "$acomp?acao=historico&data_ini=2024-01-01&data_fim=2026-12-31", $T['admin']);
@@ -532,6 +545,23 @@ try {
     verifica('coordenador pedindo um setor que não é dele é recusado (403)', $c === 403, (string) $c);
     [$c] = req('GET', $baseUrl . 'atividades-acompanhamento.php?acao=painel', $T['coordenador']);
     verifica('coordenador abre o Painel de Atividades (200)', $c === 200, (string) $c);
+    // Cruzamento por setor: o coordenador só vê os setores dele
+    $acompC = $baseUrl . 'atividades-acompanhamento.php';
+    [$c, $j] = req('GET', "$acompC?acao=cruzamento-setor", $T['coordenador']);
+    $setoresC = array_map('intval', array_column($j['setores'] ?? [], 'id'));
+    sort($setoresC);
+    $esperadosC = [(int) $setorA, (int) $setorB];
+    sort($esperadosC);
+    verifica('coordenador vê no Cruzamento por setor só os setores dele', $c === 200 && $setoresC === $esperadosC, (string) $c);
+    [$c] = req('GET', "$acompC?acao=cruzamento-setor&setor_cruzamento=$setorB", $T['coordenador']);
+    verifica('coordenador cruza o setor adicional (200)', $c === 200, (string) $c);
+    $outroSetor = (int) $db->query("SELECT id FROM setores WHERE ativo = 1 AND id NOT IN (" . (int) $setorA . ',' . (int) $setorB . ") LIMIT 1")->fetchColumn();
+    [$c] = req('GET', "$acompC?acao=cruzamento-setor&setor_cruzamento=$outroSetor", $T['coordenador']);
+    verifica('coordenador não cruza um setor que não é dele (403)', $c === 403, (string) $c);
+    [$c] = req('GET', "$acompC?acao=cruzamento&usuario_id=$operadorA", $T['coordenador']);
+    verifica('coordenador abre o Cruzamento por servidor no setor dele (200)', $c === 200, (string) $c);
+    [$c, $j] = req('GET', "$acompC?acao=cruzamento-setor", $T['supervisor']);
+    verifica('supervisor vê todos os setores no Cruzamento por setor (200)', $c === 200 && in_array($outroSetor, array_map('intval', array_column($j['setores'] ?? [], 'id')), true), (string) $c);
     [$c] = req('POST', $usuarios, $T['coordenador'], ['nome' => 'zz Gestor Novo', 'email' => 'zz_matriz_g@teste.local', 'tipo' => 'gestor', 'senha' => 'Zz@Teste12345', 'setor_id' => $setorA]);
     verifica('coordenador não cria gestor, só operador (403)', $c === 403, (string) $c);
     [$c, $j] = req('POST', $usuarios, $T['coordenador'], ['nome' => 'zz Operador do B', 'email' => 'zz_matriz_opb@teste.local', 'tipo' => 'operador', 'senha' => 'Zz@Teste12345', 'setor_id' => $setorB]);

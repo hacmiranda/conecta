@@ -570,3 +570,25 @@ body.modo-escuro #atividades {
         grid-template-columns: minmax(0, 1fr);
     }
 }
+
+/* Cruzamento de Dados: abas "Por setor" / "Por servidor" e indicadores do setor (17/11/2026) */
+.acomp-abas-cruzamento {
+    margin-bottom: var(--acomp-espaco-4);
+}
+
+.acomp-kpis-setor {
+    margin-bottom: var(--acomp-espaco-4);
+    padding: var(--acomp-espaco-4);
+    border: 1px solid var(--acomp-borda);
+    border-radius: var(--radius-md);
+}
+
+.acomp-celula-alerta {
+    color: var(--acomp-atraso-texto);
+    font-weight: 700;
+}
+
+/* Item do menu escondido para quem não vê o Cruzamento (gestor) */
+#nav-atividades-dropdown .nav-dropdown-item[hidden] {
+    display: none;
+}
