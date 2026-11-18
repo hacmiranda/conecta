@@ -707,3 +707,28 @@
     border-radius: 8px;
     box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
 }
+/* Conteúdo longo (ex.: Editar usuário, Promover a usuário interno): o corpo rola com barra própria e o
+   cabeçalho e o rodapé (Cancelar/OK) ficam sempre visíveis. Antes o .modal tinha overflow: hidden e o
+   que passava de 85vh ficava cortado, sem barra (18/11/2026). */
+.modal.show {
+    display: flex;
+    flex-direction: column;
+}
+
+.modal.show > .modal-header,
+.modal.show > .modal-footer {
+    flex: 0 0 auto;
+}
+
+.modal.show > .modal-body {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    scrollbar-width: thin;
+    scrollbar-color: var(--vinho-600) var(--neutro-100);
+}
+
+.modo-escuro .modal.show > .modal-body {
+    scrollbar-color: var(--laranja-500) var(--neutro-800);
+}

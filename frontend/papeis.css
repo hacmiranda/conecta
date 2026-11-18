@@ -103,9 +103,24 @@ body.modo-escuro .aviso-perfil-consulta {
     color: var(--neutro-600);
 }
 
-.caixa-setor-adicional input:disabled + span {
-    opacity: 0.6;
+/* Setor que já tem outro coordenador: esmaecido e bloqueado (a linha inteira) */
+.caixa-setor-adicional.caixa-setor-ocupado,
+#modal-prompt .caixa-setor-adicional.caixa-setor-ocupado {
+    opacity: 0.5;
     cursor: not-allowed;
+}
+
+.caixa-setor-adicional.caixa-setor-ocupado:hover {
+    background: none;
+}
+
+.caixa-setor-ocupado input {
+    cursor: not-allowed;
+}
+
+/* Mesmo setor no seletor de lotação, quando o perfil é Coordenador */
+option.opcao-setor-ocupado {
+    color: var(--neutro-600);
 }
 
 body.modo-escuro .caixas-setores-adicionais {

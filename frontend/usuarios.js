@@ -175,7 +175,7 @@ function caixasSetoresAdicionais(setores, selecionados, usuarioId, equipe) {
     return setores.map(s => {
         const dono = ocupados[String(s.id)];
         const ocupadoPorOutro = dono && Number(dono.id) !== Number(usuarioId || 0);
-        return `<label class="caixa-setor-adicional">
+        return `<label class="caixa-setor-adicional${ocupadoPorOutro ? ' caixa-setor-ocupado' : ''}">
             <input type="checkbox" name="setor-adicional" value="${Number(s.id)}" ${marcados.has(String(s.id)) ? 'checked' : ''} ${ocupadoPorOutro ? 'disabled' : ''}>
             <span>${sanitizeHTML(s.nome)}${ocupadoPorOutro ? ` <small>(coordenador(a): ${sanitizeHTML(dono.nome)})</small>` : ''}</span>
         </label>`;
@@ -194,11 +194,36 @@ document.addEventListener('change', (ev) => {
     if (rotulo) rotulo.textContent = contagemSetoresAdicionais(grupo.querySelectorAll('input[name="setor-adicional"]:checked').length);
 });
 
-// Mostra os setores adicionais só quando o perfil escolhido é Coordenador
+// Equipe usada pelo formulário de promoção (aberto na aba Solicitantes, cuja lista não tem coordenadores)
+let equipePromocao = null;
+
+// Mostra os setores adicionais só quando o perfil escolhido é Coordenador e, no setor de lotação, esmaece e
+// bloqueia os setores que já têm outro coordenador (o servidor também recusa: 409)
 function atualizarCamposPerfilUsuario(idSelect, idGrupo) {
     const seletor = document.getElementById(idSelect);
     const grupo = document.getElementById(idGrupo);
     if (grupo && seletor) grupo.hidden = seletor.value !== 'coordenador';
+    const prefixo = idSelect.replace(/tipo(-usuario)?$/, '');
+    const idSetor = { '': 'setor-usuario', 'edit-': 'edit-setor', 'promo-': 'promo-setor' }[prefixo];
+    if (seletor && idSetor) bloquearSetoresComCoordenador(document.getElementById(idSetor), seletor.value === 'coordenador',
+        prefixo === 'promo-' ? equipePromocao : null);
+}
+
+function bloquearSetoresComCoordenador(select, ehCoordenador, equipe) {
+    if (!select) return;
+    const ocupados = coordenadorDeCadaSetor(equipe);
+    const usuarioId = Number(select.dataset.usuarioId || 0);
+    Array.from(select.options).forEach(op => {
+        if (!op.value) return;
+        if (op.dataset.nome === undefined) op.dataset.nome = op.textContent;
+        const dono = ocupados[String(op.value)];
+        const bloqueado = ehCoordenador && dono && Number(dono.id) !== usuarioId;
+        op.disabled = !!bloqueado;
+        op.classList.toggle('opcao-setor-ocupado', !!bloqueado);
+        op.textContent = bloqueado ? `${op.dataset.nome} (coordenador(a): ${dono.nome})` : op.dataset.nome;
+    });
+    // O setor escolhido ficou bloqueado: volta para "Selecione"
+    if (select.selectedOptions[0] && select.selectedOptions[0].disabled) select.value = '';
 }
 
 function opcoesPerfilUsuario(ehAdmin, atual) {
@@ -487,7 +512,7 @@ function mostrarFormularioEdicaoUsuario(usuario, setores) {
     const campoSetor = (ehAdmin && !ehSolicitante) ? `
         <div class="form-group">
             <label for="edit-setor">Setor:</label>
-            <select id="edit-setor">
+            <select id="edit-setor" data-usuario-id="${Number(usuario.id)}">
                 <option value="">Nenhum (obrigatório, menos para Administrador)</option>
                 ${setores.map(s => `<option value="${s.id}" ${String(usuario.setor_id) === String(s.id) ? 'selected' : ''}>${sanitizeHTML(s.nome)}</option>`).join('')}
             </select>
@@ -521,6 +546,7 @@ function mostrarFormularioEdicaoUsuario(usuario, setores) {
 
     document.getElementById('modal-prompt-message').innerHTML = content;
     document.getElementById('modal-prompt-title').textContent = 'Editar Usuário';
+    if (ehAdmin && !ehSolicitante) atualizarCamposPerfilUsuario('edit-tipo', 'edit-grupo-setores-adicionais');
     document.getElementById('modal-prompt-input').style.display = 'none';
 
     document.getElementById('modal-overlay').classList.add('show');
@@ -589,6 +615,7 @@ function usernameSugerido(nome) {
 }
 
 function mostrarFormularioPromocao(usuario, setores, equipe) {
+    equipePromocao = equipe;
     document.getElementById('modal-prompt-message').innerHTML = `
         <p class="aviso-promocao">${sanitizeHTML(usuario.nome)} (${sanitizeHTML(usuario.email)}) passa a entrar no sistema.
             As demandas que abriu continuam com ele(a) como solicitante.</p>
