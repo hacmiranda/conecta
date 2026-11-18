@@ -102,6 +102,7 @@ function gerarCardUsuario(usuario, usuarioLogado, ehAdmin) {
                     ${statusAtivo ? 'Desativar' : 'Ativar'}
                 </button>
                 <button class="btn-editar" onclick="editarUsuario(${usuario.id})">Editar</button>
+                ${ehAdmin && usuario.tipo === 'cliente' ? `<button type="button" class="btn-promover" data-acao-usuario="promover" data-id="${Number(usuario.id)}">Promover a usuário interno</button>` : ''}
                 ${podeRedefinirSenhaUsuario(usuario, usuarioLogado, ehAdmin) ? `<button class="btn-redefinir-senha" onclick="redefinirSenhaUsuario(${Number(usuario.id)}, decodeURIComponent('${argJs(usuario.nome)}'))">Redefinir senha</button>` : ''}
                 ${ehAdmin ? `<button class="btn-excluir" onclick="excluirUsuario(${usuario.id})">Excluir</button>` : ''}
             </div>
@@ -473,7 +474,7 @@ function mostrarFormularioEdicaoUsuario(usuario, setores) {
     setores = setores || [];
 
     // Solicitante (cliente) não tem papel interno: o seletor de Perfil não se aplica a ele
-    // (editar aqui é só corrigir nome/e-mail/cargo do cadastro, nunca promovê-lo à equipe).
+    // (editar aqui é só corrigir nome/e-mail/cargo; para levá-lo à equipe há o botão "Promover a usuário interno").
     const ehSolicitante = usuario.tipo === 'cliente';
     const opcoesTipo = ehSolicitante
         ? `<option value="cliente" selected>Solicitante externo (sem acesso ao sistema)</option>`
@@ -552,6 +553,117 @@ function mostrarFormularioEdicaoUsuario(usuario, setores) {
         document.getElementById('modal-prompt-input').style.display = 'block';
         document.getElementById('modal-prompt-message').innerHTML = '';
     };
+}
+
+// ── Promoção de solicitante externo a usuário interno (só admin, 18/11/2026) ──
+// O solicitante nasce do e-mail recebido e nunca teve senha: a promoção pede perfil, setor e uma senha inicial,
+// que ele troca no primeiro acesso. As demandas que ele abriu continuam com ele como solicitante.
+document.addEventListener('click', (ev) => {
+    const botao = ev.target.closest('[data-acao-usuario="promover"]');
+    if (botao) promoverSolicitante(Number(botao.dataset.id));
+});
+
+async function promoverSolicitante(usuarioId) {
+    const usuario = usuariosCacheAtual.find(u => Number(u.id) === usuarioId);
+    if (!usuario) return;
+    let setores = [];
+    try {
+        setores = await Api.get('setores.php');
+    } catch (e) {
+        mostrarAlert('Erro', mensagemDeErro(e, 'Erro ao carregar os setores.'));
+        return;
+    }
+    mostrarFormularioPromocao(usuario, setores.filter(s => s.ativo === undefined || Number(s.ativo) === 1));
+}
+
+// Nome de usuário sugerido (nome.sobrenome, sem acento), como no cadastro
+function usernameSugerido(nome) {
+    const partes = String(nome || '').normalize('NFD').replace(/[̀-ͯ]/g, '')
+        .toLowerCase().replace(/[^a-z\s]/g, '').trim().split(/\s+/).filter(Boolean);
+    if (partes.length === 0) return '';
+    return partes.length === 1 ? partes[0] : `${partes[0]}.${partes[partes.length - 1]}`;
+}
+
+function mostrarFormularioPromocao(usuario, setores) {
+    document.getElementById('modal-prompt-message').innerHTML = `
+        <p class="aviso-promocao">${sanitizeHTML(usuario.nome)} (${sanitizeHTML(usuario.email)}) passa a entrar no sistema.
+            As demandas que abriu continuam com ele(a) como solicitante.</p>
+        <div class="form-group">
+            <label for="promo-tipo">Perfil:</label>
+            <select id="promo-tipo" onchange="atualizarCamposPerfilUsuario('promo-tipo', 'promo-grupo-setores-adicionais')">${opcoesPerfilUsuario(true, 'operador')}</select>
+        </div>
+        <div class="form-group">
+            <label for="promo-setor">Setor de lotação:</label>
+            <select id="promo-setor">
+                <option value="">Selecione (obrigatório, menos para Administrador)</option>
+                ${setores.map(s => `<option value="${Number(s.id)}">${sanitizeHTML(s.nome)}</option>`).join('')}
+            </select>
+        </div>
+        ${camposSoAdminUsuario('promo-', setores, null)}
+        <div class="form-group">
+            <label for="promo-username">Nome de usuário:</label>
+            <input type="text" id="promo-username" value="${sanitizeHTML(usuario.username || usernameSugerido(usuario.nome))}"
+                maxlength="50" autocapitalize="none" spellcheck="false" aria-describedby="promo-username-ajuda">
+            <p id="promo-username-ajuda" class="ajuda-campo-usuario">${TEXTO_REGRA_USERNAME}</p>
+        </div>
+        <div class="form-group">
+            <label for="promo-cargo">Cargo/Função:</label>
+            <input type="text" id="promo-cargo" value="${sanitizeHTML(usuario.cargo || '')}">
+        </div>
+        <div class="form-group">
+            <label for="promo-senha">Senha inicial:</label>
+            <input type="password" id="promo-senha" autocomplete="new-password" aria-describedby="promo-senha-ajuda">
+        </div>
+        <div class="form-group">
+            <label for="promo-senha-confirmacao">Confirmar senha:</label>
+            <input type="password" id="promo-senha-confirmacao" autocomplete="new-password">
+            <p id="promo-senha-ajuda" class="ajuda-campo-usuario">Mínimo de 10 caracteres, com letra maiúscula, minúscula, número e caractere especial.
+                A pessoa troca a senha no primeiro acesso; informe-a por um canal seguro.</p>
+        </div>`;
+    document.getElementById('modal-prompt-title').textContent = 'Promover a usuário interno';
+    document.getElementById('modal-prompt-input').style.display = 'none';
+    document.getElementById('modal-overlay').classList.add('show');
+    document.getElementById('modal-prompt').classList.add('show');
+
+    modalCallback = function (confirmado) {
+        const dados = confirmado ? lerFormularioPromocao() : null;
+        // Restaura o modal antes de qualquer aviso (o alerta usa o mesmo fundo)
+        document.getElementById('modal-prompt-input').style.display = 'block';
+        document.getElementById('modal-prompt-message').innerHTML = '';
+        if (!confirmado) return;
+        if (dados.erro) {
+            mostrarAlert('Atenção', dados.erro);
+            return;
+        }
+        executarPromocao(usuario, dados);
+    };
+}
+
+// Lê e confere o formulário de promoção; devolve {erro} ou os dados para o servidor
+function lerFormularioPromocao() {
+    const tipo = document.getElementById('promo-tipo').value;
+    const setor_id = document.getElementById('promo-setor').value;
+    const username = document.getElementById('promo-username').value.trim().toLowerCase();
+    const senha = document.getElementById('promo-senha').value;
+    const confirmacao = document.getElementById('promo-senha-confirmacao').value;
+    if (tipo !== 'admin' && !setor_id) return { erro: 'Selecione o setor de lotação (obrigatório para todos os perfis, menos Administrador).' };
+    const erroUsername = erroUsernameDigitado(username);
+    if (erroUsername) return { erro: erroUsername };
+    if (senha !== confirmacao) return { erro: 'As senhas não coincidem.' };
+    const erroSenha = validarSenhaNova(senha);
+    if (erroSenha) return { erro: erroSenha };
+    return Object.assign({ tipo, setor_id, username, senha, cargo: document.getElementById('promo-cargo').value },
+        lerCamposSoAdminUsuario('promo-', tipo));
+}
+
+async function executarPromocao(usuario, dados) {
+    try {
+        await Api.put(`usuarios.php/${Number(usuario.id)}`, Object.assign({ nome: usuario.nome, email: usuario.email }, dados));
+        mostrarToast('Sucesso', `${sanitizeHTML(usuario.nome)} agora é ${sanitizeHTML(Papeis.rotulo(dados.tipo))} e aparece na aba Equipe.`, 'success');
+        carregarUsuarios();
+    } catch (e) {
+        mostrarAlert('Erro', (e.dados && e.dados.error) || 'Erro ao promover o solicitante');
+    }
 }
 
 async function executarEdicaoUsuario(usuarioId, nome, email, tipo, username, cargo, setor_id, extras) {

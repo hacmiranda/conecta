@@ -755,6 +755,26 @@ try {
     [$c] = req('PUT', $baseUrl . 'usuarios.php/' . $operadorA2, $T['gestorA'], ['nome' => 'zz Operador A2', 'username' => '', 'email' => $emailOperadorA2, 'tipo' => 'operador', 'setor_id' => $setorA]);
     $usernameDepois = (string) $db->query("SELECT username FROM usuarios WHERE id = $operadorA2")->fetchColumn();
     verifica('editar com o nome de usuário em branco mantém o atual', $c === 200 && $usernameDepois === $usernameA2, "$c $usernameDepois");
+
+    echo "\n[8c] Promoção de solicitante externo a usuário interno (só admin, com senha inicial)\n";
+    $solicitante = criarUsuario($db, 'zz Solicitante Promovido', 'cliente', null);
+    $usuariosCriados[] = $solicitante;
+    $db->prepare("UPDATE usuarios SET senha = NULL WHERE id = ?")->execute([$solicitante]); // como nasce do e-mail
+    $emailSol = (string) $db->query("SELECT email FROM usuarios WHERE id = $solicitante")->fetchColumn();
+    $promo = ['nome' => 'zz Solicitante Promovido', 'email' => $emailSol, 'tipo' => 'operador', 'setor_id' => $setorA, 'username' => 'zz_matriz_promovido'];
+    [$c] = req('PUT', $baseUrl . 'usuarios.php/' . $solicitante, $T['gestorA'], $promo + ['senha' => 'Zz@Teste12345']);
+    verifica('gestor não promove solicitante (403)', $c === 403, (string) $c);
+    [$c] = req('PUT', $baseUrl . 'usuarios.php/' . $solicitante, $T['admin'], $promo);
+    verifica('promoção sem senha inicial é recusada (400)', $c === 400, (string) $c);
+    [$c] = req('PUT', $baseUrl . 'usuarios.php/' . $solicitante, $T['admin'], $promo + ['senha' => 'fraca']);
+    verifica('promoção com senha fraca é recusada (400)', $c === 400, (string) $c);
+    [$c, $j] = req('PUT', $baseUrl . 'usuarios.php/' . $solicitante, $T['admin'], $promo + ['senha' => 'Zz@Teste12345']);
+    $promovido = $db->query("SELECT tipo, setor_id, trocar_senha, ativo FROM usuarios WHERE id = $solicitante")->fetch(PDO::FETCH_ASSOC);
+    verifica('admin promove: vira operador do setor, com troca de senha no 1º acesso',
+        $c === 200 && ($j['promovido'] ?? false) === true && $promovido['tipo'] === 'operador'
+        && (int) $promovido['setor_id'] === (int) $setorA && (int) $promovido['trocar_senha'] === 1 && (int) $promovido['ativo'] === 1, (string) $c);
+    [$c] = reqCookie('POST', $baseUrl . 'auth.php', null, null, ['login' => 'zz_matriz_promovido', 'senha' => 'Zz@Teste12345']);
+    verifica('o promovido entra com a senha inicial (200)', $c === 200, (string) $c);
 } finally {
     echo "\n[limpeza]\n";
     $idsTickets = implode(',', array_filter($ticketsCriados)) ?: '0';

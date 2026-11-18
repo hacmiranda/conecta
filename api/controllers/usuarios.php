@@ -626,6 +626,25 @@ if ($_SERVER['REQUEST_METHOD'] === 'PUT') {
         exit;
     }
 
+    // Promoção de solicitante externo (cliente) a usuário interno: só o administrador. Ele nunca teve senha de
+    // login (nasce do e-mail recebido), então a promoção exige uma senha inicial, trocada no primeiro acesso.
+    $promocao = $alvo['tipo'] === 'cliente' && $tipo !== 'cliente';
+    $senha_promocao = null;
+    if ($promocao) {
+        if ($user['tipo'] !== 'admin') {
+            http_response_code(403);
+            echo json_encode(['error' => 'Só o administrador promove um solicitante externo a usuário interno']);
+            exit;
+        }
+        $erro_senha = SenhaService::validar((string) ($input['senha'] ?? ''));
+        if ($erro_senha !== null) {
+            http_response_code(400);
+            echo json_encode(['error' => 'Senha inicial: ' . $erro_senha]);
+            exit;
+        }
+        $senha_promocao = SenhaService::hash((string) $input['senha']);
+    }
+
     if ($username === '') {
         // Campo vazio na edição mantém o nome atual (gerar de novo daria "nome.sobrenome2", porque o atual
         // já está ocupado pela própria pessoa, e mudaria o login dela); só gera se ainda não havia
@@ -653,6 +672,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'PUT') {
         $stmt->bindParam(':atendimento_externo', $atendimento_externo);
         $stmt->bindParam(':id', $usuario_id);
         $stmt->execute();
+
+        if ($promocao) {
+            $db->prepare("UPDATE usuarios SET senha = ?, trocar_senha = 1, ativo = 1 WHERE id = ?")->execute([$senha_promocao, $usuario_id]);
+            $db->prepare("DELETE FROM tokens_recuperacao WHERE usuario_id = ?")->execute([$usuario_id]);
+        }
 
         // Setores adicionais do coordenador (só muda se o conjunto mudou)
         sort($extras_antes);
@@ -685,8 +709,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'PUT') {
         if ($extras_antes !== $extras_novos) {
             $auditoria->registrar($user['id'], 'alterar_setores_coordenador', 'usuarios', $usuario_id, json_encode($extras_antes), json_encode($extras_novos));
         }
+        if ($promocao) {
+            $auditoria->registrar($user['id'], 'promover_solicitante', 'usuarios', $usuario_id,
+                json_encode(['tipo' => 'cliente']), json_encode(['tipo' => $tipo, 'setor_id' => $setor_id]));
+        }
 
-        echo json_encode(['success' => true, 'demandas_devolvidas' => $devolvidas]);
+        echo json_encode(['success' => true, 'demandas_devolvidas' => $devolvidas, 'promovido' => $promocao]);
     } catch (Exception $e) {
         if ($db->inTransaction()) {
             $db->rollBack();
