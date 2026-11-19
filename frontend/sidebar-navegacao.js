@@ -79,7 +79,7 @@
         if (rotulo) rotulo.textContent = recolhida ? 'Expandir menu' : 'Recolher menu';
 
         // Recolhida: dica ao passar o mouse com o nome de cada item (o texto continua para leitores de tela)
-        sidebar.querySelectorAll('.sidebar-nav .btn-nav, #btn-recolher-sidebar').forEach(function (btn) {
+        sidebar.querySelectorAll('.sidebar-nav .btn-nav, #btn-recolher-sidebar, #btn-sidebar-sair').forEach(function (btn) {
             if (recolhida) {
                 btn.title = textoDoBotao(btn);
             } else {
@@ -105,6 +105,14 @@
         botao.addEventListener('click', function () {
             aplicarRecolhida(!sidebarRecolhida(), true);
         });
+
+        // Botão "Sair" no rodapé da sidebar (19/11/2026): o mesmo "Sair" do menu do avatar
+        const botaoSair = document.getElementById('btn-sidebar-sair');
+        if (botaoSair) {
+            botaoSair.addEventListener('click', function () {
+                if (typeof window.fazerLogout === 'function') window.fazerLogout();
+            });
+        }
 
         // Fase de captura: roda antes do onclick do próprio botão do grupo/avatar
         sidebar.addEventListener('click', function (e) {

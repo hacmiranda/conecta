@@ -21,6 +21,10 @@ function inciarNotificacoes() {
         document.addEventListener('visibilitychange', () => {
             if (!document.hidden && _notificacoesInterval) _buscarNotificacoes();
         });
+        // Só as notificações do setor escolhido no cabeçalho (19/11/2026): troca de setor busca de novo
+        document.addEventListener('setor-contexto-alterado', () => {
+            if (_notificacoesInterval) _buscarNotificacoes();
+        });
     }
 }
 
@@ -28,7 +32,7 @@ function _buscarNotificacoes() {
     if (!localStorage.getItem('cd_usuario')) return;
     if (document.hidden) return; // aba escondida: não consulta o servidor à toa
 
-    Api.get('notificacoes.php').then(data => {
+    Api.get(urlComSetor('notificacoes.php')).then(data => {
         // Administrador: o alerta de falha de e-mail vem na mesma resposta (alerta_email)
         if (data.alerta_email) {
             _mesclarAlertaEmail(data.notificacoes, data.nao_lidas, data.alerta_email);
@@ -209,7 +213,7 @@ function marcarNotificacaoLida(id) {
 }
 
 function marcarTodasComoLidas() {
-    Api.put('notificacoes.php').then(_buscarNotificacoes)
+    Api.put(urlComSetor('notificacoes.php')).then(_buscarNotificacoes)
         .catch(e => mostrarToast('Erro', mensagemDeErro(e, 'Não foi possível marcar as notificações como lidas.'), 'error'));
 }
 
@@ -235,7 +239,7 @@ function excluirTodasNotificacoes() {
 }
 
 function executarExclusaoNotificacoes() {
-    Api.delete('notificacoes.php').then(() => {
+    Api.delete(urlComSetor('notificacoes.php')).then(() => {
         const lista = document.getElementById('lista-notificacoes');
         if (lista) {
             lista.innerHTML = '<p class="notificacoes-vazio">Nenhuma notificação encontrada.</p>';

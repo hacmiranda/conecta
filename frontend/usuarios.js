@@ -14,7 +14,7 @@ function mostrarUsuarios() {
     const _bbtn_usuarios = document.getElementById('btn-usuarios'); if (_bbtn_usuarios) _bbtn_usuarios.classList.add('active');
 
     localStorage.setItem('cd_subSecaoAtiva', 'usuarios');
-    const configTitle = document.getElementById('config-title'); if (configTitle) configTitle.textContent = String.fromCodePoint(0x1F465) + ' Gerenciar Usuários';
+    const configTitle = document.getElementById('config-title'); if (configTitle) configTitle.textContent = String.fromCodePoint(0x1F465) + ' Usuários';
 
     const content = document.getElementById('config-content');
     if (content) {
@@ -80,9 +80,25 @@ function rotuloTipoUsuario(tipo) {
 }
 
 // Admin redefine a senha de qualquer membro da equipe; gestor, só dos operadores do setor
+// Papéis que quem está logado cadastra e administra (espelho de papeisPermitidos em usuarios.php):
+// admin, todos; coordenador, gestor e operador (está acima dos dois, nos setores dele); gestor, só operador
+function papeisAdministradosPor(usuarioLogado) {
+    const tipo = (usuarioLogado || {}).tipo;
+    if (tipo === 'admin') return ['operador', 'gestor', 'coordenador', 'supervisor', 'coordenador_geral', 'admin'];
+    if (tipo === 'coordenador') return ['operador', 'gestor'];
+    return ['operador'];
+}
+
+// Pode editar/ativar/desativar este usuário? (o servidor confere de novo)
+function podeAdministrarUsuario(usuario, usuarioLogado, ehAdmin) {
+    if (ehAdmin) return true;
+    if (Number(usuario.id) === Number(usuarioLogado.id)) return false;
+    return papeisAdministradosPor(usuarioLogado).includes(usuario.tipo || 'operador');
+}
+
 function podeRedefinirSenhaUsuario(usuario, usuarioLogado, ehAdmin) {
     if (Number(usuario.id) === Number(usuarioLogado.id) || usuario.tipo === 'cliente') return false;
-    return ehAdmin || usuario.tipo === 'operador';
+    return podeAdministrarUsuario(usuario, usuarioLogado, ehAdmin);
 }
 
 function gerarCardUsuario(usuario, usuarioLogado, ehAdmin) {
@@ -98,10 +114,11 @@ function gerarCardUsuario(usuario, usuarioLogado, ehAdmin) {
                 <p><strong>Criado:</strong> ${dataDoBanco(usuario.criado_em).toLocaleDateString('pt-BR')}</p>
             </div>
             <div class="usuario-acoes">
+                ${podeAdministrarUsuario(usuario, usuarioLogado, ehAdmin) ? `
                 <button class="btn-${statusAtivo ? 'desativar' : 'ativar'}" onclick="${statusAtivo ? 'desativar' : 'ativar'}Usuario(${usuario.id})">
                     ${statusAtivo ? 'Desativar' : 'Ativar'}
                 </button>
-                <button class="btn-editar" onclick="editarUsuario(${usuario.id})">Editar</button>
+                <button class="btn-editar" onclick="editarUsuario(${usuario.id})">Editar</button>` : ''}
                 ${ehAdmin && usuario.tipo === 'cliente' ? `<button type="button" class="btn-promover" data-acao-usuario="promover" data-id="${Number(usuario.id)}">Promover a usuário interno</button>` : ''}
                 ${podeRedefinirSenhaUsuario(usuario, usuarioLogado, ehAdmin) ? `<button class="btn-redefinir-senha" onclick="redefinirSenhaUsuario(${Number(usuario.id)}, decodeURIComponent('${argJs(usuario.nome)}'))">Redefinir senha</button>` : ''}
                 ${ehAdmin ? `<button class="btn-excluir" onclick="excluirUsuario(${usuario.id})">Excluir</button>` : ''}
@@ -226,9 +243,39 @@ function bloquearSetoresComCoordenador(select, ehCoordenador, equipe) {
     if (select.selectedOptions[0] && select.selectedOptions[0].disabled) select.value = '';
 }
 
-function opcoesPerfilUsuario(ehAdmin, atual) {
-    const tipos = ehAdmin ? ['operador', 'gestor', 'coordenador', 'supervisor', 'coordenador_geral', 'admin'] : ['operador'];
-    return tipos.map(t => `<option value="${t}" ${t === atual ? 'selected' : ''}>${Papeis.rotulo(t)}</option>`).join('');
+// Opções do campo Perfil: os papéis que quem está logado pode atribuir
+function opcoesPerfilUsuario(usuarioLogado, atual) {
+    return papeisAdministradosPor(usuarioLogado)
+        .map(t => `<option value="${t}" ${t === atual ? 'selected' : ''}>${Papeis.rotulo(t)}</option>`).join('');
+}
+
+// Quadro explicativo da tela Usuários: diferença entre Gestor e Operador
+function quadroExplicativoPerfis(usuarioLogado) {
+    const tipo = usuarioLogado.tipo;
+    const quemCadastra = tipo === 'admin'
+        ? 'O(a) coordenador(a) também cadastra gestores e operadores, nos setores dele(a). Supervisor(a) e Coordenador(a) Geral só consultam.'
+        : tipo === 'coordenador'
+            ? 'Como coordenador(a), você cadastra e administra gestores e operadores dos seus setores.'
+            : 'Como gestor, você cadastra e administra os operadores do seu setor.';
+    return `
+        <aside class="aviso-perfis-usuarios" aria-labelledby="aviso-perfis-titulo">
+            <h3 id="aviso-perfis-titulo">Gestor ou Operador: qual a diferença?</h3>
+            <dl class="aviso-perfis-lista">
+                <div>
+                    <dt>Gestor</dt>
+                    <dd>Responde pelo setor. Vê <strong>todas as demandas do setor</strong>, distribui as demandas para a
+                    equipe, acompanha Dashboard, Relatórios e Painel de Atividades do setor e cuida das configurações do
+                    setor (operadores, categorias, status, horários e feriados, filtros de e-mail e atividades).</dd>
+                </div>
+                <div>
+                    <dt>Operador</dt>
+                    <dd>Atende as demandas. Vê <strong>só as demandas em que é o responsável</strong> (e as que abriu) e a
+                    fila do setor (demandas sem responsável), de onde pode <strong>assumir</strong> uma demanda.
+                    Não acessa as configurações.</dd>
+                </div>
+            </dl>
+            <p class="aviso-perfis-rodape">Os dois enviam o <strong>Registro de Atividades</strong>. ${quemCadastra}</p>
+        </aside>`;
 }
 
 // Campos que só o admin preenche: setores adicionais do coordenador e atendimento externo
@@ -277,8 +324,8 @@ function gerarPainelEquipe(usuarios, setores, usuarioLogado, ehAdmin) {
         secoes = '<p>Nenhum usuário da equipe encontrado.</p>';
     }
 
-    // Opções de papel: gestor e coordenador só cadastram operadores; admin pode tudo
-    const opcoesTipo = opcoesPerfilUsuario(ehAdmin, 'operador');
+    // Opções de papel: gestor cadastra operadores; coordenador, gestores e operadores; admin, todos
+    const opcoesTipo = opcoesPerfilUsuario(usuarioLogado, 'operador');
 
     // Setor: o admin escolhe entre todos; o coordenador, entre os seus; gestor fica travado no próprio setor (backend)
     const setoresEscolha = ehAdmin ? setores : (Papeis.setores(usuarioLogado) || []);
@@ -294,6 +341,8 @@ function gerarPainelEquipe(usuarios, setores, usuarioLogado, ehAdmin) {
     const camposAdmin = ehAdmin ? camposSoAdminUsuario('', setores, null) : '';
 
     return `
+        ${quadroExplicativoPerfis(usuarioLogado)}
+
         <button onclick="toggleFormUsuario()" class="btn-primary" style="margin-bottom: 1rem;">
             ➕ Adicionar Novo Usuário
         </button>
@@ -503,11 +552,15 @@ function mostrarFormularioEdicaoUsuario(usuario, setores) {
     // Solicitante (cliente) não tem papel interno: o seletor de Perfil não se aplica a ele
     // (editar aqui é só corrigir nome/e-mail/cargo; para levá-lo à equipe há o botão "Promover a usuário interno").
     const ehSolicitante = usuario.tipo === 'cliente';
+    // Coordenador escolhe o perfil (gestor/operador) e o setor entre os seus; gestor só vê "Operador"
+    const ehCoordenador = usuarioLogado.tipo === 'coordenador';
+    const escolhePerfil = (ehAdmin || ehCoordenador) && !ehSolicitante;
     const opcoesTipo = ehSolicitante
         ? `<option value="cliente" selected>Solicitante externo (sem acesso ao sistema)</option>`
-        : ehAdmin
-            ? opcoesPerfilUsuario(true, usuario.tipo)
+        : escolhePerfil
+            ? opcoesPerfilUsuario(usuarioLogado, usuario.tipo)
             : `<option value="operador" selected>Operador</option>`;
+    const setoresCoordenador = ehCoordenador ? (Papeis.setores(usuarioLogado) || []) : [];
 
     const campoSetor = (ehAdmin && !ehSolicitante) ? `
         <div class="form-group">
@@ -515,6 +568,12 @@ function mostrarFormularioEdicaoUsuario(usuario, setores) {
             <select id="edit-setor" data-usuario-id="${Number(usuario.id)}">
                 <option value="">Nenhum (obrigatório, menos para Administrador)</option>
                 ${setores.map(s => `<option value="${s.id}" ${String(usuario.setor_id) === String(s.id) ? 'selected' : ''}>${sanitizeHTML(s.nome)}</option>`).join('')}
+            </select>
+        </div>` : (ehCoordenador && setoresCoordenador.length > 1) ? `
+        <div class="form-group">
+            <label for="edit-setor">Setor:</label>
+            <select id="edit-setor" data-usuario-id="${Number(usuario.id)}">
+                ${setoresCoordenador.map(s => `<option value="${s.id}" ${String(usuario.setor_id) === String(s.id) ? 'selected' : ''}>${sanitizeHTML(s.nome)}</option>`).join('')}
             </select>
         </div>` : '';
     const camposAdmin = (ehAdmin && !ehSolicitante) ? camposSoAdminUsuario('edit-', setores, usuario) : '';
@@ -536,7 +595,7 @@ function mostrarFormularioEdicaoUsuario(usuario, setores) {
         </div>
         <div class="form-group">
             <label for="edit-tipo">Perfil:</label>
-            <select id="edit-tipo" ${(ehAdmin && !ehSolicitante) ? '' : 'disabled'} onchange="atualizarCamposPerfilUsuario('edit-tipo', 'edit-grupo-setores-adicionais')">
+            <select id="edit-tipo" ${escolhePerfil ? '' : 'disabled'} onchange="atualizarCamposPerfilUsuario('edit-tipo', 'edit-grupo-setores-adicionais')">
                 ${opcoesTipo}
             </select>
         </div>
@@ -621,7 +680,7 @@ function mostrarFormularioPromocao(usuario, setores, equipe) {
             As demandas que abriu continuam com ele(a) como solicitante.</p>
         <div class="form-group">
             <label for="promo-tipo">Perfil:</label>
-            <select id="promo-tipo" onchange="atualizarCamposPerfilUsuario('promo-tipo', 'promo-grupo-setores-adicionais')">${opcoesPerfilUsuario(true, 'operador')}</select>
+            <select id="promo-tipo" onchange="atualizarCamposPerfilUsuario('promo-tipo', 'promo-grupo-setores-adicionais')">${opcoesPerfilUsuario(Papeis.usuario(), 'operador')}</select>
         </div>
         <div class="form-group">
             <label for="promo-setor">Setor de lotação:</label>

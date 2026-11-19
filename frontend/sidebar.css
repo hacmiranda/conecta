@@ -544,3 +544,64 @@
         display: none;
     }
 }
+
+/* --- Rodapé da sidebar: botão "Sair" (19/11/2026). A .sidebar-nav cresce (flex: 1 0 auto) e empurra o
+   rodapé para o fim; com os grupos abertos, ele desce junto com a rolagem da sidebar. --- */
+.sidebar .sidebar-rodape {
+    width: 100%;
+    padding-top: 1rem;
+    border-top: 1px solid rgba(255, 255, 255, 0.12);
+}
+
+.sidebar .sidebar-sair {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    width: 100%;
+    padding: 0.625rem 1rem;
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    border-radius: 0.5rem;
+    background: rgba(255, 255, 255, 0.06);
+    color: var(--vinho-100);
+    font-family: 'Inter', sans-serif;
+    font-size: 0.875rem;
+    font-weight: 500;
+    text-align: left;
+    cursor: pointer;
+    transition: background 0.15s, color 0.15s;
+}
+
+.sidebar .sidebar-sair:hover {
+    background: rgba(255, 255, 255, 0.14);
+    color: #ffffff;
+    transform: none;
+}
+
+.sidebar .sidebar-sair:focus-visible {
+    outline: 2px solid #ffffff;
+    outline-offset: 2px;
+}
+
+.sidebar .sidebar-sair .nav-icon {
+    font-size: 1.25rem;
+    flex-shrink: 0;
+}
+
+@media (min-width: 901px) {
+    .sidebar.recolhida .sidebar-sair {
+        justify-content: center;
+        padding: 0.75rem 0;
+    }
+}
+
+@media (max-width: 900px) {
+    .sidebar .sidebar-rodape {
+        width: auto;
+        padding-top: 0;
+        border-top: none;
+    }
+
+    .sidebar .sidebar-sair {
+        width: auto;
+    }
+}

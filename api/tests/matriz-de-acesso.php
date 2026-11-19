@@ -523,7 +523,8 @@ try {
         [$c] = req('GET', $baseUrl . 'tickets.php?escopo=lixeira', $T[$chave]);
         verifica("$rotulo não acessa a lixeira (403)", $c === 403, (string) $c);
         [$c] = req('GET', $baseUrl . 'registro-atividades.php?data=2026-01-06', $T[$chave]);
-        verifica("$rotulo registra as próprias atividades (200)", $c === 200, (string) $c);
+        // Desde 19/11/2026 só gestor e operador registram atividades
+        verifica("$rotulo não registra atividades (403)", $c === 403, (string) $c);
     }
     [$c] = req('POST', $usuarios, $T['supervisor'], ['nome' => 'zz x', 'email' => 'zz_matriz_x@teste.local', 'tipo' => 'operador', 'senha' => 'Zz@Teste12345', 'setor_id' => $setorA]);
     verifica('supervisor não cria usuário (403)', $c === 403, (string) $c);
@@ -562,14 +563,38 @@ try {
     verifica('coordenador abre o Cruzamento por servidor no setor dele (200)', $c === 200, (string) $c);
     [$c, $j] = req('GET', "$acompC?acao=cruzamento-setor", $T['supervisor']);
     verifica('supervisor vê todos os setores no Cruzamento por setor (200)', $c === 200 && in_array($outroSetor, array_map('intval', array_column($j['setores'] ?? [], 'id')), true), (string) $c);
-    [$c] = req('POST', $usuarios, $T['coordenador'], ['nome' => 'zz Gestor Novo', 'email' => 'zz_matriz_g@teste.local', 'tipo' => 'gestor', 'senha' => 'Zz@Teste12345', 'setor_id' => $setorA]);
-    verifica('coordenador não cria gestor, só operador (403)', $c === 403, (string) $c);
+    // Desde 19/11/2026 o coordenador cadastra gestores e operadores nos setores dele (está acima dos dois)
+    [$c, $j] = req('POST', $usuarios, $T['coordenador'], ['nome' => 'zz Gestor Novo', 'email' => 'zz_matriz_g@teste.local', 'tipo' => 'gestor', 'senha' => 'Zz@Teste12345', 'setor_id' => $setorA]);
+    $gestorNovo = (int) ($j['id'] ?? 0);
+    if ($gestorNovo) { $usuariosCriados[] = $gestorNovo; }
+    verifica('coordenador cria gestor no setor dele (200)', $c === 200 && $gestorNovo > 0, (string) $c);
+    [$c] = req('POST', $usuarios, $T['coordenador'], ['nome' => 'zz Coord Novo', 'email' => 'zz_matriz_cn@teste.local', 'tipo' => 'coordenador', 'senha' => 'Zz@Teste12345', 'setor_id' => $setorA]);
+    verifica('coordenador não cria coordenador (403)', $c === 403, (string) $c);
+    [$c] = req('POST', $usuarios, $T['gestorA'], ['nome' => 'zz Gestor por gestor', 'email' => 'zz_matriz_gg@teste.local', 'tipo' => 'gestor', 'senha' => 'Zz@Teste12345', 'setor_id' => $setorA]);
+    verifica('gestor não cria gestor, só operador (403)', $c === 403, (string) $c);
     [$c, $j] = req('POST', $usuarios, $T['coordenador'], ['nome' => 'zz Operador do B', 'email' => 'zz_matriz_opb@teste.local', 'tipo' => 'operador', 'senha' => 'Zz@Teste12345', 'setor_id' => $setorB]);
     $opB = (int) ($j['id'] ?? 0);
     if ($opB) { $usuariosCriados[] = $opB; }
     verifica('coordenador cria operador no setor adicional (200)', $c === 200 && $opB > 0 && (int) ($j['setor_id'] ?? 0) === (int) $setorB, (string) $c);
-    [$c] = req('PUT', $usuarios . '/' . $gestorA, $T['coordenador'], ['nome' => 'zz x', 'email' => 'zz_matriz_ga@teste.local', 'tipo' => 'operador', 'setor_id' => $setorA]);
-    verifica('coordenador não edita um gestor (403)', $c === 403, (string) $c);
+    $emailGestorA = (string) $db->query("SELECT email FROM usuarios WHERE id = $gestorA")->fetchColumn();
+    [$c] = req('PUT', $usuarios . '/' . $gestorA, $T['coordenador'], ['nome' => 'zz Gestor A', 'email' => $emailGestorA, 'tipo' => 'coordenador', 'setor_id' => $setorA]);
+    verifica('coordenador não promove gestor a coordenador (403)', $c === 403, (string) $c);
+    [$c] = req('PUT', $usuarios . '/' . $gestorA, $T['coordenador'], ['nome' => 'zz Gestor A', 'email' => $emailGestorA, 'tipo' => 'gestor', 'setor_id' => $setorA]);
+    verifica('coordenador edita um gestor do setor dele (200)', $c === 200, (string) $c);
+    [$c] = req('PUT', $usuarios . '/' . $coordenadorId, $T['coordenador'], ['nome' => 'zz Coordenador', 'email' => 'zz_matriz_x@teste.local', 'tipo' => 'gestor', 'setor_id' => $setorA]);
+    verifica('coordenador não edita a si mesmo pela tela de usuários (403)', $c === 403, (string) $c);
+
+    // Prioridades da Ativação por Setor e Personalização: só o administrador (19/11/2026)
+    [$c] = req('GET', $baseUrl . "setor-config.php?tipo=prioridades&setor_id=$setorA", $T['coordenador']);
+    verifica('coordenador não vê a ativação de prioridades (403)', $c === 403, (string) $c);
+    [$c] = req('GET', $baseUrl . "setor-config.php?tipo=prioridades&setor_id=$setorA", $T['gestorA']);
+    verifica('gestor não vê a ativação de prioridades (403)', $c === 403, (string) $c);
+    [$c] = req('GET', $baseUrl . "setor-config.php?tipo=status&setor_id=$setorA", $T['gestorA']);
+    verifica('gestor continua vendo a ativação de status (200)', $c === 200, (string) $c);
+    [$c] = req('GET', $baseUrl . "setor-config.php?tipo=prioridades&setor_id=$setorA", $T['admin']);
+    verifica('admin vê a ativação de prioridades (200)', $c === 200, (string) $c);
+    [$c] = req('GET', $baseUrl . 'registro-atividades.php?data=2026-01-06', $T['coordenador']);
+    verifica('coordenador não registra atividades (403)', $c === 403, (string) $c);
 
     // Um setor tem um coordenador só (principal ou adicional)
     [$c, $j] = req('POST', $usuarios, $T['admin'], ['nome' => 'zz Coordenador 2', 'email' => 'zz_matriz_c2@teste.local', 'tipo' => 'coordenador', 'senha' => 'Zz@Teste12345', 'setor_id' => $setorA]);

@@ -55,11 +55,11 @@ function renderizarPainelConfigSetor(setores, setorInicialId) {
     ` : '';
 
     content.innerHTML = `
-        <p style="color:#666;margin-bottom:1rem;">Ative/desative e reordene quais status e prioridades aparecem para este setor. O catálogo continua compartilhado com os outros setores — nada é apagado aqui, só escondido. As categorias são próprias de cada setor e ficam em Configurações → Categorias.</p>
+        <p style="color:#666;margin-bottom:1rem;">Ative/desative e reordene quais status${Papeis.admin(usuario) ? ' e prioridades' : ''} aparecem para este setor. O catálogo continua compartilhado com os outros setores — nada é apagado aqui, só escondido. As categorias são próprias de cada setor e ficam em Configurações → Categorias.</p>
         ${seletorHtml}
         <div class="tabs-container" style="margin-bottom:1rem;">
             <button type="button" class="tab-btn active" id="tab-config-status" onclick="carregarAbaConfigSetor('status')">🚦 Status</button>
-            <button type="button" class="tab-btn" id="tab-config-prioridades" onclick="carregarAbaConfigSetor('prioridades')">🔥 Prioridades</button>
+            ${Papeis.admin(usuario) ? `<button type="button" class="tab-btn" id="tab-config-prioridades" onclick="carregarAbaConfigSetor('prioridades')">🔥 Prioridades</button>` : ''}
             <button type="button" class="tab-btn" id="tab-config-notificacoes" onclick="carregarAbaConfigSetor('notificacoes')">🔔 Envio de E-mails</button>
         </div>
         <div id="config-setor-lista"></div>
@@ -74,6 +74,8 @@ function renderizarPainelConfigSetor(setores, setorInicialId) {
 }
 
 async function carregarAbaConfigSetor(tipo) {
+    // Prioridades: só o administrador (o servidor também recusa)
+    if (tipo === 'prioridades' && !Papeis.admin()) tipo = 'status';
     abaConfigSetorAtiva = tipo;
     document.querySelectorAll('.tabs-container .tab-btn').forEach(b => b.classList.remove('active'));
     const btnAtivo = document.getElementById('tab-config-' + tipo);

@@ -42,13 +42,31 @@ function lerUsernameInformado(array $input): string {
 }
 
 /**
- * Papéis que quem está logado pode atribuir: admin (todos, menos solicitante); gestor e coordenador (operador).
+ * Papéis que quem está logado pode atribuir e administrar: admin (todos, menos solicitante); coordenador
+ * (gestor e operador, nos setores dele: está acima dos dois, 19/11/2026); gestor (operador, no próprio setor).
  * Solicitante externo (cliente) nunca é cadastrado por aqui.
  */
 function papeisPermitidos(array $user): array {
-    return $user['tipo'] === 'admin'
-        ? ['admin', 'coordenador_geral', 'supervisor', 'coordenador', 'gestor', 'operador']
-        : ['operador'];
+    switch ($user['tipo'] ?? '') {
+        case 'admin':
+            return ['admin', 'coordenador_geral', 'supervisor', 'coordenador', 'gestor', 'operador'];
+        case 'coordenador':
+            return ['gestor', 'operador'];
+        default:
+            return ['operador'];
+    }
+}
+
+/** Mensagem de 403 para quem tenta atribuir ou administrar um papel acima do que pode */
+function mensagemPapelNaoPermitido(array $user): string {
+    switch ($user['tipo'] ?? '') {
+        case 'admin':
+            return 'Papel inválido';
+        case 'coordenador':
+            return 'Coordenadores só administram usuários com papel "gestor" ou "operador"';
+        default:
+            return 'Gestores só administram usuários com papel "operador"';
+    }
 }
 
 /** Todo papel de equipe, menos o administrador, tem um setor de lotação (o Registro de Atividades depende dele). */
@@ -149,15 +167,16 @@ function outrosAdminsAtivos(PDO $db, int $exceto): int {
 
 /**
  * Confere se quem está logado pode administrar o usuário alvo (403 se não puder):
- * admin administra todos; gestor só os operadores do próprio setor.
+ * admin administra todos; coordenador, gestores e operadores dos setores dele; gestor, só os operadores do próprio setor.
  */
 function exigirAdministrarUsuario(array $user, array $alvo): void {
     if ($user['tipo'] === 'admin') {
         return;
     }
-    if ($alvo['tipo'] !== 'operador' || !AuthMiddleware::mesmoSetor($user, $alvo['setor_id'] !== null ? (int) $alvo['setor_id'] : null)) {
+    if (!in_array($alvo['tipo'], papeisPermitidos($user), true) || (int) ($alvo['id'] ?? 0) === (int) $user['id']
+        || !AuthMiddleware::mesmoSetor($user, $alvo['setor_id'] !== null ? (int) $alvo['setor_id'] : null)) {
         http_response_code(403);
-        echo json_encode(['error' => 'Gestores e coordenadores só administram operadores dos próprios setores']);
+        echo json_encode(['error' => mensagemPapelNaoPermitido($user) . ' dos próprios setores']);
         exit;
     }
 }
@@ -328,7 +347,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
     if (!in_array($tipo, papeisPermitidos($user), true)) {
         http_response_code(403);
-        echo json_encode(['error' => $user['tipo'] !== 'admin' ? 'Gestores e coordenadores só podem cadastrar usuários com papel "operador"' : 'Papel inválido']);
+        echo json_encode(['error' => mensagemPapelNaoPermitido($user)]);
         exit;
     }
 
@@ -345,13 +364,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         exit;
     }
 
-    // Gestor só cria operadores no próprio setor; coordenador, nos seus setores (padrão: o principal)
+    // Gestor só cria operadores no próprio setor; coordenador cria gestores e operadores nos seus setores
+    // (padrão: o principal). O papel já foi conferido por papeisPermitidos.
     if (AcessoService::ehGestao($user)) {
-        if ($tipo !== 'operador') {
-            http_response_code(403);
-            echo json_encode(['error' => 'Gestores e coordenadores só podem cadastrar usuários com papel "operador"']);
-            exit;
-        }
         if ($user['tipo'] === 'coordenador' && $setor_id !== null && AcessoService::temAcessoAoSetor($user, $setor_id)) {
             // mantém o setor escolhido, que é um dos dele
         } else {
@@ -477,10 +492,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'PUT') {
         exit;
     }
 
-    // Gestor e coordenador administram apenas operadores: não editam (nem rebaixam) gestores, coordenadores, admins ou a si mesmos
-    if (AcessoService::ehGestao($user) && $alvo['tipo'] !== 'operador') {
+    // Gestor administra apenas operadores; coordenador, gestores e operadores. Nenhum dos dois edita a si mesmo,
+    // outros coordenadores ou papéis acima
+    if (AcessoService::ehGestao($user)
+        && (!in_array($alvo['tipo'], papeisPermitidos($user), true) || $usuario_id === (int) $user['id'])) {
         http_response_code(403);
-        echo json_encode(['error' => 'Gestores e coordenadores só podem editar usuários com papel de operador']);
+        echo json_encode(['error' => mensagemPapelNaoPermitido($user)]);
         exit;
     }
 
@@ -584,13 +601,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'PUT') {
         // edição de dados de um solicitante externo (sem mudar o papel)
     } elseif (!in_array($tipo, papeisPermitidos($user), true)) {
         http_response_code(403);
-        echo json_encode(['error' => $user['tipo'] !== 'admin' ? 'Você não pode alterar o papel para um acima de operador' : 'Papel inválido']);
+        echo json_encode(['error' => mensagemPapelNaoPermitido($user)]);
         exit;
     }
 
-    // Gestor e coordenador não mudam o setor do usuário
+    // Gestor não muda o setor do usuário; coordenador pode movê-lo entre os setores dele
     if (AcessoService::ehGestao($user)) {
-        $setor_id = $alvo['setor_id'];
+        $podeMover = $user['tipo'] === 'coordenador' && $setor_id !== null
+            && AcessoService::temAcessoAoSetor($user, (int) $setor_id);
+        if (!$podeMover) {
+            $setor_id = $alvo['setor_id'];
+        }
     }
     if ($tipo === 'admin') {
         $setor_id = null; // administrador não pertence a setor

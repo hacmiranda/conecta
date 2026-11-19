@@ -40,9 +40,15 @@ const TIPOS = [
 /**
  * Verifica se o usuário pode gerenciar a configuração do setor informado
  * (admin sempre; gestor só o próprio setor) e encerra com 403 caso não.
+ * Prioridades: só o administrador (19/11/2026; a aba some para os demais perfis).
  */
-function autorizarSetor(array $user, int $setor_id): void {
+function autorizarSetor(array $user, int $setor_id, string $tipo = ''): void {
     AuthMiddleware::verificarGestor($user);
+    if ($tipo === 'prioridades' && ($user['tipo'] ?? '') !== 'admin') {
+        http_response_code(403);
+        echo json_encode(['error' => 'Só o administrador configura as prioridades do setor']);
+        exit;
+    }
     if (!AuthMiddleware::mesmoSetor($user, $setor_id)) {
         http_response_code(403);
         echo json_encode(['error' => 'Você só pode configurar o próprio setor']);
@@ -62,7 +68,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
         exit;
     }
 
-    autorizarSetor($user, $setor_id);
+    autorizarSetor($user, $setor_id, $tipo);
 
     $cfg = TIPOS[$tipo];
 
@@ -103,7 +109,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'PUT') {
         exit;
     }
 
-    autorizarSetor($user, $setor_id);
+    autorizarSetor($user, $setor_id, $tipo);
 
     $cfg = TIPOS[$tipo];
     $ativo = $input['ativo'] ? 1 : 0;
@@ -164,7 +170,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         exit;
     }
 
-    autorizarSetor($user, $setor_id);
+    autorizarSetor($user, $setor_id, $tipo);
 
     $cfg = TIPOS[$tipo];
 

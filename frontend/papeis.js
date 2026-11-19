@@ -14,7 +14,8 @@ const Papeis = (function () {
     const SOMENTE_LEITURA = ['coordenador_geral', 'supervisor'];
     const GESTAO = ['gestor', 'coordenador'];
     const EQUIPE = ['admin', 'coordenador_geral', 'supervisor', 'coordenador', 'gestor', 'operador'];
-    const REGISTRAM_ATIVIDADES = ['coordenador_geral', 'supervisor', 'coordenador', 'gestor', 'operador'];
+    // Desde 19/11/2026 só gestor e operador registram atividades (coordenação, supervisão e admin não)
+    const REGISTRAM_ATIVIDADES = ['gestor', 'operador'];
     const SATISFACAO = ['admin', 'coordenador_geral', 'supervisor', 'coordenador'];
     const ROTULOS = {
         admin: 'Administrador',

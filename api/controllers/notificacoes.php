@@ -2,6 +2,7 @@
 header('Content-Type: application/json');
 require_once __DIR__ . '/../config/database.php';
 require_once __DIR__ . '/../middleware/auth.php';
+require_once __DIR__ . '/../services/acesso-service.php';
 
 AuthMiddleware::configurarCORS(['GET', 'PUT', 'DELETE']);
 if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
@@ -17,16 +18,23 @@ if (in_array($method, ['PUT', 'DELETE'], true)) {
     AuthMiddleware::verificarCSRF();
 }
 
+// Só as notificações do(s) setor(es) do usuário (19/11/2026): a demanda da notificação precisa estar hoje num
+// setor do escopo dele. Gestor e operador: o próprio setor; coordenador: os seus (ou o escolhido no cabeçalho);
+// admin, supervisor e coordenador geral: o setor escolhido no cabeçalho (?setor_id=; vazio = todos). Aviso sem
+// demanda (ticket_id NULL) aparece sempre. Vale também para "marcar todas" e "excluir todas".
+$filtroSetor = AcessoService::filtroSetorSql('t.setor_id', AcessoService::escopoSetores($user));
+$doEscopo = "(n.ticket_id IS NULL OR EXISTS (SELECT 1 FROM tickets t WHERE t.id = n.ticket_id AND {$filtroSetor}))";
+
 try {
     $conn = (new Database())->getConnection();
 
     if ($method === 'GET') {
         // Notificações do usuário (as 50 mais recentes) e quantas não foram lidas
-        $stmt = $conn->prepare("SELECT * FROM notificacoes WHERE usuario_id = ? ORDER BY criado_em DESC LIMIT 50");
+        $stmt = $conn->prepare("SELECT n.* FROM notificacoes n WHERE n.usuario_id = ? AND {$doEscopo} ORDER BY n.criado_em DESC LIMIT 50");
         $stmt->execute([$usuario_id]);
         $notificacoes = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
-        $stmtCount = $conn->prepare("SELECT COUNT(*) FROM notificacoes WHERE usuario_id = ? AND lida = 0");
+        $stmtCount = $conn->prepare("SELECT COUNT(*) FROM notificacoes n WHERE n.usuario_id = ? AND n.lida = 0 AND {$doEscopo}");
         $stmtCount->execute([$usuario_id]);
 
         $resposta = [
@@ -54,13 +62,13 @@ try {
             $stmt = $conn->prepare("UPDATE notificacoes SET lida = 1 WHERE id = ? AND usuario_id = ?");
             $stmt->execute([$id, $usuario_id]);
         } else {
-            $stmt = $conn->prepare("UPDATE notificacoes SET lida = 1 WHERE usuario_id = ?");
+            $stmt = $conn->prepare("UPDATE notificacoes n SET n.lida = 1 WHERE n.usuario_id = ? AND {$doEscopo}");
             $stmt->execute([$usuario_id]);
         }
         echo json_encode(['success' => true]);
     } elseif ($method === 'DELETE') {
-        // Excluir todas as notificações do usuário
-        $stmt = $conn->prepare("DELETE FROM notificacoes WHERE usuario_id = ?");
+        // Excluir todas as notificações do usuário (as que ele está vendo, do escopo de setores)
+        $stmt = $conn->prepare("DELETE n FROM notificacoes n WHERE n.usuario_id = ? AND {$doEscopo}");
         $stmt->execute([$usuario_id]);
         echo json_encode(['success' => true]);
     } elseif ($method === 'POST') {

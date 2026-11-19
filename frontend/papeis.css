@@ -157,3 +157,80 @@ body.modo-escuro .fieldset-setores-adicionais {
 .switch-label-quebra .switch {
     flex: 0 0 50px;
 }
+
+/* Tela Usuários (19/11/2026): quadro em destaque com a diferença entre Gestor e Operador */
+.aviso-perfis-usuarios {
+    margin: 0 0 1rem;
+    padding: 1rem 1.25rem;
+    border: 1px solid var(--laranja-100);
+    border-left: 5px solid var(--laranja-500);
+    border-radius: var(--radius-md);
+    background: var(--laranja-50);
+    color: var(--neutro-900);
+}
+
+.aviso-perfis-usuarios h3 {
+    margin: 0 0 0.5rem;
+    font-size: 1.05rem;
+    color: var(--vinho-700);
+}
+
+.aviso-perfis-lista {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr));
+    gap: 0.75rem 1.5rem;
+    margin: 0;
+}
+
+.aviso-perfis-lista dt {
+    font-weight: 700;
+    color: var(--vinho-700);
+}
+
+.aviso-perfis-lista dd {
+    margin: 0.125rem 0 0;
+    line-height: 1.5;
+}
+
+.aviso-perfis-rodape {
+    margin: 0.75rem 0 0;
+    font-size: 0.9rem;
+}
+
+body.modo-escuro .aviso-perfis-usuarios {
+    background: var(--neutro-900);
+    border-color: var(--neutro-600);
+    border-left-color: var(--laranja-500);
+    color: var(--neutro-50);
+}
+
+body.modo-escuro .aviso-perfis-usuarios h3,
+body.modo-escuro .aviso-perfis-lista dt {
+    color: var(--laranja-500);
+}
+
+/* Tela Setores: selo e explicação do "setor de coordenação" (migração 42) */
+.selo-setor-coordenacao {
+    display: inline-block;
+    padding: 0.125rem 0.5rem;
+    border-radius: var(--radius-sm);
+    background: var(--vinho-50);
+    color: var(--vinho-700);
+    font-size: 0.8rem;
+    font-weight: 600;
+}
+
+.aviso-setor-coordenacao {
+    margin: 0 0 1rem;
+    color: var(--neutro-600);
+    font-size: 0.9rem;
+}
+
+body.modo-escuro .selo-setor-coordenacao {
+    background: var(--neutro-800);
+    color: var(--vinho-100);
+}
+
+body.modo-escuro .aviso-setor-coordenacao {
+    color: var(--neutro-200);
+}

@@ -593,6 +593,7 @@ function alterarPrioridade(ticketId, setorId) {
         setorId = obterSetorIdDoTicket(ticketId);
     }
     const prioridadeOpcoesFallback = [
+        { id: 'baixissima', nome: 'Baixíssima (Sem SLA)' },
         { id: 'baixa', nome: 'Baixa' },
         { id: 'normal', nome: 'Normal' },
         { id: 'alta', nome: 'Alta' },
@@ -621,9 +622,11 @@ function alterarPrioridade(ticketId, setorId) {
         const opcoes = prioridadesList.map(p => ({
             id: p.nome,
             nome: `${window.PRIORIDADE_CONFIG?.[p.nome]?.icone || ''} ${typeof formatarNomePrioridade === 'function' ? formatarNomePrioridade(p.nome) : p.nome}`,
-            descricao: p.descricao
-                ? `${p.descricao} (SLA: ${p.sla_resposta_minutos}min resposta / ${p.sla_resolucao_horas}h resolução)`
-                : ''
+            descricao: Number(p.sem_sla) === 1
+                ? (p.descricao || 'Sem SLA')
+                : (p.descricao
+                    ? `${p.descricao} (SLA: ${p.sla_resposta_minutos}min resposta / ${p.sla_resolucao_horas}h resolução)`
+                    : '')
         }));
         abrirSelect(opcoes.length > 0 ? opcoes : prioridadeOpcoesFallback);
     }).catch(() => abrirSelect(prioridadeOpcoesFallback));
@@ -990,14 +993,15 @@ function selecionarModal(opcao) {
 
 // === CONTROLE DE VISIBILIDADE POR PAPEL ===
 
-// Registro de Atividades (veio do METRICA360): toda a equipe com setor de lotação, menos o administrador
+// Registro de Atividades (veio do METRICA360): gestor e operador com setor de lotação. Desde 19/11/2026
+// administrador, coordenador, coordenador geral e supervisor não registram (não veem a tela)
 function podeRegistrarAtividades() {
     return Papeis.registraAtividades();
 }
 
 // Mostra/oculta o menu Configurações e seus itens conforme o papel do usuário logado.
-// admin: vê tudo. gestor: vê só "Gerenciar Usuários" (escopado ao próprio setor).
-// usuario/cliente: menu Configurações fica oculto por completo.
+// admin: vê tudo. gestor e coordenador: as telas do setor (Usuários, Categorias, Ativação por Setor, Horários e
+// Feriados, Filtros de E-mail, Atividades). Coordenador geral, supervisor e operador: menu Configurações oculto.
 function aplicarVisibilidadePorPapel(tipo) {
     const perfil = { tipo: tipo };
     // Coordenador geral e supervisor só consultam: a classe esconde os botões de alteração (o servidor também recusa)
@@ -1034,6 +1038,10 @@ function aplicarVisibilidadePorPapel(tipo) {
     const menuConfigWrapper = document.getElementById('nav-config-wrapper');
     if (!menuConfigWrapper) return;
 
+    // O <li> do grupo também some (senão sobra o espaço do item na sidebar)
+    const grupoConfig = menuConfigWrapper.closest('li');
+    if (grupoConfig) grupoConfig.hidden = !Papeis.administraSetor(perfil);
+
     if (tipo === 'admin') {
         menuConfigWrapper.style.display = '';
         return;
@@ -1041,9 +1049,10 @@ function aplicarVisibilidadePorPapel(tipo) {
 
     if (Papeis.gestao(perfil)) {
         menuConfigWrapper.style.display = '';
-        // Gestor e coordenador: Usuários, Categorias, Ativação por Setor, Horários e Feriados e Personalização
-        // (somente leitura). Setores, Configurar e-mail e Auditoria são exclusivos do admin.
-        const itensAdminApenas = ['btn-config-setores', 'btn-config-email', 'btn-config-auditoria', 'btn-config-pesquisa'];
+        // Gestor e coordenador: Usuários, Categorias, Ativação por Setor, Horários e Feriados, Filtros de E-mail e
+        // Atividades. Setores, Configurar e-mail, Pesquisa, Personalização e Auditoria são exclusivos do admin.
+        const itensAdminApenas = ['btn-config-setores', 'btn-config-email', 'btn-config-auditoria', 'btn-config-pesquisa',
+            'btn-config-personalizacao'];
         itensAdminApenas.forEach(id => {
             const el = document.getElementById(id);
             if (el) el.style.display = 'none';
@@ -1051,7 +1060,7 @@ function aplicarVisibilidadePorPapel(tipo) {
         return;
     }
 
-    // usuario/cliente: sem acesso a Configurações
+    // Coordenador geral, supervisor, operador e cliente: sem acesso a Configurações
     menuConfigWrapper.style.display = 'none';
 }
 
@@ -1152,7 +1161,8 @@ function restaurarSecaoAtiva() {
             mostrarSecao('tickets');
             carregarTickets();
         } else if (Papeis.gestao(usuario)) {
-            // Gestor: Usuários, Categorias, Ativação por Setor, Horários e Feriados e Personalização (leitura)
+            // Gestor e coordenador: Usuários, Categorias, Ativação por Setor, Horários e Feriados, Filtros de E-mail
+            // e Atividades (Personalização é só do admin: subseção salva cai em Usuários)
             mostrarSecao('config');
             if (subSecaoSalva === 'categorias') {
                 mostrarCategorias();
@@ -1164,8 +1174,6 @@ function restaurarSecaoAtiva() {
                 mostrarAtividadesConfig();
             } else if (subSecaoSalva === 'horarios-sla') {
                 mostrarHorariosSLA();
-            } else if (subSecaoSalva === 'personalizacao') {
-                mostrarPersonalizacao();
             } else {
                 mostrarUsuarios();
             }
@@ -1410,6 +1418,12 @@ function toggleModoEscuro() {
         icone.textContent = isDark ? '☀️' : '🌙';
         texto.textContent = isDark ? 'Modo Claro' : 'Modo Escuro';
     }
+
+    // O Dashboard segue o tema (claro por padrão): os gráficos em canvas precisam ser redesenhados
+    const dashboard = document.getElementById('dashboard');
+    if (dashboard && dashboard.classList.contains('active') && typeof carregarDashboard === 'function') {
+        carregarDashboard();
+    }
 }
 
 // Restaurar modo escuro
@@ -1519,6 +1533,7 @@ function mostrarSobre() {
                             <li>Contador de alertas não lidos sobre o ícone do sino.</li>
                             <li>Veja o histórico de notificações; clicar em uma abre a demanda e marca como lida.</li>
                             <li>Você é avisado de: nova atribuição, nova demanda, novos comentários e lembretes.</li>
+                            <li>O sino mostra só as notificações das demandas do seu setor (ou do setor escolhido no topo da tela).</li>
                         </ul>
                     </div>
 
@@ -1541,6 +1556,8 @@ function mostrarSobre() {
                         <ul style="margin: 0; padding-left: 1.4rem; font-size: 0.88rem; color: var(--text-secondary, #555); line-height: 1.8;">
                             <li>Indicador de resolução no primeiro contato: percentual de demandas resolvidas já no primeiro atendimento.</li>
                             <li>Dashboard mais rápido para quem usa o sistema ao mesmo tempo.</li>
+                            <li>Tema claro por padrão; com o modo escuro ligado, o Dashboard fica escuro também.</li>
+                            <li>Demandas na prioridade <strong>Baixíssima (Sem SLA)</strong> não entram nos tempos médios de atendimento.</li>
                         </ul>
                     </div>
 
