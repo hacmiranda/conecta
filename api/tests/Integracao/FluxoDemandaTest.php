@@ -184,4 +184,40 @@ final class FluxoDemandaTest extends TestCase {
         $this->assertTrue($marcas['pesquisa']);
         $this->assertFalse($marcas['reaberto']);
     }
+
+    // === Prioridade "Baixíssima (Sem SLA)" (migração 42) ===
+
+    private function trocarPrioridade(string $nova): void {
+        $d = $this->demanda();
+        $this->db->prepare("UPDATE tickets SET prioridade = ? WHERE id = ?")->execute([$nova, $this->ticket]);
+        DemandaService::efeitosDaMudancaDePrioridade($this->db, $this->ticket, (string) $d['status'], (string) $d['prioridade'], $nova, $this->setor);
+    }
+
+    public function test_prioridade_sem_sla_pausa_e_ao_sair_retoma(): void {
+        $this->mudar('em_atendimento');
+        $this->trocarPrioridade('baixissima');
+        $this->assertNotNull($this->sla()['pausado_em'], 'entrar na prioridade sem SLA pausa o SLA');
+
+        $this->trocarPrioridade('normal');
+        $sla = $this->sla();
+        $this->assertNull($sla['pausado_em'], 'voltar a uma prioridade com SLA retoma a contagem');
+        $this->assertSame(0, (int) $sla['pausado']);
+    }
+
+    public function test_prioridade_sem_sla_continua_pausada_ao_sair_de_status_que_congela(): void {
+        $this->mudar('em_atendimento');
+        $this->mudar('aguardando_resposta');
+        $this->trocarPrioridade('baixissima');
+        // Sai do "aguardando", mas a prioridade continua sem SLA: a pausa não fecha
+        $this->mudar('em_atendimento');
+        $this->assertNotNull($this->sla()['pausado_em']);
+    }
+
+    public function test_status_e_prioridade_juntos_usam_a_prioridade_anterior(): void {
+        // Como o PUT de tickets.php: grava os dois e passa a prioridade anterior para a regra do status
+        $this->db->prepare("UPDATE tickets SET prioridade = 'baixissima', status = 'em_atendimento' WHERE id = ?")->execute([$this->ticket]);
+        DemandaService::efeitosDaMudancaDeStatus($this->db, $this->ticket, 'novo', 'em_atendimento', $this->autor, $this->setor,
+            ['prioridade_anterior' => 'normal']);
+        $this->assertNotNull($this->sla()['pausado_em']);
+    }
 }

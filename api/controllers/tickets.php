@@ -772,10 +772,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'PUT') {
 
             if ($mudou_status) {
                 $marcas = DemandaService::efeitosDaMudancaDeStatus($db, (int) $ticket_id, (string) $current_data['status'],
-                    (string) $input['status'], (int) $usuario_id, $setor_da_demanda);
+                    (string) $input['status'], (int) $usuario_id, $setor_da_demanda,
+                    ['prioridade_anterior' => (string) $current_data['prioridade']]);
                 $pos_commit['reaberto'] = $marcas['reaberto'];
                 $pos_commit['encerrado'] = $marcas['encerrado'];
                 $pos_commit['pesquisa'] = $marcas['pesquisa'];
+            } elseif (isset($input['prioridade'])) {
+                // Só a prioridade mudou: entrar/sair da prioridade sem SLA pausa/retoma o SLA
+                DemandaService::efeitosDaMudancaDePrioridade($db, (int) $ticket_id, (string) $current_data['status'],
+                    (string) $current_data['prioridade'], (string) $input['prioridade'], $setor_da_demanda);
             }
 
             if (isset($input['prioridade']) && $input['prioridade'] !== $current_data['prioridade']) {

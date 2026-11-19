@@ -79,7 +79,9 @@
         const listaDoUsuario = Papeis.setores(usuario); // null = visão total (todos os setores ativos)
         const fonte = listaDoUsuario === null
             ? Api.get('setores.php')
-            : Promise.resolve(listaDoUsuario.map(function (s) { return { id: s.id, nome: s.nome, ativo: 1 }; }));
+            : Promise.resolve(listaDoUsuario.map(function (s) {
+                return { id: s.id, nome: s.nome, ativo: 1, setor_coordenacao: s.setor_coordenacao };
+            }));
 
         // Sem a lista (erro ou sem conexão) o seletor só não aparece, como antes
         fonte.then(function (resposta) {
@@ -93,7 +95,11 @@
             todos.textContent = listaDoUsuario === null ? 'Todos os setores' : 'Todos os meus setores';
             seletor.appendChild(todos);
 
-            setores.filter(function (s) { return Number(s.ativo) === 1; }).forEach(function (s) {
+            // Setores de coordenação (só o coordenador trabalha neles, sem relatório de atividades nem
+            // pesquisa de satisfação) não aparecem no seletor (Configurações → Setores, migração 42)
+            setores.filter(function (s) {
+                return Number(s.ativo) === 1 && Number(s.setor_coordenacao) !== 1;
+            }).forEach(function (s) {
                 const opcao = document.createElement('option');
                 opcao.value = String(s.id);
                 opcao.textContent = s.nome;

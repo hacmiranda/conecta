@@ -175,14 +175,14 @@ class DemandaService {
         }
         $sla = new SLAService($db);
 
-        // SLA: pausa / retomada
-        $congelaNovo = $sla->congelaSla($novo);
-        $congelaAnterior = $sla->congelaSla($anterior);
-        if ($congelaNovo && !$congelaAnterior) {
-            $db->prepare("UPDATE ticket_sla SET pausado = TRUE, pausado_em = NOW() WHERE ticket_id = ? AND pausado_em IS NULL")->execute([$ticketId]);
-        } elseif (!$congelaNovo && $congelaAnterior) {
-            $sla->retomarPausa($ticketId, $setorId);
-        }
+        // SLA: pausa / retomada. Conta também a prioridade sem SLA ("Baixíssima"): quem muda status e
+        // prioridade na mesma gravação informa a prioridade anterior em $opcoes['prioridade_anterior']
+        $prioAtual = $db->prepare("SELECT prioridade FROM tickets WHERE id = ?");
+        $prioAtual->execute([$ticketId]);
+        $prioridadeNova = (string) ($prioAtual->fetchColumn() ?: '');
+        $prioridadeAnterior = (string) ($opcoes['prioridade_anterior'] ?? $prioridadeNova);
+        self::ajustarPausaSla($db, $ticketId, $sla->pausaSla($anterior, $prioridadeAnterior),
+            $sla->pausaSla($novo, $prioridadeNova), $setorId);
 
         // Primeira resposta: a equipe tirou a demanda de "novo"
         if ($anterior === 'novo' && ($opcoes['resposta_da_equipe'] ?? true)) {
@@ -256,18 +256,52 @@ class DemandaService {
      * descontando o tempo pausado. Chamada ao sair de "novo", ao atribuir um responsável e no
      * primeiro comentário da equipe enviado ao solicitante.
      */
+    /**
+     * Abre ou fecha a pausa do SLA quando a situação muda (status que congela ou prioridade sem SLA).
+     * Pausa = ticket_sla.pausado_em; ao retomar, o trecho pausado é somado em tempo_pausado_segundos
+     * (não conta no SLA nem nos tempos de resposta/resolução).
+     */
+    public static function ajustarPausaSla(PDO $db, int $ticketId, bool $pausavaAntes, bool $pausaAgora, ?int $setorId): void {
+        require_once __DIR__ . '/sla-service.php';
+        if ($pausaAgora && !$pausavaAntes) {
+            $db->prepare("UPDATE ticket_sla SET pausado = TRUE, pausado_em = NOW() WHERE ticket_id = ? AND pausado_em IS NULL")->execute([$ticketId]);
+        } elseif (!$pausaAgora && $pausavaAntes) {
+            (new SLAService($db))->retomarPausa($ticketId, $setorId);
+        }
+    }
+
+    /**
+     * Efeito de uma troca de prioridade sem troca de status (tela, transferência de setor): entrar na
+     * prioridade sem SLA pausa o SLA; sair dela retoma (se o status não congela). Chamar depois do UPDATE.
+     */
+    public static function efeitosDaMudancaDePrioridade(PDO $db, int $ticketId, string $status, string $anterior, string $nova, ?int $setorId): void {
+        if ($anterior === $nova) {
+            return;
+        }
+        require_once __DIR__ . '/sla-service.php';
+        $sla = new SLAService($db);
+        self::ajustarPausaSla($db, $ticketId, $sla->pausaSla($status, $anterior), $sla->pausaSla($status, $nova), $setorId);
+    }
+
     public static function marcarPrimeiraResposta(PDO $db, int $ticketId, ?int $setorId): void {
         require_once __DIR__ . '/sla-service.php';
-        $dados = $db->prepare("SELECT t.criado_em, COALESCE(s.tempo_pausado_segundos, 0) AS pausado, s.primeira_resposta_em
+        $dados = $db->prepare("SELECT t.criado_em, COALESCE(s.tempo_pausado_segundos, 0) AS pausado, s.pausado_em, s.primeira_resposta_em
                                FROM tickets t LEFT JOIN ticket_sla s ON s.ticket_id = t.id WHERE t.id = ?");
         $dados->execute([$ticketId]);
         $d = $dados->fetch(PDO::FETCH_ASSOC);
         if (!$d || !$d['criado_em'] || !empty($d['primeira_resposta_em'])) {
             return;
         }
-        $segundos = (new SLAService($db))->calcularSegundosUteis($d['criado_em'], date('Y-m-d H:i:s'), $setorId);
+        $sla = new SLAService($db);
+        $agora = date('Y-m-d H:i:s');
+        $segundos = $sla->calcularSegundosUteis($d['criado_em'], $agora, $setorId);
+        // Desconta também a pausa em andamento (ex.: demanda em prioridade sem SLA respondida agora)
+        $pausado = (int) $d['pausado'];
+        if (!empty($d['pausado_em'])) {
+            $pausado += $sla->calcularSegundosUteis($d['pausado_em'], $agora, $setorId);
+        }
         $db->prepare("UPDATE ticket_sla SET primeira_resposta_em = NOW(), tempo_primeira_resposta_segundos = ?
                       WHERE ticket_id = ? AND primeira_resposta_em IS NULL")
-           ->execute([max(0, $segundos - (int) $d['pausado']), $ticketId]);
+           ->execute([max(0, $segundos - $pausado), $ticketId]);
     }
 }

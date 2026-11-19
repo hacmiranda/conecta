@@ -26,8 +26,9 @@ class AcessoService {
     /** Toda a equipe interna (tudo menos cliente) */
     const PAPEIS_EQUIPE = ['admin', 'coordenador_geral', 'supervisor', 'coordenador', 'gestor', 'operador'];
 
-    /** Quem registra as próprias atividades (precisa ter setor de lotação); admin não registra */
-    const PAPEIS_REGISTRAM_ATIVIDADES = ['coordenador_geral', 'supervisor', 'coordenador', 'gestor', 'operador'];
+    /** Quem registra as próprias atividades (precisa ter setor de lotação). Desde 19/11/2026 só gestor e operador:
+     *  admin, coordenador, coordenador geral e supervisor não registram nem são cobrados */
+    const PAPEIS_REGISTRAM_ATIVIDADES = ['gestor', 'operador'];
 
     /** Quem entra no módulo Satisfação (o gestor e o operador não) */
     const PAPEIS_SATISFACAO = ['admin', 'coordenador_geral', 'supervisor', 'coordenador'];
@@ -112,15 +113,16 @@ class AcessoService {
         if (!$ids) {
             return [];
         }
-        $stmt = $db->query("SELECT id, nome FROM setores WHERE id IN (" . implode(',', $ids) . ")");
+        $stmt = $db->query("SELECT id, nome, setor_coordenacao FROM setores WHERE id IN (" . implode(',', $ids) . ")");
         $porId = [];
         foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $s) {
-            $porId[(int) $s['id']] = $s['nome'];
+            $porId[(int) $s['id']] = $s;
         }
         $lista = [];
         foreach ($ids as $id) { // mantém a ordem: principal primeiro
             if (isset($porId[$id])) {
-                $lista[] = ['id' => $id, 'nome' => $porId[$id]];
+                // setor_coordenacao: o seletor do cabeçalho não mostra esse setor (migração 42)
+                $lista[] = ['id' => $id, 'nome' => $porId[$id]['nome'], 'setor_coordenacao' => (int) $porId[$id]['setor_coordenacao']];
             }
         }
         return $lista;
@@ -474,6 +476,13 @@ class AcessoService {
         $db->prepare("INSERT INTO ticket_sla (ticket_id)
                       SELECT ? FROM DUAL WHERE NOT EXISTS (SELECT 1 FROM ticket_sla WHERE ticket_id = ?)")
            ->execute([$ticketId, $ticketId]);
+
+        // Demanda que já nasce em prioridade sem SLA ("Baixíssima"): o SLA começa pausado
+        $db->prepare("UPDATE ticket_sla s JOIN tickets t ON t.id = s.ticket_id
+                        JOIN ticket_prioridades p ON p.nome = t.prioridade AND p.sem_sla = 1
+                         SET s.pausado = TRUE, s.pausado_em = t.criado_em
+                       WHERE s.ticket_id = ? AND s.pausado_em IS NULL")
+           ->execute([$ticketId]);
 
         if ($setorId) {
             $db->prepare("INSERT INTO ticket_setor_log (ticket_id, setor_id) VALUES (?, ?)")

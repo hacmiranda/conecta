@@ -20,7 +20,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
         $setor_id = isset($_GET['setor_id']) && $_GET['setor_id'] !== '' ? (int) $_GET['setor_id'] : null;
 
         if ($setor_id) {
-            $query = "SELECT p.nome, p.descricao, p.sla_resposta_minutos, p.sla_resolucao_horas, p.cor, p.icone, sp.ordem
+            $query = "SELECT p.nome, p.descricao, p.sla_resposta_minutos, p.sla_resolucao_horas, p.sem_sla, p.cor, p.icone, sp.ordem
                       FROM ticket_prioridades p
                       INNER JOIN setor_prioridades sp ON sp.prioridade_id = p.id AND sp.setor_id = :setor_id AND sp.ativo = 1
                       WHERE p.ativo = TRUE
@@ -28,7 +28,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
             $stmt = $db->prepare($query);
             $stmt->bindParam(':setor_id', $setor_id, PDO::PARAM_INT);
         } else {
-            $query = "SELECT nome, descricao, sla_resposta_minutos, sla_resolucao_horas, cor, icone, ordem
+            $query = "SELECT nome, descricao, sla_resposta_minutos, sla_resolucao_horas, sem_sla, cor, icone, ordem
                       FROM ticket_prioridades
                       WHERE ativo = TRUE
                       ORDER BY ordem";

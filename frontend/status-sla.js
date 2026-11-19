@@ -152,6 +152,13 @@ const PRIORIDADE_CONFIG = {
         cor: '#28a745',
         icone: '⬇️',
         descricao: 'Melhorias, sugestões não urgentes'
+    },
+    // Sem SLA (migração 42): o prazo não conta e a demanda fica fora dos tempos médios
+    'baixissima': {
+        nome: 'Baixíssima (Sem SLA)',
+        cor: '#8b837b',
+        icone: '⏸️',
+        descricao: 'Sem prazo: o SLA não conta enquanto a demanda estiver nesta prioridade'
     }
 };
 

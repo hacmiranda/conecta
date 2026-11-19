@@ -643,6 +643,11 @@
     color: var(--neutro-600);
 }
 
+.kanban-ticket-prioridade.p-baixissima {
+    background: var(--neutro-100);
+    color: var(--neutro-600);
+}
+
 .kanban-ticket-prioridade.p-normal {
     background: #dcfce7;
     color: #166534;

@@ -146,7 +146,8 @@ try {
     if ($metodo === 'GET' && in_array($acao, ['cruzamento-setor', 'csv-cruzamento-setor'], true)) {
         // Setores que a pessoa pode ver (seguindo o seletor do cabeçalho); o setor escolhido vai em setor_cruzamento
         // (setor_id é o parâmetro do seletor, que urlComSetor anexa)
-        $sql = "SELECT id, nome FROM setores WHERE ativo = 1" . ($setorId === null ? '' : ' AND ' . AcessoService::filtroSetorSql('id', $setorId)) . " ORDER BY nome";
+        // Setores de coordenação (só o coordenador, sem relatórios nem pesquisa; migração 42) ficam de fora
+        $sql = "SELECT id, nome FROM setores WHERE ativo = 1 AND setor_coordenacao = 0" . ($setorId === null ? '' : ' AND ' . AcessoService::filtroSetorSql('id', $setorId)) . " ORDER BY nome";
         $setores = array_map(fn($s) => ['id' => (int) $s['id'], 'nome' => $s['nome']], $db->query($sql)->fetchAll(PDO::FETCH_ASSOC));
         [$ini, $fim] = periodo(date('Y-m-01'), date('Y-m-t'));
         $pedido = (int) ($_GET['setor_cruzamento'] ?? 0);

@@ -231,7 +231,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
             // Tempos médios (segundos úteis) com a definição única de ticket_sla: primeira resposta =
             // primeira_resposta_em (encaminhar, sair de "novo" ou responder por e-mail), resolução =
             // resolvido_em, já sem o tempo pausado. Últimos 12 meses; mescladas não contam.
-            $query = "SELECT t.criado_em, t.setor_id, t.status,
+            // Inclui a prioridade: demanda em prioridade sem SLA ("Baixíssima") fica fora das médias
+            $query = "SELECT t.criado_em, t.setor_id, t.status, t.prioridade,
                              ts.primeira_resposta_em, ts.tempo_primeira_resposta_segundos,
                              ts.resolvido_em, ts.tempo_resolucao_segundos
                       FROM tickets t

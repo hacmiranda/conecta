@@ -47,8 +47,14 @@ function mostrarListaSetores(setores) {
             <div class="usuario-info">
                 <h4>${sanitizeHTML(setor.nome)} ${setor.ativo == 0 ? '<span style="color: #dc3545;">(Inativo)</span>' : ''}</h4>
                 <p><strong>Criado:</strong> ${dataDoBanco(setor.criado_em).toLocaleDateString('pt-BR')}</p>
+                ${Number(setor.setor_coordenacao) === 1 ? '<p><span class="selo-setor-coordenacao">Setor de coordenação</span></p>' : ''}
             </div>
             <div class="usuario-acoes">
+                ${ehAdmin ? `
+                    <button type="button" class="btn-editar" data-acao-setor="coordenacao" data-id="${Number(setor.id)}"
+                        data-valor="${Number(setor.setor_coordenacao) === 1 ? '0' : '1'}">
+                        ${Number(setor.setor_coordenacao) === 1 ? 'Desmarcar coordenação' : 'Marcar como coordenação'}
+                    </button>` : ''}
                 ${ehAdmin ? `
                     <button class="btn-${setor.ativo == 1 ? 'desativar' : 'ativar'}" onclick="alternarAtivoSetor(${setor.id}, ${setor.ativo == 1 ? 'false' : 'true'})">
                         ${setor.ativo == 1 ? 'Desativar' : 'Ativar'}
@@ -75,8 +81,32 @@ function mostrarListaSetores(setores) {
             </div>
         ` : '<p style="color:#666;margin-bottom:1rem;">Você pode renomear o seu próprio setor. Criar, desativar ou excluir setores é uma ação exclusiva de administradores.</p>'}
 
-        <div class="usuarios-grid">${cards}</div>
+        ${ehAdmin ? `<p class="aviso-setor-coordenacao">
+            <strong>Setor de coordenação:</strong> setor em que só o(a) coordenador(a) trabalha, sem relatório de
+            atividades nem pesquisa de satisfação. Ele não aparece no seletor de setor do cabeçalho nem no Cruzamento de Dados.
+        </p>` : ''}
+
+        <div class="usuarios-grid" id="lista-setores">${cards}</div>
     `;
+
+    // Ação "setor de coordenação" por ouvinte delegado (sem onclick no HTML montado)
+    const lista = document.getElementById('lista-setores');
+    if (lista) {
+        lista.addEventListener('click', (e) => {
+            const botao = e.target.closest('[data-acao-setor="coordenacao"]');
+            if (botao) alternarSetorCoordenacao(Number(botao.dataset.id), botao.dataset.valor === '1');
+        });
+    }
+}
+
+async function alternarSetorCoordenacao(setorId, marcar) {
+    try {
+        await Api.put(`setores.php/${setorId}`, { setor_coordenacao: marcar });
+        mostrarToast('Sucesso', marcar ? 'Setor marcado como de coordenação.' : 'Setor desmarcado.', 'success');
+        carregarSetores();
+    } catch (e) {
+        mostrarAlert('Erro', (e.dados && e.dados.error) || 'Erro ao atualizar setor');
+    }
 }
 
 function toggleFormSetor() {

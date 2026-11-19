@@ -682,6 +682,12 @@ span.status.aguardando_terceiros.clickable {
     border-left-color: var(--neutro-600);
 }
 
+/* Baixíssima (Sem SLA, migração 42): borda tracejada indica que não há prazo */
+.status.prioridade.baixissima {
+    border-left-color: var(--neutro-400);
+    border-left-style: dashed;
+}
+
 .btn-compact {
     background-color: #ffffff;
     color: #333;

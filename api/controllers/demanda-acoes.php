@@ -316,6 +316,11 @@ try {
                 ? 'normal' : CatalogoService::primeiraPrioridadeAtiva($db, $setor_destino_id);
             if ($nova_prioridade !== null && $nova_prioridade !== $ticket['prioridade']) {
                 $db->prepare("UPDATE tickets SET prioridade = ? WHERE id = ?")->execute([$nova_prioridade, $ticket_id]);
+                // Saiu da prioridade sem SLA (ou entrou): pausa/retoma o SLA com o status atual da demanda
+                $status_atual = $db->prepare("SELECT status FROM tickets WHERE id = ?");
+                $status_atual->execute([$ticket_id]);
+                DemandaService::efeitosDaMudancaDePrioridade($db, (int) $ticket_id, (string) $status_atual->fetchColumn(),
+                    (string) $ticket['prioridade'], (string) $nova_prioridade, $setor_destino_id);
                 $db->prepare("INSERT INTO ticket_historico (ticket_id, usuario_id, acao, valor_anterior, valor_novo) VALUES (?, ?, 'prioridade', ?, ?)")
                    ->execute([$ticket_id, $user['id'], $ticket['prioridade'], $nova_prioridade]);
                 $auditoria->registrarTicket($ticket_id, $user['id'], 'prioridade', $ticket['prioridade'], $nova_prioridade);

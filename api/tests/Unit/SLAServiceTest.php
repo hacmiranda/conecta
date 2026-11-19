@@ -21,7 +21,7 @@ final class SLAServiceTest extends TestCase {
         $this->db->exec('CREATE TABLE horarios_uteis (setor_id INTEGER, dia_semana INTEGER, hora_inicio TEXT, hora_fim TEXT, ativo INTEGER)');
         $this->db->exec('CREATE TABLE feriados (setor_id INTEGER, data TEXT, recorrente INTEGER)');
         $this->db->exec('CREATE TABLE ticket_status (nome TEXT, congela_sla INTEGER)');
-        $this->db->exec('CREATE TABLE ticket_prioridades (nome TEXT, sla_resposta_minutos INTEGER, sla_resolucao_horas INTEGER)');
+        $this->db->exec('CREATE TABLE ticket_prioridades (nome TEXT, sla_resposta_minutos INTEGER, sla_resolucao_horas INTEGER, sem_sla INTEGER DEFAULT 0)');
 
         $this->db->exec("INSERT INTO setores (id, nome) VALUES (1, 'Geral')");
         // Segunda(2) a sexta(6) das 08:00 às 17:00 — tabela usa 1=domingo .. 7=sábado
@@ -53,6 +53,8 @@ final class SLAServiceTest extends TestCase {
         // Catálogo global usado por situacao(): status que pausa o SLA e prazos da prioridade "normal".
         $this->db->exec("INSERT INTO ticket_status (nome, congela_sla) VALUES ('novo', 0), ('em_atendimento', 0), ('aguardando', 1), ('resolvido', 0), ('encerrado', 0), ('cancelado', 0)");
         $this->db->exec("INSERT INTO ticket_prioridades (nome, sla_resposta_minutos, sla_resolucao_horas) VALUES ('normal', 60, 2)");
+        // Prioridade sem SLA (migração 42)
+        $this->db->exec("INSERT INTO ticket_prioridades (nome, sla_resposta_minutos, sla_resolucao_horas, sem_sla) VALUES ('baixissima', 0, 0, 1)");
 
         $this->sla = new SLAService($this->db);
 
@@ -229,5 +231,32 @@ final class SLAServiceTest extends TestCase {
         $this->assertTrue($situacao['pausado']);
         // 20min decorridos - 10min pausados = 10min (600s) úteis de fato; prazo de 60min (3600s)
         $this->assertEqualsWithDelta(3000, $situacao['segundos_restantes'], 5);
+    }
+
+    public function test_situacao_retorna_null_na_prioridade_sem_sla(): void {
+        // "Baixíssima (Sem SLA)": 10h decorridas sem resposta, mas não há prazo a mostrar nem a vencer
+        $criado = (new DateTime('-10 hours'))->format('Y-m-d H:i:s');
+        $ticket = ['criado_em' => $criado, 'status' => 'em_atendimento', 'prioridade' => 'baixissima', 'setor_id' => 3];
+        $this->assertNull($this->sla->situacao($ticket, $this->slaVazio(), 3));
+    }
+
+    public function test_pausa_sla_pelo_status_ou_pela_prioridade_sem_sla(): void {
+        $this->assertTrue($this->sla->semSla('baixissima'));
+        $this->assertFalse($this->sla->semSla('normal'));
+        $this->assertFalse($this->sla->semSla(''));
+        $this->assertTrue($this->sla->pausaSla('em_atendimento', 'baixissima'));
+        $this->assertTrue($this->sla->pausaSla('aguardando', 'normal'));
+        $this->assertFalse($this->sla->pausaSla('em_atendimento', 'normal'));
+    }
+
+    public function test_medias_ignoram_demandas_na_prioridade_sem_sla(): void {
+        $linhas = [
+            ['criado_em' => '2026-01-05 08:00:00', 'setor_id' => 3, 'prioridade' => 'normal',
+             'primeira_resposta_em' => '2026-01-05 09:00:00', 'tempo_primeira_resposta_segundos' => 600],
+            // Fica fora da média, por mais longa que tenha sido a espera
+            ['criado_em' => '2026-01-05 08:00:00', 'setor_id' => 3, 'prioridade' => 'baixissima',
+             'primeira_resposta_em' => '2026-01-09 09:00:00', 'tempo_primeira_resposta_segundos' => 999999],
+        ];
+        $this->assertSame(600, $this->sla->mediaPrimeiraResposta($linhas));
     }
 }

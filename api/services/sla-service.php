@@ -6,6 +6,7 @@ class SLAService {
     private $cacheFeriados = []; // [setor_id => feriados]
     private $cacheCongelaSla = []; // [status => bool]
     private $cachePrazosPrioridade = []; // [prioridade => [minutos_resposta, horas_resolucao]]
+    private $cacheSemSla = []; // [prioridade => bool]
 
     public function __construct($db) {
         $this->db = $db;
@@ -21,6 +22,11 @@ class SLAService {
      */
     public function situacao(array $ticket, array $sla, ?int $setorId): ?array {
         if (empty($ticket['criado_em'])) {
+            return null;
+        }
+
+        // Prioridade sem SLA ("Baixíssima"): não há prazo a mostrar
+        if ($this->semSla((string) ($ticket['prioridade'] ?? ''))) {
             return null;
         }
 
@@ -75,6 +81,10 @@ class SLAService {
             if (empty($l[$campoData]) || empty($l['criado_em'])) {
                 continue;
             }
+            // Demanda em prioridade sem SLA ("Baixíssima") não entra nos tempos médios
+            if (isset($l['prioridade']) && $this->semSla((string) $l['prioridade'])) {
+                continue;
+            }
             $segundos = (int) ($l[$campoSegundos] ?? 0);
             if ($segundos <= 0) {
                 $segundos = $this->calcularSegundosUteis($l['criado_em'], $l[$campoData], $l['setor_id'] ?? null);
@@ -108,6 +118,29 @@ class SLAService {
             $this->cacheCongelaSla[$status] = (bool) ($stmt->fetchColumn() ?: false);
         }
         return $this->cacheCongelaSla[$status];
+    }
+
+    /**
+     * A prioridade não tem SLA (`ticket_prioridades.sem_sla`, ex.: "baixissima", migração 42)? Com cache.
+     */
+    public function semSla(string $prioridade): bool {
+        if ($prioridade === '') {
+            return false;
+        }
+        if (!isset($this->cacheSemSla[$prioridade])) {
+            $stmt = $this->db->prepare("SELECT sem_sla FROM ticket_prioridades WHERE nome = ?");
+            $stmt->execute([$prioridade]);
+            $this->cacheSemSla[$prioridade] = (bool) ($stmt->fetchColumn() ?: false);
+        }
+        return $this->cacheSemSla[$prioridade];
+    }
+
+    /**
+     * O SLA fica pausado com este status e esta prioridade? Pausa se o status congela o SLA ou se a
+     * prioridade não tem SLA. Regra única de DemandaService::ajustarPausaSla.
+     */
+    public function pausaSla(string $status, string $prioridade): bool {
+        return $this->congelaSla($status) || $this->semSla($prioridade);
     }
 
     /**

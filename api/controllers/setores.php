@@ -21,7 +21,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
 
     try {
         $incluirInativos = ($user['tipo'] === 'admin') && isset($_GET['incluir_inativos']);
-        $query = "SELECT id, nome, ativo, criado_em FROM setores"
+        $query = "SELECT id, nome, ativo, setor_coordenacao, criado_em FROM setores"
             . ($incluirInativos ? "" : " WHERE ativo = 1")
             . " ORDER BY nome";
         $stmt = $db->prepare($query);
@@ -101,6 +101,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'PUT') {
 
             $auditoria = new AuditoriaService($db);
             $auditoria->registrar($user['id'], $ativo ? 'ativar_setor' : 'desativar_setor', 'setores', $setor_id, null, json_encode(['ativo' => $ativo]));
+
+            echo json_encode(['success' => true]);
+            exit;
+        }
+
+        // Setor de coordenação (migração 42): só o(a) coordenador(a) trabalha nele, sem relatório de
+        // atividades nem pesquisa de satisfação. Some do seletor de setor do cabeçalho e do Cruzamento.
+        if (isset($input['setor_coordenacao'])) {
+            $coordenacao = $input['setor_coordenacao'] ? 1 : 0;
+            $stmt = $db->prepare("UPDATE setores SET setor_coordenacao = :c WHERE id = :id");
+            $stmt->execute([':c' => $coordenacao, ':id' => $setor_id]);
+
+            $auditoria = new AuditoriaService($db);
+            $auditoria->registrar($user['id'], 'alterar_setor_coordenacao', 'setores', $setor_id, null, json_encode(['setor_coordenacao' => $coordenacao]));
 
             echo json_encode(['success' => true]);
             exit;

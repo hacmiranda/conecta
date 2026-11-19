@@ -81,6 +81,12 @@ function mostrarSLA() {
                         <td><strong>40 horas úteis</strong></td>
                         <td>Melhorias, sugestões não urgentes</td>
                     </tr>
+                    <tr>
+                        <td><span class="status prioridade baixissima">Baixíssima (Sem SLA)</span></td>
+                        <td><strong>Sem prazo</strong></td>
+                        <td><strong>Sem prazo</strong></td>
+                        <td>Sem urgência: o SLA não conta e a demanda fica fora dos tempos médios</td>
+                    </tr>
                 </tbody>
             </table>
 
@@ -101,11 +107,13 @@ function mostrarSLA() {
                 <li>✅ <strong>Resolvido:</strong> Aguardando confirmação do cliente para encerrar</li>
             </ul>
             <p><em>Quando a demanda retorna ao atendimento, o SLA é retomado automaticamente, descontando o tempo pausado.</em></p>
+            <p>O SLA também fica parado enquanto a demanda estiver na prioridade <strong>Baixíssima (Sem SLA)</strong>, em qualquer status.</p>
 
             <h4>📊 Contabilização de Demandas</h4>
             <ul>
                 <li>✅ <strong>Demandas Encerradas:</strong> Contabilizadas nas estatísticas e relatórios</li>
                 <li>❌ <strong>Demandas Canceladas:</strong> NÃO são contabilizadas nas métricas de desempenho</li>
+                <li>⏸️ <strong>Demandas na prioridade Baixíssima (Sem SLA):</strong> NÃO entram nos tempos médios de primeira resposta e de resolução</li>
             </ul>
             <p><em>Demandas canceladas são aquelas abertas por engano ou cuja solicitação foi retirada pelo solicitante.</em></p>
 
@@ -342,6 +350,18 @@ function mostrarPrioridadeGuia() {
                     <strong>Melhorias e sugestões</strong><br>
                     Solicitações de melhoria, sugestões não urgentes, documentação.
                     <br><em>SLA: 24 horas úteis resposta / 40 horas úteis resolução</em>
+                </div>
+            </div>
+
+            <div class="prioridade-item">
+                <span class="status prioridade baixissima">Baixíssima (Sem SLA)</span>
+                <div>
+                    <strong>Sem prazo</strong><br>
+                    Assuntos sem urgência nenhuma, que podem esperar. Enquanto a demanda estiver nesta prioridade o SLA
+                    <strong>fica parado</strong>: ao trocar uma demanda para ela, a contagem para na hora; ao voltar para
+                    outra prioridade, o SLA volta a contar sem o período em que ficou parado. Demandas nesta prioridade
+                    <strong>não entram nos tempos médios</strong> de primeira resposta e de resolução do Dashboard e dos Relatórios.
+                    <br><em>SLA: não se aplica</em>
                 </div>
             </div>
 
