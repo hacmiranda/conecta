@@ -141,8 +141,10 @@ O METRICA360 deixou de ser um sistema à parte: pesquisa de satisfação, Meu Pa
 são do próprio Conecta, no mesmo banco, com o mesmo login. **Nada do METRICA360 precisa ser publicado**: não há
 mais API entre os dois, nem `INTEGRACAO_CONECTA_API_KEY`, `METRICA360_URL_*` ou `METRICA360_API_KEY_*`.
 
-1. **Banco:** `php database/migrar.php` (aplica a 39, papéis de coordenação, e a 40, módulo Satisfação), ou
-   confirmar com `--status` que a réplica do banco local já vem com elas.
+1. **Banco:** `php database/migrar.php` (aplica a 39, papéis de coordenação, a 40, módulo Satisfação, e a 42,
+   setores de coordenação e prioridade "Baixíssima (Sem SLA)"), ou confirmar com `--status` que a réplica do
+   banco local já vem com elas. A 42 já marca como "setor de coordenação" a Coordenação Administrativa, a
+   Financeira e a Técnica (conferir em Configurações → Setores).
 2. **Pessoas e setores:** **já feito no banco local em 16/11/2026** (17 setores e 35 contas, sem os dois
    administradores genéricos do METRICA360; o login aceita e-mail ou nome de usuário `nome.sobrenome`), com
    `php database/importar-metrica360.php` (ensaio primeiro, depois `--executar`; só roda no banco local, nunca
@@ -170,7 +172,10 @@ mais API entre os dois, nem `INTEGRACAO_CONECTA_API_KEY`, `METRICA360_URL_*` ou 
    agora são feitos dentro do Conecta.
 
 Conferência depois da implantação:
-- [ ] Gestor/operador/coordenador/supervisor/coordenador geral veem "Registro de Atividades"; registrar, salvar rascunho e enviar um dia de teste
+- [ ] Só gestor e operador veem "Registro de Atividades" (desde 19/11/2026); registrar, salvar rascunho e enviar um dia de teste
+- [ ] Os setores de coordenação não aparecem no seletor de setor do topo nem no Cruzamento de Dados
+- [ ] Coordenador cadastra gestor e operador nos setores dele; supervisor e coordenador geral não veem Configurações
+- [ ] Trocar uma demanda para "Baixíssima (Sem SLA)": o selo de SLA some; voltar para "Normal": volta a contar sem o período parado
 - [ ] Admin, gestor, coordenador, supervisor e coordenador geral veem o grupo "Atividades" (só gestão abona) e o CSV abre no Excel com acentos
 - [ ] Admin, coordenador geral, supervisor e coordenador veem o grupo "Satisfação"; gestor e operador não
 - [ ] Supervisor e coordenador geral não conseguem alterar nada, mas conseguem fazer a triagem de uma avaliação
