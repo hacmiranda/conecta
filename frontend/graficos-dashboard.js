@@ -20,7 +20,7 @@ function criarGraficoAgente(dados) {
                 ctx.clearRect(0, 0, canvas.width, canvas.height);
 
                 function desenharBuracoRosca() {
-                    ctx.fillStyle = '#1f1a18';
+                    ctx.fillStyle = corDashboard('superficie');
                     ctx.beginPath();
                     ctx.arc(centerX, centerY, raioInterno, 0, Math.PI * 2);
                     ctx.fill();
@@ -82,7 +82,7 @@ function criarGraficoAgente(dados) {
                             const labelX = centerX + Math.cos(labelAngulo) * (raio + 15);
                             const labelY = centerY + Math.sin(labelAngulo) * (raio + 15);
 
-                            ctx.fillStyle = '#ddd6cd';
+                            ctx.fillStyle = corDashboard('texto');
                             ctx.font = 'bold 14px Arial';
 
                             const anguloGraus = (labelAngulo * 180 / Math.PI) % 360;
@@ -177,7 +177,7 @@ function criarGraficoDiaSemana(dados) {
                 ctx.clearRect(0, 0, canvas.width, canvas.height);
 
                 dias.forEach((dia, i) => {
-                    ctx.fillStyle = '#ddd6cd';
+                    ctx.fillStyle = corDashboard('texto');
                     ctx.font = '14px Arial';
                     ctx.textAlign = 'center';
                     const x = margemEsquerda + i * (larguraBarra + espacamento);
@@ -201,7 +201,7 @@ function criarGraficoDiaSemana(dados) {
                         ctx.fillStyle = '#70ab2a';
                         ctx.fillRect(x, y, larguraBarra, alturaAtual);
                         if (alturaAtual >= alturaFinal) {
-                            ctx.fillStyle = '#ddd6cd';
+                            ctx.fillStyle = corDashboard('texto');
                             ctx.font = 'bold 14px Arial';
                             ctx.textAlign = 'center';
                             ctx.fillText(valor, x + larguraBarra / 2, y - 5);
@@ -297,7 +297,7 @@ function criarGraficoStatusAgente(dados) {
                 legenda.forEach(item => {
                     ctx.fillStyle = item.cor;
                     ctx.fillRect(legendaX, legendaY, 14, 14);
-                    ctx.fillStyle = '#ddd6cd';
+                    ctx.fillStyle = corDashboard('texto');
                     ctx.font = '14px Arial';
                     ctx.textAlign = 'left';
                     ctx.fillText(item.label, legendaX + 20, legendaY + 11);
@@ -306,7 +306,7 @@ function criarGraficoStatusAgente(dados) {
 
                 agentes.forEach((agente, i) => {
                     const x = margemEsquerda + i * (larguraBarra + espacamento);
-                    ctx.fillStyle = '#ddd6cd';
+                    ctx.fillStyle = corDashboard('texto');
                     ctx.font = '14px Arial';
                     ctx.textAlign = 'center';
                     const nomeAgente = agente.length > 16 ? agente.substring(0, 16) + '...' : agente;
@@ -394,7 +394,7 @@ function criarGraficoStatusAgente(dados) {
                         }
 
                         if (alturaAtual >= alturaTotal) {
-                            ctx.fillStyle = '#ddd6cd';
+                            ctx.fillStyle = corDashboard('texto');
                             ctx.font = 'bold 14px Arial';
                             ctx.textAlign = 'center';
                             ctx.fillText(totalAgente, x + larguraBarra / 2, yBase - alturaTotal - 5);
@@ -495,14 +495,14 @@ function criarGraficoDiarios30d(dados) {
             const linhasGrade = 4;
             for (let g = 0; g <= linhasGrade; g++) {
                 const y = margemSup + alturaUtil - (g / linhasGrade) * alturaUtil;
-                ctx.strokeStyle = 'rgba(255,255,255,0.045)';
+                ctx.strokeStyle = corDashboard('grade');
                 ctx.lineWidth = 1;
                 ctx.beginPath();
                 ctx.moveTo(margemEsq, y);
                 ctx.lineTo(canvas.width - margemDir, y);
                 ctx.stroke();
                 const labelVal = Math.round((g / linhasGrade) * maxValor);
-                ctx.fillStyle = '#8b837b';
+                ctx.fillStyle = corDashboard('texto_fraco');
                 ctx.font = '14px Arial';
                 ctx.textAlign = 'right';
                 ctx.fillText(labelVal, margemEsq - 4, y + 4);
@@ -511,7 +511,7 @@ function criarGraficoDiarios30d(dados) {
             diasLabels.forEach((d, i) => {
                 if (i % 5 === 0 || i === diasLabels.length - 1) {
                     const x = margemEsq + i * passoX;
-                    ctx.fillStyle = '#8b837b';
+                    ctx.fillStyle = corDashboard('texto_fraco');
                     ctx.font = '14px Arial';
                     ctx.textAlign = 'center';
                     ctx.fillText(d.label, x, canvas.height - 4);
@@ -524,14 +524,14 @@ function criarGraficoDiarios30d(dados) {
 
                 for (let g = 0; g <= linhasGrade; g++) {
                     const y = margemSup + alturaUtil - (g / linhasGrade) * alturaUtil;
-                    ctx.strokeStyle = 'rgba(255,255,255,0.045)';
+                    ctx.strokeStyle = corDashboard('grade');
                     ctx.lineWidth = 1;
                     ctx.beginPath();
                     ctx.moveTo(margemEsq, y);
                     ctx.lineTo(canvas.width - margemDir, y);
                     ctx.stroke();
                     const labelVal = Math.round((g / linhasGrade) * maxValor);
-                    ctx.fillStyle = '#8b837b';
+                    ctx.fillStyle = corDashboard('texto_fraco');
                     ctx.font = '14px Arial';
                     ctx.textAlign = 'right';
                     ctx.fillText(labelVal, margemEsq - 4, y + 4);
@@ -539,7 +539,7 @@ function criarGraficoDiarios30d(dados) {
                 diasLabels.forEach((d, i) => {
                     if (i % 5 === 0 || i === diasLabels.length - 1) {
                         const x = margemEsq + i * passoX;
-                        ctx.fillStyle = '#8b837b';
+                        ctx.fillStyle = corDashboard('texto_fraco');
                         ctx.font = '14px Arial';
                         ctx.textAlign = 'center';
                         ctx.fillText(d.label, x, canvas.height - 4);
@@ -633,12 +633,27 @@ function criarGraficoDiarios30d(dados) {
 // melhorias adiadas, fase 3).
 // ============================================================
 function getCorLabel() {
-    /* Dashboard é sempre dark; retorna cor clara para legibilidade */
+    /* No Dashboard, a cor de texto do tema dele (claro por padrão, escuro com o modo escuro) */
     const dashboardAtivo = document.getElementById('dashboard')?.classList.contains('active');
-    if (dashboardAtivo || document.body.classList.contains('modo-escuro')) {
-        return '#ddd6cd';
-    }
-    return '#8b837b';
+    if (dashboardAtivo) return corDashboard('texto');
+    return document.body.classList.contains('modo-escuro') ? '#ddd6cd' : '#5f5852';
+}
+
+/**
+ * Cores dos gráficos do Dashboard, lidas dos tokens --dr-* de #dashboard (dashboard-redesign.css): o tema
+ * claro (padrão) e o escuro trocam os tokens, e o canvas acompanha. Sem a seção na página, cai no tema escuro.
+ */
+function corDashboard(nome) {
+    const tokens = {
+        texto: ['--dr-text-2', '#ddd6cd'],
+        texto_fraco: ['--dr-text-3', '#8b837b'],
+        superficie: ['--dr-surface', '#1f1a18'],
+        grade: ['--dr-grade', 'rgba(255,255,255,0.045)']
+    };
+    const [variavel, reserva] = tokens[nome] || ['', '#8b837b'];
+    const secao = document.getElementById('dashboard');
+    const valor = secao ? getComputedStyle(secao).getPropertyValue(variavel).trim() : '';
+    return valor || reserva;
 }
 
 /**
@@ -749,7 +764,7 @@ function criarGraficoStatus(dados) {
 
     // Buraco central da rosca
     function desenharBuraco() {
-        ctx.fillStyle = '#1f1a18';
+        ctx.fillStyle = corDashboard('superficie');
         ctx.beginPath();
         ctx.arc(centerX, centerY, raioInterno, 0, Math.PI * 2);
         ctx.fill();
@@ -757,13 +772,13 @@ function criarGraficoStatus(dados) {
 
     // Total no centro
     function desenharCentro() {
-        ctx.fillStyle = '#ddd6cd';
+        ctx.fillStyle = corDashboard('texto');
         ctx.font = 'bold 15px Inter, Arial';
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
         ctx.fillText(total, centerX, centerY - 6);
         ctx.font = '9px Inter, Arial';
-        ctx.fillStyle = '#8b837b';
+        ctx.fillStyle = corDashboard('texto_fraco');
         ctx.fillText('demandas', centerX, centerY + 9);
         ctx.textBaseline = 'alphabetic';
     }
@@ -783,7 +798,7 @@ function criarGraficoStatus(dados) {
             ctx.fillRect(legendaX, ly - 6, 10, 10);
 
             // Nome do status
-            ctx.fillStyle = '#ddd6cd';
+            ctx.fillStyle = corDashboard('texto');
             ctx.font = '12px Inter, Arial';
             ctx.textAlign = 'left';
             ctx.textBaseline = 'middle';
@@ -791,7 +806,7 @@ function criarGraficoStatus(dados) {
 
             // Valor + percentual logo após o nome
             const larguraNome = ctx.measureText(f.label).width;
-            ctx.fillStyle = '#ddd6cd';
+            ctx.fillStyle = corDashboard('texto');
             ctx.font = 'bold 12px Inter, Arial';
             ctx.fillText(`${f.valor} (${pct}%)`, legendaX + 14 + larguraNome + 5, ly);
 
@@ -890,15 +905,16 @@ function criarGraficoPrioridade(dados) {
 
     const ctx = canvas.getContext('2d');
     const cores = {
+        'baixissima': '#b5ada5',
         'baixa': '#8b837b',
         'normal': '#70ab2a',
         'alta': '#d1453b',
         'urgente': '#a7241c'
     };
 
-    const prioridades = ['urgente', 'alta', 'normal', 'baixa'];
+    const prioridades = ['urgente', 'alta', 'normal', 'baixa', 'baixissima'];
     const valores = prioridades.map(p => dados.por_prioridade?.[p] || 0);
-    const labels = ['Urgente', 'Alta', 'Normal', 'Baixa'];
+    const labels = ['Urgente', 'Alta', 'Normal', 'Baixa', 'Baixíssima'];
     descreverGraficoCanvas(canvas, 'Demandas por prioridade', labels, valores);
 
     const totalPrioridade = valores.reduce((s, v) => s + v, 0) || 1;

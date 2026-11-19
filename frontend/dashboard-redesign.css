@@ -1,6 +1,8 @@
 /* ============================================================
-   DASHBOARD REDESIGN — FUTURISTA / HIGH-TECH / SEMPRE DARK
-   Escopo: #dashboard — não afeta nenhuma outra seção do app
+   DASHBOARD REDESIGN
+   Escopo: #dashboard — não afeta nenhuma outra seção do app.
+   Desde 19/11/2026 o Dashboard segue o tema do sistema: CLARO por padrão (bloco "TEMA CLARO" no fim
+   deste arquivo, que troca os tokens --dr-*) e escuro com o modo escuro ligado (as regras abaixo).
    ============================================================ */
 
 /* === PALETA CROMÁTICA LOCAL (CORES.md) === */
@@ -19,6 +21,7 @@
     --dr-orange:   #d1453b;  /* laranja */
     --dr-blue:     #f89327;  /* azul petróleo */
     --dr-red:      #a7241c;  /* vermelho */
+    --dr-grade:    rgba(255, 255, 255, 0.045); /* linhas de grade dos gráficos */
 }
 
 /* === SEÇÃO SEMPRE ESCURA === */
@@ -501,4 +504,91 @@
     #dashboard .dashboard-number {
         font-size: 2.2rem !important;
     }
+}
+
+/* ============================================================
+   TEMA CLARO (padrão, 19/11/2026): vale sempre que o modo escuro está desligado.
+   Troca os tokens --dr-* pelos da paleta CRPRS sobre fundo claro (textos com contraste AA:
+   laranja e verde nas versões -700) e tira os brilhos (text-shadow) pensados para o fundo escuro.
+   Os gráficos em canvas leem os mesmos tokens (corDashboard() em graficos-dashboard.js).
+   ============================================================ */
+body:not(.modo-escuro) #dashboard {
+    --dr-bg:       var(--neutro-50);
+    --dr-surface:  var(--branco);
+    --dr-surf-2:   var(--neutro-50);
+    --dr-border:   var(--neutro-200);
+    --dr-text-1:   var(--neutro-900);
+    --dr-text-2:   var(--neutro-800);
+    --dr-text-3:   var(--neutro-600);
+    --dr-cyan:     var(--laranja-700);
+    --dr-purple:   var(--verde-700);
+    --dr-lime:     var(--verde-700);
+    --dr-magenta:  var(--vinho-600);
+    --dr-orange:   var(--vinho-600);
+    --dr-blue:     var(--laranja-700);
+    --dr-red:      var(--vinho-700);
+    --dr-grade:    var(--neutro-200);
+    background: var(--neutro-50);
+}
+
+body:not(.modo-escuro) #dashboard-content {
+    background: transparent;
+}
+
+body:not(.modo-escuro) #dashboard .dashboard-card {
+    box-shadow: var(--shadow-sm) !important;
+}
+
+body:not(.modo-escuro) #dashboard .dashboard-card:hover,
+body:not(.modo-escuro) #dashboard .dashboard-grid.kpi-row-5 .dashboard-card:hover,
+body:not(.modo-escuro) #dashboard .kpi-sla-vencido:hover,
+body:not(.modo-escuro) #dashboard .kpi-origem-externa:hover,
+body:not(.modo-escuro) #dashboard .fcr-card:hover {
+    box-shadow: var(--shadow-md) !important;
+    border-color: var(--laranja-100) !important;
+}
+
+body:not(.modo-escuro) #dashboard .dashboard-number,
+body:not(.modo-escuro) #dashboard .dashboard-grid.kpi-row-5 .dashboard-card .dashboard-number,
+body:not(.modo-escuro) #dashboard .kpi-sla-vencido .sla-vencido-number,
+body:not(.modo-escuro) #dashboard .kpi-origem-externa .origem-externa-number,
+body:not(.modo-escuro) #dashboard .dashboard-item span:last-child,
+body:not(.modo-escuro) #dashboard .info-icon:hover {
+    text-shadow: none !important;
+}
+
+body:not(.modo-escuro) #dashboard .text-caption {
+    color: var(--neutro-600);
+}
+
+/* Card FCR: fundo vinho bem claro, número em vinho */
+body:not(.modo-escuro) #dashboard .fcr-card {
+    background: linear-gradient(148deg, var(--vinho-50) 0%, var(--branco) 100%) !important;
+    border-color: var(--vinho-100) !important;
+}
+
+body:not(.modo-escuro) #dashboard .fcr-card .title-left .material-symbols-outlined,
+body:not(.modo-escuro) #dashboard .fcr-card .info-icon {
+    color: var(--vinho-700) !important;
+}
+
+body:not(.modo-escuro) #dashboard .fcr-number {
+    color: var(--vinho-700) !important;
+    text-shadow: none !important;
+}
+
+/* Listas (Top 5): fundo neutro claro */
+body:not(.modo-escuro) #dashboard .dashboard-item {
+    background: var(--neutro-50) !important;
+    border-color: var(--neutro-200) !important;
+}
+
+body:not(.modo-escuro) #dashboard .dashboard-item:hover {
+    background: var(--verde-50) !important;
+    border-color: var(--neutro-200) !important;
+}
+
+body:not(.modo-escuro) #dashboard .item-trofeu {
+    color: var(--laranja-700) !important;
+    filter: none;
 }
