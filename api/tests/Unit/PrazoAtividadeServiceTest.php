@@ -152,6 +152,29 @@ final class PrazoAtividadeServiceTest extends TestCase {
         $this->assertSame([], $this->pendencias($this->setor(), $this->usuario(['qtd_semana' => 1]), ['2026-08-11' => null]));
     }
 
+    public function test_modo_diario_nao_cobra_dia_remoto_em_feriado(): void {
+        $p = $this->pendencias($this->setor(['modo' => 'diario']), $this->usuario(['dias_remotos' => [1, 3]]), [], ['2026-08-12']);
+        $this->assertSame(['2026-08-10'], array_column($p, 'data'));
+    }
+
+    public function test_modo_semanal_cota_limitada_aos_dias_uteis_da_semana(): void {
+        // Cota 4 numa semana com 3 feriados: só 2 dias úteis, cobra 2
+        $p = $this->pendencias($this->setor(), $this->usuario(['qtd_semana' => 4]), ['2026-08-10' => 'remoto'],
+            ['2026-08-11', '2026-08-12', '2026-08-13']);
+        $this->assertSame(2, $p[0]['esperado']);
+        $this->assertSame(1, $p[0]['faltam']);
+
+        // Semana toda de feriado: nada cobrado
+        $this->assertSame([], $this->pendencias($this->setor(), $this->usuario(['qtd_semana' => 2]), [],
+            ['2026-08-10', '2026-08-11', '2026-08-12', '2026-08-13', '2026-08-14']));
+    }
+
+    public function test_modo_semanal_primeira_semana_conta_so_dias_depois_da_data_base(): void {
+        // Data base na quinta: sobram quinta e sexta, cota 3 vira 2
+        $p = $this->pendencias($this->setor(['data_base' => '2026-08-13']), $this->usuario(['qtd_semana' => 3]));
+        $this->assertSame(2, $p[0]['esperado']);
+    }
+
     public function test_regra_remota_so_para_quem_tem_trabalho_remoto(): void {
         $this->assertSame([], $this->pendencias($this->setor(), $this->usuario(['trabalho_remoto' => false, 'qtd_semana' => 1])));
     }

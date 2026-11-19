@@ -147,7 +147,7 @@ class PrazoAtividadeService {
         if (!empty($usuario['trabalho_remoto'])) {
             $remotas = $diario
                 ? self::pendenciasModoDiario($ini, $fim, $usuario['dias_remotos'] ?? [], $prazo, $feriados, $todos, $agora)
-                : self::pendenciasModoSemanal($ini, $fim, (int) ($usuario['qtd_semana'] ?? 0), $prazo, $feriados, $remotos, $agora);
+                : self::pendenciasModoSemanal($ini, $fim, (int) ($usuario['qtd_semana'] ?? 0), $prazo, $feriados, $remotos, $agora, $dataBase);
         }
 
         $entregas = self::pendenciasEntrega($setor, $usuario, $ini, $fim, $feriados, $todos, $agora);
@@ -225,9 +225,12 @@ class PrazoAtividadeService {
         $fimObj  = new DateTimeImmutable($fim);
         $pendencias = [];
 
+        $feriadosSet = array_flip($feriados);
+
         while ($cursor <= $fimObj) {
             $data = $cursor->format('Y-m-d');
-            if (isset($diasSet[(int) $cursor->format('N')]) && !isset($enviados[$data])) {
+            // Dia remoto que cai em feriado do setor não é cobrado (19/11/2026; no METRICA360 era)
+            if (isset($diasSet[(int) $cursor->format('N')]) && !isset($feriadosSet[$data]) && !isset($enviados[$data])) {
                 $prazoFinal = self::calcularPrazoFinal($data, $prazo, $feriados);
                 $pendencias[] = [
                     'tipo'     => 'remoto',
@@ -241,9 +244,16 @@ class PrazoAtividadeService {
         return $pendencias;
     }
 
+    /**
+     * Cota semanal. Desde 19/11/2026 a cota de cada semana nunca passa do número de dias úteis dela (sem
+     * fim de semana, sem os feriados do setor e sem os dias antes da data base): cota 3 numa semana com
+     * só 2 dias úteis cobra 2.
+     */
     private static function pendenciasModoSemanal(string $ini, string $fim, int $qtdSemana, int $prazo,
-                                                  array $feriados, array $enviados, DateTimeImmutable $agora): array {
+                                                  array $feriados, array $enviados, DateTimeImmutable $agora,
+                                                  ?string $dataBase = null): array {
         if ($qtdSemana <= 0) return [];
+        $feriadosSet = array_flip($feriados);
 
         $cursor = (new DateTimeImmutable($ini))->modify('Monday this week');
         $fimObj = new DateTimeImmutable($fim);
@@ -254,20 +264,22 @@ class PrazoAtividadeService {
             $semanaFim = $cursor->modify('+6 days')->format('Y-m-d');
             $sexta     = $cursor->modify('+4 days')->format('Y-m-d');
 
+            $esperado = min($qtdSemana, self::diasUteisDaSemana($cursor, $feriadosSet, $dataBase));
+
             $enviadoSemana = 0;
             foreach ($enviados as $data => $_) {
                 if ($data >= $semanaIni && $data <= $semanaFim) $enviadoSemana++;
             }
 
-            if ($enviadoSemana < $qtdSemana) {
+            if ($enviadoSemana < $esperado) {
                 $prazoFinal = self::calcularPrazoFinal($sexta, $prazo, $feriados);
                 $pendencias[] = [
                     'tipo'       => 'remoto',
                     'semana_ini' => $semanaIni,
                     'semana_fim' => $semanaFim,
-                    'esperado'   => $qtdSemana,
+                    'esperado'   => $esperado,
                     'enviado'    => $enviadoSemana,
-                    'faltam'     => $qtdSemana - $enviadoSemana,
+                    'faltam'     => $esperado - $enviadoSemana,
                     'status'     => $agora > $prazoFinal ? 'atrasado' : 'pendente',
                     'deadline'   => $prazoFinal->format('Y-m-d H:i:s'),
                 ];
@@ -275,6 +287,17 @@ class PrazoAtividadeService {
             $cursor = $cursor->modify('+7 days');
         }
         return $pendencias;
+    }
+
+    /** Dias úteis (segunda a sexta, fora feriados) da semana que começa em $segunda, a partir da data base. */
+    private static function diasUteisDaSemana(DateTimeImmutable $segunda, array $feriadosSet, ?string $dataBase): int {
+        $uteis = 0;
+        for ($i = 0; $i < 5; $i++) {
+            $data = $segunda->modify("+{$i} days")->format('Y-m-d');
+            if (isset($feriadosSet[$data]) || ($dataBase && $data < $dataBase)) continue;
+            $uteis++;
+        }
+        return $uteis;
     }
 
     private static function aplicarAbonos(array $pendencias, array $abonos, string $chave): array {
@@ -323,7 +346,7 @@ class PrazoAtividadeService {
         ];
     }
 
-    /** Regras do servidor (com setor); sem linha, trabalho remoto ligado e entrega seguindo o setor. */
+    /** Regras do servidor (com setor); sem linha, trabalho remoto DESLIGADO (desde 19/11/2026) e entrega seguindo o setor. */
     public function configUsuario(int $usuarioId): array {
         $stmt = $this->db->prepare("
             SELECT u.setor_id, c.trabalho_remoto, c.qtd_dias_remoto_semana, c.entrega_dias, c.entrega_inicio
@@ -337,7 +360,7 @@ class PrazoAtividadeService {
 
         return [
             'setor_id'        => isset($r['setor_id']) ? (int) $r['setor_id'] : null,
-            'trabalho_remoto' => !array_key_exists('trabalho_remoto', $r) || $r['trabalho_remoto'] === null || (int) $r['trabalho_remoto'] === 1,
+            'trabalho_remoto' => isset($r['trabalho_remoto']) && (int) $r['trabalho_remoto'] === 1,
             'qtd_semana'      => isset($r['qtd_dias_remoto_semana']) ? (int) $r['qtd_dias_remoto_semana'] : null,
             'dias_remotos'    => array_map('intval', $dias->fetchAll(PDO::FETCH_COLUMN)),
             'entrega_dias'    => $r['entrega_dias'] ?? null,
@@ -410,7 +433,7 @@ class PrazoAtividadeService {
             SELECT u.id, u.nome
             FROM usuarios u LEFT JOIN atividades_config_usuario c ON c.usuario_id = u.id
             WHERE u.setor_id = ? AND u.ativo = 1 AND u.tipo IN (" . AcessoService::listaSql(AcessoService::PAPEIS_REGISTRAM_ATIVIDADES) . ")
-              AND (COALESCE(c.trabalho_remoto, 1) = 1
+              AND (COALESCE(c.trabalho_remoto, 0) = 1
                    OR c.entrega_dias <> ''
                    OR (c.entrega_dias IS NULL AND ? = 1))
             ORDER BY u.nome");

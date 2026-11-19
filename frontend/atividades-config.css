@@ -176,3 +176,68 @@ body.modo-escuro {
 .ativcfg-acoes .btn-perigo {
     background: var(--vinho-600);
 }
+
+/* Textos de ajuda das regras de prazo (19/11/2026) */
+.ativcfg-ajuda {
+    margin: var(--ativcfg-espaco-1) 0 0;
+    font-size: 0.85rem;
+    color: var(--ativcfg-texto-suave);
+    max-width: 40rem;
+}
+
+.ativcfg-regras .ativcfg-grupo .form-group + .form-group {
+    margin-top: var(--ativcfg-espaco-3);
+}
+
+.ativcfg-regras .ativcfg-opcao {
+    align-items: flex-start;
+}
+
+.ativcfg-regras .ativcfg-opcao input[type="radio"] {
+    margin-top: var(--ativcfg-espaco-1);
+}
+
+/* Cota/dias remotos abaixo do interruptor; esmaecidos quando a pessoa não trabalha remoto */
+.ativcfg-remoto-detalhe {
+    margin-top: var(--ativcfg-espaco-2);
+}
+
+.ativcfg-remoto-detalhe label {
+    display: block;
+    font-size: 0.85rem;
+    font-weight: normal;
+    color: var(--ativcfg-texto-suave);
+}
+
+.ativcfg-remoto-detalhe input:disabled,
+.ativcfg-remoto-detalhe .ativcfg-dia:has(input:disabled) {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+/* Coluna "O que é cobrado" */
+.ativcfg-resumo {
+    margin: 0;
+    padding-left: var(--ativcfg-espaco-4);
+    font-size: 0.9rem;
+}
+
+.ativcfg-resumo li + li {
+    margin-top: var(--ativcfg-espaco-1);
+}
+
+.ativcfg-resumo--nada {
+    list-style: none;
+    padding-left: 0;
+    color: var(--ativcfg-texto-suave);
+    font-style: italic;
+}
+
+/* Os três blocos das regras do setor alinhados pelo topo */
+.ativcfg-form.ativcfg-regras {
+    align-items: stretch;
+}
+
+.ativcfg-form.ativcfg-regras > .btn-primary {
+    align-self: flex-end;
+}
