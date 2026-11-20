@@ -299,7 +299,7 @@ Relatório em `docs/relatorios/ANALISE_2026-11-20.md` (só análise, nada corrig
 - **Limpeza:** `?>` removido dos controllers; `type="button"` em todos os botões do `index.html`.
 - **Cores e foco:** token **`--texto-suave`** (texto secundário: `--neutro-600` no claro, `--neutro-300` `#b5ada5` no escuro; **use ele, não cinzas claros em hex nem `--neutro-400`, para texto**); anel de foco de 2 px no login e na redefinição de senha.
 - **Reduzir movimento:** regra geral de `prefers-reduced-motion` no fim do `acessibilidade.css`.
-- **Bibliotecas:** Quill e Cropper guardados em `frontend/lib/` (com SRI), e os CDNs `cdn.jsdelivr.net`/`cdnjs.cloudflare.com` fora da CSP.
+- **Bibliotecas:** Quill e Cropper guardados em `frontend/lib/` (com SRI), e os CDNs `cdn.jsdelivr.net`/`cdnjs.cloudflare.com` fora da CSP. O `.gitattributes` marca `frontend/lib/**` como `-text`: com `core.autocrlf=true` o Git trocaria LF por CRLF no checkout e o hash de integridade deixaria de bater (biblioteca bloqueada). **Biblioteca nova em `frontend/lib/` não precisa de mais nada; não editar esses arquivos à mão.**
 
 ### Pendências conhecidas (atualizado em 19/11/2026; itens da auditoria de 01/11/2026 na seção acima)
 

@@ -1,0 +1,4 @@
+# Bibliotecas de terceiros: bytes exatos, sem conversão de fim de linha.
+# Os hashes de integridade (SRI) no index.html dependem disso; com core.autocrlf=true o Git
+# trocaria LF por CRLF no checkout e o navegador bloquearia o Quill e o Cropper.
+frontend/lib/** -text
