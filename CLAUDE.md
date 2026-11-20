@@ -293,6 +293,9 @@ Análise de código pedida pelo usuário (erros, inconsistências, rotinas); tud
 - Texto do "Sobre" sobre o bloqueio do login corrigido (5 tentativas é só a pausa da tela; o servidor limita por IP e atrasa por conta). Texto do histórico "enviado por e-mail para" limitado a 255 caracteres.
 - `PesquisaModuloIntegracaoTest` liga a pesquisa nos setores do teste dentro da transação (antes falhava porque o banco local tem a pesquisa desligada em Geral, Cadastro e Cobrança).
 
+### Análise de 20/11/2026 (boas práticas, segurança e acessibilidade)
+Relatório em `docs/relatorios/ANALISE_2026-11-20.md` (só análise, nada corrigido ainda). Nenhuma vulnerabilidade explorável nova; confirmados SQL parametrizado, sessão/CSRF/CORS, bloqueio das pastas sensíveis (por HTTP) e `composer audit` limpo. Achados principais: S1 (alta, operação: limite do login desligado no `.env` local e senhas expostas ainda não trocadas), S2 (CSP com `'unsafe-inline'`: 198 `onclick` + 38 outros eventos embutidos + `<script>` embutido em login/redefinir/política), S3 (Quill 1.3.6 e Cropper vindos de CDN), B1 (respostas rápidas e mesclagem sem `AuditoriaService`), B2 (sem PHPStan/ESLint/integração contínua), A1 (cerca de 20 textos em cinza claro abaixo de 4,5:1 + 15 usos de `--neutro-400` como texto), A2 (foco fraco no login e na redefinição de senha), A3 (sem regra geral de `prefers-reduced-motion`). Plano em 7 fases na seção 7 do relatório.
+
 ### Pendências conhecidas (atualizado em 19/11/2026; itens da auditoria de 01/11/2026 na seção acima)
 
 **Antes do primeiro deploy em produção** (roteiro completo em `docs/implantacao-producao.md`):
