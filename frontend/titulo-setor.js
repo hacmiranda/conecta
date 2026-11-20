@@ -15,7 +15,8 @@
         'atividades', 'registro-atividades', 'novo', 'config'];
 
     // Em Configurações, só as subtelas que seguem o seletor do cabeçalho
-    const SUBTELAS_CONFIG = ['categorias', 'horarios-sla', 'config-email'];
+    // (Usuários: só na aba Equipe; a aba Solicitantes lista gente sem setor)
+    const SUBTELAS_CONFIG = ['categorias', 'horarios-sla', 'config-email', 'usuarios'];
 
     function lerUsuario() {
         try { return JSON.parse(localStorage.getItem('cd_usuario') || 'null'); } catch (e) { return null; }
@@ -37,7 +38,11 @@
     }
 
     function deveMostrar(secaoId) {
-        if (secaoId === 'config') return SUBTELAS_CONFIG.indexOf(lerSubtela()) !== -1;
+        if (secaoId === 'config') {
+            const subtela = lerSubtela();
+            if (subtela === 'usuarios' && typeof abaUsuariosAtiva !== 'undefined' && abaUsuariosAtiva === 'solicitantes') return false;
+            return SUBTELAS_CONFIG.indexOf(subtela) !== -1;
+        }
         return true;
     }
 

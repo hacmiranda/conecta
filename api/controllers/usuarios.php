@@ -251,7 +251,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_GET['acao'] ?? '') === 'redefini
     exit;
 }
 
-// GET - Listar usuários(admin vê todos / pode filtrar por setor_id; gestor só vê o próprio setor)
+// GET - Listar usuários (equipe no escopo de AcessoService::escopoSetores; solicitantes só para o admin)
 if ($_SERVER['REQUEST_METHOD'] === 'GET') {
     $user = AuthMiddleware::verificarAuth();
     AuthMiddleware::verificarGestor($user);
@@ -275,14 +275,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
             $where[] = "u.tipo <> 'cliente'";
         }
 
-        if ($user['tipo'] === 'admin') {
-            if (isset($_GET['setor_id']) && $_GET['setor_id'] !== '') {
-                $where[] = 'u.setor_id = :setor_id';
-                $params[':setor_id'] = (int) $_GET['setor_id'];
+        // Equipe: segue o setor do seletor do cabeçalho (?setor_id=). Admin: vazio = todos;
+        // coordenador: um dos seus (fora deles, 403) ou todos os seus; gestor: sempre o próprio.
+        // Entra também quem tem o setor como adicional (coordenador, usuario_setores).
+        if ($tipoLista !== 'solicitantes') {
+            $escopo = AcessoService::escopoSetores($user);
+            if ($escopo !== null) {
+                $doSetor = AcessoService::filtroSetorSql('u.setor_id', $escopo);
+                $adicional = AcessoService::filtroSetorSql('us.setor_id', $escopo);
+                $where[] = "($doSetor OR u.id IN (SELECT us.usuario_id FROM usuario_setores us WHERE $adicional))";
             }
-        } else {
-            // Gestor: o próprio setor; coordenador: os seus setores (principal e adicionais)
-            $where[] = AcessoService::filtroSetorSql('u.setor_id', AcessoService::setoresDoUsuario($user) ?? []);
         }
 
         $sql = "SELECT u.id, u.nome, u.username, u.email, u.tipo, u.cargo, u.setor_id, u.ativo, u.avatar, u.criado_em,

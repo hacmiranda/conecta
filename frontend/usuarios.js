@@ -28,6 +28,12 @@ function mostrarUsuarios() {
     }
 }
 
+// Lista da aba ativa; a equipe segue o setor do seletor do cabeçalho (solicitante não tem setor)
+function urlListaUsuarios() {
+    const url = `usuarios.php?tipo=${abaUsuariosAtiva}`;
+    return abaUsuariosAtiva === 'solicitantes' ? url : urlComSetor(url);
+}
+
 async function carregarUsuarios() {
     const usuarioLogado = JSON.parse(localStorage.getItem('cd_usuario') || '{}');
     const ehAdmin = usuarioLogado.tipo === 'admin';
@@ -38,7 +44,7 @@ async function carregarUsuarios() {
     }
 
     try {
-        const usuarios = await Api.get(`usuarios.php?tipo=${abaUsuariosAtiva}`);
+        const usuarios = await Api.get(urlListaUsuarios());
         usuariosCacheAtual = usuarios;
         // Admin precisa da lista de setores para poder escolher em qual setor
         // cadastrar/mover um usuário da equipe. Gestor não precisa (fica travado no
@@ -532,7 +538,7 @@ async function editarUsuario(usuarioId) {
         // de novo e evita que o filtro de ?tipo= da outra aba escondesse o usuário.
         let usuario = usuariosCacheAtual.find(u => Number(u.id) === Number(usuarioId));
         if (!usuario) {
-            const usuarios = await Api.get(`usuarios.php?tipo=${abaUsuariosAtiva}`);
+            const usuarios = await Api.get(urlListaUsuarios());
             usuario = usuarios.find(u => Number(u.id) === Number(usuarioId));
         }
         if (!usuario) return;
