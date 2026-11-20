@@ -1,0 +1,20 @@
+/* Nome do setor depois do título das telas (titulo-setor.js) */
+.titulo-setor {
+    margin-left: 0.5rem;
+    color: var(--vinho-600);
+    font-family: 'Inter', sans-serif;
+    font-size: 0.75em;
+    font-weight: 700;
+    letter-spacing: normal;
+    overflow-wrap: anywhere;
+}
+
+.titulo-setor-sep {
+    margin-right: 0.25rem;
+    color: var(--neutro-400);
+}
+
+/* Modo escuro: o vinho some sobre o fundo escuro; usa o tom claro da mesma cor */
+body.modo-escuro .titulo-setor {
+    color: var(--vinho-100);
+}
