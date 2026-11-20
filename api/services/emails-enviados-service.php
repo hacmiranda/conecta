@@ -11,43 +11,20 @@
  *
  * Janelas: ontem (o dia anterior), últimos 7 dias e últimos 30 dias (contando hoje) e o período escolhido.
  */
-class EmailsEnviadosService {
+require_once __DIR__ . '/periodo-service.php';
 
-    /** Período máximo do filtro, em dias */
-    const MAX_DIAS_PERIODO = 366;
+class EmailsEnviadosService {
 
     /** Papéis listados na tabela por funcionário */
     const PAPEIS_FUNCIONARIO = ['gestor', 'operador'];
 
     /**
-     * Valida o período do filtro (datas AAAA-MM-DD, início ≤ fim, sem futuro, até 366 dias).
-     * Sem datas: do primeiro dia do mês até hoje.
-     *
-     * @return array{0:string,1:string} [inicio, fim]
-     * @throws InvalidArgumentException com a mensagem para a pessoa
+     * Período do filtro (regras em PeriodoService). Sem datas: do primeiro dia do mês até hoje.
+     * @return array{0:string,1:string}
+     * @throws InvalidArgumentException
      */
     public static function normalizarPeriodo(?string $inicio, ?string $fim, DateTimeImmutable $hoje): array {
-        $hojeTxt = $hoje->format('Y-m-d');
-        $inicio = trim((string) $inicio);
-        $fim = trim((string) $fim);
-        if ($inicio === '' && $fim === '') {
-            return [$hoje->format('Y-m-01'), $hojeTxt];
-        }
-        $di = DateTimeImmutable::createFromFormat('!Y-m-d', $inicio);
-        $df = DateTimeImmutable::createFromFormat('!Y-m-d', $fim);
-        if (!$di || $di->format('Y-m-d') !== $inicio || !$df || $df->format('Y-m-d') !== $fim) {
-            throw new InvalidArgumentException('Informe as duas datas do período.');
-        }
-        if ($inicio > $fim) {
-            throw new InvalidArgumentException('A data inicial deve ser anterior ou igual à final.');
-        }
-        if ($fim > $hojeTxt) {
-            throw new InvalidArgumentException('O período não pode terminar no futuro.');
-        }
-        if ($di->diff($df)->days + 1 > self::MAX_DIAS_PERIODO) {
-            throw new InvalidArgumentException('O período pode ter no máximo ' . self::MAX_DIAS_PERIODO . ' dias.');
-        }
-        return [$inicio, $fim];
+        return PeriodoService::normalizar($inicio, $fim, $hoje, $hoje->format('Y-m-01'));
     }
 
     /**
