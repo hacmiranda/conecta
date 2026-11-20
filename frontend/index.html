@@ -191,39 +191,6 @@
             </div>
             </li>
 
-            <!-- Menu Ajuda -->
-            <li class="nav-group">
-            <div class="nav-dropdown-wrapper" id="nav-ajuda-wrapper">
-                <button class="btn-nav nav-group-toggle" id="btn-nav-ajuda" onclick="toggleNavDropdown('ajuda')" aria-haspopup="true"
-                    aria-expanded="false" aria-controls="nav-ajuda-dropdown">
-                    <span class="material-symbols-outlined nav-icon" aria-hidden="true">help</span>
-                    <span class="nav-label">Ajuda</span>
-                    <span class="material-symbols-outlined nav-group-caret" aria-hidden="true">expand_more</span>
-                </button>
-                <div class="nav-dropdown" id="nav-ajuda-dropdown">
-                    <button class="nav-dropdown-item" data-subsecao="sla"
-                        onclick="mostrarAjuda(); mostrarSLA()">⏰ SLA</button>
-                    <button class="nav-dropdown-item" data-subsecao="status"
-                        onclick="mostrarAjuda(); mostrarStatusGuia()">📊 Status das
-                        Demandas</button>
-                    <button class="nav-dropdown-item" data-subsecao="prioridade"
-                        onclick="mostrarAjuda(); mostrarPrioridadeGuia()">🔥
-                        Prioridades</button>
-                    <button class="nav-dropdown-item" data-subsecao="fluxos-email"
-                        onclick="mostrarAjuda(); mostrarFluxosEmail()">📧 Fluxos de
-                        E-mail</button>
-                    <button class="nav-dropdown-item" data-subsecao="atalhos"
-                        onclick="mostrarAjuda(); mostrarAtalhosGuia()">⌨️ Atalhos de
-                        Teclado</button>
-                    <button class="nav-dropdown-item"
-                        onclick="mostrarAjuda(); mostrarTutorialAjuda()">🎓
-                        Tutorial</button>
-                    <button class="nav-dropdown-item"
-                        onclick="mostrarAjuda(); mostrarDicasAjuda()">💡 Dicas</button>
-                </div>
-            </div>
-            </li>
-
             <!-- Menu Configurações -->
             <li class="nav-group">
             <div class="nav-dropdown-wrapper" id="nav-config-wrapper">
@@ -290,6 +257,39 @@
                     <div id="lista-notificacoes" class="notif-dropdown-body">
                         <p class="notificacoes-vazio">Carregando...</p>
                     </div>
+                </div>
+            </div>
+            </li>
+
+            <!-- Menu Ajuda -->
+            <li class="nav-group">
+            <div class="nav-dropdown-wrapper" id="nav-ajuda-wrapper">
+                <button class="btn-nav nav-group-toggle" id="btn-nav-ajuda" onclick="toggleNavDropdown('ajuda')" aria-haspopup="true"
+                    aria-expanded="false" aria-controls="nav-ajuda-dropdown">
+                    <span class="material-symbols-outlined nav-icon" aria-hidden="true">help</span>
+                    <span class="nav-label">Ajuda</span>
+                    <span class="material-symbols-outlined nav-group-caret" aria-hidden="true">expand_more</span>
+                </button>
+                <div class="nav-dropdown" id="nav-ajuda-dropdown">
+                    <button class="nav-dropdown-item" data-subsecao="sla"
+                        onclick="mostrarAjuda(); mostrarSLA()">⏰ SLA</button>
+                    <button class="nav-dropdown-item" data-subsecao="status"
+                        onclick="mostrarAjuda(); mostrarStatusGuia()">📊 Status das
+                        Demandas</button>
+                    <button class="nav-dropdown-item" data-subsecao="prioridade"
+                        onclick="mostrarAjuda(); mostrarPrioridadeGuia()">🔥
+                        Prioridades</button>
+                    <button class="nav-dropdown-item" data-subsecao="fluxos-email"
+                        onclick="mostrarAjuda(); mostrarFluxosEmail()">📧 Fluxos de
+                        E-mail</button>
+                    <button class="nav-dropdown-item" data-subsecao="atalhos"
+                        onclick="mostrarAjuda(); mostrarAtalhosGuia()">⌨️ Atalhos de
+                        Teclado</button>
+                    <button class="nav-dropdown-item"
+                        onclick="mostrarAjuda(); mostrarTutorialAjuda()">🎓
+                        Tutorial</button>
+                    <button class="nav-dropdown-item"
+                        onclick="mostrarAjuda(); mostrarDicasAjuda()">💡 Dicas</button>
                 </div>
             </div>
             </li>
