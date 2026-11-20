@@ -37,10 +37,6 @@ body.modo-escuro {
     max-width: 60rem;
 }
 
-.filtros-abas {
-    flex-wrap: wrap;
-}
-
 .filtros-titulo {
     margin: var(--filtros-espaco-6) 0 var(--filtros-espaco-3);
     font-size: 1.1rem;

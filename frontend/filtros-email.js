@@ -1,12 +1,12 @@
 /**
  * Configurações → Filtros de E-mail (auditoria posterior, 27/10/2026).
  * E-mail cujo remetente, destinatário, assunto ou corpo contém o texto cadastrado não abre demanda.
- * Admin: aba "Todos os setores" (filtros globais) + uma aba por setor (gerada de setores.php: setor novo
- * ganha aba sozinho). Gestor: só a página do próprio setor, com os globais em modo leitura.
+ * Setor: o do seletor da barra lateral (19/11/2026; antes havia uma aba por setor). Admin com "Todos os
+ * setores" edita os filtros globais; coordenador com "Todos os meus setores" precisa escolher um setor.
+ * Gestor: o próprio setor, com os globais em modo leitura.
  * Sem onclick/style inline: ações por data-acao com um ouvinte delegado (CSS em filtros-email.css).
  */
 let filtrosSetorAtual = null;      // 'global' ou o id do setor
-let filtrosSetoresLista = [];      // setores (só o admin carrega)
 let filtrosCampos = {};            // campo => rótulo, vindos da API
 
 function mostrarFiltrosEmail() {
@@ -26,27 +26,19 @@ function mostrarFiltrosEmail() {
 async function carregarPaginaFiltrosEmail() {
     const content = document.getElementById('config-content');
     const usuario = JSON.parse(localStorage.getItem('cd_usuario') || '{}');
-    // Abas por setor: admin (mais a aba dos filtros globais) e coordenador com mais de um setor
-    const ehAdmin = Papeis.variosSetores(usuario);
-    const ehAdminReal = Papeis.admin(usuario);
     content.innerHTML = '<p class="filtros-aviso">Carregando...</p>';
 
     try {
-        if (ehAdmin) {
-            const doUsuario = Papeis.setores(usuario);
-            filtrosSetoresLista = (doUsuario === null ? await Api.get('setores.php') : doUsuario).filter(s => s.ativo === undefined || Number(s.ativo) === 1);
-            const salvo = localStorage.getItem('cd_filtrosEmailSetor');
-            const existe = (ehAdminReal && salvo === 'global') || filtrosSetoresLista.some(s => String(s.id) === salvo);
-            filtrosSetorAtual = existe ? salvo : (filtrosSetoresLista[0] ? String(filtrosSetoresLista[0].id) : (ehAdminReal ? 'global' : ''));
-        } else {
-            filtrosSetoresLista = [];
-            filtrosSetorAtual = String(usuario.setor_id || '');
-        }
+        // Setor do seletor da barra lateral; "Todos os setores" (só o admin) = filtros globais
+        const contexto = window.CabecalhoSetor ? window.CabecalhoSetor.obterSetorContexto() : null;
+        filtrosSetorAtual = contexto !== null ? String(contexto) : (Papeis.admin(usuario) ? 'global' : '');
         if (!filtrosSetorAtual) {
-            content.innerHTML = '<p class="filtros-aviso">Você não está vinculado a um setor.</p>';
+            content.innerHTML = `<p class="filtros-aviso" role="status">${Papeis.variosSetores(usuario)
+                ? 'Escolha um setor no seletor de setor da barra lateral para ver e cadastrar os filtros dele.'
+                : 'Você não está vinculado a um setor.'}</p>`;
             return;
         }
-        content.innerHTML = montarEsqueletoFiltros(ehAdmin);
+        content.innerHTML = montarEsqueletoFiltros();
         ligarAcoesFiltrosEmail(content);
         await carregarFiltrosDoSetor();
     } catch (e) {
@@ -54,20 +46,12 @@ async function carregarPaginaFiltrosEmail() {
     }
 }
 
-function montarEsqueletoFiltros(ehAdmin) {
-    const abas = ehAdmin ? `
-        <div class="abas-usuarios filtros-abas" role="tablist" aria-label="Setores">
-            ${[...(Papeis.admin() ? [{ id: 'global', nome: '🌐 Todos os setores' }] : []), ...filtrosSetoresLista.map(s => ({ id: String(s.id), nome: s.nome }))].map(s => `
-                <button type="button" role="tab" class="aba-usuarios-btn" id="aba-filtros-${sanitizeHTML(s.id)}"
-                    data-acao="aba" data-setor="${sanitizeHTML(s.id)}" aria-controls="painel-filtros"
-                    aria-selected="${s.id === filtrosSetorAtual}" tabindex="${s.id === filtrosSetorAtual ? '0' : '-1'}">${sanitizeHTML(s.nome)}</button>`).join('')}
-        </div>` : '';
+function montarEsqueletoFiltros() {
     return `
         <p class="filtros-intro">E-mail que chegar na caixa e coincidir com um filtro <strong>não abre demanda</strong>
             (fica só no registro de e-mails barrados). A comparação ignora maiúsculas e acentos e vale quando o campo
             <em>contém</em> o texto. Respostas de quem já participa de uma demanda continuam virando comentário.</p>
-        ${abas}
-        <div id="painel-filtros" role="${ehAdmin ? 'tabpanel' : 'region'}" aria-label="Filtros de e-mail" aria-live="polite"></div>`;
+        <div id="painel-filtros" role="region" aria-label="Filtros de e-mail" aria-live="polite"></div>`;
 }
 
 async function carregarFiltrosDoSetor() {
@@ -91,7 +75,7 @@ function opcoesCampoFiltro(selecionado) {
 
 function montarPainelFiltros(dados) {
     const global = filtrosSetorAtual === 'global';
-    const nomeSetor = global ? 'todos os setores' : nomeDoSetorFiltro(filtrosSetorAtual);
+    const nomeSetor = global ? 'todos os setores' : nomeDoSetorFiltro();
     const globais = (dados.filtros_globais || []);
     return `
         <h3 class="filtros-titulo">Filtros de ${sanitizeHTML(nomeSetor)}</h3>
@@ -128,11 +112,8 @@ function montarPainelFiltros(dados) {
         <div id="filtros-barrados"><p class="filtros-aviso">Carregando...</p></div>`;
 }
 
-function nomeDoSetorFiltro(id) {
-    const s = filtrosSetoresLista.find(x => String(x.id) === String(id));
-    if (s) return s.nome;
-    const usuario = JSON.parse(localStorage.getItem('cd_usuario') || '{}');
-    return usuario.setor_nome || 'seu setor';
+function nomeDoSetorFiltro() {
+    return (window.CabecalhoSetor && window.CabecalhoSetor.nomeSetorContexto()) || 'seu setor';
 }
 
 function montarTabelaFiltros(filtros, editavel) {
@@ -197,8 +178,7 @@ function ligarAcoesFiltrosEmail(container) {
     container.addEventListener('click', (ev) => {
         const alvo = ev.target.closest('[data-acao]');
         if (!alvo || alvo.tagName === 'INPUT') return;
-        if (alvo.dataset.acao === 'aba') trocarAbaFiltros(alvo.dataset.setor);
-        else if (alvo.dataset.acao === 'editar') editarFiltroEmail(alvo.dataset);
+        if (alvo.dataset.acao === 'editar') editarFiltroEmail(alvo.dataset);
         else if (alvo.dataset.acao === 'excluir') excluirFiltroEmail(Number(alvo.dataset.id), alvo.dataset.termo);
     });
     container.addEventListener('change', (ev) => {
@@ -212,28 +192,6 @@ function ligarAcoesFiltrosEmail(container) {
         if (form.dataset.acaoForm === 'criar') criarFiltroEmail();
         else if (form.dataset.acaoForm === 'testar') testarFiltroEmail();
     });
-    // Setas ←/→ movem entre as abas e já ativam (padrão WAI-ARIA de tabs)
-    container.addEventListener('keydown', (ev) => {
-        const aba = ev.target.closest('[role="tab"]');
-        if (!aba || (ev.key !== 'ArrowRight' && ev.key !== 'ArrowLeft')) return;
-        const abas = [...container.querySelectorAll('[role="tab"]')];
-        const i = abas.indexOf(aba);
-        const destino = abas[(i + (ev.key === 'ArrowRight' ? 1 : -1) + abas.length) % abas.length];
-        ev.preventDefault();
-        trocarAbaFiltros(destino.dataset.setor).then(() => document.getElementById(`aba-filtros-${destino.dataset.setor}`)?.focus());
-    });
-}
-
-async function trocarAbaFiltros(setor) {
-    if (setor === filtrosSetorAtual) return;
-    filtrosSetorAtual = setor;
-    localStorage.setItem('cd_filtrosEmailSetor', setor);
-    document.querySelectorAll('#config-content [role="tab"]').forEach(a => {
-        const ativa = a.dataset.setor === setor;
-        a.setAttribute('aria-selected', String(ativa));
-        a.tabIndex = ativa ? 0 : -1;
-    });
-    await carregarFiltrosDoSetor();
 }
 
 function corpoFiltro(campo, termo, observacao) {

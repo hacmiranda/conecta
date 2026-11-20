@@ -16,7 +16,7 @@
 
     // Em Configurações, só as subtelas que seguem o seletor do cabeçalho
     // (Usuários: só na aba Equipe; a aba Solicitantes lista gente sem setor)
-    const SUBTELAS_CONFIG = ['categorias', 'horarios-sla', 'config-email', 'usuarios'];
+    const SUBTELAS_CONFIG = ['categorias', 'horarios-sla', 'config-email', 'usuarios', 'setor-config', 'filtros-email', 'atividades'];
 
     function lerUsuario() {
         try { return JSON.parse(localStorage.getItem('cd_usuario') || 'null'); } catch (e) { return null; }

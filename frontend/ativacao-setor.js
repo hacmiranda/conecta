@@ -21,44 +21,26 @@ async function mostrarConfigSetor() {
         return;
     }
 
-    const usuario = JSON.parse(localStorage.getItem('cd_usuario') || '{}');
-
-    if (Papeis.variosSetores(usuario)) {
-        try {
-            // Admin: todos os setores; coordenador com vários setores: os dele
-            const doUsuario = Papeis.setores(usuario);
-            const todos = doUsuario === null ? await Api.get('setores.php') : doUsuario;
-            // Setores de coordenação ficam fora do seletor (como no cabeçalho)
-            const setores = todos.filter(s => Number(s.setor_coordenacao) !== 1);
-            renderizarPainelConfigSetor(setores, setores[0] ? setores[0].id : null);
-        } catch (e) {
-            content.innerHTML = '<p>Erro ao carregar setores.</p>';
-        }
-    } else {
-        renderizarPainelConfigSetor([], usuario.setor_id);
-    }
+    // Setor: o do seletor da barra lateral (gestor/operador: o próprio). Trocar lá recarrega a tela.
+    renderizarPainelConfigSetor(window.CabecalhoSetor ? window.CabecalhoSetor.obterSetorContexto() : null);
 }
 
-function renderizarPainelConfigSetor(setores, setorInicialId) {
+function renderizarPainelConfigSetor(setorId) {
     const content = document.getElementById('config-content');
     const usuario = JSON.parse(localStorage.getItem('cd_usuario') || '{}');
-    const ehAdmin = Papeis.variosSetores(usuario); // mostra o seletor de setor
 
-    setorConfigAtual = setorInicialId;
+    setorConfigAtual = setorId;
     abaConfigSetorAtiva = 'status';
 
-    const seletorHtml = ehAdmin ? `
-        <div class="form-group" style="max-width: 320px;">
-            <label for="setor-config-select">Setor:</label>
-            <select id="setor-config-select" onchange="setorConfigAtual = parseInt(this.value); carregarAbaConfigSetor('status')">
-                ${setores.map(s => `<option value="${s.id}" ${s.id == setorInicialId ? 'selected' : ''}>${sanitizeHTML(s.nome)}</option>`).join('')}
-            </select>
-        </div>
-    ` : '';
+    if (!setorConfigAtual) {
+        content.innerHTML = `<p class="aviso-escolher-setor" role="status">${Papeis.variosSetores(usuario)
+            ? 'Escolha um setor no seletor de setor da barra lateral para ativar os status e os e-mails dele.'
+            : 'Você não está vinculado a um setor.'}</p>`;
+        return;
+    }
 
     content.innerHTML = `
         <p style="color:#666;margin-bottom:1rem;">Ative/desative e reordene quais status${Papeis.admin(usuario) ? ' e prioridades' : ''} aparecem para este setor. O catálogo continua compartilhado com os outros setores — nada é apagado aqui, só escondido. As categorias são próprias de cada setor e ficam em Configurações → Categorias.</p>
-        ${seletorHtml}
         <div class="tabs-container" style="margin-bottom:1rem;">
             <button type="button" class="tab-btn active" id="tab-config-status" onclick="carregarAbaConfigSetor('status')">🚦 Status</button>
             ${Papeis.admin(usuario) ? `<button type="button" class="tab-btn" id="tab-config-prioridades" onclick="carregarAbaConfigSetor('prioridades')">🔥 Prioridades</button>` : ''}
@@ -66,11 +48,6 @@ function renderizarPainelConfigSetor(setores, setorInicialId) {
         </div>
         <div id="config-setor-lista"></div>
     `;
-
-    if (!setorConfigAtual) {
-        document.getElementById('config-setor-lista').innerHTML = '<p style="color:#999;font-style:italic;">Nenhum setor disponível.</p>';
-        return;
-    }
 
     carregarAbaConfigSetor('status');
 }
@@ -528,7 +505,7 @@ function mostrarConfigEmail() {
         </div>` : `
         <div class="config-email-setor">
             <h3>🏢 E-mail do setor</h3>
-            <p style="color:#666;">Selecione um setor no cabeçalho para configurar o endereço de e-mail dele.</p>
+            <p style="color:#666;">Selecione um setor no seletor de setor da barra lateral para configurar o endereço de e-mail dele.</p>
         </div>`;
 
     content.innerHTML = `

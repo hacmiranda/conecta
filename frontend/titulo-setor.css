@@ -41,3 +41,13 @@ body.modo-escuro .titulo-setor {
 #fechados .tickets-header h2.titulo-pagina {
     margin: 0;
 }
+
+/* Tela de um setor só com "Todos os setores" no seletor da barra lateral (Ativação por Setor) */
+.aviso-escolher-setor {
+    color: var(--neutro-600);
+    font-style: italic;
+}
+
+body.modo-escuro .aviso-escolher-setor {
+    color: var(--neutro-200);
+}

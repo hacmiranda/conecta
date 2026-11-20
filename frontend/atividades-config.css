@@ -28,10 +28,6 @@ body.modo-escuro {
     max-width: 60rem;
 }
 
-.ativcfg-abas {
-    flex-wrap: wrap;
-}
-
 .ativcfg-titulo {
     margin: var(--ativcfg-espaco-6) 0 var(--ativcfg-espaco-3);
     font-size: 1.1rem;

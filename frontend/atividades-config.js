@@ -1,12 +1,11 @@
 /**
  * Configurações → Atividades (veio do METRICA360, 27/10/2026): atividades que cada setor registra no
  * "Registro de Atividades" e as regras de prazo (trabalho remoto e dias de entrega de relatório).
- * Admin: uma aba por setor ativo. Gestor: só o próprio setor. Operador não vê.
+ * Setor: o do seletor da barra lateral (19/11/2026; antes uma aba por setor). Gestor: o próprio. Operador não vê.
  * Sem onclick/style inline: ações por data-acao com ouvintes delegados (CSS em atividades-config.css).
  */
 const DIAS_SEMANA_ATIV = [[1, 'Seg'], [2, 'Ter'], [3, 'Qua'], [4, 'Qui'], [5, 'Sex'], [6, 'Sáb'], [7, 'Dom']];
 let ativCfgSetorAtual = null;
-let ativCfgSetores = [];
 let ativCfgDados = null;
 
 function mostrarAtividadesConfig() {
@@ -23,37 +22,23 @@ function mostrarAtividadesConfig() {
 async function carregarPaginaAtividadesConfig() {
     const content = document.getElementById('config-content');
     const usuario = JSON.parse(localStorage.getItem('cd_usuario') || '{}');
-    // Abas por setor: admin (todos os setores) e coordenador com mais de um setor (os dele)
-    const ehAdmin = Papeis.variosSetores(usuario);
     content.innerHTML = '<p class="ativcfg-aviso">Carregando...</p>';
     try {
-        if (ehAdmin) {
-            const doUsuario = Papeis.setores(usuario);
-            ativCfgSetores = (doUsuario === null ? await Api.get('setores.php') : doUsuario).filter(s => s.ativo === undefined || Number(s.ativo) === 1);
-            const salvo = localStorage.getItem('cd_atividadesConfigSetor');
-            ativCfgSetorAtual = ativCfgSetores.some(s => String(s.id) === salvo) ? salvo : (ativCfgSetores[0] ? String(ativCfgSetores[0].id) : '');
-        } else {
-            ativCfgSetores = [];
-            ativCfgSetorAtual = String(usuario.setor_id || '');
-        }
+        // Setor do seletor da barra lateral (gestor: o próprio); trocar lá recarrega a tela
+        const contexto = window.CabecalhoSetor ? window.CabecalhoSetor.obterSetorContexto() : null;
+        ativCfgSetorAtual = contexto !== null ? String(contexto) : '';
         if (!ativCfgSetorAtual) {
-            content.innerHTML = '<p class="ativcfg-aviso">Você não está vinculado a um setor.</p>';
+            content.innerHTML = `<p class="ativcfg-aviso" role="status">${Papeis.variosSetores(usuario)
+                ? 'Escolha um setor no seletor de setor da barra lateral para configurar as atividades dele.'
+                : 'Você não está vinculado a um setor.'}</p>`;
             return;
         }
-        const abas = ehAdmin ? `
-            <div class="abas-usuarios ativcfg-abas" role="tablist" aria-label="Setores">
-                ${ativCfgSetores.map(s => `
-                    <button type="button" role="tab" class="aba-usuarios-btn" id="aba-ativcfg-${Number(s.id)}" data-acao="aba"
-                        data-setor="${Number(s.id)}" aria-controls="painel-ativcfg" aria-selected="${String(s.id) === ativCfgSetorAtual}"
-                        tabindex="${String(s.id) === ativCfgSetorAtual ? '0' : '-1'}">${sanitizeHTML(s.nome)}</button>`).join('')}
-            </div>` : '';
         content.innerHTML = `
             <p class="ativcfg-intro">Cadastre as atividades que o setor registra no <strong>Registro de Atividades</strong> e
                 as regras de prazo: quem trabalha remoto (cota semanal ou dias fixos) e os dias de entrega de relatório.
                 Cada seção abaixo explica o que faz.
                 Quem não envia no prazo aparece como pendente no <strong>Painel de Atividades</strong>.</p>
-            ${abas}
-            <div id="painel-ativcfg" role="${ehAdmin ? 'tabpanel' : 'region'}" aria-label="Configuração de atividades"></div>`;
+            <div id="painel-ativcfg" role="region" aria-label="Configuração de atividades"></div>`;
         ligarAcoesAtividadesConfig(content);
         await carregarAtividadesDoSetorCfg();
     } catch (e) {
@@ -296,8 +281,7 @@ function ligarAcoesAtividadesConfig(container) {
         const alvo = ev.target.closest('[data-acao]');
         if (!alvo || alvo.tagName === 'INPUT') return;
         const id = Number(alvo.dataset.id);
-        if (alvo.dataset.acao === 'aba') trocarAbaAtividadesCfg(alvo.dataset.setor);
-        else if (alvo.dataset.acao === 'renomear') renomearTipoCfg(id, alvo.dataset.nome);
+        if (alvo.dataset.acao === 'renomear') renomearTipoCfg(id, alvo.dataset.nome);
         else if (alvo.dataset.acao === 'excluir-tipo') excluirTipoCfg(id, alvo.dataset.nome);
         else if (alvo.dataset.acao === 'salvar-usuario') salvarUsuarioCfg(id, alvo.closest('tr'));
     });
@@ -318,26 +302,6 @@ function ligarAcoesAtividadesConfig(container) {
         if (form.dataset.acaoForm === 'criar-tipos') criarTiposCfg();
         else if (form.dataset.acaoForm === 'setor') salvarRegrasSetorCfg(form);
     });
-    container.addEventListener('keydown', (ev) => {
-        const aba = ev.target.closest('[role="tab"]');
-        if (!aba || (ev.key !== 'ArrowRight' && ev.key !== 'ArrowLeft')) return;
-        const abas = [...container.querySelectorAll('[role="tab"]')];
-        const destino = abas[(abas.indexOf(aba) + (ev.key === 'ArrowRight' ? 1 : -1) + abas.length) % abas.length];
-        ev.preventDefault();
-        trocarAbaAtividadesCfg(destino.dataset.setor).then(() => document.getElementById(`aba-ativcfg-${destino.dataset.setor}`)?.focus());
-    });
-}
-
-async function trocarAbaAtividadesCfg(setor) {
-    if (setor === ativCfgSetorAtual) return;
-    ativCfgSetorAtual = setor;
-    localStorage.setItem('cd_atividadesConfigSetor', setor);
-    document.querySelectorAll('#config-content [role="tab"]').forEach(a => {
-        const ativa = a.dataset.setor === setor;
-        a.setAttribute('aria-selected', String(ativa));
-        a.tabIndex = ativa ? 0 : -1;
-    });
-    await carregarAtividadesDoSetorCfg();
 }
 
 async function criarTiposCfg() {

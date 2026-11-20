@@ -147,9 +147,26 @@
         }
     }
 
+    // Nome do setor do contexto ('' quando é "todos"): o escolhido no seletor ou o do próprio usuário
+    function nomeSetorContexto() {
+        const usuario = lerUsuario();
+        if (!usuario) return '';
+        if (!Papeis.variosSetores(usuario)) return usuario.setor_nome || '';
+        const id = obterSetorContexto();
+        if (id === null) return '';
+        const seletor = document.getElementById('seletor-setor');
+        const opcao = seletor ? Array.prototype.find.call(seletor.options, function (o) { return o.value === String(id); }) : null;
+        if (opcao) return opcao.textContent;
+        // Seletor ainda não preenchido: procura na lista do usuário (coordenador)
+        const lista = Papeis.setores(usuario) || [];
+        const s = lista.find(function (x) { return Number(x.id) === id; });
+        return s ? s.nome : '';
+    }
+
     window.CabecalhoSetor = {
         obterSetorContexto: obterSetorContexto,
-        anexarSetor: anexarSetor
+        anexarSetor: anexarSetor,
+        nomeSetorContexto: nomeSetorContexto
     };
 
     if (document.readyState === 'loading') {
