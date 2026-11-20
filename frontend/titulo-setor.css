@@ -20,7 +20,7 @@
     margin-left: 0.5rem;
     color: var(--vinho-600);
     font-family: 'Inter', sans-serif;
-    font-size: 0.75em;
+    font-size: 1em; /* mesmo tamanho do título */
     font-weight: 700;
     letter-spacing: normal;
     overflow-wrap: anywhere;
