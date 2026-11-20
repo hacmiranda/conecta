@@ -20,6 +20,8 @@ header('X-Content-Type-Options: nosniff');
 require_once __DIR__ . '/../config/database.php';
 require_once __DIR__ . '/../middleware/auth.php';
 require_once __DIR__ . '/../services/auditoria-service.php';
+require_once __DIR__ . '/../services/rate-limit-service.php';
+require_once __DIR__ . '/../services/rede-service.php';
 
 use Firebase\JWT\JWT;
 use Firebase\JWT\Key;
@@ -52,6 +54,15 @@ function mapearTipo(?string $roleCentral): string {
         return 'operador';
     }
     return 'cliente';
+}
+
+// Limite por IP (análise de 20/11/2026, S5): o token é assinado e de uso único, mas cada tentativa
+// custa uma verificação de assinatura; 30 em 15 minutos bastam para o uso normal
+$limite = RateLimitService::consumir(RedeService::ipCliente(), 'sso', 30, 900); // registra antes de conferir
+if ($limite['bloqueado']) {
+    http_response_code(429);
+    echo json_encode(['error' => 'Muitas tentativas. Tente novamente mais tarde.']);
+    exit;
 }
 
 $input = json_decode(file_get_contents('php://input'), true);

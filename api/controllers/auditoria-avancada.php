@@ -286,6 +286,7 @@ try {
     
     // Exportar para CSV
     elseif ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_GET['exportar'])) {
+        AuthMiddleware::verificarCSRF(); // todo POST confere o CSRF (análise de 20/11/2026, S4)
         $tipo = $_GET['tipo'] ?? 'geral';
 
         if ($tipo === 'geral') {

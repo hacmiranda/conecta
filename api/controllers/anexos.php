@@ -106,6 +106,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
         header('Cache-Control: private, must-revalidate');
         header('Pragma: private');
         header('X-Content-Type-Options: nosniff');
+        // Aberto direto pelo endereço (a tela usa uma cópia blob:), o arquivo roda isolado: sem scripts,
+        // formulários nem acesso à origem (análise de 20/11/2026, S6)
+        header("Content-Security-Policy: sandbox; default-src 'none'; img-src 'self' data:; style-src 'unsafe-inline'");
 
         readfile($caminho_real);
         exit;

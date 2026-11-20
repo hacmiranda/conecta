@@ -274,4 +274,3 @@ if ($_SERVER['REQUEST_METHOD'] === 'DELETE') {
         echo json_encode(['error' => 'Erro ao remover feriado']);
     }
 }
-?>

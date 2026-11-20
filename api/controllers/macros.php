@@ -26,6 +26,12 @@ try {
 }
 
 require_once __DIR__ . '/../services/acesso-service.php';
+require_once __DIR__ . '/../services/auditoria-service.php';
+
+/** Resumo da resposta rápida para a auditoria: sem o texto (HTML que pode ter imagens de vários MB) */
+function resumoMacro(?string $titulo, ?string $texto, $setorId): array {
+    return ['titulo' => $titulo, 'setor_id' => $setorId, 'texto_tamanho' => strlen((string) $texto)];
+}
 
 $database = new Database();
 $db = $database->getConnection();
@@ -107,12 +113,16 @@ if ($method === 'POST') {
             $stmt->bindParam(':usuario_id', $usuario_id);
             $stmt->bindValue(':setor_id', $setor_macro, $setor_macro === null ? PDO::PARAM_NULL : PDO::PARAM_INT);
             if ($stmt->execute()) {
-                echo json_encode(['message' => 'Macro criada com sucesso', 'id' => $db->lastInsertId()]);
+                $novoId = (int) $db->lastInsertId();
+                (new AuditoriaService($db))->registrar($usuario_id, 'criar_macro', 'macros', $novoId, null,
+                    json_encode(resumoMacro($data->titulo, $data->texto, $setor_macro), JSON_UNESCAPED_UNICODE));
+                echo json_encode(['message' => 'Macro criada com sucesso', 'id' => $novoId]);
             } else {
                 http_response_code(500);
                 echo json_encode(['error' => 'Erro ao criar macro']);
             }
-        } catch(Exception $e) {
+        } catch (Throwable $e) {
+            error_log('[MACROS POST] Erro: ' . $e->getMessage());
             http_response_code(500);
             echo json_encode(['error' => 'Erro ao criar macro']);
         }
@@ -136,7 +146,7 @@ if ($method === 'PUT') {
     $data = json_decode(file_get_contents("php://input"));
     
     // Check permission - admin or owner
-    $check_query = "SELECT usuario_id, setor_id FROM macros WHERE id = :id";
+    $check_query = "SELECT usuario_id, setor_id, titulo, texto FROM macros WHERE id = :id";
     $check_stmt = $db->prepare($check_query);
     $check_stmt->bindParam(':id', $id);
     $check_stmt->execute();
@@ -164,12 +174,16 @@ if ($method === 'PUT') {
             $stmt->bindParam(':texto', $data->texto);
             $stmt->bindParam(':id', $id);
             if ($stmt->execute()) {
+                (new AuditoriaService($db))->registrar($user['id'], 'alterar_macro', 'macros', $id,
+                    json_encode(resumoMacro($macro['titulo'], $macro['texto'], $macro['setor_id']), JSON_UNESCAPED_UNICODE),
+                    json_encode(resumoMacro($data->titulo, $data->texto, $macro['setor_id']), JSON_UNESCAPED_UNICODE));
                 echo json_encode(['message' => 'Macro atualizada com sucesso']);
             } else {
                 http_response_code(500);
                 echo json_encode(['error' => 'Erro ao atualizar macro']);
             }
-        } catch(Exception $e) {
+        } catch (Throwable $e) {
+            error_log('[MACROS PUT] Erro: ' . $e->getMessage());
             http_response_code(500);
             echo json_encode(['error' => 'Erro ao atualizar macro']);
         }
@@ -190,7 +204,7 @@ if ($method === 'DELETE') {
         exit;
     }
     // Check permission - admin or owner
-    $check_query = "SELECT usuario_id, setor_id FROM macros WHERE id = :id";
+    $check_query = "SELECT usuario_id, setor_id, titulo, texto FROM macros WHERE id = :id";
     $check_stmt = $db->prepare($check_query);
     $check_stmt->bindParam(':id', $id);
     $check_stmt->execute();
@@ -211,15 +225,17 @@ if ($method === 'DELETE') {
         $stmt = $db->prepare($query);
         $stmt->bindParam(':id', $id);
         if ($stmt->execute()) {
+            (new AuditoriaService($db))->registrar($user['id'], 'excluir_macro', 'macros', $id,
+                json_encode(resumoMacro($macro['titulo'], $macro['texto'], $macro['setor_id']), JSON_UNESCAPED_UNICODE), null);
             echo json_encode(['message' => 'Macro excluída com sucesso']);
         } else {
             http_response_code(500);
             echo json_encode(['error' => 'Erro ao excluir macro']);
         }
-    } catch(Exception $e) {
+    } catch (Throwable $e) {
+        error_log('[MACROS DELETE] Erro: ' . $e->getMessage());
         http_response_code(500);
         echo json_encode(['error' => 'Erro ao excluir macro']);
     }
     exit;
 }
-?>

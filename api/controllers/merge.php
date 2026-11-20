@@ -7,6 +7,7 @@ require_once __DIR__ . '/../services/acesso-service.php';
 require_once __DIR__ . '/../services/demanda-service.php';
 require_once __DIR__ . '/../services/protocolo-service.php';
 require_once __DIR__ . '/../services/html-sanitizer.php';
+require_once __DIR__ . '/../services/auditoria-service.php';
 
 AuthMiddleware::configurarCORS(['POST']);
 
@@ -179,6 +180,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $stmt->execute();
         }
         
+        // Auditoria geral (a linha do tempo de cada demanda já registra a mesclagem)
+        (new AuditoriaService($db))->registrar($user['id'], 'mesclar_demandas', 'tickets', (int) $ticket_principal, null,
+            json_encode([
+                'principal' => $principal_rotulo,
+                'secundarias' => array_map(fn($t) => ProtocoloService::rotulo($t['protocolo'] ?? null, (int) $t['id']), $tickets_secundarios_info),
+            ], JSON_UNESCAPED_UNICODE));
+
         $db->commit();
         
         echo json_encode([
@@ -188,7 +196,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             'tickets_mesclados' => count($tickets_secundarios)
         ]);
         
-    } catch (Exception $e) {
+    } catch (Throwable $e) {
         if ($db->inTransaction()) {
             $db->rollback();
         }
@@ -197,4 +205,3 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         echo json_encode(['error' => 'Erro ao mesclar demandas']);
     }
 }
-?>
