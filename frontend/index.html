@@ -10,11 +10,11 @@
     <meta property="og:type" content="website">
     <title>Conecta CRPRS</title>
     <link rel="icon" type="image/png" href="images/logo_vazado.png">
-    <link rel="stylesheet" href="style.css?v=3.12.p1119">
+    <link rel="stylesheet" href="style.css?v=3.12.p1119.a1120">
     <link rel="stylesheet" href="historico.css?v=c1">
     <link rel="stylesheet" href="modal-modern.css?v=c1.f7.u2">
     <link rel="stylesheet" href="funcionalidades.css?v=c5.f7">
-    <link rel="stylesheet" href="status-sla.css?v=c1">
+    <link rel="stylesheet" href="status-sla.css?v=c1.a1120">
     <link rel="stylesheet" href="responsive.css?v=c3.p1119">
     <link rel="stylesheet" href="tutorial.css?v=c1.f7">
     <link rel="stylesheet" href="lembretes.css?v=2.c1">
@@ -24,7 +24,7 @@
     <link rel="stylesheet" href="nav-dropdown.css?v=2.c1">
     <link rel="stylesheet" href="sidebar.css?v=7.c5.p1119c">
     <link rel="stylesheet" href="senha-visivel.css?v=1.c1">
-    <link rel="stylesheet" href="tickets-melhorias.css?v=7.c7.f7.a2.f1118.p1119">
+    <link rel="stylesheet" href="tickets-melhorias.css?v=7.c7.f7.a2.f1118.p1119.a1120">
     <link rel="stylesheet" href="vanguard-tooltip.css?v=c1">
     <link rel="stylesheet" href="dashboard-redesign.css?v=c3.p1119">
     <link rel="stylesheet" href="dashboard-emails.css?v=2.p1119">
@@ -40,7 +40,7 @@
     <link rel="stylesheet" href="satisfacao-setores.css?v=2">
     <link rel="stylesheet" href="demanda-tempos.css?v=2">
     <link rel="stylesheet" href="modais-tema.css?v=1">
-    <link rel="stylesheet" href="acessibilidade.css?v=3.f7.f8">
+    <link rel="stylesheet" href="acessibilidade.css?v=3.f7.f8.a1120">
     <link rel="stylesheet" href="papeis.css?v=5.p1119">
     <link rel="stylesheet" href="titulo-setor.css?v=4.p1119d">
     <!-- Material Symbols para ícones da tabela -->
@@ -53,8 +53,9 @@
     <link
         href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&icon_names=add_circle,analytics,api,archive,arrow_downward,arrow_upward,assignment,attach_file,autorenew,bar_chart,bolt,calendar_month,call_merge,category,chat_bubble,check_circle,chevron_left,chevron_right,clear_all,close,confirmation_number,corporate_fare,dashboard,date_range,delete,donut_large,download,edit_note,emoji_events,error,event,expand_less,expand_more,first_page,folder_open,format_quote,grid_view,group,help,hourglass_empty,inbox,info,insights,keyboard_double_arrow_left,keyboard_double_arrow_right,label,last_page,list_alt,local_fire_department,logout,mark_email_unread,monitoring,more_vert,notifications,open_in_new,pending_actions,person_off,picture_as_pdf,pie_chart,remove,reviews,rocket_launch,save,schedule,search,send,sentiment_satisfied,settings,show_chart,stacked_bar_chart,star,table_rows,tag,task_alt,thumb_down,thumb_up,timer,today,trending_down,trending_up,tune,view_kanban,warning&display=block"
         rel="stylesheet" />
-    <link href="https://cdn.jsdelivr.net/npm/quill@1.3.6/dist/quill.snow.css" rel="stylesheet"
-        integrity="sha384-07UbSXbd8HpaOfxZsiO6Y8H1HTX6v0J96b5qP6PKSpYEuSZSYD4GFFHlLRjvjVrL" crossorigin="anonymous">
+    <!-- Quill 1.3.6 guardado no projeto (análise de 20/11/2026, S3); integridade igual à do CDN -->
+    <link href="lib/quill-1.3.6/quill.snow.css" rel="stylesheet"
+        integrity="sha384-07UbSXbd8HpaOfxZsiO6Y8H1HTX6v0J96b5qP6PKSpYEuSZSYD4GFFHlLRjvjVrL">
     <!-- Configuração de deploy (base da API) -->
     <script src="app-config.js?v=2.c1"></script>
     <script src="papeis.js?v=2.p1119"></script>
@@ -84,7 +85,7 @@
 
         <!-- Avatar do usuário -->
         <div class="header-avatar-wrapper" id="header-avatar-wrapper">
-            <button class="header-avatar-btn" id="header-avatar-btn" onclick="toggleAvatarDropdown()"
+            <button type="button" class="header-avatar-btn" id="header-avatar-btn" onclick="toggleAvatarDropdown()"
                 aria-haspopup="true" aria-expanded="false" aria-label="Abrir menu do usuário">
                 <div class="header-avatar-circle" id="header-avatar-circle">
                     <div class="avatar-flip-inner">
@@ -105,21 +106,21 @@
 
             <!-- Dropdown do avatar -->
             <div class="header-avatar-dropdown" id="header-avatar-dropdown" aria-hidden="true">
-                <button class="had-item" onclick="abrirModalMacros(); fecharAvatarDropdown();">
+                <button type="button" class="had-item" onclick="abrirModalMacros(); fecharAvatarDropdown();">
                     ⚡ Respostas Rápidas
                 </button>
-                <button class="had-item" id="btn-alterar-avatar">
+                <button type="button" class="had-item" id="btn-alterar-avatar">
                     📷 Alterar Avatar
                 </button>
-                <button class="had-item" onclick="toggleModoEscuro(); fecharAvatarDropdown();">
+                <button type="button" class="had-item" onclick="toggleModoEscuro(); fecharAvatarDropdown();">
                     <span id="icone-modo-escuro">🌙</span>
                     <span id="texto-modo-escuro">Modo Escuro</span>
                 </button>
-                <button class="had-item"
+                <button type="button" class="had-item"
                     onclick="mostrarAlterarSenha(); fecharAvatarDropdown();">
                     🔑 Alterar Senha
                 </button>
-                <button class="had-item"
+                <button type="button" class="had-item"
                     onclick="mostrarSobre(); fecharAvatarDropdown();">
                     ℹ️ Sobre
                 </button>
@@ -127,10 +128,10 @@
                     🔒 Política de Privacidade
                 </a>
                 <div class="header-avatar-dropdown-divider"></div>
-                <button class="had-item had-item--danger" onclick="fazerLogout()">
+                <button type="button" class="had-item had-item--danger" onclick="fazerLogout()">
                     🚪 Sair
                 </button>
-                <button class="had-item had-item--danger" onclick="sairDeTodosOsDispositivos()">
+                <button type="button" class="had-item had-item--danger" onclick="sairDeTodosOsDispositivos()">
                     🔐 Sair de todos os dispositivos
                 </button>
             </div>
@@ -145,14 +146,14 @@
 
         <nav class="sidebar-nav" aria-label="Menu principal">
             <ul role="list">
-            <li><button onclick="mostrarSecao('tickets'); carregarTickets()" class="btn-nav nav-link active"
+            <li><button type="button" onclick="mostrarSecao('tickets'); carregarTickets()" class="btn-nav nav-link active"
                 id="btn-nav-tickets"><span class="material-symbols-outlined nav-icon" aria-hidden="true">confirmation_number</span><span class="nav-label">Demandas</span></button></li>
-            <li><button onclick="mostrarSecao('fechados'); carregarTicketsFechados()" class="btn-nav nav-link"
+            <li><button type="button" onclick="mostrarSecao('fechados'); carregarTicketsFechados()" class="btn-nav nav-link"
                 id="btn-nav-arquivo"><span class="material-symbols-outlined nav-icon" aria-hidden="true">archive</span><span class="nav-label">Arquivo</span></button></li>
-            <li id="nav-lixeira-item" hidden><button onclick="mostrarLixeira()" class="btn-nav nav-link"
+            <li id="nav-lixeira-item" hidden><button type="button" onclick="mostrarLixeira()" class="btn-nav nav-link"
                 id="btn-nav-lixeira"><span class="material-symbols-outlined nav-icon" aria-hidden="true">delete</span><span class="nav-label">Lixeira</span></button></li>
-            <li><button onclick="mostrarDashboard()" class="btn-nav nav-link" id="btn-nav-dashboard"><span class="material-symbols-outlined nav-icon" aria-hidden="true">dashboard</span><span class="nav-label">Dashboard</span></button></li>
-            <li><button onclick="mostrarRelatorios()" class="btn-nav nav-link" id="btn-nav-relatorios"><span class="material-symbols-outlined nav-icon" aria-hidden="true">bar_chart</span><span class="nav-label">Relatórios</span></button></li>
+            <li><button type="button" onclick="mostrarDashboard()" class="btn-nav nav-link" id="btn-nav-dashboard"><span class="material-symbols-outlined nav-icon" aria-hidden="true">dashboard</span><span class="nav-label">Dashboard</span></button></li>
+            <li><button type="button" onclick="mostrarRelatorios()" class="btn-nav nav-link" id="btn-nav-relatorios"><span class="material-symbols-outlined nav-icon" aria-hidden="true">bar_chart</span><span class="nav-label">Relatórios</span></button></li>
             <!-- Vindos da "Área do Funcionário" do METRICA360 (visibilidade em aplicarVisibilidadePorPapel) -->
             <li id="nav-registro-atividades-item" hidden><button type="button" class="btn-nav nav-link" id="btn-nav-registro-atividades"><span class="material-symbols-outlined nav-icon" aria-hidden="true">assignment</span><span class="nav-label">Registro de Atividades</span></button></li>
             <li id="nav-meu-painel-item" hidden><button type="button" class="btn-nav nav-link" id="btn-nav-meu-painel"><span class="material-symbols-outlined nav-icon" aria-hidden="true">insights</span><span class="nav-label">Meu Painel</span></button></li>
@@ -160,7 +161,7 @@
             <!-- Acompanhamento do Registro de Atividades (admin e gestor) -->
             <li class="nav-group" id="nav-atividades-item" hidden>
             <div class="nav-dropdown-wrapper" id="nav-atividades-wrapper">
-                <button class="btn-nav nav-group-toggle" id="btn-nav-atividades" onclick="toggleNavDropdown('atividades')" aria-haspopup="true"
+                <button type="button" class="btn-nav nav-group-toggle" id="btn-nav-atividades" onclick="toggleNavDropdown('atividades')" aria-haspopup="true"
                     aria-expanded="false" aria-controls="nav-atividades-dropdown">
                     <span class="material-symbols-outlined nav-icon" aria-hidden="true">monitoring</span>
                     <span class="nav-label">Atividades</span>
@@ -178,7 +179,7 @@
             <!-- Módulo Satisfação (antigo METRICA360): admin, coordenador geral, supervisor e coordenador -->
             <li class="nav-group" id="nav-satisfacao-item" hidden>
             <div class="nav-dropdown-wrapper" id="nav-satisfacao-wrapper">
-                <button class="btn-nav nav-group-toggle" id="btn-nav-satisfacao" onclick="toggleNavDropdown('satisfacao')" aria-haspopup="true"
+                <button type="button" class="btn-nav nav-group-toggle" id="btn-nav-satisfacao" onclick="toggleNavDropdown('satisfacao')" aria-haspopup="true"
                     aria-expanded="false" aria-controls="nav-satisfacao-dropdown">
                     <span class="material-symbols-outlined nav-icon" aria-hidden="true">star</span>
                     <span class="nav-label">Satisfação</span>
@@ -196,26 +197,26 @@
             <!-- Menu Configurações -->
             <li class="nav-group">
             <div class="nav-dropdown-wrapper" id="nav-config-wrapper">
-                <button class="btn-nav nav-group-toggle" id="btn-nav-config" onclick="toggleNavDropdown('config')"
+                <button type="button" class="btn-nav nav-group-toggle" id="btn-nav-config" onclick="toggleNavDropdown('config')"
                     aria-haspopup="true" aria-expanded="false" aria-controls="nav-config-dropdown">
                     <span class="material-symbols-outlined nav-icon" aria-hidden="true">settings</span>
                     <span class="nav-label">Configurações</span>
                     <span class="material-symbols-outlined nav-group-caret" aria-hidden="true">expand_more</span>
                 </button>
                 <div class="nav-dropdown" id="nav-config-dropdown">
-                    <button class="nav-dropdown-item" id="btn-config-setores" data-subsecao="setores"
+                    <button type="button" class="nav-dropdown-item" id="btn-config-setores" data-subsecao="setores"
                         onclick="mostrarSecao('config'); document.getElementById('config-content').innerHTML=''; mostrarSetores()">🏢
                         Setores</button>
-                    <button class="nav-dropdown-item" id="btn-config-usuarios" data-subsecao="usuarios"
+                    <button type="button" class="nav-dropdown-item" id="btn-config-usuarios" data-subsecao="usuarios"
                         onclick="mostrarSecao('config'); document.getElementById('config-content').innerHTML=''; mostrarUsuarios()">👥
                         Usuários</button>
-                    <button class="nav-dropdown-item" id="btn-config-categorias" data-subsecao="categorias"
+                    <button type="button" class="nav-dropdown-item" id="btn-config-categorias" data-subsecao="categorias"
                         onclick="mostrarSecao('config'); document.getElementById('config-content').innerHTML=''; mostrarCategorias()">📁
                         Categorias</button>
-                    <button class="nav-dropdown-item" id="btn-config-setor-config" data-subsecao="setor-config"
+                    <button type="button" class="nav-dropdown-item" id="btn-config-setor-config" data-subsecao="setor-config"
                         onclick="mostrarSecao('config'); document.getElementById('config-content').innerHTML=''; mostrarConfigSetor()">🧭
                         Ativação por Setor</button>
-                    <button class="nav-dropdown-item" id="btn-config-horarios" data-subsecao="horarios-sla"
+                    <button type="button" class="nav-dropdown-item" id="btn-config-horarios" data-subsecao="horarios-sla"
                         onclick="mostrarSecao('config'); document.getElementById('config-content').innerHTML=''; mostrarHorariosSLA()">⏰
                         Horários e Feriados</button>
                     <button class="nav-dropdown-item" id="btn-config-filtros-email" data-subsecao="filtros-email" type="button">🚫
@@ -224,13 +225,13 @@
                         Atividades</button>
                     <button class="nav-dropdown-item" id="btn-config-pesquisa" data-subsecao="pesquisa-config" type="button">⭐
                         Pesquisa de satisfação</button>
-                    <button class="nav-dropdown-item" id="btn-config-email" data-subsecao="config-email"
+                    <button type="button" class="nav-dropdown-item" id="btn-config-email" data-subsecao="config-email"
                         onclick="mostrarSecao('config'); document.getElementById('config-content').innerHTML=''; mostrarConfigEmail()">📧
                         Configurar E-mail</button>
-                    <button class="nav-dropdown-item" id="btn-config-personalizacao" data-subsecao="personalizacao"
+                    <button type="button" class="nav-dropdown-item" id="btn-config-personalizacao" data-subsecao="personalizacao"
                         onclick="mostrarSecao('config'); document.getElementById('config-content').innerHTML=''; mostrarPersonalizacao()">🎨
                         Personalização</button>
-                    <button class="nav-dropdown-item" id="btn-config-auditoria" data-subsecao="auditoria"
+                    <button type="button" class="nav-dropdown-item" id="btn-config-auditoria" data-subsecao="auditoria"
                         onclick="mostrarSecao('config'); document.getElementById('config-content').innerHTML=''; mostrarAuditoria()">📋
                         Auditoria</button>
                 </div>
@@ -240,7 +241,7 @@
             <!-- Notificações -->
             <li class="nav-group">
             <div class="nav-dropdown-wrapper" id="nav-notificacoes-wrapper">
-                <button class="btn-nav nav-link" id="btn-nav-notificacoes" onclick="toggleNavDropdown('notificacoes')"
+                <button type="button" class="btn-nav nav-link" id="btn-nav-notificacoes" onclick="toggleNavDropdown('notificacoes')"
                     aria-haspopup="true" aria-expanded="false" aria-controls="nav-notificacoes-dropdown">
                     <span class="material-symbols-outlined nav-icon" aria-hidden="true">notifications</span>
                     <span class="nav-label">Notificações</span>
@@ -266,31 +267,31 @@
             <!-- Menu Ajuda -->
             <li class="nav-group">
             <div class="nav-dropdown-wrapper" id="nav-ajuda-wrapper">
-                <button class="btn-nav nav-group-toggle" id="btn-nav-ajuda" onclick="toggleNavDropdown('ajuda')" aria-haspopup="true"
+                <button type="button" class="btn-nav nav-group-toggle" id="btn-nav-ajuda" onclick="toggleNavDropdown('ajuda')" aria-haspopup="true"
                     aria-expanded="false" aria-controls="nav-ajuda-dropdown">
                     <span class="material-symbols-outlined nav-icon" aria-hidden="true">help</span>
                     <span class="nav-label">Ajuda</span>
                     <span class="material-symbols-outlined nav-group-caret" aria-hidden="true">expand_more</span>
                 </button>
                 <div class="nav-dropdown" id="nav-ajuda-dropdown">
-                    <button class="nav-dropdown-item" data-subsecao="sla"
+                    <button type="button" class="nav-dropdown-item" data-subsecao="sla"
                         onclick="mostrarAjuda(); mostrarSLA()">⏰ SLA</button>
-                    <button class="nav-dropdown-item" data-subsecao="status"
+                    <button type="button" class="nav-dropdown-item" data-subsecao="status"
                         onclick="mostrarAjuda(); mostrarStatusGuia()">📊 Status das
                         Demandas</button>
-                    <button class="nav-dropdown-item" data-subsecao="prioridade"
+                    <button type="button" class="nav-dropdown-item" data-subsecao="prioridade"
                         onclick="mostrarAjuda(); mostrarPrioridadeGuia()">🔥
                         Prioridades</button>
-                    <button class="nav-dropdown-item" data-subsecao="fluxos-email"
+                    <button type="button" class="nav-dropdown-item" data-subsecao="fluxos-email"
                         onclick="mostrarAjuda(); mostrarFluxosEmail()">📧 Fluxos de
                         E-mail</button>
-                    <button class="nav-dropdown-item" data-subsecao="atalhos"
+                    <button type="button" class="nav-dropdown-item" data-subsecao="atalhos"
                         onclick="mostrarAjuda(); mostrarAtalhosGuia()">⌨️ Atalhos de
                         Teclado</button>
-                    <button class="nav-dropdown-item"
+                    <button type="button" class="nav-dropdown-item"
                         onclick="mostrarAjuda(); mostrarTutorialAjuda()">🎓
                         Tutorial</button>
-                    <button class="nav-dropdown-item"
+                    <button type="button" class="nav-dropdown-item"
                         onclick="mostrarAjuda(); mostrarDicasAjuda()">💡 Dicas</button>
                 </div>
             </div>
@@ -338,42 +339,42 @@
                             placeholder="🔍 Buscar por título, descrição ou solicitante..." class="input-busca"
                             data-vg-tooltip="Rastreamento rápido de protocolos. Digite IDs, E-mails ou Termos do Problema."
                             data-vg-title="MOTOR DE BUSCA" aria-label="Buscar demandas">
-                        <button onclick="limparBusca()" class="btn-limpar-busca"
+                        <button type="button" onclick="limparBusca()" class="btn-limpar-busca"
                             data-vg-tooltip="Limpar os parâmetros de texto buscados." data-vg-title="AÇÃO RÁPIDA"
                             aria-label="Limpar busca">✕</button>
                     </div>
-                    <button onclick="toggleModoMerge()" class="btn-merge" id="btn-merge">🔗 Mesclar Demandas</button>
+                    <button type="button" onclick="toggleModoMerge()" class="btn-merge" id="btn-merge">🔗 Mesclar Demandas</button>
                 </div>
             </div>
             <div id="merge-info" class="merge-info" style="display: none;">
                 <p>🔗 <strong>Modo Mesclar:</strong> Selecione 2 ou mais demandas para mesclar. A primeira selecionada
                     será a demanda principal.</p>
                 <div class="merge-actions">
-                    <button onclick="executarMerge()" class="btn-merge-execute" id="btn-merge-execute" disabled>🔗
+                    <button type="button" onclick="executarMerge()" class="btn-merge-execute" id="btn-merge-execute" disabled>🔗
                         Mesclar Selecionados</button>
-                    <button onclick="cancelarMerge()" class="btn-merge-cancel">✕ Cancelar</button>
+                    <button type="button" onclick="cancelarMerge()" class="btn-merge-cancel">✕ Cancelar</button>
                 </div>
             </div>
             <!-- Filtros e Ações secundárias -->
             <div class="barra-filtros-demandas">
                 <div class="filtros-rapidos" id="filtros-rapidos-container" role="group" aria-label="Filtros rápidos por status">
                     <span class="filtros-rapidos-label">Filtrar:</span>
-                    <button class="filtro-pill ativo" data-status="todos" onclick="aplicarFiltroPill(this)">
+                    <button type="button" class="filtro-pill ativo" data-status="todos" onclick="aplicarFiltroPill(this)">
                         Todos <span class="filtro-pill-count" id="pill-count-todos"></span>
                     </button>
-                    <button class="filtro-pill" data-status="novo" onclick="aplicarFiltroPill(this)">
+                    <button type="button" class="filtro-pill" data-status="novo" onclick="aplicarFiltroPill(this)">
                         🆕 Novo <span class="filtro-pill-count" id="pill-count-novo"></span>
                     </button>
-                    <button class="filtro-pill" data-status="em_atendimento" onclick="aplicarFiltroPill(this)">
+                    <button type="button" class="filtro-pill" data-status="em_atendimento" onclick="aplicarFiltroPill(this)">
                         🔧 Em atendimento <span class="filtro-pill-count" id="pill-count-em_atendimento"></span>
                     </button>
-                    <button class="filtro-pill" data-status="aguardando" onclick="aplicarFiltroPill(this)">
+                    <button type="button" class="filtro-pill" data-status="aguardando" onclick="aplicarFiltroPill(this)">
                         ⏳ Aguardando <span class="filtro-pill-count" id="pill-count-aguardando"></span>
                     </button>
-                    <button class="filtro-pill" data-status="nova_resposta" onclick="aplicarFiltroPill(this)">
+                    <button type="button" class="filtro-pill" data-status="nova_resposta" onclick="aplicarFiltroPill(this)">
                         💬 Nova resposta <span class="filtro-pill-count" id="pill-count-nova_resposta"></span>
                     </button>
-                    <button class="filtro-pill" data-status="urgente" onclick="aplicarFiltroPill(this)">
+                    <button type="button" class="filtro-pill" data-status="urgente" onclick="aplicarFiltroPill(this)">
                         🔥 Urgente <span class="filtro-pill-count" id="pill-count-urgente"></span>
                     </button>
                 </div>
@@ -430,7 +431,7 @@
                         <button type="button" onclick="limparBuscaFechados()" class="btn-limpar-busca" aria-label="Limpar a busca do arquivo"
                             data-vg-tooltip="Zerar filtro do arquivo morto." data-vg-title="AÇÃO RÁPIDA">✕</button>
                     </div>
-                    <button onclick="toggleModoMergeFechados()" class="btn-merge" id="btn-merge-fechados">🔗 Mesclar
+                    <button type="button" onclick="toggleModoMergeFechados()" class="btn-merge" id="btn-merge-fechados">🔗 Mesclar
                         Demandas</button>
                 </div>
             </div>
@@ -438,9 +439,9 @@
                 <p>🔗 <strong>Modo Mesclar:</strong> Selecione 2 ou mais demandas para mesclar. A primeira selecionada
                     será a demanda principal.</p>
                 <div class="merge-actions">
-                    <button onclick="executarMergeFechados()" class="btn-merge-execute" id="btn-merge-execute-fechados"
+                    <button type="button" onclick="executarMergeFechados()" class="btn-merge-execute" id="btn-merge-execute-fechados"
                         disabled>🔗 Mesclar Selecionados</button>
-                    <button onclick="cancelarMergeFechados()" class="btn-merge-cancel">✕ Cancelar</button>
+                    <button type="button" onclick="cancelarMergeFechados()" class="btn-merge-cancel">✕ Cancelar</button>
                 </div>
             </div>
             <div id="lista-fechados" style="width: 100%; overflow-x: auto; box-sizing: border-box;"></div>
@@ -542,11 +543,11 @@
             <h2 class="titulo-pagina">📋 Ajuda e Documentação</h2>
 
             <div class="ajuda-menu">
-                <button class="btn-ajuda" id="btn-sla" onclick="mostrarSLA()">⏰ SLA</button>
-                <button class="btn-ajuda" id="btn-status" onclick="mostrarStatusGuia()">📊 Status das Demandas</button>
-                <button class="btn-ajuda" id="btn-prioridade" onclick="mostrarPrioridadeGuia()">🔥 Prioridades</button>
-                <button class="btn-ajuda" id="btn-fluxos-email" onclick="mostrarFluxosEmail()">📧 Fluxos de E-mail</button>
-                <button class="btn-ajuda" id="btn-atalhos" onclick="mostrarAtalhosGuia()">⌨️ Atalhos de Teclado</button>
+                <button type="button" class="btn-ajuda" id="btn-sla" onclick="mostrarSLA()">⏰ SLA</button>
+                <button type="button" class="btn-ajuda" id="btn-status" onclick="mostrarStatusGuia()">📊 Status das Demandas</button>
+                <button type="button" class="btn-ajuda" id="btn-prioridade" onclick="mostrarPrioridadeGuia()">🔥 Prioridades</button>
+                <button type="button" class="btn-ajuda" id="btn-fluxos-email" onclick="mostrarFluxosEmail()">📧 Fluxos de E-mail</button>
+                <button type="button" class="btn-ajuda" id="btn-atalhos" onclick="mostrarAtalhosGuia()">⌨️ Atalhos de Teclado</button>
             </div>
 
             <div id="ajuda-content">
@@ -629,9 +630,9 @@
                 </div>
 
                 <div class="filtros-acoes">
-                    <button onclick="gerarRelatorio()" class="btn-primary">🔍 Gerar Relatório</button>
-                    <button onclick="exportarRelatorio('excel')" class="btn-secondary">📄 Exportar Excel</button>
-                    <button onclick="exportarRelatorio('pdf')" class="btn-secondary">📄 Exportar PDF</button>
+                    <button type="button" onclick="gerarRelatorio()" class="btn-primary">🔍 Gerar Relatório</button>
+                    <button type="button" onclick="exportarRelatorio('excel')" class="btn-secondary">📄 Exportar Excel</button>
+                    <button type="button" onclick="exportarRelatorio('pdf')" class="btn-secondary">📄 Exportar PDF</button>
                 </div>
             </div>
 
@@ -731,27 +732,27 @@
         <div id="modal-alert" class="modal" role="dialog" aria-modal="true" aria-labelledby="modal-alert-title">
             <div class="modal-header">
                 <h3 id="modal-alert-title">Aviso</h3>
-                <button onclick="fecharModal()" class="btn-close-modal" aria-label="Fechar">×</button>
+                <button type="button" onclick="fecharModal()" class="btn-close-modal" aria-label="Fechar">×</button>
             </div>
             <div class="modal-body">
                 <p id="modal-alert-message"></p>
             </div>
             <div class="modal-footer">
-                <button onclick="fecharModal()" class="btn-modal btn-primary-modal">OK</button>
+                <button type="button" onclick="fecharModal()" class="btn-modal btn-primary-modal">OK</button>
             </div>
         </div>
 
         <div id="modal-confirm" class="modal" role="dialog" aria-modal="true" aria-labelledby="modal-confirm-title">
             <div class="modal-header">
                 <h3 id="modal-confirm-title">Confirmação</h3>
-                <button onclick="confirmarModal(false)" class="btn-close-modal" aria-label="Fechar">×</button>
+                <button type="button" onclick="confirmarModal(false)" class="btn-close-modal" aria-label="Fechar">×</button>
             </div>
             <div class="modal-body">
                 <p id="modal-confirm-message"></p>
             </div>
             <div class="modal-footer">
-                <button onclick="confirmarModal(false)" class="btn-modal btn-secondary-modal">Cancelar</button>
-                <button onclick="confirmarModal(true)" class="btn-modal btn-danger-modal"
+                <button type="button" onclick="confirmarModal(false)" class="btn-modal btn-secondary-modal">Cancelar</button>
+                <button type="button" onclick="confirmarModal(true)" class="btn-modal btn-danger-modal"
                     id="btn-confirm-action">Confirmar</button>
             </div>
         </div>
@@ -765,8 +766,8 @@
                 <input type="text" id="modal-prompt-input" class="modal-input" aria-labelledby="modal-prompt-title modal-prompt-message">
             </div>
             <div class="modal-footer">
-                <button onclick="promptModal(null)" class="btn-voltar" data-fecha-modal>Cancelar</button>
-                <button onclick="promptModal(document.getElementById('modal-prompt-input').value)"
+                <button type="button" onclick="promptModal(null)" class="btn-voltar" data-fecha-modal>Cancelar</button>
+                <button type="button" onclick="promptModal(document.getElementById('modal-prompt-input').value)"
                     class="btn-primary">OK</button>
             </div>
         </div>
@@ -774,21 +775,21 @@
         <div id="modal-select" class="modal" role="dialog" aria-modal="true" aria-labelledby="modal-select-title">
             <div class="modal-header modal-select-header">
                 <h3 id="modal-select-title">Selecionar</h3>
-                <button onclick="selecionarModal(null)" class="btn-close-modal" aria-label="Fechar">×</button>
+                <button type="button" onclick="selecionarModal(null)" class="btn-close-modal" aria-label="Fechar">×</button>
             </div>
             <div class="modal-body modal-select-body">
                 <p id="modal-select-message"></p>
                 <div id="modal-select-options"></div>
             </div>
             <div class="modal-footer">
-                <button onclick="selecionarModal(null)" class="btn-modal btn-secondary-modal">Cancelar</button>
+                <button type="button" onclick="selecionarModal(null)" class="btn-modal btn-secondary-modal">Cancelar</button>
             </div>
         </div>
 
         <div id="modal-dicas" class="modal modal-dicas" role="dialog" aria-modal="true" aria-labelledby="modal-dicas-title">
             <div class="modal-header">
                 <h3 id="modal-dicas-title">💡 Dicas do Sistema</h3>
-                <button onclick="fecharModalDicas()" class="btn-close-modal" aria-label="Fechar">×</button>
+                <button type="button" onclick="fecharModalDicas()" class="btn-close-modal" aria-label="Fechar">×</button>
             </div>
             <div class="modal-body">
                 <div class="dicas-container">
@@ -855,7 +856,7 @@
                     <span class="checkmark"></span>
                     Não mostrar dicas na inicialização
                 </label>
-                <button onclick="fecharModalDicas()" class="btn-modal btn-primary-modal">Entendi</button>
+                <button type="button" onclick="fecharModalDicas()" class="btn-modal btn-primary-modal">Entendi</button>
             </div>
         </div>
 
@@ -864,13 +865,13 @@
             style="max-width: 650px; width: 90%;">
             <div class="modal-header">
                 <h3 id="modal-macros-title">⚡ Respostas Rápidas (Macros)</h3>
-                <button onclick="fecharModalMacros()" class="btn-close-modal" aria-label="Fechar">×</button>
+                <button type="button" onclick="fecharModalMacros()" class="btn-close-modal" aria-label="Fechar">×</button>
             </div>
             <div class="modal-body" style="padding: 1.5rem;">
                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
                     <p style="color: #666; margin: 0;">Crie textos padronizados para enviar rapidamente nas demandas.
                     </p>
-                    <button class="btn-primary" onclick="abrirFormularioMacro()">➕ Nova Macro</button>
+                    <button type="button" class="btn-primary" onclick="abrirFormularioMacro()">➕ Nova Macro</button>
                 </div>
 
                 <div id="form-macro-container"
@@ -887,8 +888,8 @@
                         <input type="hidden" id="macro-texto">
                     </div>
                     <div style="display: flex; justify-content: flex-end; gap: 0.5rem; margin-top: 1rem;">
-                        <button class="btn-voltar" onclick="fecharFormularioMacro()">Cancelar</button>
-                        <button class="btn-primary" onclick="salvarMacro()">💾 Salvar Macro</button>
+                        <button type="button" class="btn-voltar" onclick="fecharFormularioMacro()">Cancelar</button>
+                        <button type="button" class="btn-primary" onclick="salvarMacro()">💾 Salvar Macro</button>
                     </div>
                 </div>
 
@@ -903,7 +904,7 @@
         style="max-width: 500px;">
         <div class="modal-header">
             <h3 id="avatarModalTitle">Alterar Avatar</h3>
-            <button onclick="closeAvatarModal()" class="btn-close-modal" aria-label="Fechar">×</button>
+            <button type="button" onclick="closeAvatarModal()" class="btn-close-modal" aria-label="Fechar">×</button>
         </div>
         <form id="avatarForm" enctype="multipart/form-data" class="modal-body">
             <input type="hidden" id="avatarUserId" name="user_id">
@@ -915,7 +916,7 @@
                 <label
                     style="display: inline-flex; align-items: center; gap: 0.5rem; padding: 0.75rem 1.5rem; background: var(--laranja); color: white; border-radius: 8px; cursor: pointer; font-weight: 500;">
                     📤 Selecionar Imagem
-                    <input type="file" id="avatarInput" accept="image/*" onchange="loadImageToCrop(this)"
+                    <input type="file" id="avatarInput" aria-label="Escolher foto de perfil" accept="image/*" onchange="loadImageToCrop(this)"
                         style="display: none;">
                 </label>
                 <p style="font-size: 0.85rem; color: #666; margin-top: 0.5rem;">JPG, PNG ou GIF (máx. 5MB)</p>
@@ -960,7 +961,7 @@
     <script src="lixeira.js?v=1.c9"></script>
     <script src="usuarios.js?v=3.c2.a1116.u6.p1119b"></script>
     <script src="categorias.js?v=2.c1.f7.a1101"></script>
-    <script src="ativacao-setor.js?v=1.c9.f9.a1101.p3.r1110.p1119c"></script>
+    <script src="ativacao-setor.js?v=1.c9.f9.a1101.p3.r1110.p1119c.a1120"></script>
     <script src="filtros-email.js?v=2.p1119"></script>
     <script src="atividades-config.js?v=5.p1119b"></script>
     <script src="registro-atividades.js?v=2.a1101"></script>
@@ -975,10 +976,10 @@
     <script src="ajuda.js?v=1.c1.f7.a1101.p1119"></script>
     <script src="dashboard.js?v=3.p1119c"></script>
     <script src="dashboard-emails.js?v=2.p1119"></script>
-    <script src="auditoria.js?v=1.c8.f7.a1101.p3"></script>
+    <script src="auditoria.js?v=1.c8.f7.a1101.p3.a1120"></script>
     <script src="arquivo.js?v=1.c9.f6.a1101.p3.u1x.r1110"></script>
     <script src="editor-imagens.js?v=3"></script>
-    <script src="detalhe-demanda.js?v=2.d3.f7.f8.a1101.p3.u1.a3.r1110.f1117.t2"></script>
+    <script src="detalhe-demanda.js?v=2.d3.f7.f8.a1101.p3.u1.a3.r1110.f1117.t2.a1120"></script>
     <script src="demanda-tempos.js?v=1"></script>
     <script src="demandas.js?v=3.c2.f6.f7.f8.a1101.p3.u1x.f1117"></script>
     <script src="acessibilidade.js?v=1.c1.f7"></script>
@@ -986,9 +987,9 @@
     <script src="graficos-dashboard.js?v=3.p1119c"></script>
     <script src="status-sla.js?v=3.0.c1.f7.f8.p1119"></script>
     <script src="tutorial.js?v=3.7.c1.f7.a1101.p3"></script>
-    <script src="lembretes.js?v=2.c2.f8.a1101"></script>
+    <script src="lembretes.js?v=2.c2.f8.a1101.a1120"></script>
     <script src="fluxos-email-func.js?v=c8.f7.f9"></script>
-    <script src="horarios-sla.js?v=2.1.c1.f8.p3"></script>
+    <script src="horarios-sla.js?v=2.1.c1.f8.p3.a1120"></script>
     <script src="macros.js?v=1.2.c7.f7.f8.p3"></script>
     <script src="notificacoes.js?v=3.f7.f8.a1101.u1.p1119"></script>
     <script src="avatar.js?v=1.7.c1.f7.a1"></script>
@@ -996,17 +997,17 @@
     <script src="titulo-setor.js?v=3.p1119c"></script>
 
     <!-- Botão Voltar ao Topo -->
-    <button id="btn-voltar-topo" onclick="voltarAoTopo()" title="Voltar ao topo" aria-label="Voltar ao topo"></button>
+    <button type="button" id="btn-voltar-topo" onclick="voltarAoTopo()" title="Voltar ao topo" aria-label="Voltar ao topo"></button>
 
-    <!-- Cropper.js CDN -->
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.1/cropper.min.css"
-        integrity="sha384-AMJcAgMUmNt1Zo4ranquGLeT5m7yOrVbtNsNk0oZohvxqKk6RRzXHqlEaS9gFXR7" crossorigin="anonymous">
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.1/cropper.min.js"
-        integrity="sha384-jzwsV9ieM/KUDMeo+d8dc+jm0GEl7ywPNwg10alB5BodVuC/Kx9RpEnyrl2Om9zH" crossorigin="anonymous"></script>
+    <!-- Cropper.js 1.6.1 guardado no projeto (análise de 20/11/2026, S3); integridade igual à do CDN -->
+    <link rel="stylesheet" href="lib/cropperjs-1.6.1/cropper.min.css"
+        integrity="sha384-AMJcAgMUmNt1Zo4ranquGLeT5m7yOrVbtNsNk0oZohvxqKk6RRzXHqlEaS9gFXR7">
+    <script src="lib/cropperjs-1.6.1/cropper.min.js"
+        integrity="sha384-jzwsV9ieM/KUDMeo+d8dc+jm0GEl7ywPNwg10alB5BodVuC/Kx9RpEnyrl2Om9zH"></script>
 
-    <!-- Quill.js - Editor de Texto Rico CDN -->
-    <script src="https://cdn.jsdelivr.net/npm/quill@1.3.6/dist/quill.min.js"
-        integrity="sha384-AOnYUgW6MQR78EvTqtkbNavz7dVI7dtLm7QdcIMBoy06adLIzNT40hHPYl9Rr5m5" crossorigin="anonymous"></script>
+    <!-- Quill.js (editor de texto rico), guardado no projeto -->
+    <script src="lib/quill-1.3.6/quill.min.js"
+        integrity="sha384-AOnYUgW6MQR78EvTqtkbNavz7dVI7dtLm7QdcIMBoy06adLIzNT40hHPYl9Rr5m5"></script>
     <script src="editor-descricao.js?v=1.f8"></script>
 </body>
 
