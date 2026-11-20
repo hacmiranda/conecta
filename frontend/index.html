@@ -10,7 +10,7 @@
     <meta property="og:type" content="website">
     <title>Conecta CRPRS</title>
     <link rel="icon" type="image/png" href="images/logo_vazado.png">
-    <link rel="stylesheet" href="style.css?v=3.10.c9.f7.f8.a1.r1110.p1119">
+    <link rel="stylesheet" href="style.css?v=3.11.c9.f7.f8.a1.r1110.p1119b">
     <link rel="stylesheet" href="historico.css?v=c1">
     <link rel="stylesheet" href="modal-modern.css?v=c1.f7.u2">
     <link rel="stylesheet" href="funcionalidades.css?v=c5.f7">
@@ -26,7 +26,7 @@
     <link rel="stylesheet" href="senha-visivel.css?v=1.c1">
     <link rel="stylesheet" href="tickets-melhorias.css?v=7.c7.f7.a2.f1118.p1119">
     <link rel="stylesheet" href="vanguard-tooltip.css?v=c1">
-    <link rel="stylesheet" href="dashboard-redesign.css?v=c1.p1119">
+    <link rel="stylesheet" href="dashboard-redesign.css?v=c2.p1119b">
     <link rel="stylesheet" href="notificacoes.css?v=1.f7.u1">
     <link rel="stylesheet" href="filtros-email.css?v=2">
     <link rel="stylesheet" href="atividades-config.css?v=3.p1119">
@@ -40,7 +40,7 @@
     <link rel="stylesheet" href="modais-tema.css?v=1">
     <link rel="stylesheet" href="acessibilidade.css?v=3.f7.f8">
     <link rel="stylesheet" href="papeis.css?v=5.p1119">
-    <link rel="stylesheet" href="titulo-setor.css?v=1.p1119">
+    <link rel="stylesheet" href="titulo-setor.css?v=2.p1119b">
     <!-- Material Symbols para ícones da tabela -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -311,7 +311,7 @@
         <section id="tickets" class="secao active">
             <div class="tickets-header">
                 <div class="tickets-titulo">
-                    <h2 class="titulo-secao-demandas"><span aria-hidden="true">🎫</span> Demandas Abertas
+                    <h2 class="titulo-secao-demandas titulo-pagina"><span aria-hidden="true">🎫</span> Demandas Abertas
                         <span id="total-tickets-abertos"></span>
                     </h2>
                     <!-- Aviso de nova resposta do solicitante: sempre visível ao lado do título, mesmo com muitas linhas -->
@@ -394,7 +394,7 @@
         <!-- Demandas Fechadas -->
         <section id="lixeira" class="secao">
             <div class="tickets-header">
-                <h2 style="color: #5f5852; font-size: 1.8rem; font-weight: bold; margin: 0;">🗑️ Lixeira</h2>
+                <h2 class="titulo-pagina">🗑️ Lixeira</h2>
             </div>
             <p class="lixeira-aviso">Demandas excluídas pelos usuários. Só o administrador as vê: restaure uma demanda para devolvê-la ao setor ou exclua-a definitivamente (comentários, anexos e histórico são apagados e não podem ser recuperados).</p>
             <div id="lista-lixeira" aria-live="polite"></div>
@@ -402,7 +402,7 @@
 
         <section id="fechados" class="secao">
             <div class="tickets-header">
-                <h2 style="color: #5f5852; font-size: 1.8rem; font-weight: bold; margin: 0;">🏁 Demandas Encerradas</h2>
+                <h2 class="titulo-pagina">🏁 Demandas Encerradas</h2>
                 <div class="tickets-actions">
                     <div class="busca-avancada busca-avancada--linha">
                         <div id="filtro-arquivo-wrapper" class="filtro-arquivo">
@@ -451,7 +451,7 @@
 
         <!-- Registro de Atividades (veio do METRICA360): gestor/operador registra o que fez no dia -->
         <section id="registro-atividades" class="secao" aria-labelledby="registro-atividades-titulo">
-            <h2 id="registro-atividades-titulo"><span aria-hidden="true">📝</span> Registro de Atividades</h2>
+            <h2 id="registro-atividades-titulo" class="titulo-pagina"><span aria-hidden="true">📝</span> Registro de Atividades</h2>
             <p class="ra-subtitulo">Registre as atividades realizadas durante o expediente.</p>
             <p class="ra-relogio" id="ra-relogio"></p>
             <div id="registro-atividades-conteudo"></div>
@@ -459,7 +459,7 @@
 
         <!-- Meu Painel (veio do METRICA360): envio de pesquisas de satisfação (módulo Satisfação) -->
         <section id="meu-painel" class="secao" aria-labelledby="meu-painel-titulo">
-            <h2 id="meu-painel-titulo"><span aria-hidden="true">📊</span> Meu Painel: Envio de Pesquisas</h2>
+            <h2 id="meu-painel-titulo" class="titulo-pagina"><span aria-hidden="true">📊</span> Meu Painel: Envio de Pesquisas</h2>
             <p class="mp-subtitulo">Envie convites de avaliação de satisfação aos cidadãos atendidos.</p>
             <p class="mp-relogio" id="mp-relogio"></p>
             <div id="meu-painel-conteudo"></div>
@@ -468,18 +468,18 @@
         <!-- Acompanhamento do Registro de Atividades (admin e gestor; subtela em cd_subSecaoAtiva) -->
         <!-- Módulo Satisfação (veio do METRICA360): avaliações, painel de setores e convites -->
         <section id="satisfacao" class="secao" aria-labelledby="satisfacao-titulo">
-            <h2 id="satisfacao-titulo">⭐ Central de Feedbacks</h2>
+            <h2 id="satisfacao-titulo" class="titulo-pagina">⭐ Central de Feedbacks</h2>
             <div id="satisfacao-conteudo"></div>
         </section>
 
         <section id="atividades" class="secao" aria-labelledby="atividades-titulo">
-            <h2 id="atividades-titulo">📈 Painel de Atividades</h2>
+            <h2 id="atividades-titulo" class="titulo-pagina">📈 Painel de Atividades</h2>
             <div id="atividades-conteudo"></div>
         </section>
 
         <!-- Configurações -->
         <section id="config" class="secao">
-            <h2 id="config-title">⚙️ Configurações</h2>
+            <h2 id="config-title" class="titulo-pagina">⚙️ Configurações</h2>
 
             <div id="config-content">
                 <!-- Conteúdo das configurações -->
@@ -488,7 +488,7 @@
 
         <!-- Alterar Senha (acessível a todos) -->
         <section id="alterar-senha-secao" class="secao">
-            <h2>🔑 Alterar Minha Senha</h2>
+            <h2 class="titulo-pagina">🔑 Alterar Minha Senha</h2>
             <div id="aviso-troca-obrigatoria" class="aviso-troca-senha" role="alert" hidden>
                 Por segurança, troque a senha provisória antes de usar o sistema. Use a senha que você recebeu como "Senha atual".
             </div>
@@ -524,7 +524,7 @@
 
         <!-- Dashboard -->
         <section id="dashboard" class="secao">
-            <h2>📊 Dashboard</h2>
+            <h2 class="titulo-pagina">📊 Dashboard</h2>
             <div id="dashboard-content">
                 <p>Carregando estatísticas...</p>
             </div>
@@ -533,7 +533,7 @@
 
         <!-- Ajuda -->
         <section id="ajuda" class="secao">
-            <h2>📋 Ajuda e Documentação</h2>
+            <h2 class="titulo-pagina">📋 Ajuda e Documentação</h2>
 
             <div class="ajuda-menu">
                 <button class="btn-ajuda" id="btn-sla" onclick="mostrarSLA()">⏰ SLA</button>
@@ -557,7 +557,7 @@
 
         <!-- Relatórios -->
         <section id="relatorios" class="secao">
-            <h2>📈 Relatórios</h2>
+            <h2 class="titulo-pagina">📈 Relatórios</h2>
 
             <div class="relatorio-filtros">
                 <div class="filtros-grid">
@@ -636,7 +636,7 @@
 
         <!-- Nova Demanda -->
         <section id="novo" class="secao">
-            <h2 style="margin-top: 2rem;">Abrir Nova Demanda</h2>
+            <h2 class="titulo-pagina">Abrir Nova Demanda</h2>
             <form id="form-ticket">
                 <div class="form-group">
                     <label for="titulo">Título da demanda: <span style="color: red;">*</span></label>

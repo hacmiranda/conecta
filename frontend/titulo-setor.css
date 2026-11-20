@@ -1,3 +1,20 @@
+/* ===== Título das páginas: mesma fonte, tamanho e cor em todas as telas =====
+   (h2 com a classe .titulo-pagina em index.html; o id na frente vence regras antigas,
+   como #config-title, sem precisar de !important). Laranja escuro: o laranja puro não
+   tem contraste sobre fundo claro; no modo escuro o token volta ao laranja da marca. */
+#conteudo-principal .secao h2.titulo-pagina {
+    font-family: 'Inter', sans-serif;
+    font-size: 1.8rem;
+    font-weight: 700;
+    color: var(--laranja-texto);
+}
+
+@media (max-width: 480px) {
+    #conteudo-principal .secao h2.titulo-pagina {
+        font-size: 1.3rem;
+    }
+}
+
 /* Nome do setor depois do título das telas (titulo-setor.js) */
 .titulo-setor {
     margin-left: 0.5rem;
@@ -17,4 +34,10 @@
 /* Modo escuro: o vinho some sobre o fundo escuro; usa o tom claro da mesma cor */
 body.modo-escuro .titulo-setor {
     color: var(--vinho-100);
+}
+
+/* Lixeira e Arquivo: título dentro do cabeçalho da lista, sem margem (era estilo embutido) */
+#lixeira .tickets-header h2.titulo-pagina,
+#fechados .tickets-header h2.titulo-pagina {
+    margin: 0;
 }

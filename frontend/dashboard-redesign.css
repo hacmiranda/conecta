@@ -42,10 +42,8 @@
 }
 
 /* === CABEÇALHO DA SEÇÃO === */
+/* Fonte, tamanho e cor: padrão de todas as páginas (.titulo-pagina, titulo-setor.css) */
 #dashboard > h2 {
-    font-size: 1.8rem !important;
-    font-weight: 700;
-    color: var(--dr-text-1) !important;
     letter-spacing: 0;
     text-transform: none;
     margin-top: 0 !important;
