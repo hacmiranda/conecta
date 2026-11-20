@@ -259,6 +259,21 @@ try {
     [$c] = req('DELETE', $tempos . '?id=' . $lancA, $T['operadorA']);
     verifica('autor exclui o lançamento (200)', $c === 200, (string) $c);
 
+    echo "\n[2d] Dashboard: E-mails Enviados (19/11/2026)\n";
+    $emailsDash = $baseUrl . 'dashboard-emails.php';
+    [$c] = req('GET', $emailsDash, $T['cliente']);
+    verifica('solicitante não vê os e-mails enviados (401/403)', in_array($c, [401, 403], true), (string) $c);
+    [$c, $j] = req('GET', $emailsDash, $T['operadorA']);
+    verifica('operador vê só os próprios números, sem a tabela por setor',
+        $c === 200 && ($j['mostra_setores'] ?? true) === false && ($j['setores'] ?? null) === []
+        && array_column($j['funcionarios'] ?? [], 'usuario_id') === [$operadorA], (string) $c);
+    [$c, $j] = req('GET', $emailsDash . "?setor_id=$setorB", $T['gestorA']);
+    verifica('gestor fica no próprio setor mesmo pedindo outro', $c === 200 && array_column($j['setores'] ?? [], 'setor_id') === [$setorA], (string) $c);
+    [$c, $j] = req('GET', $emailsDash . "?setor_id=$setorB", $T['admin']);
+    verifica('admin escolhe o setor pelo seletor', $c === 200 && array_column($j['setores'] ?? [], 'setor_id') === [$setorB], (string) $c);
+    [$c] = req('GET', $emailsDash . '?inicio=2026-11-10&fim=2026-11-01', $T['admin']);
+    verifica('período invertido é recusado (400)', $c === 400, (string) $c);
+
     echo "\n[3] Escopo por setor (?setor_id= é ignorado para quem não é admin)\n";
     [$c, $j] = req('GET', $baseUrl . "tickets.php?escopo=abertas&setor_id=$setorB", $T['gestorA']);
     $vazamento = array_filter($j ?? [], fn($t) => (int) $t['id'] === $demandaB);

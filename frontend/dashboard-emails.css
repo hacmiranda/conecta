@@ -1,0 +1,172 @@
+/* Dashboard → E-mails Enviados (dashboard-emails.js). Usa os tokens --dr-* do Dashboard, que mudam
+   sozinhos entre o tema claro e o escuro (dashboard-redesign.css). Prefixo dem-. */
+
+#dashboard-emails {
+    margin-top: 1.5rem;
+    --dem-botao-texto: var(--dr-bg); /* escuro: texto escuro sobre o laranja da marca */
+}
+
+body:not(.modo-escuro) #dashboard-emails {
+    --dem-botao-texto: var(--branco); /* claro: branco sobre o laranja escuro (5,1:1) */
+}
+
+#dashboard-emails:empty {
+    display: none;
+}
+
+#dashboard .dem-ajuda {
+    margin: 0 0 1rem;
+    color: var(--dr-text-3);
+    font-size: 0.85rem;
+    line-height: 1.5;
+    max-width: 60rem;
+}
+
+/* ---- filtro de período ---- */
+#dashboard .dem-filtro {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-end;
+    gap: 0.75rem;
+    margin-bottom: 0.5rem;
+}
+
+#dashboard .dem-campo {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+}
+
+#dashboard .dem-campo label {
+    color: var(--dr-text-2);
+    font-size: 0.8rem;
+    font-weight: 600;
+}
+
+#dashboard .dem-campo input {
+    padding: 0.4rem 0.6rem;
+    border: 1px solid var(--dr-border);
+    border-radius: var(--radius-sm, 0.375rem);
+    background: var(--dr-surface);
+    color: var(--dr-text-1);
+    font-family: 'Inter', sans-serif;
+    font-size: 0.9rem;
+}
+
+body.modo-escuro #dashboard .dem-campo input {
+    color-scheme: dark;
+}
+
+#dashboard .dem-botao {
+    padding: 0.45rem 1rem;
+    border: 1px solid var(--dr-cyan);
+    border-radius: var(--radius-sm, 0.375rem);
+    background: var(--dr-cyan);
+    color: var(--dem-botao-texto);
+    font-family: 'Inter', sans-serif;
+    font-size: 0.85rem;
+    font-weight: 700;
+    cursor: pointer;
+    transition: opacity 0.15s ease;
+}
+
+#dashboard .dem-botao:hover {
+    opacity: 0.88;
+}
+
+#dashboard .dem-botao--secundario {
+    background: transparent;
+    color: var(--dr-cyan);
+}
+
+#dashboard .dem-erro {
+    min-height: 1.2em;
+    margin: 0 0 0.5rem;
+    color: var(--dr-red);
+    font-size: 0.85rem;
+    font-weight: 600;
+}
+
+body.modo-escuro #dashboard .dem-erro {
+    color: var(--vinho-100);
+}
+
+/* ---- tabelas ---- */
+#dashboard .dem-bloco + .dem-bloco {
+    margin-top: 1.5rem;
+}
+
+#dashboard .dem-subtitulo {
+    margin: 0 0 0.5rem;
+    color: var(--dr-text-1);
+    font-size: 0.95rem;
+    font-weight: 700;
+}
+
+#dashboard .dem-tabela-wrap {
+    overflow-x: auto;
+}
+
+#dashboard .dem-tabela {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.9rem;
+    color: var(--dr-text-1);
+}
+
+#dashboard .dem-tabela th,
+#dashboard .dem-tabela td {
+    padding: 0.5rem 0.75rem;
+    border-bottom: 1px solid var(--dr-border);
+    text-align: left;
+    vertical-align: middle;
+}
+
+#dashboard .dem-tabela thead th {
+    color: var(--dr-text-3);
+    font-size: 0.75rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    white-space: nowrap;
+}
+
+#dashboard .dem-tabela tbody th {
+    font-weight: 600;
+}
+
+#dashboard .dem-tabela tfoot th,
+#dashboard .dem-tabela tfoot td {
+    font-weight: 800;
+    border-bottom: none;
+    border-top: 2px solid var(--dr-border);
+}
+
+#dashboard .dem-tabela .dem-num {
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+}
+
+#dashboard .dem-tabela td.dem-num {
+    font-size: 1rem;
+    font-weight: 700;
+}
+
+#dashboard .dem-periodo-rotulo {
+    display: block;
+    font-weight: 600;
+    text-transform: none;
+    letter-spacing: normal;
+}
+
+#dashboard .dem-detalhe {
+    display: block;
+    color: var(--dr-text-3);
+    font-size: 0.78rem;
+    font-weight: 500;
+}
+
+#dashboard .dem-vazio {
+    color: var(--dr-text-3);
+    font-style: italic;
+}

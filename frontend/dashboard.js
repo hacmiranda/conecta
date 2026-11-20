@@ -17,6 +17,8 @@ async function carregarDashboard() {
     try {
         const dados = await Api.get(urlComSetor('dashboard.php'));
         mostrarDashboardNaTela(dados);
+        // Seção "E-mails Enviados" (dashboard-emails.js), com o mesmo setor do seletor
+        if (typeof carregarEmailsEnviados === 'function') carregarEmailsEnviados();
     } catch (e) {
         document.getElementById('dashboard-content').innerHTML = '<p>Erro ao carregar dashboard.</p>';
     }
