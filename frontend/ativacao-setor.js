@@ -215,7 +215,7 @@ function renderizarEmailsSetor(caixas) {
         ${podeAdicionar ? `
             <button type="button" class="btn-primary" style="margin-top:1rem;" onclick="mostrarFormularioEmailSetor()">➕ Cadastrar E-mail do Setor</button>
             <div id="form-email-setor-container"></div>
-        ` : `<p style="margin-top:1rem;color:#999;font-style:italic;">Este setor já possui um endereço de e-mail. Para trocá-lo, exclua o atual e cadastre outro.</p>`}
+        ` : `<p style="margin-top:1rem;color:var(--texto-suave);font-style:italic;">Este setor já possui um endereço de e-mail. Para trocá-lo, exclua o atual e cadastre outro.</p>`}
 
         <div style="margin-top:2rem;border-top:1px solid #eee;padding-top:1rem;">
             <h4 style="margin-bottom:0.75rem;">📨 Log de E-mails Recebidos</h4>
@@ -233,7 +233,7 @@ async function carregarLogEmailsProcessadosSetor() {
     try {
         const dados = await Api.get(`emails-processados.php?setor_id=${setorConfigAtual}&limite=20`);
         if (!dados.registros || dados.registros.length === 0) {
-            container.innerHTML = '<p style="color:#999;font-style:italic;">Nenhum e-mail processado ainda para este setor.</p>';
+            container.innerHTML = '<p style="color:var(--texto-suave);font-style:italic;">Nenhum e-mail processado ainda para este setor.</p>';
             return;
         }
 
@@ -440,7 +440,7 @@ function renderizarListaConfigSetor(itens, tipo) {
     const lista = document.getElementById('config-setor-lista');
 
     if (itens.length === 0) {
-        lista.innerHTML = '<p style="color:#999;font-style:italic;">Nenhum item cadastrado no catálogo global ainda.</p>';
+        lista.innerHTML = '<p style="color:var(--texto-suave);font-style:italic;">Nenhum item cadastrado no catálogo global ainda.</p>';
         return;
     }
 

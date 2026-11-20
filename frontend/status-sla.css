@@ -98,7 +98,7 @@
 
 .opcao-descricao {
     font-size: 0.875rem;
-    color: var(--neutro-400);
+    color: var(--texto-suave);
     line-height: 1.4;
 }
 
@@ -242,7 +242,7 @@
 
 .historico-status-data {
     font-size: 0.875rem;
-    color: var(--neutro-400);
+    color: var(--texto-suave);
 }
 
 .historico-status-mudanca {
@@ -252,7 +252,7 @@
 
 .historico-status-observacoes {
     font-size: 0.875rem;
-    color: var(--neutro-400);
+    color: var(--texto-suave);
     font-style: italic;
     margin-top: 0.25rem;
 }
@@ -334,7 +334,7 @@
 
 .sla-metric-label {
     font-size: 0.875rem;
-    color: var(--neutro-400);
+    color: var(--texto-suave);
     text-transform: uppercase;
     letter-spacing: 0.5px;
 }

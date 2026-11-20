@@ -530,7 +530,7 @@ function renderizarUsuariosAudit(usuarios) {
     lista.innerHTML = '';
 
     if (usuarios.length === 0) {
-        lista.innerHTML = '<div class="categoria-item-form" style="padding: 0.75rem; color: #999;">Nenhum usuário encontrado</div>';
+        lista.innerHTML = '<div class="categoria-item-form" style="padding: 0.75rem; color: var(--texto-suave);">Nenhum usuário encontrado</div>';
         return;
     }
 
@@ -980,7 +980,7 @@ function exportarAuditoriaPDF() {
             font-size: 11px; font-weight: 600; color: #444; margin-top: 1px;
         }
         .cabecalho-pdf .subtitulo {
-            font-size: 9px; color: #888; margin-top: 3px;
+            font-size: 9px; color: #5f5852; margin-top: 3px;
         }
         .cabecalho-pdf .data-bloco {
             text-align: right; font-size: 9px; color: #666; line-height: 1.6;
@@ -1094,7 +1094,7 @@ function exportarAuditoriaPDF() {
             display: flex;
             justify-content: space-between;
             font-size: 8px;
-            color: #bbb;
+            color: #5f5852;
             border-top: 1px solid #e8e8e8;
             padding-top: 3px;
         }

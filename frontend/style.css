@@ -14,6 +14,8 @@
        O laranja da marca (#f89327) dá 2,3:1 com branco: fica para bordas, ícones e o modo escuro. */
     --laranja-700: #a8590b;
     --laranja-texto: var(--laranja-700);
+    /* Texto secundário (datas, dicas, "nenhum item"): 6,4:1 no claro; no escuro vira --neutro-300 (acessibilidade.css) */
+    --texto-suave: var(--neutro-600);
     --laranja-fundo: var(--laranja-700);
     /* Anel de foco do teclado (3:1 ou mais sobre o fundo) */
     --foco-anel: var(--vinho-600);
@@ -25,6 +27,7 @@
     --neutro-50: #f7f4f0;
     --neutro-100: #efeae4;
     --neutro-200: #ddd6cd;
+    --neutro-300: #b5ada5;
     --neutro-400: #8b837b;
     --neutro-600: #5f5852;
     --neutro-800: #2b2523;
@@ -1802,7 +1805,7 @@ select {
     position: absolute;
     right: 15px;
     top: 10px;
-    color: #aaa;
+    color: var(--texto-suave);
     font-size: 28px;
     font-weight: bold;
     cursor: pointer;
@@ -2128,7 +2131,7 @@ select {
     right: 8px;
     background: none;
     border: none;
-    color: #999;
+    color: var(--texto-suave);
     cursor: pointer;
     font-size: 1.2rem;
     padding: 0;

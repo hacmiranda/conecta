@@ -392,14 +392,21 @@
         }
 
         .field-input::placeholder {
-            color: #9ca3af;
+            color: #6f6760; /* 5:1 sobre o fundo do campo (antes 2,3:1) */
             font-weight: 400;
         }
 
         .field-input:focus {
             border-color: var(--azul-light);
             background: #ffffff;
-            box-shadow: 0 0 0 3px rgba(167, 36, 28, 0.15), var(--shadow-input);
+            box-shadow: var(--shadow-input);
+        }
+
+        /* Foco visível de 2 px no vinho (8,3:1 sobre o fundo claro): antes era um halo a 15% de opacidade,
+           quase invisível (análise de 20/11/2026, A2) */
+        .field-input:focus-visible {
+            outline: 2px solid var(--vermelho);
+            outline-offset: 2px;
         }
 
         .field-input:focus+.field-focus-indicator,

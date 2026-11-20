@@ -374,7 +374,7 @@ function mostrarDetalhesTicket(ticket) {
     }
 
     if (!comentariosHtml) {
-        comentariosHtml = '<p style="color: #999; font-style: italic;">Nenhum comentário ou histórico ainda.</p>';
+        comentariosHtml = '<p style="color: var(--texto-suave); font-style: italic;">Nenhum comentário ou histórico ainda.</p>';
     }
 
     const usuario = JSON.parse(localStorage.getItem('cd_usuario'));
@@ -441,7 +441,7 @@ function mostrarDetalhesTicket(ticket) {
             <p><strong>Criado por:</strong> ${(() => {
             const email = ticket.email_solicitante || ticket.usuario_email || '';
             const nome = ticket.usuario_nome || '';
-            if (email && nome) return `${sanitizeHTML(email)} <span style="color:#888; font-size:0.9em;">(${sanitizeHTML(nome)})</span>`;
+            if (email && nome) return `${sanitizeHTML(email)} <span style="color:var(--texto-suave); font-size:0.9em;">(${sanitizeHTML(nome)})</span>`;
             if (email) return sanitizeHTML(email);
             return sanitizeHTML(nome) || '—';
         })()}</p>

@@ -158,7 +158,7 @@ function mostrarHorariosEFeriados(horarios, feriados) {
                 </tr>
             </thead>
             <tbody>
-                ${feriadosHtml || '<tr><td colspan="4" style="text-align: center; color: #999;">Nenhum feriado cadastrado</td></tr>'}
+                ${feriadosHtml || '<tr><td colspan="4" style="text-align: center; color: var(--texto-suave);">Nenhum feriado cadastrado</td></tr>'}
             </tbody>
         </table>
     `;

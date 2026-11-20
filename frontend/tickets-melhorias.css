@@ -689,7 +689,7 @@
     border-top: 1px solid var(--neutro-100);
     padding-top: 0.5rem;
     margin-top: 0.5rem;
-    color: var(--neutro-400);
+    color: var(--texto-suave);
 }
 
 .modo-escuro .kanban-card-footer {
@@ -1256,7 +1256,7 @@
 
 #editor-comentario .assinatura-previa {
     padding: 0 15px 12px;
-    color: var(--neutro-400);
+    color: var(--texto-suave);
     font-family: var(--fonte-resposta);
     font-size: var(--tamanho-resposta);
     line-height: var(--entrelinha-resposta);

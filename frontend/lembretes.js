@@ -12,7 +12,7 @@ function mostrarLembretes(lembretes) {
     if (!lista) return;
 
     if (lembretes.length === 0) {
-        lista.innerHTML = '<p style="color: #999; font-style: italic;">Nenhum lembrete agendado.</p>';
+        lista.innerHTML = '<p style="color: var(--texto-suave); font-style: italic;">Nenhum lembrete agendado.</p>';
         return;
     }
 
