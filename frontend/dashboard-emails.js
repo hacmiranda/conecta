@@ -1,16 +1,13 @@
 /**
  * Dashboard → E-mails Enviados (19/11/2026): só quantitativos das respostas da equipe enviadas ao
  * solicitante por e-mail, por setor e por funcionário (gestor e operador): ontem, últimos 7 dias,
- * últimos 30 dias e o período escolhido no filtro (vale para as duas tabelas).
+ * últimos 30 dias e o período escolhido no filtro único do Dashboard (dashboard.js).
  * API: dashboard-emails.php (segue o seletor de setor da barra lateral via urlComSetor).
- * Carregado pelo carregarDashboard() (dashboard.js). Ações por data-acao com ouvintes delegados.
+ * Chamado pelo Dashboard.carregar() com as datas do período.
  */
 (function () {
     'use strict';
 
-    // Período escolhido nesta visita (vazio = o padrão do servidor: do dia 1º do mês até hoje)
-    let periodo = { inicio: '', fim: '' };
-    let ligado = false;
 
     function dataBr(iso) {
         const [a, m, d] = String(iso || '').split('-');
@@ -84,65 +81,22 @@
                 </h3>
                 <p class="dem-ajuda">Respostas da equipe enviadas por e-mail ao solicitante (inclusive "Enviar e Fechar"),
                     no setor em que a demanda estava na hora da resposta. Avisos automáticos não entram.
-                    "Últimos 7 dias" e "Últimos 30 dias" contam hoje.</p>
-                <form class="dem-filtro" data-acao-form="dem-periodo" autocomplete="off">
-                    <div class="dem-campo">
-                        <label for="dem-inicio">Período: de</label>
-                        <input type="date" id="dem-inicio" value="${sanitizeHTML(dados.periodo.inicio)}" max="${sanitizeHTML(dados.janelas.hoje)}" required>
-                    </div>
-                    <div class="dem-campo">
-                        <label for="dem-fim">até</label>
-                        <input type="date" id="dem-fim" value="${sanitizeHTML(dados.periodo.fim)}" max="${sanitizeHTML(dados.janelas.hoje)}" required>
-                    </div>
-                    <button type="submit" class="dem-botao">Aplicar</button>
-                    <button type="button" class="dem-botao dem-botao--secundario" data-acao="dem-mes-atual">Mês atual</button>
-                </form>
-                <p class="dem-erro" id="dem-erro" role="alert" aria-live="polite"></p>
+                    "Últimos 7 dias" e "Últimos 30 dias" contam hoje; "Período" segue o filtro do topo do Dashboard.</p>
                 ${tabelaSetores(dados)}
                 ${tabelaFuncionarios(dados)}
             </div>`;
     }
 
-    async function carregar() {
+    async function carregar(inicio, fim) {
         const caixa = document.getElementById('dashboard-emails');
         if (!caixa) return;
-        ligar(caixa);
-        const params = periodo.inicio && periodo.fim
-            ? `?inicio=${encodeURIComponent(periodo.inicio)}&fim=${encodeURIComponent(periodo.fim)}` : '';
+        const params = inicio && fim ? `?inicio=${encodeURIComponent(inicio)}&fim=${encodeURIComponent(fim)}` : '';
         try {
             const dados = await Api.get(urlComSetor('dashboard-emails.php' + params));
             montar(dados);
         } catch (e) {
-            if (e && e.status === 400 && document.getElementById('dem-erro')) {
-                // Período recusado: mantém a tela e mostra o motivo
-                document.getElementById('dem-erro').textContent = mensagemDeErro(e, 'Período inválido.');
-                return;
-            }
             caixa.innerHTML = `<div class="dashboard-card dem-card"><p class="dem-erro" role="alert">${sanitizeHTML(mensagemDeErro(e, 'Erro ao carregar os e-mails enviados.'))}</p></div>`;
         }
-    }
-
-    function ligar(caixa) {
-        if (ligado) return;
-        ligado = true;
-        caixa.addEventListener('submit', (ev) => {
-            const form = ev.target.closest('[data-acao-form="dem-periodo"]');
-            if (!form) return;
-            ev.preventDefault();
-            const inicio = document.getElementById('dem-inicio').value;
-            const fim = document.getElementById('dem-fim').value;
-            if (inicio && fim && inicio > fim) {
-                document.getElementById('dem-erro').textContent = 'A data inicial deve ser anterior ou igual à final.';
-                return;
-            }
-            periodo = { inicio, fim };
-            carregar();
-        });
-        caixa.addEventListener('click', (ev) => {
-            if (!ev.target.closest('[data-acao="dem-mes-atual"]')) return;
-            periodo = { inicio: '', fim: '' };
-            carregar();
-        });
     }
 
     window.carregarEmailsEnviados = carregar;

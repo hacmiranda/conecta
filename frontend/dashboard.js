@@ -1,429 +1,372 @@
 /**
- * Dashboard (painel principal de KPIs/gráficos + modal de informações de cada gráfico).
- * A criação dos gráficos (Chart.js) já é um arquivo separado pré-existente
- * (graficos-dashboard.js), fora desta divisão — este arquivo só monta o HTML e chama
- * criarGraficoX(dados) depois. Extraído de script.js na Fase 12 (onda 8 da divisão por
- * domínio).
+ * Dashboard (reescrito em 19/11/2026): filtro de período único no topo (vale para indicadores, gráficos e
+ * a seção E-mails Enviados), indicadores do período com a variação em relação ao período anterior e
+ * minigráfico, a situação de agora (demandas ativas) e os gráficos em Chart.js (graficos-dashboard.js).
+ * API: dashboard.php?inicio=&fim= (+ setor_id do seletor da barra lateral, por urlComSetor).
+ * Ações por data-acao com ouvintes delegados; nada de onclick nem style embutido.
  */
 
-// Função para mostrar dashboard
+const Dashboard = (function () {
+    'use strict';
+
+    const CHAVE_PERIODO = 'cd_dashPeriodo';
+    const ATALHOS = [
+        ['7d', '7 dias'], ['30d', '30 dias'], ['90d', '90 dias'],
+        ['mes', 'Mês atual'], ['ano', 'Ano atual'], ['12m', '12 meses'], ['personalizado', 'Personalizado'],
+    ];
+
+    // Textos do botão ⓘ de cada indicador e gráfico: [título, o que é, como analisar]
+    const INFOS = {
+        criadas: ['Demandas criadas', 'Demandas abertas no período (canceladas, mescladas e as da lixeira não contam). O minigráfico mostra o volume dia a dia (ou mês a mês, em períodos longos).', 'Mais demandas não é bom nem ruim: indica o volume que chega. Compare com as concluídas para ver se a equipe está dando conta.'],
+        concluidas: ['Demandas concluídas', 'Demandas que chegaram a "Resolvido" ou "Encerrado" pela primeira vez dentro do período, qualquer que seja a data de abertura. Se uma demanda for reaberta, deixa de contar.', 'Concluir mais do que se cria reduz a fila; concluir menos faz a fila crescer.'],
+        taxa: ['Taxa de conclusão', 'Das demandas criadas no período, quantas já estão resolvidas ou encerradas.', 'Em períodos muito recentes a taxa é naturalmente menor: as demandas ainda estão sendo atendidas.'],
+        primeira: ['Tempo médio até a 1ª resposta', 'Média, em horas úteis do expediente do setor, entre a abertura e a primeira resposta da equipe, das demandas criadas no período. O tempo em pausa (status que congela o SLA e prioridade "Baixíssima") não conta.', 'É a métrica que o solicitante mais sente. Quanto menor, melhor.'],
+        resolucao: ['Tempo médio de resolução', 'Média, em horas úteis, entre a abertura e a conclusão, das demandas criadas no período que já foram concluídas. O tempo em pausa não conta.', 'Valores altos podem indicar gargalos ou demandas que dependem de terceiros.'],
+        fcr: ['Resolvidas no primeiro contato (FCR)', 'Das demandas concluídas no período, quantas foram resolvidas sem que o solicitante precisasse escrever de novo.', 'Quanto maior, mais assertiva foi a primeira resposta.'],
+        ativas: ['Demandas ativas', 'Demandas em andamento agora (todas, menos encerradas e canceladas). Não depende do período escolhido.', 'É a carga de trabalho atual da equipe.'],
+        sem_responsavel: ['Sem responsável', 'Demandas ativas que ainda não foram atribuídas a ninguém (estão na fila do setor).', 'O ideal é ficar perto de zero: são demandas esperando alguém assumir.'],
+        sla: ['SLA vencido', 'Demandas ativas cujo prazo de SLA (resposta ou resolução) já passou. Não depende do período escolhido.', 'Priorize estas demandas e avalie se os prazos estão adequados ao volume.'],
+        evolucao: ['Criadas × concluídas', 'Demandas criadas e concluídas em cada dia do período (ou em cada mês, em períodos acima de 92 dias).', 'Quando a linha das concluídas fica abaixo da das criadas por muito tempo, a fila está crescendo.'],
+        status: ['Ativas por status', 'Quantas demandas ativas estão em cada status agora.', 'Muitas em "Novo" indicam falta de atribuição; muitas em "Aguardando" indicam dependência de terceiros ou do solicitante.'],
+        prioridade: ['Ativas por prioridade', 'Quantas demandas ativas há em cada prioridade, da mais urgente para a menos urgente.', 'Excesso de urgentes pode indicar problema recorrente ou prioridade usada sem critério.'],
+        responsavel: ['Ativas por responsável', 'Demandas ativas de cada responsável (os 9 com mais demandas; o resto em "Outros"). Quem não tem nenhuma não aparece.', 'Mostra se a carga está equilibrada entre as pessoas.'],
+        statusResponsavel: ['Status por responsável', 'Demandas ativas de cada responsável, divididas por status (sem as resolvidas). Cada status tem sempre a mesma cor.', 'Ajuda a ver quem está com muitas demandas paradas esperando resposta.'],
+        diaSemana: ['Criadas por dia da semana', 'Demandas criadas no período em cada dia da semana.', 'Dias com mais demanda podem precisar de mais pessoas disponíveis.'],
+        categorias: ['Criadas por categoria', 'Demandas criadas no período em cada categoria (as 9 maiores; o resto em "Outros").', 'Mostra quais assuntos ocupam mais a equipe.'],
+        subcategorias: ['Subcategorias mais frequentes', 'As 5 subcategorias com mais demandas criadas no período.', 'Assuntos recorrentes podem virar resposta rápida ou orientação no site.'],
+        solicitantes: ['Solicitantes mais frequentes', 'As 5 pessoas que mais abriram demandas no período.', 'Solicitantes muito frequentes podem indicar um caso que precisa de atenção especial.'],
+    };
+
+    let ligado = false;
+    let pedidoAtual = 0;
+
+    // ---------------------------------------------------------------- período
+
+    function iso(d) {
+        return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+    }
+
+    function dataBr(texto) {
+        const [a, m, d] = String(texto || '').split('-');
+        return d ? `${d}/${m}/${a}` : '';
+    }
+
+    function lerPeriodo() {
+        try {
+            const salvo = JSON.parse(localStorage.getItem(CHAVE_PERIODO) || 'null');
+            if (salvo && ATALHOS.some(([a]) => a === salvo.atalho)) return salvo;
+        } catch (e) { /* sem armazenamento: usa o padrão */ }
+        return { atalho: '30d' };
+    }
+
+    function gravarPeriodo(p) {
+        try { localStorage.setItem(CHAVE_PERIODO, JSON.stringify(p)); } catch (e) { /* só conveniência */ }
+    }
+
+    /** Datas de um atalho (calculadas no navegador, no fuso local) */
+    function datasDoAtalho(p) {
+        const hoje = new Date();
+        hoje.setHours(0, 0, 0, 0);
+        const menos = (dias) => { const d = new Date(hoje); d.setDate(d.getDate() - dias); return d; };
+        switch (p.atalho) {
+            case '7d': return [iso(menos(6)), iso(hoje)];
+            case '90d': return [iso(menos(89)), iso(hoje)];
+            case 'mes': return [iso(new Date(hoje.getFullYear(), hoje.getMonth(), 1)), iso(hoje)];
+            case 'ano': return [iso(new Date(hoje.getFullYear(), 0, 1)), iso(hoje)];
+            case '12m': return [iso(menos(365)), iso(hoje)];
+            case 'personalizado': return [p.inicio || iso(menos(29)), p.fim || iso(hoje)];
+            default: return [iso(menos(29)), iso(hoje)];
+        }
+    }
+
+    // ---------------------------------------------------------------- formatação
+
+    const fmt = (n) => Number(n || 0).toLocaleString('pt-BR');
+
+    function formatarTempo(seg) {
+        if (!seg) return '—';
+        const h = Math.floor(seg / 3600);
+        const m = Math.round((seg % 3600) / 60);
+        if (h === 0) return `${m} min`;
+        if (h >= 10) return `${fmt(Math.round(seg / 3600))}h`; // tempo longo: só as horas (cabe no cartão)
+        return m ? `${fmt(h)}h ${m}min` : `${fmt(h)}h`;
+    }
+
+    const formatarPct = (v) => (v === null || v === undefined) ? '—' : `${String(v).replace('.', ',')}%`;
+
+    /**
+     * Variação em relação ao período anterior.
+     * sentido: 'mais' (subir é bom), 'menos' (descer é bom) ou 'neutro'; tipo: 'contagem' | 'pct' | 'tempo'
+     */
+    function variacao(ind, sentido, tipo) {
+        const { atual, anterior } = ind;
+        if (atual === null || anterior === null || anterior === undefined || (tipo !== 'pct' && !anterior)) {
+            return '<p class="dg-kpi-delta dg-delta--neutro">Sem dados no período anterior</p>';
+        }
+        const diff = tipo === 'pct' ? Math.round((atual - anterior) * 10) / 10 : Math.round((atual - anterior) / anterior * 100);
+        if (diff === 0) {
+            return '<p class="dg-kpi-delta dg-delta--neutro"><span aria-hidden="true">=</span> Igual ao período anterior</p>';
+        }
+        const subiu = diff > 0;
+        const bom = sentido === 'neutro' ? null : (sentido === 'mais') === subiu;
+        const classe = bom === null ? 'neutro' : (bom ? 'bom' : 'ruim');
+        const valor = tipo === 'pct' ? `${String(Math.abs(diff)).replace('.', ',')} p.p.` : `${Math.abs(diff)}%`;
+        const ref = tipo === 'tempo' ? formatarTempo(anterior) : (tipo === 'pct' ? formatarPct(anterior) : fmt(anterior));
+        return `<p class="dg-kpi-delta dg-delta--${classe}">
+            <span aria-hidden="true">${subiu ? '▲' : '▼'}</span><span class="sr-only">${subiu ? 'Aumento de' : 'Queda de'}</span>
+            ${valor} <span class="dg-kpi-ref">vs. período anterior (${ref})</span></p>`;
+    }
+
+    /** Minigráfico de tendência (SVG decorativo: os números estão no gráfico Criadas × concluídas) */
+    function minigrafico(valores) {
+        if (!valores.length || !valores.some(Boolean)) return '';
+        const max = Math.max(...valores) || 1;
+        const passo = valores.length > 1 ? 100 / (valores.length - 1) : 100;
+        const pontos = valores.map((v, i) => `${(i * passo).toFixed(2)},${(28 - (v / max) * 26).toFixed(2)}`).join(' ');
+        return `<svg class="dg-kpi-mini" viewBox="0 0 100 30" preserveAspectRatio="none" aria-hidden="true" focusable="false">
+            <polyline points="${pontos}" fill="none" vector-effect="non-scaling-stroke"></polyline></svg>`;
+    }
+
+    // ---------------------------------------------------------------- HTML
+
+    function botaoInfo(chave, titulo) {
+        return `<button type="button" class="dg-botao-icone" data-acao="dg-info" data-info="${chave}" aria-label="Sobre: ${sanitizeHTML(titulo)}">
+            <span class="material-symbols-outlined" aria-hidden="true">info</span></button>`;
+    }
+
+    function kpi({ chave, icone, titulo, valor, delta = '', mini = '', sub = '', alerta = false }) {
+        return `<article class="dashboard-card dg-kpi${alerta ? ' dg-kpi--alerta' : ''}" aria-labelledby="dg-kpi-${chave}">
+            <div class="dg-kpi-cab">
+                <span class="material-symbols-outlined dg-kpi-icone" aria-hidden="true">${icone}</span>
+                <h4 class="dg-kpi-titulo" id="dg-kpi-${chave}">${titulo}</h4>
+                ${botaoInfo(chave, titulo)}
+            </div>
+            <p class="dg-kpi-valor">${valor}</p>
+            ${delta}${mini}
+            ${sub ? `<p class="dg-kpi-sub">${sub}</p>` : ''}
+        </article>`;
+    }
+
+    function cartaoGrafico(id, icone, titulo, sub, def) {
+        return `<article class="dashboard-card dg-card" aria-labelledby="dg-titulo-${id}">
+            <div class="dg-card-cab">
+                <h4 class="dg-card-titulo" id="dg-titulo-${id}">
+                    <span class="material-symbols-outlined" aria-hidden="true">${icone}</span>
+                    <span>${titulo}${sub ? ` <span class="dg-card-sub">${sub}</span>` : ''}</span>
+                </h4>
+                <div class="dg-card-acoes">
+                    ${botaoInfo(id, titulo)}
+                    <button type="button" class="dg-botao-tabela" data-acao="dg-tabela" aria-expanded="false" aria-controls="dg-tab-${id}">
+                        <span class="material-symbols-outlined" aria-hidden="true">table_rows</span> Tabela</button>
+                </div>
+            </div>
+            ${def.vazio
+                ? '<p class="dg-vazio">Sem dados para mostrar.</p>'
+                : `<div class="dg-grafico" data-grafico="${id}"><canvas id="dg-${id}" role="img" aria-label="${sanitizeHTML(GraficosDashboard.descricao(titulo, def))}"></canvas></div>`}
+            <div class="dg-tabela" id="dg-tab-${id}" hidden>${GraficosDashboard.tabela(titulo, def)}</div>
+        </article>`;
+    }
+
+    function montarFiltro() {
+        const caixa = document.getElementById('dashboard-filtro');
+        if (!caixa || caixa.dataset.montado) return;
+        caixa.dataset.montado = '1';
+        caixa.innerHTML = `
+            <div class="dg-filtro" role="group" aria-labelledby="dg-filtro-rotulo">
+                <span class="dg-filtro-rotulo" id="dg-filtro-rotulo">
+                    <span class="material-symbols-outlined" aria-hidden="true">date_range</span> Período</span>
+                <div class="dg-atalhos">
+                    ${ATALHOS.map(([a, r]) => `<button type="button" class="dg-atalho" data-acao="dg-atalho" data-atalho="${a}" aria-pressed="false">${r}</button>`).join('')}
+                </div>
+                <form class="dg-personalizado" data-acao-form="dg-periodo" autocomplete="off" hidden>
+                    <label for="dg-inicio">De</label><input type="date" id="dg-inicio" required>
+                    <label for="dg-fim">até</label><input type="date" id="dg-fim" required>
+                    <button type="submit" class="dg-aplicar">Aplicar</button>
+                </form>
+                <p class="dg-comparacao" id="dg-comparacao" aria-live="polite"></p>
+                <p class="dg-erro" id="dg-erro" role="alert"></p>
+            </div>`;
+    }
+
+    function atualizarFiltro(p, resposta) {
+        document.querySelectorAll('#dashboard-filtro .dg-atalho').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.atalho === p.atalho)));
+        const form = document.querySelector('#dashboard-filtro .dg-personalizado');
+        if (form) form.hidden = p.atalho !== 'personalizado';
+        const hoje = iso(new Date());
+        ['dg-inicio', 'dg-fim'].forEach(id => { const el = document.getElementById(id); if (el) el.max = hoje; });
+        if (p.atalho === 'personalizado' && document.getElementById('dg-inicio')) {
+            const [ini, fim] = datasDoAtalho(p);
+            document.getElementById('dg-inicio').value = ini;
+            document.getElementById('dg-fim').value = fim;
+        }
+        const comp = document.getElementById('dg-comparacao');
+        if (comp && resposta) {
+            const per = resposta.periodo;
+            comp.textContent = `${dataBr(per.inicio)} a ${dataBr(per.fim)} (${per.dias} ${per.dias === 1 ? 'dia' : 'dias'}) · comparado com ${dataBr(per.anterior.inicio)} a ${dataBr(per.anterior.fim)}`;
+        }
+    }
+
+    function montarTela(d) {
+        const i = d.indicadores;
+        const a = d.agora;
+        const defs = GraficosDashboard.definicoes(d);
+        const porMes = d.serie.granularidade === 'mes';
+
+        const html = `
+            <section class="dg-secao" aria-labelledby="dg-sec-periodo">
+                <h3 class="dg-secao-titulo" id="dg-sec-periodo">No período</h3>
+                <div class="dg-kpis dg-kpis--6">
+                    ${kpi({ chave: 'criadas', icone: 'add_circle', titulo: 'Criadas', valor: fmt(i.criadas.atual), delta: variacao(i.criadas, 'neutro', 'contagem'),
+                            mini: minigrafico(d.serie.pontos.map(p => p.criadas)), sub: `${fmt(i.externas.atual)} por canal externo` })}
+                    ${kpi({ chave: 'concluidas', icone: 'task_alt', titulo: 'Concluídas', valor: fmt(i.concluidas.atual), delta: variacao(i.concluidas, 'mais', 'contagem'),
+                            mini: minigrafico(d.serie.pontos.map(p => p.concluidas)) })}
+                    ${kpi({ chave: 'taxa', icone: 'check_circle', titulo: 'Taxa de conclusão', valor: formatarPct(i.taxa_conclusao.atual), delta: variacao(i.taxa_conclusao, 'mais', 'pct'),
+                            sub: 'das demandas criadas no período' })}
+                    ${kpi({ chave: 'primeira', icone: 'bolt', titulo: '1ª resposta', valor: formatarTempo(i.tempo_primeira_resposta.atual), delta: variacao(i.tempo_primeira_resposta, 'menos', 'tempo'),
+                            sub: 'média, em horas úteis' })}
+                    ${kpi({ chave: 'resolucao', icone: 'timer', titulo: 'Resolução', valor: formatarTempo(i.tempo_resolucao.atual), delta: variacao(i.tempo_resolucao, 'menos', 'tempo'),
+                            sub: 'média, em horas úteis' })}
+                    ${kpi({ chave: 'fcr', icone: 'rocket_launch', titulo: '1º contato', valor: formatarPct(i.fcr.atual), delta: variacao(i.fcr, 'mais', 'pct'),
+                            sub: 'resolvidas sem nova mensagem do solicitante' })}
+                </div>
+                <div class="dg-graficos dg-graficos--1">
+                    ${cartaoGrafico('evolucao', 'show_chart', 'Criadas × concluídas', porMes ? 'por mês' : 'por dia', defs.evolucao)}
+                </div>
+            </section>
+
+            <section class="dg-secao" aria-labelledby="dg-sec-agora">
+                <h3 class="dg-secao-titulo" id="dg-sec-agora">Situação agora <span class="dg-secao-sub">demandas ativas, não depende do período</span></h3>
+                <div class="dg-kpis dg-kpis--3">
+                    ${kpi({ chave: 'ativas', icone: 'pending_actions', titulo: 'Ativas', valor: fmt(a.ativas) })}
+                    ${kpi({ chave: 'sem_responsavel', icone: 'person_off', titulo: 'Sem responsável', valor: fmt(a.sem_responsavel), alerta: a.sem_responsavel > 0,
+                            sub: a.sem_responsavel > 0 ? 'esperando alguém assumir' : 'todas atribuídas' })}
+                    ${kpi({ chave: 'sla', icone: 'warning', titulo: 'SLA vencido', valor: fmt(a.sla_vencido), alerta: a.sla_vencido > 0,
+                            sub: a.sla_vencido > 0 ? 'precisam de prioridade' : 'nenhuma fora do prazo' })}
+                </div>
+                <div class="dg-graficos dg-graficos--2">
+                    ${cartaoGrafico('status', 'bar_chart', 'Ativas por status', '', defs.status)}
+                    ${cartaoGrafico('prioridade', 'local_fire_department', 'Ativas por prioridade', '', defs.prioridade)}
+                    ${cartaoGrafico('responsavel', 'assignment', 'Ativas por responsável', '', defs.responsavel)}
+                    ${cartaoGrafico('statusResponsavel', 'stacked_bar_chart', 'Status por responsável', '', defs.statusResponsavel)}
+                </div>
+            </section>
+
+            <section class="dg-secao" aria-labelledby="dg-sec-distribuicao">
+                <h3 class="dg-secao-titulo" id="dg-sec-distribuicao">Demandas criadas no período</h3>
+                <div class="dg-graficos dg-graficos--2">
+                    ${cartaoGrafico('diaSemana', 'calendar_month', 'Por dia da semana', '', defs.diaSemana)}
+                    ${cartaoGrafico('categorias', 'folder_open', 'Por categoria', '', defs.categorias)}
+                    ${cartaoGrafico('subcategorias', 'category', 'Subcategorias mais frequentes', '', defs.subcategorias)}
+                    ${cartaoGrafico('solicitantes', 'group', 'Solicitantes mais frequentes', '', defs.solicitantes)}
+                </div>
+            </section>`;
+
+        const content = document.getElementById('dashboard-content');
+        GraficosDashboard.destruirTodos();
+        content.innerHTML = html;
+
+        // Altura de cada gráfico (barras horizontais crescem com os itens): propriedade CSS calculada
+        Object.entries(defs).forEach(([id, def]) => {
+            const caixa = content.querySelector(`.dg-grafico[data-grafico="${id}"]`);
+            if (!caixa) return;
+            caixa.style.setProperty('--dg-altura', GraficosDashboard.altura(def, id === 'evolucao' ? 300 : 240) + 'px');
+            GraficosDashboard.desenhar(id, def);
+        });
+    }
+
+    // ---------------------------------------------------------------- carga e ações
+
+    async function carregar() {
+        montarFiltro();
+        ligar();
+        const p = lerPeriodo();
+        const [inicio, fim] = datasDoAtalho(p);
+        atualizarFiltro(p, null);
+
+        const content = document.getElementById('dashboard-content');
+        const erro = document.getElementById('dg-erro');
+        if (erro) erro.textContent = '';
+        content.classList.add('dg-carregando'); // mantém o desenho anterior esmaecido, sem piscar
+        content.setAttribute('aria-busy', 'true');
+        const pedido = ++pedidoAtual;
+        try {
+            const dados = await Api.get(urlComSetor(`dashboard.php?inicio=${encodeURIComponent(inicio)}&fim=${encodeURIComponent(fim)}`));
+            if (pedido !== pedidoAtual) return; // chegou depois de um pedido mais novo
+            montarTela(dados);
+            atualizarFiltro(p, dados);
+            if (typeof carregarEmailsEnviados === 'function') carregarEmailsEnviados(dados.periodo.inicio, dados.periodo.fim);
+        } catch (e) {
+            if (pedido !== pedidoAtual) return;
+            const msg = mensagemDeErro(e, 'Erro ao carregar o Dashboard.');
+            if (e && e.status === 400 && erro) {
+                erro.textContent = msg;
+            } else {
+                content.innerHTML = `<p class="dg-vazio" role="alert">${sanitizeHTML(msg)}</p>`;
+            }
+        } finally {
+            if (pedido === pedidoAtual) {
+                content.classList.remove('dg-carregando');
+                content.removeAttribute('aria-busy');
+            }
+        }
+    }
+
+    function mostrarInfo(chave) {
+        const info = INFOS[chave];
+        if (!info) return;
+        mostrarAlert(info[0], `<p><strong>O que é:</strong> ${info[1]}</p><p><strong>Como analisar:</strong> ${info[2]}</p>`);
+    }
+
+    function ligar() {
+        if (ligado) return;
+        ligado = true;
+        const secao = document.getElementById('dashboard');
+        secao.addEventListener('click', (ev) => {
+            const alvo = ev.target.closest('[data-acao]');
+            if (!alvo || !secao.contains(alvo)) return;
+            const acao = alvo.dataset.acao;
+            if (acao === 'dg-info') {
+                mostrarInfo(alvo.dataset.info);
+            } else if (acao === 'dg-tabela') {
+                const tabela = document.getElementById(alvo.getAttribute('aria-controls'));
+                const abrir = alvo.getAttribute('aria-expanded') !== 'true';
+                alvo.setAttribute('aria-expanded', String(abrir));
+                if (tabela) tabela.hidden = !abrir;
+            } else if (acao === 'dg-atalho') {
+                if (alvo.dataset.atalho === 'personalizado') {
+                    // Abre as datas (com o período atual); só recarrega ao aplicar
+                    const [ini, fim] = datasDoAtalho(lerPeriodo());
+                    atualizarFiltro({ atalho: 'personalizado', inicio: ini, fim: fim }, null);
+                    document.getElementById('dg-inicio').focus();
+                    return;
+                }
+                gravarPeriodo({ atalho: alvo.dataset.atalho });
+                carregar();
+            }
+        });
+        secao.addEventListener('submit', (ev) => {
+            if (!ev.target.closest('[data-acao-form="dg-periodo"]')) return;
+            ev.preventDefault();
+            const inicio = document.getElementById('dg-inicio').value;
+            const fim = document.getElementById('dg-fim').value;
+            const erro = document.getElementById('dg-erro');
+            if (!inicio || !fim) { erro.textContent = 'Informe as duas datas do período.'; return; }
+            if (inicio > fim) { erro.textContent = 'A data inicial deve ser anterior ou igual à final.'; return; }
+            gravarPeriodo({ atalho: 'personalizado', inicio, fim });
+            carregar();
+        });
+    }
+
+    return { carregar };
+})();
+
+// Abrir pelo menu
 function mostrarDashboard() {
     mostrarSecao('dashboard');
     carregarDashboard();
 }
 
-// Carregar dados do dashboard
-async function carregarDashboard() {
-    try {
-        const dados = await Api.get(urlComSetor('dashboard.php'));
-        mostrarDashboardNaTela(dados);
-        // Seção "E-mails Enviados" (dashboard-emails.js), com o mesmo setor do seletor
-        if (typeof carregarEmailsEnviados === 'function') carregarEmailsEnviados();
-    } catch (e) {
-        document.getElementById('dashboard-content').innerHTML = '<p>Erro ao carregar dashboard.</p>';
-    }
-}
-
-// Mostrar dashboard na tela
-function mostrarDashboardNaTela(dados) {
-    const content = document.getElementById('dashboard-content');
-
-    function formatarTempo(segundos) {
-        if (!segundos) return 'N/A';
-        const horas = Math.floor(segundos / 3600);
-        const minutos = Math.floor((segundos % 3600) / 60);
-        return `${horas}h ${minutos}m`;
-    }
-
-    const taxaConclusao = dados.sla_indicadores?.taxa_conclusao || 0;
-
-    let html = `
-        <div class="dashboard-grid kpi-row-5">
-            <div class="dashboard-card">
-                <h3 class="card-title-flex">
-                    <div class="title-left">
-                        <span class="material-symbols-outlined" aria-hidden="true">tag</span> Total de Demandas
-                    </div>
-                    <span class="material-symbols-outlined info-icon" onclick="mostrarInfoGrafico('total')" title="Clique para mais informações" aria-hidden="true">info</span>
-                </h3>
-                <div class="dashboard-number count-up" data-target="${dados.total_tickets}">0</div>
-                <div class="dashboard-subtitle">Histórico geral do painel</div>
-            </div>
-            <div class="dashboard-card">
-                <h3 class="card-title-flex">
-                    <div class="title-left">
-                        <span class="material-symbols-outlined" aria-hidden="true">check_circle</span> Encerrados
-                    </div>
-                    <span class="material-symbols-outlined info-icon" onclick="mostrarInfoGrafico('encerrados')" title="Clique para mais informações" aria-hidden="true">info</span>
-                </h3>
-                <div class="dashboard-number count-up" data-target="${dados.total_encerrados || 0}">0</div>
-                <div class="dashboard-subtitle">Concluídos com sucesso</div>
-            </div>
-            <div class="dashboard-card">
-                <h3 class="card-title-flex">
-                    <div class="title-left">
-                        <span class="material-symbols-outlined" aria-hidden="true">pending_actions</span> Ativos
-                    </div>
-                    <span class="material-symbols-outlined info-icon" onclick="mostrarInfoGrafico('ativos')" title="Clique para mais informações" aria-hidden="true">info</span>
-                </h3>
-                <div class="dashboard-number count-up" data-target="${dados.total_tickets - (dados.total_encerrados || 0)}">0</div>
-                <div class="dashboard-subtitle">Aguardando time ou usuário</div>
-            </div>
-            <div class="dashboard-card">
-                <h3 class="card-title-flex">
-                    <div class="title-left">
-                        <span class="material-symbols-outlined" aria-hidden="true">task_alt</span> Taxa de Conclusão
-                    </div>
-                    <span class="material-symbols-outlined info-icon" onclick="mostrarInfoGrafico('taxa-conclusao')" title="Clique para mais informações" aria-hidden="true">info</span>
-                </h3>
-                <div class="dashboard-number flip-in">${taxaConclusao}%</div>
-                <div class="dashboard-subtitle">Percentual de finalização</div>
-            </div>
-            <div class="dashboard-card">
-                <h3 class="card-title-flex">
-                    <div class="title-left">
-                        <span class="material-symbols-outlined" aria-hidden="true">timer</span> Tempo Médio Total
-                    </div>
-                    <span class="material-symbols-outlined info-icon" onclick="mostrarInfoGrafico('tempo-total')" title="Clique para mais informações" aria-hidden="true">info</span>
-                </h3>
-                <div class="dashboard-number scale-bounce">${formatarTempo(dados.tempoMedioSegundos)}</div>
-                <div class="dashboard-subtitle">Até o encerramento da demanda</div>
-            </div>
-        </div>
-
-        <div class="dashboard-grid kpi-row-5" style="margin-top: 1.5rem;">
-            <div class="dashboard-card">
-                <h3 class="card-title-flex">
-                    <div class="title-left">
-                        <span class="material-symbols-outlined" aria-hidden="true">bolt</span> Tempo Médio 1º Atend.
-                    </div>
-                    <span class="material-symbols-outlined info-icon" onclick="mostrarInfoGrafico('primeiro-atendimento')" title="Clique para mais informações" aria-hidden="true">info</span>
-                </h3>
-                <div class="dashboard-number slide-down">${formatarTempo(dados.tempoPrimeiroAtendimentoSegundos)}</div>
-                <div class="dashboard-subtitle">Velocidade da primeira resposta</div>
-            </div>
-            <div class="dashboard-card fcr-card">
-                <h3 class="card-title-flex">
-                    <div class="title-left">
-                        <span class="material-symbols-outlined" aria-hidden="true">rocket_launch</span> FCR (1º Contato)
-                    </div>
-                    <span class="material-symbols-outlined info-icon" onclick="mostrarInfoGrafico('fcr')" title="Clique para mais informações" aria-hidden="true" style="color: rgba(255,255,255,0.8);">info</span>
-                </h3>
-                <div class="dashboard-number flip-in fcr-number">${dados.fcr?.taxa || 0}%</div>
-                <div class="fcr-subtitle">
-                    ${dados.fcr?.resolvidos_primeiro_contato || 0} de ${dados.fcr?.total_resolvidos || 0} resolvidos na primeira interação
-                </div>
-            </div>
-            <div class="dashboard-card kpi-sla-vencido">
-                <h3 class="card-title-flex">
-                    <div class="title-left">
-                        <span class="material-symbols-outlined" aria-hidden="true">warning</span> SLA Vencido
-                    </div>
-                    <span class="material-symbols-outlined info-icon" onclick="mostrarInfoGrafico('sla-vencido')" title="Clique para mais informações" aria-hidden="true">info</span>
-                </h3>
-                <div class="dashboard-number count-up sla-vencido-number" data-target="${dados.sla_vencido || 0}">0</div>
-                <div class="dashboard-subtitle">Demandas ativas com SLA expirado</div>
-            </div>
-            <div class="dashboard-card kpi-origem-externa">
-                <h3 class="card-title-flex">
-                    <div class="title-left">
-                        <span class="material-symbols-outlined" aria-hidden="true">api</span> Via Canal Externo
-                    </div>
-                    <span class="material-symbols-outlined info-icon" onclick="mostrarInfoGrafico('origem-externa')" title="Clique para mais informações" aria-hidden="true">info</span>
-                </h3>
-                <div class="dashboard-number count-up origem-externa-number" data-target="${dados.total_origem_externa || 0}">0</div>
-                <div class="dashboard-subtitle">Demandas recebidas por integração</div>
-            </div>
-        </div>
-
-        <div class="dashboard-grid graficos-row-4" style="margin-top: 1.5rem;">
-            <div class="dashboard-card">
-                <h3 class="card-title-flex">
-                    <div class="title-left">
-                        <span class="material-symbols-outlined" aria-hidden="true">donut_large</span> Demandas por Status <span class="text-caption">(apenas ativos)</span>
-                    </div>
-                    <span class="material-symbols-outlined info-icon" onclick="mostrarInfoGrafico('status')" title="Clique para mais informações" aria-hidden="true">info</span>
-                </h3>
-                <canvas id="grafico-status" width="320" height="220"></canvas>
-            </div>
-            <div class="dashboard-card">
-                <h3 class="card-title-flex">
-                    <div class="title-left">
-                        <span class="material-symbols-outlined" aria-hidden="true">local_fire_department</span> Demandas por Prioridade <span class="text-caption">(apenas ativos)</span>
-                    </div>
-                    <span class="material-symbols-outlined info-icon" onclick="mostrarInfoGrafico('prioridade')" title="Clique para mais informações" aria-hidden="true">info</span>
-                </h3>
-                <canvas id="grafico-prioridade" width="400" height="260"></canvas>
-            </div>
-            <div class="dashboard-card">
-                <h3 class="card-title-flex">
-                    <div class="title-left">
-                        <span class="material-symbols-outlined" aria-hidden="true">pie_chart</span> Distribuição por Responsável <span class="text-caption">(apenas ativos)</span>
-                    </div>
-                    <span class="material-symbols-outlined info-icon" onclick="mostrarInfoGrafico('agente')" title="Clique para mais informações" aria-hidden="true">info</span>
-                </h3>
-                <canvas id="grafico-agente" width="400" height="260"></canvas>
-            </div>
-            <div class="dashboard-card">
-                <h3 class="card-title-flex">
-                    <div class="title-left">
-                        <span class="material-symbols-outlined" aria-hidden="true">stacked_bar_chart</span> Status por Responsável <span class="text-caption">(apenas ativos)</span>
-                    </div>
-                    <span class="material-symbols-outlined info-icon" onclick="mostrarInfoGrafico('status-agente')" title="Clique para mais informações" aria-hidden="true">info</span>
-                </h3>
-                <canvas id="grafico-status-agente" width="400" height="260"></canvas>
-            </div>
-        </div>
-
-        <div class="dashboard-grid" style="margin-top: 1.2rem;">
-            <div class="dashboard-card">
-                <h3 class="card-title-flex">
-                    <div class="title-left">
-                        <span class="material-symbols-outlined" aria-hidden="true">show_chart</span> Evolução Mensal
-                    </div>
-                    <span class="material-symbols-outlined info-icon" onclick="mostrarInfoGrafico('evolucao')" title="Clique para mais informações" aria-hidden="true">info</span>
-                </h3>
-                <canvas id="grafico-mensal" width="600" height="250"></canvas>
-            </div>
-            <div class="dashboard-card">
-                <h3 class="card-title-flex">
-                    <div class="title-left">
-                        <span class="material-symbols-outlined" aria-hidden="true">calendar_month</span> Demandas Dia da Semana
-                    </div>
-                    <span class="material-symbols-outlined info-icon" onclick="mostrarInfoGrafico('dia-semana')" title="Clique para mais informações" aria-hidden="true">info</span>
-                </h3>
-                <canvas id="grafico-dia-semana" width="400" height="250" style="display:block;margin:0 auto;"></canvas>
-            </div>
-        </div>
-
-        <div class="dashboard-grid" style="margin-top: 1.2rem;">
-            <div class="dashboard-card dashboard-card-fullrow">
-                <h3 class="card-title-flex">
-                    <div class="title-left">
-                        <span class="material-symbols-outlined" aria-hidden="true">trending_up</span> Evolução Diária — Últimos 30 Dias
-                    </div>
-                    <span class="material-symbols-outlined info-icon" onclick="mostrarInfoGrafico('diarios-30d')" title="Clique para mais informações" aria-hidden="true">info</span>
-                </h3>
-                <canvas id="grafico-diarios-30d" width="900" height="200"></canvas>
-            </div>
-        </div>
-
-        <div class="dashboard-grid">
-            <div class="dashboard-card">
-                <h3 class="card-title-flex">
-                    <div class="title-left">
-                        <span class="material-symbols-outlined" aria-hidden="true">group</span> Top 5 Solicitantes
-                    </div>
-                </h3>
-                <div class="dashboard-list">`;
-
-    (dados.top_solicitantes || []).forEach((item, index) => {
-        const trofeu = index === 0 ? ' <span class="material-symbols-outlined item-trofeu" aria-hidden="true">emoji_events</span>' : '';
-        html += `<div class="dashboard-item dashboard-item-animate" data-delay="${index * 0.1}"><span>${sanitizeHTML(item.nome)}${trofeu}</span><span>${item.total}</span></div>`;
-    });
-
-    html += `</div></div><div class="dashboard-card"><h3 class="card-title-flex">
-                    <div class="title-left">
-                        <span class="material-symbols-outlined" aria-hidden="true">category</span> Top 5 Subcategorias
-                    </div>
-                </h3><div class="dashboard-list">`;
-
-    (dados.top_categorias || []).forEach((item, index) => {
-        const trofeu = index === 0 ? ' <span class="material-symbols-outlined item-trofeu" aria-hidden="true">emoji_events</span>' : '';
-        html += `<div class="dashboard-item dashboard-item-animate" data-delay="${index * 0.1}"><span>${sanitizeHTML(item.nome || 'Sem subcategoria')}${trofeu}</span><span>${item.total}</span></div>`;
-    });
-
-    html += `</div></div><div class="dashboard-card"><h3 class="card-title-flex">
-                    <div class="title-left">
-                        <span class="material-symbols-outlined" aria-hidden="true">folder_open</span> Demandas por Categoria
-                    </div>
-                </h3><div class="dashboard-list">`;
-
-    (dados.ticketsPorMacrocategoria || []).forEach((item, index) => {
-        const trofeu = index === 0 ? ' <span class="material-symbols-outlined item-trofeu" aria-hidden="true">emoji_events</span>' : '';
-        html += `<div class="dashboard-item dashboard-item-animate" data-delay="${index * 0.1}"><span>${sanitizeHTML(item.nome || 'Sem categoria')}${trofeu}</span><span>${item.quantidade}</span></div>`;
-    });
-
-    html += `</div></div></div>`;
-
-    content.innerHTML = html;
-
-    setTimeout(() => {
-        criarGraficoStatus(dados);
-        criarGraficoPrioridade(dados);
-        criarGraficoMensal(dados);
-        criarGraficoAgente(dados);
-        criarGraficoDiaSemana(dados);
-        criarGraficoStatusAgente(dados);
-        criarGraficoDiarios30d(dados);
-
-        // Animar itens do dashboard quando visíveis
-        setTimeout(() => {
-            const observer = new IntersectionObserver((entries) => {
-                entries.forEach(entry => {
-                    if (entry.isIntersecting) {
-                        const delay = entry.target.getAttribute('data-delay') || 0;
-                        setTimeout(() => {
-                            entry.target.style.animation = 'slideInLeft 0.5s ease forwards';
-                        }, delay * 1000);
-                        observer.unobserve(entry.target);
-                    }
-                });
-            });
-
-            document.querySelectorAll('.dashboard-item-animate').forEach(item => {
-                observer.observe(item);
-            });
-
-            // Animar contadores
-            document.querySelectorAll('.count-up').forEach(counter => {
-                const target = parseInt(counter.getAttribute('data-target'));
-                const duration = 2000;
-                const increment = target / (duration / 16);
-                let current = 0;
-
-                const updateCounter = () => {
-                    current += increment;
-                    if (current < target) {
-                        counter.textContent = Math.floor(current);
-                        requestAnimationFrame(updateCounter);
-                    } else {
-                        counter.textContent = target;
-                    }
-                };
-                updateCounter();
-            });
-        }, 200);
-    }, 100);
-}
-
-// Função para mostrar informações sobre os gráficos
-function mostrarInfoGrafico(tipo) {
-    const infos = {
-        'total': {
-            titulo: '🎫 Total de Demandas',
-            descricao: 'Mostra o número total de demandas registradas no sistema.',
-            analise: 'Use para acompanhar o volume geral de demandas. Um aumento pode indicar necessidade de mais recursos ou problemas recorrentes.'
-        },
-        'encerrados': {
-            titulo: '✅ Demandas Encerradas',
-            descricao: 'Total de demandas com status "encerrado".',
-            analise: 'Indica o volume de demandas finalizadas. Use para acompanhar a produtividade da equipe ao longo do tempo.'
-        },
-        'ativos': {
-            titulo: '🔄 Demandas Ativas',
-            descricao: 'Total de demandas em andamento (todos os status exceto encerrado).',
-            analise: 'Mostra a carga de trabalho atual da equipe. Valores altos podem indicar sobrecarga ou necessidade de mais recursos.'
-        },
-        'tempo-total': {
-            titulo: '⏱️ Tempo Médio Total',
-            descricao: 'Tempo médio desde a abertura até o fechamento das demandas.',
-            analise: 'Indica a eficiência geral do atendimento. Valores altos podem indicar gargalos no processo ou demandas complexas.'
-        },
-        'primeiro-atendimento': {
-            titulo: '⚡ Tempo Médio 1º Atendimento',
-            descricao: 'Tempo médio até a primeira resposta da equipe à demanda.',
-            analise: 'Métrica crítica de SLA. Valores altos indicam demora na resposta inicial, afetando a satisfação do usuário.'
-        },
-        'taxa-conclusao': {
-            titulo: '✅ Taxa de Conclusão',
-            descricao: 'Percentual de demandas concluídas em relação ao total.',
-            analise: 'Indica a efetividade da equipe em resolver demandas. Valores baixos podem indicar demandas abandonadas ou mal gerenciadas.'
-        },
-        'fcr': {
-            titulo: '🚀 FCR (First Contact Resolution)',
-            descricao: 'Taxa de demandas resolvidas logo no primeiro contato/resposta, sem precisarem de interações adicionais ou vaivém com o solicitante.',
-            analise: 'A principal métrica de eficiência do Suporte. Valores altos significam que a equipe é altamente assertiva e tem forte domínio sobre os problemas dos usuários logo de primeira.'
-        },
-        'status': {
-            titulo: '📊 Demandas por Status',
-            descricao: 'Distribuição das demandas pelos diferentes status do sistema.',
-            analise: 'Identifique gargalos: muitas demandas "Abertas" indicam falta de atribuição, muitas "Aguardando" podem indicar dependências externas.'
-        },
-        'prioridade': {
-            titulo: '🔥 Demandas por Prioridade',
-            descricao: 'Distribuição das demandas por nível de prioridade (Urgente, Alta, Normal, Baixa).',
-            analise: 'Verifique se há excesso de demandas urgentes (pode indicar problemas sistêmicos) ou se as prioridades estão bem distribuídas.'
-        },
-        'evolucao': {
-            titulo: '📈 Evolução Mensal',
-            descricao: 'Gráfico de linha mostrando a quantidade de demandas criadas por mês nos últimos 12 meses.',
-            analise: 'Identifique tendências: crescimento constante, sazonalidade ou picos específicos que requerem atenção.'
-        },
-        'agente': {
-            titulo: '🥧 Distribuição por Responsável',
-            descricao: 'Gráfico de pizza mostrando a distribuição de demandas entre os responsáveis.',
-            analise: 'Verifique o balanceamento da carga de trabalho. Desbalanceamento pode indicar necessidade de redistribuição ou treinamento.'
-        },
-        'resolucao': {
-            titulo: '📊 Taxa de Resolução',
-            descricao: 'Comparação entre demandas abertas e fechadas.',
-            analise: 'Se há mais abertos que fechados, a equipe pode estar sobrecarregada ou há problemas de eficiência.'
-        },
-        'dia-semana': {
-            titulo: '📅 Demandas por Dia da Semana',
-            descricao: 'Distribuição de demandas criadas por dia da semana (Domingo a Sábado).',
-            analise: 'Identifique padrões: dias com mais demanda podem requerer mais pessoas disponíveis ou plantões.'
-        },
-        'status-agente': {
-            titulo: '📊 Status por Responsável',
-            descricao: 'Gráfico de barras empilhadas mostrando a distribuição de status das demandas por responsável.',
-            analise: 'Compare o desempenho dos responsáveis: quem tem mais demandas resolvidas, quem tem mais pendentes, etc.'
-        },
-        'sla-vencido': {
-            titulo: 'SLA Vencido',
-            descricao: 'Quantidade de demandas ativas cujo prazo de SLA já foi ultrapassado.',
-            analise: 'Valores altos indicam que a equipe não está conseguindo atender dentro dos prazos acordados. Priorize essas demandas imediatamente e avalie se os prazos de SLA estão adequados ao volume de demanda.'
-        },
-        'origem-externa': {
-            titulo: 'Via Canal Externo',
-            descricao: 'Demandas criadas automaticamente por integração com canais externos, como e-mail recebido na caixa de suporte.',
-            analise: 'Indica o volume de demandas que chegam por canais automáticos. Um volume alto pode justificar regras de triagem automática ou templates de resposta rápida.'
-        },
-        'diarios-30d': {
-            titulo: 'Evolução Diária — Últimos 30 Dias',
-            descricao: 'Gráfico de linha mostrando a quantidade de demandas criadas por dia nos últimos 30 dias. O ponto verde marca o dia de maior volume.',
-            analise: 'Identifique picos de demanda recentes. Picos isolados podem indicar incidentes pontuais; picos recorrentes em dias específicos sugerem padrões que podem ser antecipados.'
-        },
-        'status-mensal': {
-            titulo: 'Status por Mês',
-            descricao: 'Barras empilhadas mostrando a distribuição de demandas por status em cada mês do ano atual.',
-            analise: 'Acompanhe a evolução da equipe ao longo do ano. Um aumento na fatia de demandas encerradas ao longo dos meses indica melhora na eficiência. Meses com muitas demandas em aberto merecem atenção.'
-        },
-        'heatmap': {
-            titulo: 'Heatmap: Dia x Hora',
-            descricao: 'Mapa de calor cruzando dia da semana com hora do dia, mostrando em quais momentos há maior concentração de abertura de demandas.',
-            analise: 'Use para dimensionar a equipe: horários com células mais intensas (ciano) são os de maior demanda. Garanta que haja agentes disponíveis nesses períodos.'
-        },
-        'funil': {
-            titulo: '🔄 Funil de Conversão',
-            descricao: 'Visualiza a progressão das demandas através dos status: Aberto → Em Atendimento → Resolvido → Encerrado.',
-            analise: 'Identifique gargalos: onde as demandas ficam acumuladas? Muitas "Abertas" indica falta de atribuição, muitas "Em Atendimento" pode indicar complexidade ou falta de recursos.'
-        }
-    };
-
-    const info = infos[tipo];
-    if (!info) return;
-
-    const conteudo = `
-        <div style="text-align: left;">
-            <h4 style="margin-top: 0; color: var(--laranja);">${info.titulo}</h4>
-            <p><strong>O que é:</strong><br>${info.descricao}</p>
-            <p><strong>Como analisar:</strong><br>${info.analise}</p>
-        </div>
-    `;
-
-    document.getElementById('modal-alert-title').textContent = 'Informações do Gráfico';
-    document.getElementById('modal-alert-message').innerHTML = conteudo;
-
-    const header = document.querySelector('#modal-alert .modal-header');
-    const btnOk = document.querySelector('#modal-alert .btn-modal');
-
-    header.classList.remove('sucesso', 'erro');
-    btnOk.classList.remove('btn-success-modal', 'btn-danger-modal', 'btn-primary-modal');
-    btnOk.classList.add('btn-primary-modal');
-
-    document.getElementById('modal-overlay').classList.add('show');
-    document.getElementById('modal-alert').classList.add('show');
-    modalCallback = null;
+// Chamada pelo menu, pela troca de setor (cabecalho-setor.js) e pela troca de tema (script.js)
+function carregarDashboard() {
+    return Dashboard.carregar();
 }

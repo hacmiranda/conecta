@@ -1,0 +1,464 @@
+/* ============================================================
+   Dashboard reescrito (19/11/2026): filtro de período, indicadores e cartões de gráfico (Chart.js).
+   dashboard-redesign.css continua dando os tokens --dr-* (tema claro e escuro) e o fundo dos cartões.
+   Prefixo dg-. Aqui ficam também os tokens --grafico-* que os gráficos leem (graficos-dashboard.js).
+   ============================================================ */
+
+/* ---- Paleta dos gráficos: 7 cores em ordem fixa, validada para daltonismo (validate_palette.js da
+   skill de visualização de dados) nos dois temas; a 1ª é o vinho da marca. Cores sem contraste 3:1
+   (posições 4 a 6 no claro) são compensadas pela legenda e pela tabela de cada gráfico. */
+#dashboard {
+    --grafico-1: #e05a50;
+    --grafico-2: #3987e5;
+    --grafico-3: #d9730d;
+    --grafico-4: #199e70;
+    --grafico-5: #c98500;
+    --grafico-6: #d55181;
+    --grafico-7: #4f9a1f;
+    --grafico-outros: var(--neutro-400);
+    --grafico-texto: var(--dr-text-2);
+    --grafico-texto-fraco: var(--dr-text-3);
+    --grafico-grade: rgba(255, 255, 255, 0.08);
+    --grafico-superficie: var(--dr-surface);
+    --dg-bom: var(--verde-500);
+    --dg-ruim: var(--vinho-100);
+    --dg-alerta: var(--vinho-100);
+}
+
+body:not(.modo-escuro) #dashboard {
+    --grafico-1: #a7241c;
+    --grafico-2: #2a78d6;
+    --grafico-3: #d9730d;
+    --grafico-4: #1baf7a;
+    --grafico-5: #eda100;
+    --grafico-6: #e87ba4;
+    --grafico-7: #4f8a1f;
+    --grafico-grade: var(--neutro-200);
+    --dg-bom: var(--verde-700);
+    --dg-ruim: var(--vinho-600);
+    --dg-alerta: var(--vinho-600);
+}
+
+/* Cartões novos não "saltam" ao passar o mouse (o gráfico precisa ficar parado para a dica) */
+#dashboard .dg-card:hover,
+#dashboard .dg-kpi:hover,
+#dashboard .dem-card:hover {
+    transform: none;
+}
+
+/* Carregando: mantém o desenho anterior esmaecido (sem piscar) */
+#dashboard-content.dg-carregando {
+    opacity: 0.55;
+    transition: opacity 0.2s ease;
+    pointer-events: none;
+}
+
+/* ---- Filtro de período ---- */
+#dashboard .dg-filtro {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.5rem 0.75rem;
+    margin: 0 0 1.5rem;
+    padding: 0.75rem 1rem;
+    background: var(--dr-surface);
+    border: 1px solid var(--dr-border);
+    border-radius: 12px;
+}
+
+#dashboard .dg-filtro-rotulo {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    color: var(--dr-text-1);
+    font-size: 0.85rem;
+    font-weight: 700;
+}
+
+#dashboard .dg-filtro-rotulo .material-symbols-outlined {
+    font-size: 1.15rem;
+    color: var(--dr-cyan);
+}
+
+#dashboard .dg-atalhos {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.25rem;
+    padding: 0.2rem;
+    background: var(--dr-surf-2);
+    border-radius: 10px;
+}
+
+#dashboard .dg-atalho {
+    min-height: 2rem;
+    padding: 0.3rem 0.75rem;
+    border: none;
+    border-radius: 8px;
+    background: transparent;
+    color: var(--dr-text-2);
+    font-family: 'Inter', sans-serif;
+    font-size: 0.82rem;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+#dashboard .dg-atalho:hover {
+    color: var(--dr-text-1);
+    background: var(--dr-border);
+}
+
+#dashboard .dg-atalho[aria-pressed="true"] {
+    background: var(--dr-surface);
+    color: var(--dr-text-1);
+    box-shadow: var(--shadow-sm);
+    font-weight: 700;
+}
+
+#dashboard .dg-personalizado {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.4rem;
+}
+
+#dashboard .dg-personalizado[hidden] {
+    display: none;
+}
+
+#dashboard .dg-personalizado label {
+    color: var(--dr-text-2);
+    font-size: 0.82rem;
+    font-weight: 600;
+}
+
+#dashboard .dg-personalizado input {
+    padding: 0.3rem 0.5rem;
+    border: 1px solid var(--dr-border);
+    border-radius: 8px;
+    background: var(--dr-surface);
+    color: var(--dr-text-1);
+    font-family: 'Inter', sans-serif;
+    font-size: 0.85rem;
+}
+
+body.modo-escuro #dashboard .dg-personalizado input {
+    color-scheme: dark;
+}
+
+#dashboard .dg-aplicar {
+    padding: 0.35rem 0.9rem;
+    border: none;
+    border-radius: 8px;
+    background: var(--grafico-1);
+    color: var(--branco);
+    font-family: 'Inter', sans-serif;
+    font-size: 0.82rem;
+    font-weight: 700;
+    cursor: pointer;
+}
+
+body.modo-escuro #dashboard .dg-aplicar {
+    background: var(--vinho-600);
+}
+
+#dashboard .dg-comparacao {
+    flex-basis: 100%;
+    margin: 0;
+    color: var(--dr-text-3);
+    font-size: 0.8rem;
+}
+
+#dashboard .dg-erro {
+    flex-basis: 100%;
+    margin: 0;
+    color: var(--dg-ruim);
+    font-size: 0.85rem;
+    font-weight: 600;
+}
+
+#dashboard .dg-erro:empty {
+    display: none;
+}
+
+/* ---- Seções ---- */
+#dashboard .dg-secao + .dg-secao {
+    margin-top: 2rem;
+}
+
+#dashboard .dg-secao-titulo {
+    margin: 0 0 0.9rem;
+    color: var(--dr-text-1);
+    font-size: 1.05rem;
+    font-weight: 700;
+}
+
+#dashboard .dg-secao-sub {
+    margin-left: 0.4rem;
+    color: var(--dr-text-3);
+    font-size: 0.8rem;
+    font-weight: 500;
+}
+
+/* ---- Indicadores ---- */
+#dashboard .dg-kpis {
+    display: grid;
+    gap: 1rem;
+}
+
+#dashboard .dg-kpis--6 {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+/* Telas largas: os seis numa linha só */
+@media (min-width: 1700px) {
+    #dashboard .dg-kpis--6 {
+        grid-template-columns: repeat(6, minmax(0, 1fr));
+    }
+}
+
+#dashboard .dg-kpis--3 {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+@media (max-width: 700px) {
+    #dashboard .dg-kpis--6,
+    #dashboard .dg-kpis--3 {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+}
+
+#dashboard .dg-kpi.dashboard-card {
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+    padding: 1rem 1.1rem !important;
+}
+
+#dashboard .dg-kpi-cab {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+}
+
+#dashboard .dg-kpi-icone {
+    font-size: 1.1rem;
+    color: var(--dr-text-3);
+}
+
+#dashboard .dg-kpi-titulo {
+    flex: 1;
+    margin: 0;
+    color: var(--dr-text-2);
+    font-size: 0.8rem;
+    font-weight: 600;
+    line-height: 1.25;
+}
+
+#dashboard .dg-kpi-valor {
+    margin: 0.15rem 0 0;
+    color: var(--dr-text-1);
+    font-size: 1.75rem;
+    font-weight: 800;
+    line-height: 1.1;
+    letter-spacing: -0.02em;
+    white-space: nowrap;
+}
+
+#dashboard .dg-kpi--alerta .dg-kpi-valor,
+#dashboard .dg-kpi--alerta .dg-kpi-icone {
+    color: var(--dg-alerta);
+}
+
+#dashboard .dg-kpi-delta {
+    margin: 0;
+    font-size: 0.78rem;
+    font-weight: 700;
+    line-height: 1.35;
+}
+
+#dashboard .dg-delta--bom { color: var(--dg-bom); }
+#dashboard .dg-delta--ruim { color: var(--dg-ruim); }
+#dashboard .dg-delta--neutro { color: var(--dr-text-2); font-weight: 600; }
+
+#dashboard .dg-kpi-ref {
+    display: block;
+    color: var(--dr-text-3);
+    font-weight: 500;
+}
+
+#dashboard .dg-kpi-sub {
+    margin: 0;
+    color: var(--dr-text-3);
+    font-size: 0.78rem;
+}
+
+#dashboard .dg-kpi-mini {
+    width: 100%;
+    height: 28px;
+    margin-top: 0.15rem;
+}
+
+#dashboard .dg-kpi-mini polyline {
+    stroke: var(--grafico-1);
+    stroke-width: 2;
+    stroke-linejoin: round;
+    stroke-linecap: round;
+}
+
+/* ---- Cartões de gráfico ---- */
+#dashboard .dg-graficos {
+    display: grid;
+    gap: 1rem;
+    margin-top: 1rem;
+}
+
+#dashboard .dg-graficos--2 {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+@media (max-width: 900px) {
+    #dashboard .dg-graficos--2 {
+        grid-template-columns: minmax(0, 1fr);
+    }
+}
+
+#dashboard .dg-card.dashboard-card {
+    padding: 1rem 1.1rem 1.1rem !important;
+}
+
+#dashboard .dg-card-cab {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 0.5rem;
+    margin-bottom: 0.75rem;
+}
+
+#dashboard .dg-card-titulo {
+    display: flex;
+    align-items: center;
+    gap: 0.45rem;
+    margin: 0;
+    color: var(--dr-text-1);
+    font-size: 0.95rem;
+    font-weight: 700;
+}
+
+#dashboard .dg-card-titulo .material-symbols-outlined {
+    font-size: 1.15rem;
+    color: var(--dr-text-3);
+}
+
+#dashboard .dg-card-sub {
+    color: var(--dr-text-3);
+    font-size: 0.8rem;
+    font-weight: 500;
+}
+
+#dashboard .dg-card-acoes {
+    display: flex;
+    align-items: center;
+    gap: 0.25rem;
+    flex-shrink: 0;
+}
+
+#dashboard .dg-botao-icone,
+#dashboard .dg-botao-tabela {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.25rem;
+    min-width: 2rem;
+    min-height: 2rem;
+    padding: 0 0.4rem;
+    border: 1px solid transparent;
+    border-radius: 8px;
+    background: transparent;
+    color: var(--dr-text-3);
+    font-family: 'Inter', sans-serif;
+    font-size: 0.78rem;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+#dashboard .dg-botao-tabela {
+    border-color: var(--dr-border);
+    color: var(--dr-text-2);
+}
+
+#dashboard .dg-botao-icone:hover,
+#dashboard .dg-botao-tabela:hover,
+#dashboard .dg-botao-tabela[aria-expanded="true"] {
+    background: var(--dr-surf-2);
+    color: var(--dr-text-1);
+}
+
+#dashboard .dg-botao-icone .material-symbols-outlined,
+#dashboard .dg-botao-tabela .material-symbols-outlined {
+    font-size: 1.05rem;
+}
+
+#dashboard .dg-grafico {
+    position: relative;
+    height: var(--dg-altura, 240px);
+}
+
+#dashboard .dg-grafico canvas {
+    border-radius: 0;
+}
+
+#dashboard .dg-vazio {
+    margin: 0;
+    padding: 2.5rem 0;
+    color: var(--dr-text-3);
+    font-size: 0.9rem;
+    font-style: italic;
+    text-align: center;
+}
+
+/* ---- Tabela com os números de cada gráfico ---- */
+#dashboard .dg-tabela {
+    margin-top: 0.75rem;
+    max-height: 320px;
+    overflow: auto;
+}
+
+#dashboard .dg-tabela-dados {
+    width: 100%;
+    border-collapse: collapse;
+    color: var(--dr-text-1);
+    font-size: 0.85rem;
+}
+
+#dashboard .dg-tabela-dados th,
+#dashboard .dg-tabela-dados td {
+    padding: 0.35rem 0.6rem;
+    border-bottom: 1px solid var(--dr-border);
+    text-align: left;
+}
+
+#dashboard .dg-tabela-dados thead th {
+    position: sticky;
+    top: 0;
+    background: var(--dr-surface);
+    color: var(--dr-text-3);
+    font-size: 0.72rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+}
+
+#dashboard .dg-tabela-dados tbody th {
+    font-weight: 600;
+}
+
+#dashboard .dg-tabela-dados .dg-num {
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    #dashboard-content.dg-carregando {
+        transition: none;
+    }
+}

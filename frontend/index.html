@@ -27,7 +27,8 @@
     <link rel="stylesheet" href="tickets-melhorias.css?v=7.c7.f7.a2.f1118.p1119">
     <link rel="stylesheet" href="vanguard-tooltip.css?v=c1">
     <link rel="stylesheet" href="dashboard-redesign.css?v=c2.p1119b">
-    <link rel="stylesheet" href="dashboard-emails.css?v=1.p1119">
+    <link rel="stylesheet" href="dashboard-emails.css?v=2.p1119">
+    <link rel="stylesheet" href="dashboard-graficos.css?v=1.p1119b">
     <link rel="stylesheet" href="notificacoes.css?v=1.f7.u1">
     <link rel="stylesheet" href="filtros-email.css?v=3.p1119">
     <link rel="stylesheet" href="atividades-config.css?v=4.p1119b">
@@ -526,6 +527,8 @@
         <!-- Dashboard -->
         <section id="dashboard" class="secao">
             <h2 class="titulo-pagina">📊 Dashboard</h2>
+            <!-- Filtro de período único (dashboard.js): vale para indicadores, gráficos e E-mails Enviados -->
+            <div id="dashboard-filtro"></div>
             <div id="dashboard-content">
                 <p>Carregando estatísticas...</p>
             </div>
@@ -970,8 +973,8 @@
     <script src="relatorios.js?v=2.c8.f7.a1101.t"></script>
     <script src="configuracoes.js?v=1.c2.f8"></script>
     <script src="ajuda.js?v=1.c1.f7.a1101.p1119"></script>
-    <script src="dashboard.js?v=2.c1.f8.p1119"></script>
-    <script src="dashboard-emails.js?v=1.p1119"></script>
+    <script src="dashboard.js?v=3.p1119c"></script>
+    <script src="dashboard-emails.js?v=2.p1119"></script>
     <script src="auditoria.js?v=1.c8.f7.a1101.p3"></script>
     <script src="arquivo.js?v=1.c9.f6.a1101.p3.u1x.r1110"></script>
     <script src="editor-imagens.js?v=3"></script>
@@ -979,7 +982,8 @@
     <script src="demanda-tempos.js?v=1"></script>
     <script src="demandas.js?v=3.c2.f6.f7.f8.a1101.p3.u1x.f1117"></script>
     <script src="acessibilidade.js?v=1.c1.f7"></script>
-    <script src="graficos-dashboard.js?v=c2.f8.p1119"></script>
+    <script src="lib/chart.umd.min.js?v=4.4.1"></script>
+    <script src="graficos-dashboard.js?v=3.p1119c"></script>
     <script src="status-sla.js?v=3.0.c1.f7.f8.p1119"></script>
     <script src="tutorial.js?v=3.7.c1.f7.a1101.p3"></script>
     <script src="lembretes.js?v=2.c2.f8.a1101"></script>
