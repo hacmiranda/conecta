@@ -27,7 +27,9 @@ async function mostrarConfigSetor() {
         try {
             // Admin: todos os setores; coordenador com vários setores: os dele
             const doUsuario = Papeis.setores(usuario);
-            const setores = doUsuario === null ? await Api.get('setores.php') : doUsuario;
+            const todos = doUsuario === null ? await Api.get('setores.php') : doUsuario;
+            // Setores de coordenação ficam fora do seletor (como no cabeçalho)
+            const setores = todos.filter(s => Number(s.setor_coordenacao) !== 1);
             renderizarPainelConfigSetor(setores, setores[0] ? setores[0].id : null);
         } catch (e) {
             content.innerHTML = '<p>Erro ao carregar setores.</p>';
