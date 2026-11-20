@@ -230,21 +230,12 @@ select:focus {
     background: linear-gradient(90deg, var(--laranja), var(--vermelho));
 }
 
-.dashboard-number {
-    font-weight: 700;
-    letter-spacing: -0.03em;
-}
-
 /* === DASHBOARD CUSTOM GRIDS E ALINHAMENTOS === */
 
 /* Canvas dos gráficos: fundo transparente no modo escuro para herdar o card */
 .modo-escuro .dashboard-card canvas {
     border-radius: var(--radius-md);
     background: transparent;
-}
-
-.dashboard-grid.kpi-row-secondary {
-    grid-template-columns: repeat(3, 1fr);
 }
 
 .card-title-flex {
@@ -273,55 +264,6 @@ select:focus {
 .title-left .material-symbols-outlined {
     font-size: 1.25rem;
     color: var(--laranja-texto);
-}
-
-.fcr-card {
-    background: linear-gradient(135deg, var(--vinho-600) 0%, var(--vinho-600) 100%) !important;
-    border: none;
-}
-
-.fcr-card .card-title-flex {
-    color: var(--vinho-100) !important;
-}
-
-.fcr-card .title-left .material-symbols-outlined {
-    color: var(--vinho-100);
-}
-
-.fcr-number {
-    color: white !important;
-    font-size: 2.2rem !important;
-}
-
-.fcr-subtitle {
-    font-size: 0.8rem;
-    margin-top: 0.5rem;
-    color: var(--vinho-100);
-    font-weight: 500;
-}
-
-.dashboard-subtitle {
-    font-size: 0.8rem;
-    color: var(--neutro-600);
-    margin-top: 0.4rem;
-    font-weight: 500;
-}
-
-.modo-escuro .dashboard-subtitle {
-    color: var(--neutro-400);
-}
-
-.text-caption {
-    font-size: 0.75rem;
-    color: var(--neutro-400);
-    font-weight: normal;
-    margin-left: 4px;
-}
-
-@media (max-width: 900px) {
-    .dashboard-grid.kpi-row-secondary {
-        grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
-    }
 }
 
 /* === ANIMAÇÕES SUAVES === */

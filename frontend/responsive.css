@@ -10,10 +10,6 @@
     .tickets-tabela td:nth-child(4) {
         max-width: 200px;
     }
-    
-    .dashboard-grid {
-        grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-    }
 }
 
 /* Tablets pequenos (até 768px) */
@@ -91,11 +87,6 @@
         font-weight: bold;
         margin-right: 1rem;
         color: #666;
-    }
-    
-    /* Dashboard */
-    .dashboard-grid {
-        grid-template-columns: 1fr;
     }
     
     /* Formulários */
@@ -253,10 +244,6 @@
     /* Dashboard */
     .dashboard-card {
         padding: 1rem;
-    }
-    
-    .dashboard-number {
-        font-size: 1.5rem;
     }
     
     /* Modais */

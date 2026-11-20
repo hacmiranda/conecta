@@ -430,8 +430,6 @@ main {
     display: none;
 }
 
-
-
 .secao.active {
     display: block;
     width: 100%;
@@ -552,8 +550,6 @@ main {
 .status.atribuido {
     border-left-color: #28a745;
 }
-
-
 
 .status.nao-atribuido {
     border-left-color: var(--laranja-500);
@@ -1415,14 +1411,6 @@ select {
     width: 150px;
 }
 
-/* Dashboard */
-.dashboard-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-    gap: 1rem;
-    margin-bottom: 2rem;
-}
-
 .dashboard-card {
     background: white;
     border-radius: 8px;
@@ -1435,38 +1423,6 @@ select {
     margin: 0 0 1rem 0;
     color: #333;
     font-size: 1rem;
-}
-
-.dashboard-number {
-    font-size: 2rem;
-    font-weight: bold;
-    color: var(--laranja-texto);
-    text-align: center;
-}
-
-.dashboard-list {
-    display: flex;
-    flex-direction: column;
-    gap: 0.5rem;
-}
-
-.dashboard-item {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 0.5rem;
-    background: var(--neutro-50);
-    border-radius: 4px;
-}
-
-.dashboard-item-animate {
-    opacity: 0;
-    transform: translateX(-20px);
-}
-
-.dashboard-item span:last-child {
-    font-weight: bold;
-    color: var(--laranja-texto);
 }
 
 /* Relatórios */
@@ -2504,7 +2460,6 @@ select {
     background-color: #2a3a2a !important;
 }
 
-
 .modo-escuro input,
 .modo-escuro textarea,
 .modo-escuro select {
@@ -2574,7 +2529,6 @@ select {
     border-left-color: var(--laranja-500) !important;
 }
 
-
 .modo-escuro .ticket-link {
     color: var(--laranja) !important;
 }
@@ -2609,11 +2563,6 @@ select {
 .modo-escuro .ticket-detalhes .descricao-ticket {
     background-color: #3d3d3d;
     border-color: #555;
-    color: #e0e0e0;
-}
-
-.modo-escuro .dashboard-item {
-    background-color: #3d3d3d;
     color: #e0e0e0;
 }
 
@@ -2764,8 +2713,6 @@ select {
     color: #b0b0b0;
 }
 
-
-
 .modo-escuro .usuario-inativo {
     background-color: #3d3d3d !important;
 }
@@ -2899,75 +2846,6 @@ select {
     font-size: 0.9rem;
 }
 
-/* Animação slide-in para dashboard */
-@keyframes slideInLeft {
-    from {
-        opacity: 0;
-        transform: translateX(-20px);
-    }
-
-    to {
-        opacity: 1;
-        transform: translateX(0);
-    }
-}
-
-/* Animação scale-bounce para dashboard */
-@keyframes scaleBounce {
-    0% {
-        opacity: 0;
-        transform: scale(0.8);
-    }
-
-    50% {
-        opacity: 1;
-        transform: scale(1.05);
-    }
-
-    100% {
-        opacity: 1;
-        transform: scale(1);
-    }
-}
-
-.scale-bounce {
-    animation: scaleBounce 0.6s ease-out;
-}
-
-/* Animação slide-down para dashboard */
-@keyframes slideInDown {
-    from {
-        opacity: 0;
-        transform: translateY(-30px);
-    }
-
-    to {
-        opacity: 1;
-        transform: translateY(0);
-    }
-}
-
-.slide-down {
-    animation: slideInDown 0.7s ease-out;
-}
-
-/* Animação flip 3D para dashboard */
-@keyframes flipIn {
-    from {
-        opacity: 0;
-        transform: perspective(400px) rotateY(90deg);
-    }
-
-    to {
-        opacity: 1;
-        transform: perspective(400px) rotateY(0deg);
-    }
-}
-
-.flip-in {
-    animation: flipIn 0.8s ease-out;
-}
-
 /* Animação para remover ticket da lista */
 @keyframes fadeOutSlide {
     from {
@@ -3004,21 +2882,6 @@ select {
 
 .secao.active {
     animation: fadeInUp 0.4s ease-out;
-}
-
-/* Ícone informativo nos títulos dos cards */
-.info-icon {
-    cursor: pointer !important;
-    font-size: 0.9rem;
-    margin-left: 0.5rem;
-    opacity: 0.7;
-    transition: all 0.3s ease;
-    display: inline-block;
-}
-
-.info-icon:hover {
-    opacity: 1;
-    transform: scale(1.2);
 }
 
 /* Animação para conteúdo de ajuda e configurações */
@@ -3229,7 +3092,6 @@ select {
         transform: translateY(10px);
     }
 }
-
 
 /* Ativação por Setor (Fase 3) */
 .config-setor-itens {
@@ -3457,7 +3319,6 @@ input:disabled+.slider {
 .modo-escuro .config-email-container > p {
     color: #aaa !important;
 }
-
 
 /* Menu do Usuário */
 .menu-usuario {
