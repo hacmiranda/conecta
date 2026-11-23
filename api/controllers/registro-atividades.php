@@ -45,15 +45,6 @@ function erroRegistro(int $codigo, string $mensagem): void {
     exit;
 }
 
-/** Período do relatório do setor que contém o dia, dentro de alguma vigência (recortado por ela), ou null. */
-function periodoDoSetor(array $vigencias, string $data): ?array {
-    foreach ($vigencias as $v) {
-        $periodos = PrazoAtividadeService::periodosDaVigencia($v, $data, $data);
-        if ($periodos) return $periodos[0] + ['periodicidade' => $v['periodicidade']];
-    }
-    return null;
-}
-
 /** O período (data_referencia = início do calendário) pertence a alguma vigência? */
 function periodoEmVigencia(array $vigencias, string $periodo, string $dataReferencia): bool {
     foreach ($vigencias as $v) {
@@ -107,10 +98,10 @@ try {
 
         $data = RegistroAtividadeService::dataValida($_GET['data'] ?? null);
         if ($data !== null) {
-            $alvo = periodoDoSetor($vigencias, $data);
+            $alvo = PrazoAtividadeService::resolverPeriodoDoSetor($vigencias, $data);
         } else {
             // Sem data: a pendência mais antiga; sem pendência, o período corrente
-            $alvo = periodoDoSetor($vigencias, $abertas ? $abertas[0]['periodo_fim'] : $hoje);
+            $alvo = PrazoAtividadeService::resolverPeriodoDoSetor($vigencias, $abertas ? $abertas[0]['periodo_fim'] : $hoje);
         }
         if ($alvo === null) erroRegistro(400, 'O relatório do setor não está em vigor nessa data.');
 

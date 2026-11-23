@@ -9,10 +9,13 @@
 const RegistroSetor = (function () {
     'use strict';
 
+    const PADRAO_SEMANA = '\\d{4}-W(0[1-9]|[1-4]\\d|5[0-3])';
+    const PADRAO_MES = '\\d{4}-(0[1-9]|1[0-2])';
     const CHAVE_SETOR = 'cd_raSetorEscolhido';
     const TITULO_PADRAO = 'Registro de Atividades';
     const SUBTITULO_PADRAO = 'Registre as atividades realizadas durante o expediente.';
     let setorId = null;
+    let tipoPeriodo = null; // 'semana' | 'mes' do último período carregado (mantém o campo no estado de erro)
 
     // ---------- datas (UTC, sem depender do fuso do navegador) ----------
     function partes(iso) {
@@ -22,12 +25,6 @@ const RegistroSetor = (function () {
 
     function iso(dt) {
         return dt.toISOString().slice(0, 10);
-    }
-
-    function somarDias(isoData, dias) {
-        const dt = partes(isoData);
-        dt.setUTCDate(dt.getUTCDate() + dias);
-        return iso(dt);
     }
 
     function diaDaSemana(dt) {
@@ -50,11 +47,6 @@ const RegistroSetor = (function () {
         const jan4 = new Date(Date.UTC(ano, 0, 4));
         jan4.setUTCDate(jan4.getUTCDate() - diaDaSemana(jan4) + (semana - 1) * 7);
         return iso(jan4);
-    }
-
-    function ultimoDiaDoMes(isoData) {
-        const dt = partes(isoData);
-        return iso(new Date(Date.UTC(dt.getUTCFullYear(), dt.getUTCMonth() + 1, 0)));
     }
 
     // ---------- setores do coordenador ----------
@@ -95,23 +87,9 @@ const RegistroSetor = (function () {
 
     // ---------- API ----------
     async function buscar(data) {
-        const base = `registro-atividades.php?modo=setor&setor_id=${setorId}`;
-        try {
-            return await Api.get(base + (data ? `&data=${encodeURIComponent(data)}` : ''));
-        } catch (e) {
-            if (!data || e.status !== 400) throw e;
-        }
-        // Início do período fora da vigência (período parcial após uma troca): tenta o fim da semana e do mês
-        let ultimo;
-        for (const alternativa of [somarDias(data, 6), ultimoDiaDoMes(data)]) {
-            try {
-                return await Api.get(`${base}&data=${encodeURIComponent(alternativa)}`);
-            } catch (e) {
-                ultimo = e;
-                if (e.status !== 400) break;
-            }
-        }
-        throw ultimo;
+        const d = await Api.get(`registro-atividades.php?modo=setor&setor_id=${setorId}` + (data ? `&data=${encodeURIComponent(data)}` : ''));
+        tipoPeriodo = d.periodo;
+        return d;
     }
 
     // ---------- montagem ----------
@@ -125,14 +103,17 @@ const RegistroSetor = (function () {
         </div>`;
     }
 
+    // d = dados carregados; null no estado de erro (campo vazio, para a pessoa escolher outro período)
     function montarCampoPeriodo(d) {
-        const semanal = d.periodo === 'semana';
+        const semanal = (d ? d.periodo : tipoPeriodo) === 'semana';
         const tipo = semanal ? 'week' : 'month';
-        const valor = semanal ? valorSemana(d.data) : d.data.slice(0, 7);
-        const max = semanal ? valorSemana(d.hoje) : d.hoje.slice(0, 7);
+        const valor = d ? (semanal ? valorSemana(d.data) : d.data.slice(0, 7)) : '';
+        const max = d ? (semanal ? valorSemana(d.hoje) : d.hoje.slice(0, 7)) : '';
+        const padrao = semanal ? PADRAO_SEMANA : PADRAO_MES;
         return `<div class="form-group ra-campo-data">
             <label for="ra-data">${semanal ? 'Semana do relatório' : 'Mês do relatório'}</label>
-            <input type="${tipo}" id="ra-data" value="${sanitizeHTML(valor)}" max="${sanitizeHTML(max)}" data-acao-mudar="data">
+            <input type="${tipo}" id="ra-data" value="${sanitizeHTML(valor)}"${max ? ` max="${sanitizeHTML(max)}"` : ''}
+                pattern="${padrao}" placeholder="${semanal ? '2026-W48' : '2026-11'}" data-acao-mudar="data">
         </div>`;
     }
 
@@ -144,7 +125,7 @@ const RegistroSetor = (function () {
                 ? `Relatório de ${p.data_referencia.slice(5, 7)}/${p.data_referencia.slice(0, 4)}.`
                 : `Relatório da semana de ${raDataBr(p.data_referencia)} a ${raDataBr(p.periodo_fim)}.`;
             const abrir = p.data_referencia !== dataAtual
-                ? `<button type="button" class="btn-small" data-acao="abrir-dia" data-data="${sanitizeHTML(p.periodo_fim)}">Preencher</button>` : '';
+                ? `<button type="button" class="btn-small" data-acao="abrir-dia" data-data="${sanitizeHTML(p.data_referencia)}">Preencher</button>` : '';
             return `<li class="ra-faixa ${atrasado ? 'ra-faixa--atrasado' : 'ra-faixa--pendente'}">
                 <span><strong>${atrasado ? '⚠️ Atrasado' : '🕒 Pendente'}</strong> ${sanitizeHTML(texto)}</span>${abrir}</li>`;
         }).join('')}</ul>`;
@@ -157,8 +138,11 @@ const RegistroSetor = (function () {
 
     // Só o seletor de setor (quando a data pedida não está em vigor e a API recusou)
     function montarTopoVazio() {
-        const seletor = montarSeletorSetor();
-        return seletor ? `<div class="ra-topo-setor">${seletor}</div>` : '';
+        if (!tipoPeriodo) {
+            const s = setoresDoUsuario().find(x => Number(x.setor_id) === setorId);
+            tipoPeriodo = s && s.periodicidade === 'mensal' ? 'mes' : 'semana';
+        }
+        return `<div class="ra-topo-setor">${montarSeletorSetor()}${montarCampoPeriodo(null)}</div>`;
     }
 
     function descricaoPeriodo(d) {
@@ -169,7 +153,16 @@ const RegistroSetor = (function () {
     // ---------- ações ----------
     /** Valor do campo semana/mês → dia que identifica o período (segunda-feira ou dia 1º) */
     function dataDoCampo(campo) {
-        return campo.type === 'week' ? segundaDaSemana(campo.value) : `${campo.value}-01`;
+        const semana = campo.type === 'week' || campo.placeholder.includes('W');
+        const valor = campo.value.trim();
+        const valido = semana
+            ? new RegExp(`^${PADRAO_SEMANA}$`).test(valor)
+            : new RegExp(`^${PADRAO_MES}$`).test(valor);
+        if (!valido) {
+            mostrarToast('Atenção', `Período inválido. Use o formato ${semana ? '2026-W48 (ano, W e a semana)' : '2026-11 (ano e mês)'}.`, 'warning');
+            return null;
+        }
+        return semana ? segundaDaSemana(valor) : `${valor}-01`;
     }
 
     function trocarSetor(id) {

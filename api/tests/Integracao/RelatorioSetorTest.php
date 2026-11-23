@@ -585,6 +585,33 @@ final class RelatorioSetorTest extends TestCase {
         $this->assertFalse($prazo->abonarRelatorioSetor($this->setor, 'mes', '2026-11-15', 'zz justificativa', $coord));
     }
 
+    public function test_resolve_a_data_do_periodo_parcial_depois_de_trocar_a_periodicidade(): void {
+        $this->db->prepare("DELETE FROM atividades_relatorio_setor WHERE setor_id = ?")->execute([$this->setor]);
+        $ins = $this->db->prepare("INSERT INTO atividades_relatorio_setor (setor_id, periodicidade, inicio, fim) VALUES (?, ?, ?, ?)");
+        $ins->execute([$this->setor, 'semanal', '2026-11-02', '2026-11-29']);
+        $ins->execute([$this->setor, 'mensal', '2026-11-30', null]);
+        $vig = (new PrazoAtividadeService($this->db))->vigenciasDoSetor($this->setor);
+
+        // Início do calendário do mês parcial (antes da vigência mensal): resolve para o mês recortado
+        $mes = PrazoAtividadeService::resolverPeriodoDoSetor($vig, '2026-11-01');
+        $this->assertSame(['mes', '2026-11-01', '2026-11-30'], [$mes['periodo'], $mes['data_referencia'], $mes['periodo_fim']]);
+        // Dia dentro da vigência semanal: a semana
+        $sem = PrazoAtividadeService::resolverPeriodoDoSetor($vig, '2026-11-15');
+        $this->assertSame(['semana', '2026-11-09'], [$sem['periodo'], $sem['data_referencia']]);
+        // Dia dentro da vigência mensal
+        $this->assertSame('2026-12-01', PrazoAtividadeService::resolverPeriodoDoSetor($vig, '2026-12-10')['data_referencia']);
+        // Troca no meio da semana: o dia 1º (domingo) é o início do mês parcial, não só um dia da semana de 26/10
+        $this->db->prepare("DELETE FROM atividades_relatorio_setor WHERE setor_id = ?")->execute([$this->setor]);
+        $ins->execute([$this->setor, 'semanal', '2026-10-26', '2026-11-11']);
+        $ins->execute([$this->setor, 'mensal', '2026-11-12', null]);
+        $vig2 = (new PrazoAtividadeService($this->db))->vigenciasDoSetor($this->setor);
+        $this->assertSame(['mes', '2026-11-01'], [PrazoAtividadeService::resolverPeriodoDoSetor($vig2, '2026-11-01')['periodo'], '2026-11-01']);
+        $this->assertSame('2026-10-26', PrazoAtividadeService::resolverPeriodoDoSetor($vig2, '2026-10-26')['data_referencia']);
+        $this->assertSame(['semana', '2026-11-09'], [PrazoAtividadeService::resolverPeriodoDoSetor($vig2, '2026-11-10')['periodo'], PrazoAtividadeService::resolverPeriodoDoSetor($vig2, '2026-11-10')['data_referencia']]);
+        // Antes de qualquer vigência
+        $this->assertNull(PrazoAtividadeService::resolverPeriodoDoSetor($vig, '2026-10-15'));
+    }
+
     public function test_setor_sem_relatorio_do_setor_tem_os_mesmos_numeros_de_antes(): void {
         $this->db->prepare("DELETE FROM atividades_relatorio_setor WHERE setor_id = ?")->execute([$this->setor]);
         $op = $this->criarUsuario($this->setor);

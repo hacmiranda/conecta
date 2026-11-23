@@ -669,6 +669,26 @@ class PrazoAtividadeService {
         return (int) $stmt->fetchColumn() > 0;
     }
 
+    /**
+     * Resolve a data pedida na tela do relatório do setor para um período (periodo, data_referencia, periodo_fim,
+     * periodicidade). Primeiro vale a data que é o início (data_referencia) de um período recortado de alguma
+     * vigência — é a data que as pendências e o próprio GET devolvem, e num período parcial ela cai antes da
+     * vigência (ou dentro de outro período, como o dia 1º numa semana que atravessa o mês). Depois, o período
+     * recortado que contém o dia. Fora disso, null.
+     */
+    public static function resolverPeriodoDoSetor(array $vigencias, string $data): ?array {
+        foreach ($vigencias as $v) {
+            foreach (self::periodosDaVigencia($v, $data, self::fimDoPeriodo($v['periodicidade'], $data)) as $p) {
+                if ($p['data_referencia'] === $data) return $p + ['periodicidade' => $v['periodicidade']];
+            }
+        }
+        foreach ($vigencias as $v) {
+            $periodos = self::periodosDaVigencia($v, $data, $data);
+            if ($periodos) return $periodos[0] + ['periodicidade' => $v['periodicidade']];
+        }
+        return null;
+    }
+
     /** $data é o início (data_referencia) de um período do calendário de alguma vigência do setor? */
     public function periodoExisteNaVigencia(int $setorId, string $periodo, string $data): bool {
         foreach ($this->vigenciasDoSetor($setorId) as $v) {

@@ -209,10 +209,10 @@ function montarFormularioRegistro(d, enviado) {
             </th>
             <td>
                 <div class="ra-contador">
-                    <button type="button" class="ra-passo" data-acao="menos" aria-label="Diminuir ${sanitizeHTML(a.nome)}">−</button>
+                    <button type="button" class="ra-passo" data-acao="menos"${bloqueado} aria-label="Diminuir ${sanitizeHTML(a.nome)}">−</button>
                     <input type="number" class="ra-qtd" min="0" max="9999" step="1" inputmode="numeric" value="${Number(a.quantidade)}"
-                        aria-label="Quantidade de ${sanitizeHTML(a.nome)}" data-acao-mudar="qtd">
-                    <button type="button" class="ra-passo" data-acao="mais" aria-label="Aumentar ${sanitizeHTML(a.nome)}">+</button>
+                        aria-label="Quantidade de ${sanitizeHTML(a.nome)}" data-acao-mudar="qtd"${bloqueado}>
+                    <button type="button" class="ra-passo" data-acao="mais"${bloqueado} aria-label="Aumentar ${sanitizeHTML(a.nome)}">+</button>
                 </div>
             </td>
             <td>
@@ -224,7 +224,7 @@ function montarFormularioRegistro(d, enviado) {
             <td colspan="3">
                 <label class="sr-only" for="ra-obs-campo-${a.id}">Observação para ${sanitizeHTML(a.nome)}</label>
                 <input type="text" class="ra-obs" id="ra-obs-campo-${a.id}" maxlength="500" value="${sanitizeHTML(a.observacao)}"
-                    placeholder="Observação opcional para esta atividade…" data-acao-mudar="obs">
+                    placeholder="Observação opcional para esta atividade…" data-acao-mudar="obs"${bloqueado}>
             </td>
         </tr>`).join('');
 
@@ -601,8 +601,9 @@ function ligarAcoesRegistroAtividades(conteudo) {
     conteudo.addEventListener('change', (ev) => {
         const tipo = ev.target.dataset.acaoMudar;
         if (tipo === 'modalidade') marcarAlteracaoRegistro();
-        else if (tipo === 'data' && ev.target.value && ev.target.checkValidity()) {
-            carregarRegistroAtividades(raModo === 'setor' ? RegistroSetor.dataDoCampo(ev.target) : ev.target.value);
+        else if (tipo === 'data' && ev.target.value && (raModo === 'setor' || ev.target.checkValidity())) {
+            const data = raModo === 'setor' ? RegistroSetor.dataDoCampo(ev.target) : ev.target.value;
+            if (data) carregarRegistroAtividades(data);
         } else if (tipo === 'setor') RegistroSetor.trocarSetor(Number(ev.target.value));
         else if (tipo === 'qtd') {
             ev.target.value = Math.max(0, Math.min(9999, Number(ev.target.value) || 0));
