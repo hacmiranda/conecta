@@ -46,7 +46,7 @@ desobrigação; telas existentes (Registro, Configurações → Atividades, Acom
 
 ---
 
-### Tarefa 1: Migração 43
+### Task 1: Migração 43
 
 **Arquivos:**
 - Criar: `database/43_relatorio_setor_coordenador.sql`
@@ -85,7 +85,7 @@ desobrigação; telas existentes (Registro, Configurações → Atividades, Acom
   e o controller passar `$setorId`; `composer test` verde.
 - [ ] **Passo 8:** commit `feat: migração 43 (setor no registro de atividades e relatório do setor)`.
 
-### Tarefa 2: Cobrança por período (função pura)
+### Task 2: Cobrança por período (função pura)
 
 **Arquivos:**
 - Modificar: `api/services/prazo-atividade-service.php`
@@ -122,7 +122,7 @@ desobrigação; telas existentes (Registro, Configurações → Atividades, Acom
 - [ ] **Passo 4:** rodar → passam.
 - [ ] **Passo 5:** commit `feat: cobrança por período do relatório do setor`.
 
-### Tarefa 3: Desobrigação dos servidores (função pura + banco)
+### Task 3: Desobrigação dos servidores (função pura + banco)
 
 **Arquivos:**
 - Modificar: `api/services/prazo-atividade-service.php` (`calcularPendencias`, `pendenciasUsuario`,
@@ -148,7 +148,7 @@ desobrigação; telas existentes (Registro, Configurações → Atividades, Acom
 - [ ] **Passo 3:** rodar → falham. **Passo 4:** implementar. **Passo 5:** `composer test` verde.
 - [ ] **Passo 6:** commit `feat: servidores desobrigados enquanto vale o relatório do setor`.
 
-### Tarefa 4: Vigências e acesso (`RelatorioSetorService` + `AcessoService`)
+### Task 4: Vigências e acesso (`RelatorioSetorService` + `AcessoService`)
 
 **Arquivos:**
 - Criar: `api/services/relatorio-setor-service.php`
@@ -184,7 +184,7 @@ desobrigação; telas existentes (Registro, Configurações → Atividades, Acom
 - [ ] **Passo 2:** falham. **Passo 3:** implementar. **Passo 4:** `composer test` verde.
 - [ ] **Passo 5:** commit `feat: vigências do relatório do setor e regras de acesso`.
 
-### Tarefa 5: Envio do relatório do setor (API)
+### Task 5: Envio do relatório do setor (API)
 
 **Arquivos:**
 - Modificar: `api/services/registro-atividade-service.php`, `api/controllers/registro-atividades.php`,
@@ -217,7 +217,7 @@ desobrigação; telas existentes (Registro, Configurações → Atividades, Acom
 - [ ] **Passo 2:** falham. **Passo 3:** implementar. **Passo 4:** `composer test` verde.
 - [ ] **Passo 5:** commit `feat: envio do relatório do setor pelo coordenador (API)`.
 
-### Tarefa 6: Configurações → Atividades (bloco 4)
+### Task 6: Configurações → Atividades (bloco 4)
 
 **Arquivos:**
 - Modificar: `api/controllers/atividades-config.php`, `frontend/atividades-config.js`,
@@ -241,7 +241,7 @@ desobrigação; telas existentes (Registro, Configurações → Atividades, Acom
   desligar; textos de vigência corretos; sem erros de console; modo escuro.
 - [ ] **Passo 4:** commit `feat: opção do relatório do setor em Configurações → Atividades`.
 
-### Tarefa 7: Acompanhamento (backend)
+### Task 7: Acompanhamento (backend)
 
 **Arquivos:**
 - Modificar: `api/services/atividades-acompanhamento-service.php`,
@@ -278,7 +278,7 @@ desobrigação; telas existentes (Registro, Configurações → Atividades, Acom
 - [ ] **Passo 2:** falham. **Passo 3:** implementar. **Passo 4:** `composer test` verde.
 - [ ] **Passo 5:** commit `feat: relatório do setor no acompanhamento e abono pelo coordenador`.
 
-### Tarefa 8: Registro de Atividades no navegador (coordenador e servidor desobrigado)
+### Task 8: Registro de Atividades no navegador (coordenador e servidor desobrigado)
 
 **Arquivos:**
 - Criar: `frontend/registro-atividades-setor.js` (modo setor; reaproveita as funções de lista/−/+/rascunho de
@@ -302,7 +302,7 @@ desobrigação; telas existentes (Registro, Configurações → Atividades, Acom
   restaura, envia; operador do setor vê a faixa e não envia; 360 px; teclado; modo escuro; console limpo.
 - [ ] **Passo 3:** commit `feat: tela do relatório do setor para o coordenador`.
 
-### Tarefa 9: Acompanhamento no navegador
+### Task 9: Acompanhamento no navegador
 
 **Arquivos:**
 - Modificar: `frontend/atividades-acompanhamento.js`, `frontend/atividades-acompanhamento.css`,
@@ -320,7 +320,7 @@ desobrigação; telas existentes (Registro, Configurações → Atividades, Acom
 - [ ] **Passo 1:** implementar. **Passo 2:** navegador como admin e coordenador (abonar, remover, filtros, CSV
   abre no Excel com acentos). **Passo 3:** commit `feat: relatório do setor nas telas de acompanhamento`.
 
-### Tarefa 10: Matriz de acesso, documentação e conferência final
+### Task 10: Matriz de acesso, documentação e conferência final
 
 **Arquivos:**
 - Modificar: `api/tests/matriz-de-acesso.php` (seção nova `[7g]` depois da `[7f]`), `CLAUDE.md`,
