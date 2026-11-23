@@ -11,14 +11,35 @@ let raDados = null;
 let raSujo = false;
 let raTimer = null;
 let raRelogio = null;
+// 'servidor' = registro do próprio dia; 'setor' = relatório do setor enviado pelo coordenador (registro-atividades-setor.js)
+let raModo = 'servidor';
 
 function mostrarRegistroAtividades(data) {
+    // Quem não registra atividades próprias mas envia o relatório do setor (coordenador) vai direto a ele
+    if (!Papeis.registraAtividades() && Papeis.enviaRelatorioSetor()) {
+        RegistroSetor.abrir(null, data);
+        return;
+    }
+    raModo = 'servidor';
+    RegistroSetor.restaurarTitulo();
     mostrarSecao('registro-atividades');
     carregarRegistroAtividades(data);
 }
 
+function raEhSetor() {
+    return !!raDados && raDados.modo === 'setor';
+}
+
+// Chave da cópia local do rascunho: por registro (servidor) ou por setor e período (relatório do setor)
 function raChaveLocal() {
-    return raDados ? `cd_ra_rascunho_${raDados.registro.id}` : null;
+    if (!raDados) return null;
+    return raEhSetor() ? `cd_ra_rascunho_setor_${raDados.setor.id}_${raDados.data}` : `cd_ra_rascunho_${raDados.registro.id}`;
+}
+
+// Endereço da API do registro atual (acrescenta modo=setor no relatório do setor)
+function raUrl(params) {
+    const lista = (raEhSetor() ? ['modo=setor'] : []).concat(params);
+    return 'registro-atividades.php' + (lista.length ? '?' + lista.join('&') : '');
 }
 
 function raDataBr(iso) {
@@ -50,14 +71,19 @@ async function carregarRegistroAtividades(data) {
     ligarAcoesRegistroAtividades(conteudo);
     iniciarRelogioRegistro();
     try {
-        raDados = await Api.get('registro-atividades.php' + (data ? `?data=${encodeURIComponent(data)}` : ''));
+        raDados = raModo === 'setor'
+            ? await RegistroSetor.buscar(data)
+            : await Api.get('registro-atividades.php' + (data ? `?data=${encodeURIComponent(data)}` : ''));
         conteudo.innerHTML = montarRegistroAtividades(raDados);
         aplicarAlturasGraficoRegistro();
         ordenarLinhasRegistro();
         atualizarContadorRegistro();
         verificarRascunhoLocalRegistro();
     } catch (e) {
-        conteudo.innerHTML = `<p class="ra-aviso" role="alert">${sanitizeHTML(mensagemDeErro(e, 'Erro ao carregar o registro de atividades.'))}</p>`;
+        raDados = null;
+        const aviso = `<p class="ra-aviso" role="alert">${sanitizeHTML(mensagemDeErro(e, 'Erro ao carregar o registro de atividades.'))}</p>`;
+        // No relatório do setor mantém o seletor de setor/período, para a pessoa poder escolher outro
+        conteudo.innerHTML = (raModo === 'setor' ? RegistroSetor.montarTopoVazio() : '') + aviso;
     }
 }
 
@@ -85,10 +111,9 @@ function iniciarRelogioRegistro() {
 // ---------- montagem ----------
 function montarRegistroAtividades(d) {
     const enviado = d.registro.status === 'enviado';
-    return `
-        <div class="ra-colunas${d.historico.length ? '' : ' ra-colunas--sem-historico'}">
-            <div class="ra-principal">
-                ${montarPendenciasRegistro(d.pendencias, d.data)}
+    const topo = d.modo === 'setor'
+        ? RegistroSetor.montarTopo(d)
+        : `${montarPendenciasRegistro(d.pendencias, d.data)}
                 <div class="ra-barra-data">
                     <p class="ra-dica">ℹ️ Escolha a data de referência. Você pode preencher qualquer dia anterior.</p>
                     <div class="form-group ra-campo-data">
@@ -96,6 +121,11 @@ function montarRegistroAtividades(d) {
                         <input type="date" id="ra-data" value="${sanitizeHTML(d.data)}" min="${sanitizeHTML(d.data_minima)}" max="${sanitizeHTML(d.hoje)}" data-acao-mudar="data">
                     </div>
                 </div>
+                ${montarFaixaDesobrigado(d.desobrigado)}`;
+    return `
+        <div class="ra-colunas${d.historico.length ? '' : ' ra-colunas--sem-historico'}">
+            <div class="ra-principal">
+                ${topo}
                 <div class="ra-faixa ra-faixa--restaurar" id="ra-restaurar" hidden role="alert">
                     <span>💾 Encontramos um rascunho salvo neste navegador. Deseja restaurá-lo?</span>
                     <span class="ra-faixa-acoes">
@@ -106,7 +136,7 @@ function montarRegistroAtividades(d) {
                 ${enviado
                     ? `<div class="ra-faixa ra-faixa--enviado" role="status"><strong>✅ Relatório enviado com sucesso!</strong>
                         <span>Enviado às ${sanitizeHTML(raHora(d.registro.enviado_em))}. Os dados estão bloqueados para edição.</span></div>`
-                    : `<div class="ra-faixa ra-faixa--rascunho" role="status"><strong>📝 Rascunho em andamento</strong>
+                    : d.desobrigado ? '' : `<div class="ra-faixa ra-faixa--rascunho" role="status"><strong>📝 Rascunho em andamento</strong>
                         <span>Preencha as quantidades e clique em <strong>Finalizar e enviar</strong> quando terminar.</span></div>`}
                 ${d.atividades.length ? montarFormularioRegistro(d, enviado) : `
                     <div class="ra-cartao ra-vazio">
@@ -116,6 +146,14 @@ function montarRegistroAtividades(d) {
             </div>
             ${d.historico.length ? montarHistoricoRegistro(d.historico) : ''}
         </div>`;
+}
+
+// Servidor de um setor cujo relatório é enviado pelo coordenador: avisa e trava o envio nessas datas
+function montarFaixaDesobrigado(desobrigado) {
+    if (!desobrigado) return '';
+    const coord = desobrigado.coordenador ? ` Coordenador(a): ${sanitizeHTML(desobrigado.coordenador)}.` : '';
+    return `<div class="ra-faixa ra-faixa--desobrigado" role="status"><strong>ℹ️ Você está desobrigado(a) neste período.</strong>
+        <span>O relatório deste setor é enviado pelo coordenador desde ${raDataBr(desobrigado.desde)}.${coord}</span></div>`;
 }
 
 function montarPendenciasRegistro(pendencias, dataAtual) {
@@ -133,6 +171,8 @@ function montarPendenciasRegistro(pendencias, dataAtual) {
 }
 
 function montarFormularioRegistro(d, enviado) {
+    const dia = d.modo === 'setor' ? 'período' : 'dia';
+    const bloqueado = d.desobrigado ? ' disabled' : '';
     const modalidade = d.exige_modalidade ? (enviado
         ? `<p class="ra-modalidade-fixa">Modalidade do dia: <strong>${d.registro.modalidade === 'presencial' ? '🏢 Presencial' : '🏠 Remoto'}</strong></p>`
         : `<fieldset class="ra-modalidade">
@@ -151,9 +191,9 @@ function montarFormularioRegistro(d, enviado) {
             </tr>`).join('');
         return `${modalidade}
             <div class="ra-cartao">
-                <h3 class="ra-cartao-titulo">Atividades do dia</h3>
+                <h3 class="ra-cartao-titulo">Atividades do ${dia}</h3>
                 <div class="ra-tabela-wrap"><table class="ra-tabela">
-                    <caption class="sr-only">Atividades registradas em ${raDataBr(d.data)}</caption>
+                    <caption class="sr-only">Atividades registradas em ${sanitizeHTML(raDescricaoPeriodo(d))}</caption>
                     <thead><tr><th scope="col">Atividade</th><th scope="col">Quantidade</th><th scope="col">Observação</th></tr></thead>
                     <tbody>${linhas}</tbody>
                 </table></div>
@@ -191,7 +231,7 @@ function montarFormularioRegistro(d, enviado) {
     return `${modalidade}
         <div class="ra-cartao">
             <div class="ra-cartao-cabecalho">
-                <h3 class="ra-cartao-titulo">Atividades do dia</h3>
+                <h3 class="ra-cartao-titulo">Atividades do ${dia}</h3>
                 <span class="ra-contagem" aria-live="polite"><span id="ra-preenchidas">0</span> de ${d.atividades.length} preenchidas</span>
                 <button type="button" class="btn-small btn-secondary" data-acao="zerar">↺ Zerar tudo</button>
             </div>
@@ -200,15 +240,15 @@ function montarFormularioRegistro(d, enviado) {
                 <input type="search" id="ra-busca" placeholder="🔍 Encontrar atividade..." data-acao-mudar="busca">
             </div>
             <div class="ra-tabela-wrap"><table class="ra-tabela">
-                <caption class="sr-only">Atividades do dia ${raDataBr(d.data)}: quantidade e observação</caption>
+                <caption class="sr-only">Atividades do ${dia} ${sanitizeHTML(raDescricaoPeriodo(d))}: quantidade e observação</caption>
                 <thead><tr><th scope="col">Atividade</th><th scope="col">Quantidade</th><th scope="col"><span class="sr-only">Observação</span>Nota</th></tr></thead>
                 <tbody id="ra-corpo">${linhas}</tbody>
             </table></div>
             <div class="ra-acoes">
                 <p class="ra-autosave" role="status"><span class="ra-ponto" id="ra-ponto"></span> <span id="ra-autosave">Pronto</span></p>
                 <div class="ra-acoes-botoes">
-                    <button type="button" class="btn-secondary ra-botao" data-acao="salvar">💾 Salvar rascunho</button>
-                    <button type="button" class="btn-primary ra-botao" data-acao="finalizar">📤 Finalizar e enviar</button>
+                    <button type="button" class="btn-secondary ra-botao" data-acao="salvar"${bloqueado}>💾 Salvar rascunho</button>
+                    <button type="button" class="btn-primary ra-botao" data-acao="finalizar"${bloqueado}>📤 Finalizar e enviar</button>
                 </div>
             </div>
         </div>`;
@@ -218,21 +258,21 @@ function montarHistoricoRegistro(historico) {
     const ultimos = historico.slice(0, 5).reverse();
     const maximo = Math.max(1, ...ultimos.map(h => h.total_itens));
     const barras = ultimos.map(h => {
-        const titulo = `${raDiaSemana(h.data_referencia, true)}, ${raDataBr(h.data_referencia)}: ${h.total_itens} atividade(s), ${h.total_tarefas} tarefa(s)`;
+        const titulo = `${raRotuloHistorico(h, true)}: ${h.total_itens} atividade(s), ${h.total_tarefas} tarefa(s)`;
         const altura = Math.max(6, (h.total_itens / maximo) * 100);
         return `<li class="ra-grafico-coluna">
             <span class="ra-grafico-barra${h.total_itens > 0 && h.total_itens === maximo ? ' ra-grafico-barra--max' : ''}" data-altura="${altura.toFixed(1)}"
                 title="${sanitizeHTML(titulo)}"></span>
-            <span class="ra-grafico-rotulo" aria-hidden="true">${raDiaSemana(h.data_referencia)}<small>${raDataBr(h.data_referencia).slice(0, 5)}</small></span>
+            <span class="ra-grafico-rotulo" aria-hidden="true">${raRotuloHistorico(h, false)}</span>
             <span class="sr-only">${sanitizeHTML(titulo)}</span>
         </li>`;
     }).join('');
     const itens = historico.map(h => `
         <li class="ra-hist-item">
             <button type="button" class="ra-hist-botao" data-acao="historico" data-id="${h.id}" aria-expanded="false" aria-controls="ra-hist-${h.id}">
-                <span class="ra-hist-data">${raDiaSemana(h.data_referencia)}, ${raDataBr(h.data_referencia)}</span>
+                <span class="ra-hist-data">${raRotuloHistorico(h, true)}</span>
                 <span class="ra-hist-total">Atividades desenvolvidas: ${String(h.total_itens).padStart(2, '0')} • Tarefas realizadas: ${String(h.total_tarefas).padStart(2, '0')}</span>
-                <span class="ra-hist-enviado">Enviado ${h.enviado_em ? `${raDataBr(h.enviado_em)} às ${raHora(h.enviado_em)}` : ''}</span>
+                <span class="ra-hist-enviado">Enviado ${h.enviado_em ? `${raDataBr(h.enviado_em)} às ${raHora(h.enviado_em)}` : ''}${h.usuario_nome ? ` por ${sanitizeHTML(h.usuario_nome)}` : ''}</span>
             </button>
             <div class="ra-hist-detalhes" id="ra-hist-${h.id}" hidden></div>
         </li>`).join('');
@@ -243,6 +283,25 @@ function montarHistoricoRegistro(historico) {
             <ul class="ra-grafico" aria-label="Atividades desenvolvidas nos últimos ${ultimos.length} envios">${barras}</ul>
             <ul class="ra-hist-lista">${itens}</ul>
         </aside>`;
+}
+
+// Rótulo de um item do histórico: dia da semana e data (registro do dia) ou semana/mês (relatório do setor)
+function raRotuloHistorico(h, completo) {
+    if (h.periodo === 'mes') {
+        const [a, m] = String(h.data_referencia).slice(0, 7).split('-');
+        return completo ? `Mês ${m}/${a}` : `Mês<small>${m}/${a}</small>`;
+    }
+    if (h.periodo === 'semana') {
+        return completo ? `Semana de ${raDataBr(h.data_referencia)}` : `Sem.<small>${raDataBr(h.data_referencia).slice(0, 5)}</small>`;
+    }
+    return completo
+        ? `${raDiaSemana(h.data_referencia, true)}, ${raDataBr(h.data_referencia)}`
+        : `${raDiaSemana(h.data_referencia)}<small>${raDataBr(h.data_referencia).slice(0, 5)}</small>`;
+}
+
+// Descrição do dia ou período aberto, para legendas e confirmações
+function raDescricaoPeriodo(d) {
+    return d.modo === 'setor' ? RegistroSetor.descricaoPeriodo(d) : raDataBr(d.data);
 }
 
 // Altura das barras pela variável CSS (sem style= no HTML montado)
@@ -315,6 +374,7 @@ function salvarLocalRegistro() {
 }
 
 function marcarAlteracaoRegistro() {
+    if (raDados && raDados.desobrigado) return; // data coberta pelo relatório do setor: nada a gravar
     raSujo = true;
     salvarLocalRegistro();
     clearTimeout(raTimer);
@@ -330,11 +390,12 @@ async function salvarRascunhoAtividades(silencioso) {
     statusAutosave('Salvando…', 'salvando');
     salvarLocalRegistro();
     const id = raDados.registro.id;
+    const chaveLocal = raChaveLocal();
     try {
-        await Api.put(`registro-atividades.php?id=${id}`, { itens: coletarItensRegistro(), modalidade: modalidadeEscolhidaRegistro() });
+        await Api.put(raUrl([`id=${id}`]), { itens: coletarItensRegistro(), modalidade: modalidadeEscolhidaRegistro() });
         raSujo = false;
         statusAutosave('Salvo às ' + new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }), 'salvo');
-        try { localStorage.removeItem(`cd_ra_rascunho_${id}`); } catch (e) { /* sem armazenamento */ }
+        try { localStorage.removeItem(chaveLocal); } catch (e) { /* sem armazenamento */ }
         if (!silencioso) mostrarToast('Sucesso', 'Rascunho salvo!', 'success');
     } catch (e) {
         if (e && !e.status) {
@@ -410,8 +471,9 @@ function finalizarRegistroAtividades() {
     const itens = coletarItensRegistro();
     const preenchidas = itens.filter(i => i.quantidade > 0).length;
     const total = itens.reduce((s, i) => s + i.quantidade, 0);
+    const chaveLocal = raChaveLocal();
     mostrarConfirm('Confirmar envio do relatório',
-        `Data do relatório: ${raDataBr(raDados.data)}\nAtividades preenchidas: ${preenchidas} de ${itens.length}\nTotal de ocorrências: ${total}\n\n`
+        `${raEhSetor() ? 'Período' : 'Data do relatório'}: ${raDescricaoPeriodo(raDados)}\nAtividades preenchidas: ${preenchidas} de ${itens.length}\nTotal de ocorrências: ${total}\n\n`
         + 'Depois de enviado, o relatório fica bloqueado para edição. Confira os dados antes de confirmar.',
         async (ok) => {
             document.getElementById('modal-confirm-message')?.classList.remove('ra-quebra-linhas');
@@ -421,9 +483,9 @@ function finalizarRegistroAtividades() {
             if (botao) botao.disabled = true;
             try {
                 clearTimeout(raTimer);
-                await Api.post(`registro-atividades.php?acao=finalizar&id=${id}`, { itens, modalidade: modalidadeEscolhidaRegistro() });
+                await Api.post(raUrl(['acao=finalizar', `id=${id}`]), { itens, modalidade: modalidadeEscolhidaRegistro() });
                 raSujo = false;
-                try { localStorage.removeItem(`cd_ra_rascunho_${id}`); } catch (e) { /* sem armazenamento */ }
+                try { localStorage.removeItem(chaveLocal); } catch (e) { /* sem armazenamento */ }
                 mostrarToast('Sucesso', 'Relatório enviado!', 'success');
                 await carregarRegistroAtividades(raDados.data);
             } catch (e) {
@@ -450,7 +512,7 @@ function zerarRegistroAtividades() {
 
 async function alternarFavoritoRegistro(botao) {
     try {
-        const r = await Api.post('registro-atividades.php?acao=favorito', { atividade_tipo_id: Number(botao.dataset.id) });
+        const r = await Api.post(raUrl(['acao=favorito'].concat(raEhSetor() ? [`setor_id=${raDados.setor.id}`] : [])), { atividade_tipo_id: Number(botao.dataset.id) });
         const linha = botao.closest('tr');
         linha.dataset.favorito = r.favorito ? '1' : '0';
         botao.classList.toggle('ra-estrela--ativa', r.favorito);
@@ -471,12 +533,12 @@ async function abrirHistoricoRegistro(botao) {
     if (!abrir || painel.dataset.carregado) return;
     painel.innerHTML = '<p class="ra-aviso">Carregando…</p>';
     try {
-        const { itens } = await Api.get(`registro-atividades.php?acao=itens&id=${Number(botao.dataset.id)}`);
+        const { itens } = await Api.get(raUrl(['acao=itens', `id=${Number(botao.dataset.id)}`]));
         painel.dataset.carregado = '1';
         painel.innerHTML = itens.length
             ? `<ul class="ra-hist-itens">${itens.map(i => `<li><span>${sanitizeHTML(i.atividade_nome)}</span><strong>${Number(i.quantidade)}</strong>
                 ${i.observacao ? `<small>${sanitizeHTML(i.observacao)}</small>` : ''}</li>`).join('')}</ul>`
-            : '<p class="ra-aviso">Nenhuma atividade com quantidade neste dia.</p>';
+            : `<p class="ra-aviso">Nenhuma atividade com quantidade neste ${raEhSetor() ? 'período' : 'dia'}.</p>`;
     } catch (e) {
         painel.innerHTML = `<p class="ra-aviso" role="alert">${sanitizeHTML(mensagemDeErro(e, 'Erro ao carregar os itens.'))}</p>`;
     }
@@ -539,7 +601,9 @@ function ligarAcoesRegistroAtividades(conteudo) {
     conteudo.addEventListener('change', (ev) => {
         const tipo = ev.target.dataset.acaoMudar;
         if (tipo === 'modalidade') marcarAlteracaoRegistro();
-        else if (tipo === 'data' && ev.target.value && ev.target.checkValidity()) carregarRegistroAtividades(ev.target.value);
+        else if (tipo === 'data' && ev.target.value && ev.target.checkValidity()) {
+            carregarRegistroAtividades(raModo === 'setor' ? RegistroSetor.dataDoCampo(ev.target) : ev.target.value);
+        } else if (tipo === 'setor') RegistroSetor.trocarSetor(Number(ev.target.value));
         else if (tipo === 'qtd') {
             ev.target.value = Math.max(0, Math.min(9999, Number(ev.target.value) || 0));
             atualizarContadorRegistro();

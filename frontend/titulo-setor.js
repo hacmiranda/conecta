@@ -38,6 +38,8 @@
     }
 
     function deveMostrar(secaoId) {
+        // Relatório do setor (coordenador): o título já traz o setor; o seletor do cabeçalho não vale aqui
+        if (secaoId === 'registro-atividades' && typeof Papeis !== 'undefined' && !Papeis.registraAtividades(lerUsuario() || {})) return false;
         if (secaoId === 'config') {
             const subtela = lerSubtela();
             if (subtela === 'usuarios' && typeof abaUsuariosAtiva !== 'undefined' && abaUsuariosAtiva === 'solicitantes') return false;

@@ -996,7 +996,8 @@ function selecionarModal(opcao) {
 // Registro de Atividades (veio do METRICA360): gestor e operador com setor de lotação. Desde 19/11/2026
 // administrador, coordenador, coordenador geral e supervisor não registram (não veem a tela)
 function podeRegistrarAtividades() {
-    return Papeis.registraAtividades();
+    // Gestor/operador (registro do dia) ou coordenador que envia o relatório do setor
+    return Papeis.registraAtividades() || Papeis.enviaRelatorioSetor();
 }
 
 // Mostra/oculta o menu Configurações e seus itens conforme o papel do usuário logado.
@@ -1297,8 +1298,10 @@ async function atualizarUsuarioDoServidor(guardado) {
         const atual = resposta && resposta.usuario;
         if (!atual) return;
         const idsSetores = (u) => JSON.stringify(Papeis.setores(u) === null ? null : Papeis.setores(u).map(x => Number(x.id)));
+        const idsRelatorio = (u) => JSON.stringify((Array.isArray(u.relatorio_setor) ? u.relatorio_setor : []).map(x => Number(x.setor_id)));
         const mudou = atual.tipo !== guardado.tipo || String(atual.setor_id ?? '') !== String(guardado.setor_id ?? '')
-            || idsSetores(atual) !== idsSetores(guardado) || !!atual.atendimento_externo !== !!guardado.atendimento_externo;
+            || idsSetores(atual) !== idsSetores(guardado) || !!atual.atendimento_externo !== !!guardado.atendimento_externo
+            || idsRelatorio(atual) !== idsRelatorio(guardado);
         localStorage.setItem('cd_usuario', JSON.stringify(Object.assign({}, guardado, atual)));
         if (mudou) {
             window.location.reload();

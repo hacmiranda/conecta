@@ -63,6 +63,11 @@ const Papeis = (function () {
             const usuario = u || usuarioDaSessao();
             return REGISTRAM_ATIVIDADES.includes(usuario.tipo) && !!usuario.setor_id;
         },
+        /** Coordenador que envia o relatório do setor (semanal/mensal) de ao menos um setor (23/11/2026) */
+        enviaRelatorioSetor: (u) => {
+            const usuario = u || usuarioDaSessao();
+            return Array.isArray(usuario.relatorio_setor) && usuario.relatorio_setor.length > 0;
+        },
         veSatisfacao: (u) => SATISFACAO.includes(tipoDe(u)),
         /** Cruzamento de Dados (17/11/2026): visão total e coordenador (nos setores dele); gestor não */
         veCruzamento: (u) => VISAO_TOTAL.includes(tipoDe(u)) || tipoDe(u) === 'coordenador',

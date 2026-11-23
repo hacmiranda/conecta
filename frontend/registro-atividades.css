@@ -543,3 +543,26 @@ body.modo-escuro {
         transition: none;
     }
 }
+
+/* Relatório do setor (coordenador) e aviso do servidor desobrigado, 23/11/2026 */
+.ra-faixa--desobrigado {
+    background: var(--ra-ok-fundo);
+    color: var(--ra-ok-texto);
+    border-left-color: var(--verde-500);
+}
+
+.ra-topo-setor {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-end;
+    gap: var(--ra-espaco-3);
+}
+
+.ra-topo-setor .form-group {
+    margin: 0;
+}
+
+.ra-topo-setor select,
+.ra-topo-setor input {
+    max-width: 100%;
+}
