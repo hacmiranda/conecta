@@ -1,6 +1,8 @@
 <?php
 use PHPUnit\Framework\TestCase;
 
+require_once __DIR__ . '/../../services/relatorio-setor-service.php';
+
 /**
  * Esquema da migração 43 (setor no registro de atividades e relatório do setor enviado pelo coordenador).
  * Banco local em transação desfeita; recusa produção. Não executa DDL (faria commit implícito).
@@ -99,5 +101,156 @@ final class RelatorioSetorTest extends TestCase {
         $this->db->prepare("INSERT INTO registros_atividades (usuario_id, setor_id, periodo, data_referencia, status) VALUES (?, ?, 'semana', '2026-08-10', 'enviado')")->execute([$u, $this->setor]);
         $this->db->prepare("UPDATE atividades_relatorio_setor SET fim = '2026-08-09' WHERE setor_id = ?")->execute([$this->setor]);
         $this->assertCount(1, $svc->pendenciasUsuario($u, '2026-08-10', '2026-08-16'));
+    }
+
+    // ---------- RelatorioSetorService (Tarefa 4) ----------
+
+    private function servico(bool $comCoordenador = true): RelatorioSetorService {
+        $this->db->prepare("DELETE FROM atividades_relatorio_setor WHERE setor_id = ?")->execute([$this->setor]);
+        if ($comCoordenador) {
+            $this->criarCoordenador($this->setor);
+        }
+        return new RelatorioSetorService($this->db);
+    }
+
+    private function criarCoordenador(int $setor, int $ativo = 1): int {
+        $this->db->prepare("INSERT INTO usuarios (nome, email, senha, tipo, setor_id, ativo, trocar_senha) VALUES ('zz Coord', ?, 'x', 'coordenador', ?, ?, 0)")
+                 ->execute(['zz.coord.' . bin2hex(random_bytes(4)) . '@teste.local', $setor, $ativo]);
+        return (int) $this->db->lastInsertId();
+    }
+
+    private function linhas(): array {
+        $stmt = $this->db->prepare("SELECT periodicidade, inicio, fim FROM atividades_relatorio_setor WHERE setor_id = ? ORDER BY inicio");
+        $stmt->execute([$this->setor]);
+        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+    }
+
+    public function test_ligar_comeca_no_inicio_da_semana(): void {
+        $svc = $this->servico();
+        $r = $svc->alterar($this->setor, true, 'semanal', 1, '2026-11-18'); // quarta
+        $this->assertNull($r['antes']['atual']);
+        $this->assertSame('2026-11-16', $r['depois']['atual']['inicio']);
+        $this->assertNull($r['depois']['atual']['fim']);
+        $this->assertSame('semanal', $svc->vigenciaAtual($this->setor, '2026-11-18')['periodicidade']);
+    }
+
+    public function test_ligar_mensal_comeca_no_dia_primeiro(): void {
+        $svc = $this->servico();
+        $r = $svc->alterar($this->setor, true, 'mensal', 1, '2026-11-18');
+        $this->assertSame('2026-11-01', $r['depois']['atual']['inicio']);
+    }
+
+    public function test_desligar_vale_ate_o_fim_do_periodo(): void {
+        $svc = $this->servico();
+        $svc->alterar($this->setor, true, 'semanal', 1, '2026-11-18');
+        $r = $svc->alterar($this->setor, false, 'semanal', 1, '2026-11-18');
+        $this->assertSame('2026-11-22', $r['depois']['atual']['fim']); // domingo
+        $this->assertNull($svc->vigenciaAtual($this->setor, '2026-11-23'));
+        // Desligar de novo não muda nada
+        $r2 = $svc->alterar($this->setor, false, 'semanal', 1, '2026-11-18');
+        $this->assertSame($r['depois'], $r2['depois']);
+    }
+
+    public function test_religar_antes_do_fim_cancela_o_fim(): void {
+        $svc = $this->servico();
+        $svc->alterar($this->setor, true, 'semanal', 1, '2026-11-18');
+        $svc->alterar($this->setor, false, 'semanal', 1, '2026-11-18');
+        $r = $svc->alterar($this->setor, true, 'semanal', 1, '2026-11-20');
+        $this->assertNull($r['depois']['atual']['fim']);
+        $this->assertCount(1, $this->linhas());
+        $enc = $this->db->prepare("SELECT encerrado_por, encerrado_em FROM atividades_relatorio_setor WHERE setor_id = ?");
+        $enc->execute([$this->setor]);
+        $this->assertSame([null, null], array_values($enc->fetch(PDO::FETCH_NUM)));
+    }
+
+    public function test_trocar_periodicidade_abre_a_nova_no_dia_seguinte(): void {
+        $svc = $this->servico();
+        $svc->alterar($this->setor, true, 'semanal', 1, '2026-11-18');
+        $r = $svc->alterar($this->setor, true, 'mensal', 1, '2026-11-18');
+        $this->assertSame('2026-11-22', $r['depois']['atual']['fim']);
+        $this->assertSame('mensal', $r['depois']['proxima']['periodicidade']);
+        $this->assertSame('2026-11-23', $r['depois']['proxima']['inicio']);
+        $this->assertSame('2026-11-23', $svc->proximaVigencia($this->setor, '2026-11-18')['inicio']);
+        // Repetir o mesmo pedido não muda nada (mesmas linhas)
+        $antes = $this->linhas();
+        $r2 = $svc->alterar($this->setor, true, 'mensal', 1, '2026-11-18');
+        $this->assertSame($antes, $this->linhas());
+        $this->assertSame($r['depois'], $r2['depois']);
+        // Trocar de volta apaga a próxima e cancela o fim
+        $r3 = $svc->alterar($this->setor, true, 'semanal', 1, '2026-11-19');
+        $this->assertNull($r3['depois']['proxima']);
+        $this->assertNull($r3['depois']['atual']['fim']);
+        $this->assertCount(1, $this->linhas());
+    }
+
+    public function test_desligar_apaga_a_proxima_vigencia(): void {
+        $svc = $this->servico();
+        $svc->alterar($this->setor, true, 'semanal', 1, '2026-11-18');
+        $svc->alterar($this->setor, true, 'mensal', 1, '2026-11-18');
+        $r = $svc->alterar($this->setor, false, 'mensal', 1, '2026-11-18');
+        $this->assertNull($r['depois']['proxima']);
+        $this->assertSame('2026-11-22', $r['depois']['atual']['fim']);
+        $this->assertCount(1, $this->linhas());
+    }
+
+    public function test_ligar_logo_depois_de_desligar_nao_sobrepoe_vigencias(): void {
+        $svc = $this->servico();
+        $svc->alterar($this->setor, true, 'semanal', 1, '2026-11-18');
+        $svc->alterar($this->setor, false, 'semanal', 1, '2026-11-18'); // fim 22/11
+        // Em 23/11 a vigência semanal já acabou; a mensal não pode voltar ao dia 01/11
+        $r = $svc->alterar($this->setor, true, 'mensal', 1, '2026-11-23');
+        $this->assertSame('2026-11-23', $r['depois']['atual']['inicio']);
+        $linhas = $this->linhas();
+        $this->assertCount(2, $linhas);
+        $this->assertLessThan($linhas[1]['inicio'], $linhas[0]['fim']);
+    }
+
+    public function test_ligar_mensal_logo_apos_desligar_semanal_no_mesmo_dia_comeca_na_segunda_seguinte(): void {
+        $svc = $this->servico();
+        $svc->alterar($this->setor, true, 'semanal', 1, '2026-11-18');
+        $svc->alterar($this->setor, false, 'semanal', 1, '2026-11-18'); // atual com fim 22/11
+        // Mesmo dia: a atual ainda cobre hoje; ligar mensal troca (fecha no domingo, mensal abre na segunda)
+        $r = $svc->alterar($this->setor, true, 'mensal', 1, '2026-11-18');
+        $this->assertSame('2026-11-22', $r['depois']['atual']['fim']);
+        $this->assertSame('2026-11-23', $r['depois']['proxima']['inicio']);
+        $this->assertCount(2, $this->linhas());
+    }
+
+    public function test_nao_liga_sem_coordenador_ativo(): void {
+        $svc = $this->servico(false);
+        $this->criarCoordenador($this->setor, 0); // inativo não conta
+        $this->expectException(InvalidArgumentException::class);
+        $svc->alterar($this->setor, true, 'semanal', 1, '2026-11-18');
+    }
+
+    public function test_periodicidade_invalida_e_recusada(): void {
+        $svc = $this->servico();
+        $this->expectException(InvalidArgumentException::class);
+        $svc->alterar($this->setor, true, 'diaria', 1, '2026-11-18');
+    }
+
+    public function test_coordenador_adicional_conta_como_coordenador_do_setor(): void {
+        $svc = $this->servico(false);
+        $stmt = $this->db->prepare("SELECT id FROM setores WHERE ativo = 1 AND id <> ? ORDER BY id LIMIT 1");
+        $stmt->execute([$this->setor]);
+        $outro = (int) $stmt->fetchColumn();
+        if ($outro <= 0) {
+            $this->markTestSkipped('Precisa de dois setores ativos.');
+        }
+        $coord = $this->criarCoordenador($outro);
+        $this->db->prepare("INSERT INTO usuario_setores (usuario_id, setor_id) VALUES (?, ?)")->execute([$coord, $this->setor]);
+        $this->assertSame($coord, $svc->coordenadorDoSetor($this->setor)['id']);
+    }
+
+    public function test_setores_do_coordenador_so_com_vigencia_de_hoje(): void {
+        $svc = $this->servico();
+        $coord = (int) $this->db->query("SELECT id FROM usuarios WHERE tipo = 'coordenador' AND setor_id = {$this->setor} ORDER BY id DESC LIMIT 1")->fetchColumn();
+        $user = ['id' => $coord, 'tipo' => 'coordenador', 'setor_id' => $this->setor, 'setores_extras' => []];
+        $this->assertSame([], RelatorioSetorService::setoresDoCoordenador($this->db, $user));
+        $svc->alterar($this->setor, true, 'mensal', 1);
+        $lista = RelatorioSetorService::setoresDoCoordenador($this->db, $user);
+        $this->assertSame([$this->setor], array_column($lista, 'setor_id'));
+        $this->assertSame('mensal', $lista[0]['periodicidade']);
+        $this->assertSame([], RelatorioSetorService::setoresDoCoordenador($this->db, ['id' => 1, 'tipo' => 'operador', 'setor_id' => $this->setor]));
     }
 }

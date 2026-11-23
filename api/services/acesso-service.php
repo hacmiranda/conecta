@@ -152,6 +152,21 @@ class AcessoService {
         return $setorId !== null && in_array($setorId, $setores, true);
     }
 
+    /** Relatório do setor: só o coordenador do setor envia; perfis de consulta nunca. */
+    public static function podeEnviarRelatorioSetor(array $user, int $setorId): bool {
+        return ($user['tipo'] ?? '') === 'coordenador' && self::temAcessoAoSetor($user, $setorId);
+    }
+
+    /** Abonar um período do relatório do setor: admin ou o coordenador do setor. */
+    public static function podeAbonarRelatorioSetor(array $user, int $setorId): bool {
+        return ($user['tipo'] ?? '') === 'admin' || self::podeEnviarRelatorioSetor($user, $setorId);
+    }
+
+    /** Ligar/desligar e trocar a periodicidade do relatório do setor: admin ou o coordenador do setor. */
+    public static function podeConfigurarRelatorioSetor(array $user, int $setorId): bool {
+        return ($user['tipo'] ?? '') === 'admin' || self::podeEnviarRelatorioSetor($user, $setorId);
+    }
+
     /**
      * Condição SQL "coluna IN (...)" para um escopo de setores (ids inteiros, sem risco de injeção):
      * null = todos ("1=1"); lista vazia = nenhum ("1=0").

@@ -231,4 +231,41 @@ final class AcessoServiceTest extends TestCase {
         $this->assertFalse(AuthMiddleware::mesmoSetor($this->usuario('gestor', 1, 3), 4));
         $this->assertFalse(AuthMiddleware::mesmoSetor($this->usuario('gestor', 1, null), null));
     }
+
+    // ---------- Relatório do setor (coordenador) ----------
+
+    public function test_relatorio_do_setor_so_o_coordenador_do_setor_envia(): void {
+        $coord = ['id' => 5, 'tipo' => 'coordenador', 'setor_id' => 2, 'setores_extras' => [7]];
+        $this->assertTrue(AcessoService::podeEnviarRelatorioSetor($coord, 2));
+        $this->assertTrue(AcessoService::podeEnviarRelatorioSetor($coord, 7)); // setor adicional
+        $this->assertFalse(AcessoService::podeEnviarRelatorioSetor($coord, 3));
+        $this->assertFalse(AcessoService::podeEnviarRelatorioSetor($this->usuario('gestor', 6, 2), 2));
+        $this->assertFalse(AcessoService::podeEnviarRelatorioSetor($this->usuario('operador', 6, 2), 2));
+        $this->assertFalse(AcessoService::podeEnviarRelatorioSetor($this->usuario('admin'), 2));
+        $this->assertFalse(AcessoService::podeEnviarRelatorioSetor($this->usuario('supervisor'), 2));
+        $this->assertFalse(AcessoService::podeEnviarRelatorioSetor($this->usuario('coordenador_geral'), 2));
+    }
+
+    public function test_relatorio_do_setor_admin_configura_e_abona_mas_nao_envia(): void {
+        $admin = $this->usuario('admin');
+        $this->assertTrue(AcessoService::podeConfigurarRelatorioSetor($admin, 9));
+        $this->assertTrue(AcessoService::podeAbonarRelatorioSetor($admin, 9));
+        $this->assertFalse(AcessoService::podeEnviarRelatorioSetor($admin, 9));
+    }
+
+    public function test_relatorio_do_setor_configurar_e_abonar_pelo_coordenador_do_setor(): void {
+        $coord = ['id' => 5, 'tipo' => 'coordenador', 'setor_id' => 2, 'setores_extras' => []];
+        $this->assertTrue(AcessoService::podeConfigurarRelatorioSetor($coord, 2));
+        $this->assertTrue(AcessoService::podeAbonarRelatorioSetor($coord, 2));
+        $this->assertFalse(AcessoService::podeConfigurarRelatorioSetor($coord, 3));
+        $this->assertFalse(AcessoService::podeAbonarRelatorioSetor($coord, 3));
+    }
+
+    public function test_relatorio_do_setor_consulta_e_gestao_nao_configuram_nem_abonam(): void {
+        foreach (['supervisor', 'coordenador_geral', 'gestor', 'operador'] as $tipo) {
+            $u = $this->usuario($tipo, 8, 2);
+            $this->assertFalse(AcessoService::podeConfigurarRelatorioSetor($u, 2), $tipo);
+            $this->assertFalse(AcessoService::podeAbonarRelatorioSetor($u, 2), $tipo);
+        }
+    }
 }
