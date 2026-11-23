@@ -173,9 +173,9 @@ class AtividadesAcompanhamentoService {
                 'sem_ant'        => $semAnt,
                 'mes_atual'      => (int) $c['mes_atual'],
                 'mes_ant'        => (int) $c['mes_ant'],
-                'situacao_hoje'  => $fimDeSemana ? 'fim_de_semana' : ($enviouHoje ? 'enviou' : ($atrasadas ? 'atrasado' : 'no_prazo')),
+                'situacao_hoje'  => $obrigacaoSetor[$sid] ? 'desobrigado' : ($fimDeSemana ? 'fim_de_semana' : ($enviouHoje ? 'enviou' : ($atrasadas ? 'atrasado' : 'no_prazo'))),
                 'tendencia'      => ['direcao' => $direcao, 'rotulo' => $rotulo],
-                'dias_sem_envio' => array_values(array_filter($diasUteis, fn($d) => !isset($enviadosSemana[$chaveEnvio][$d]))),
+                'dias_sem_envio' => $obrigacaoSetor[$sid] ? [] : array_values(array_filter($diasUteis, fn($d) => !isset($enviadosSemana[$chaveEnvio][$d]))),
                 'atrasadas'      => $atrasadas,
                 'abonadas'       => $abonadas,
                 'desobrigado'    => $obrigacaoSetor[$sid],
@@ -191,7 +191,9 @@ class AtividadesAcompanhamentoService {
             $setor['relatorio_setor'] = $this->relatorioDoSetorNoPainel((int) $sid, $inicio, $hoje, $coordenadores);
         }
         unset($setor);
-        uasort($setores, fn($a, $b) => strcoll($a['nome'], $b['nome']));
+        // Ordem dos setores = a do banco (collation do MySQL), sem depender de locale/intl do PHP
+        $ordem = array_flip(array_map('intval', $this->db->query("SELECT id FROM setores ORDER BY nome")->fetchAll(PDO::FETCH_COLUMN)));
+        uasort($setores, fn($a, $b) => ($ordem[$a['id']] ?? PHP_INT_MAX) <=> ($ordem[$b['id']] ?? PHP_INT_MAX));
         return ['periodos' => $p, 'hoje' => $hoje, 'setores' => array_values($setores)];
     }
 

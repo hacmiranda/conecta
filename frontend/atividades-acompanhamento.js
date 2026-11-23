@@ -247,10 +247,10 @@ function montarSetorPainel(s, visao) {
                         <div><dt>Mês atual</dt><dd>${u.mes_atual}</dd></div>
                     </dl>
                     <p class="acomp-cartao-linha">Tendência da semana: ${tendenciaHtml(u.tendencia)} <small>vs semana passada</small></p>
-                    <p class="acomp-cartao-linha">Dias sem envio (semana atual):
+                    ${u.desobrigado ? '' : `<p class="acomp-cartao-linha">Dias sem envio (semana atual):
                         ${u.dias_sem_envio.length
                             ? u.dias_sem_envio.map(d => `<span class="acomp-chip">${acompDiaSemana(d)} ${acompDiaMes(d)}</span>`).join(' ')
-                            : '<span class="acomp-ok">✓ Todos os dias enviados</span>'}</p>
+                            : '<span class="acomp-ok">✓ Todos os dias enviados</span>'}</p>`}
                     <div class="acomp-cartao-linha">Pendências de envio: ${pendenciasUsuarioHtml(u)}</div>
                 </li>`).join('')}</ul></section>`;
     }
@@ -303,7 +303,7 @@ function montarRelatorioAtividades(d, f) {
                     <caption class="sr-only">Comparativo de relatórios remotos e presenciais</caption>
                     <thead><tr><th scope="col">Modalidade</th><th scope="col">Relatórios</th><th scope="col">Servidores</th>
                         <th scope="col">Atividades por relatório</th><th scope="col">Tarefas por relatório</th></tr></thead>
-                    <tbody>${[['remoto', 'Remoto'], ['presencial', 'Presencial'], ['setor', 'Relatório do setor']].map(([k, r]) => {
+                    <tbody>${[['remoto', 'Remoto'], ['presencial', 'Presencial'], ['setor', 'Relatório do setor']].filter(([k]) => k !== 'setor' || (pm.setor && pm.setor.relatorios > 0)).map(([k, r]) => {
                         const x = pm[k] || { relatorios: 0, usuarios: 0, atividades: 0, tarefas: 0 }; const rel = Math.max(1, x.relatorios);
                         return `<tr><th scope="row">${r}</th><td>${x.relatorios}</td><td>${k === 'setor' ? '—' : x.usuarios}</td>
                             <td>${(x.atividades / rel).toFixed(1).replace('.', ',')}</td><td>${(x.tarefas / rel).toFixed(1).replace('.', ',')}</td></tr>`;

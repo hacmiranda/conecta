@@ -513,6 +513,9 @@ final class RelatorioSetorTest extends TestCase {
         $this->assertNotContains('2026-08-03', $datas); // já enviado
         $servidor = current(array_filter($setor['usuarios'], fn($u) => $u['id'] === $op));
         $this->assertTrue($servidor['desobrigado']);
+        // Desobrigado não conta como "sem envio hoje": nem situação de atraso/prazo nem dias sem envio
+        $this->assertSame('desobrigado', $servidor['situacao_hoje']);
+        $this->assertSame([], $servidor['dias_sem_envio']);
 
         $alerta = $acomp->pendenciasDoEscopo($this->setor, '2026-08-20');
         $doSetor = array_values(array_filter($alerta, fn($l) => isset($l['setor_id']) && $l['setor_id'] === $this->setor));
@@ -523,6 +526,13 @@ final class RelatorioSetorTest extends TestCase {
         $linha = current(array_filter($hist, fn($l) => ($l['tipo'] ?? '') === 'setor'));
         $this->assertSame('2026-08-10', $linha['semanas'][0]['de']);
         $this->assertSame(1, $linha['total_enviado']);
+    }
+
+    public function test_painel_ordena_os_setores_como_o_banco(): void {
+        $painel = (new AtividadesAcompanhamentoService($this->db))->painel(null, '2026-08-20');
+        $esperado = array_map('intval', $this->db->query("SELECT id FROM setores ORDER BY nome")->fetchAll(PDO::FETCH_COLUMN));
+        $obtido = array_map(fn($x) => (int) $x['id'], $painel['setores']);
+        $this->assertSame(array_values(array_intersect($esperado, $obtido)), $obtido);
     }
 
     public function test_painel_sem_vigencia_nem_pendencia_deixa_relatorio_setor_nulo(): void {
@@ -577,12 +587,25 @@ final class RelatorioSetorTest extends TestCase {
         $coord = $this->criarCoordenador($this->setor);
         $this->db->prepare("DELETE FROM atividades_relatorio_setor WHERE setor_id = ?")->execute([$this->setor]);
         $ins = $this->db->prepare("INSERT INTO atividades_relatorio_setor (setor_id, periodicidade, inicio, fim) VALUES (?, ?, ?, ?)");
-        $ins->execute([$this->setor, 'semanal', '2026-11-02', '2026-11-29']);
-        $ins->execute([$this->setor, 'mensal', '2026-11-30', null]);
+        $ins->execute([$this->setor, 'semanal', '2026-08-03', '2026-08-30']);
+        $ins->execute([$this->setor, 'mensal', '2026-08-31', null]);
         $prazo = new PrazoAtividadeService($this->db);
-        $this->assertTrue($prazo->abonarRelatorioSetor($this->setor, 'mes', '2026-11-01', 'zz justificativa', $coord));
-        $this->assertTrue($prazo->abonarRelatorioSetor($this->setor, 'mes', '2026-12-01', 'zz justificativa', $coord));
-        $this->assertFalse($prazo->abonarRelatorioSetor($this->setor, 'mes', '2026-11-15', 'zz justificativa', $coord));
+        $this->assertTrue($prazo->abonarRelatorioSetor($this->setor, 'mes', '2026-08-01', 'zz justificativa', $coord));
+        $this->assertTrue($prazo->abonarRelatorioSetor($this->setor, 'mes', '2026-09-01', 'zz justificativa', $coord));
+        $this->assertFalse($prazo->abonarRelatorioSetor($this->setor, 'mes', '2026-08-15', 'zz justificativa', $coord));
+    }
+
+    public function test_nao_abona_periodo_em_curso_nem_futuro(): void {
+        $coord = $this->criarCoordenador($this->setor);
+        $this->db->prepare("DELETE FROM atividades_relatorio_setor WHERE setor_id = ?")->execute([$this->setor]);
+        $this->db->prepare("INSERT INTO atividades_relatorio_setor (setor_id, periodicidade, inicio, fim) VALUES (?, 'semanal', '2026-01-05', NULL)")->execute([$this->setor]);
+        $prazo = new PrazoAtividadeService($this->db);
+        $semanaAtual = PrazoAtividadeService::inicioDoPeriodo('semanal', date('Y-m-d'));
+        $proxima = (new DateTimeImmutable($semanaAtual))->modify('+7 days')->format('Y-m-d');
+        $this->assertFalse($prazo->abonarRelatorioSetor($this->setor, 'semana', $semanaAtual, 'zz justificativa', $coord));
+        $this->assertFalse($prazo->abonarRelatorioSetor($this->setor, 'semana', $proxima, 'zz justificativa', $coord));
+        $passada = (new DateTimeImmutable($semanaAtual))->modify('-7 days')->format('Y-m-d');
+        $this->assertTrue($prazo->abonarRelatorioSetor($this->setor, 'semana', $passada, 'zz justificativa', $coord));
     }
 
     public function test_resolve_a_data_do_periodo_parcial_depois_de_trocar_a_periodicidade(): void {
