@@ -592,3 +592,35 @@ body.modo-escuro #atividades {
 #nav-atividades-dropdown .nav-dropdown-item[hidden] {
     display: none;
 }
+
+/* Relatório do setor enviado pelo coordenador (23/11/2026) */
+.acomp-relatorio-setor {
+    background: var(--acomp-cabecalho);
+    border: 1px solid var(--acomp-borda);
+    border-left: 4px solid var(--laranja-500);
+    border-radius: var(--radius-sm);
+    padding: var(--acomp-espaco-3);
+    margin-bottom: var(--acomp-espaco-3);
+}
+
+.acomp-relatorio-setor-titulo {
+    margin: 0 0 var(--acomp-espaco-2);
+    color: var(--acomp-texto);
+}
+
+.acomp-relatorio-setor-situacao {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--acomp-espaco-2) var(--acomp-espaco-6);
+    margin: 0 0 var(--acomp-espaco-2);
+}
+
+.acomp-relatorio-setor-situacao dt {
+    color: var(--acomp-texto-suave);
+    font-size: 0.8rem;
+}
+
+.acomp-relatorio-setor-situacao dd {
+    margin: 0;
+    color: var(--acomp-texto);
+}

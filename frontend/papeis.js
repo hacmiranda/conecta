@@ -68,6 +68,9 @@ const Papeis = (function () {
             const usuario = u || usuarioDaSessao();
             return Array.isArray(usuario.relatorio_setor) && usuario.relatorio_setor.length > 0;
         },
+        /** Abona o relatório do setor: admin ou coordenador do setor (só mostra o botão; o servidor decide) */
+        abonaRelatorioSetor: (setorId, u) => tipoDe(u) === 'admin'
+            || (tipoDe(u) === 'coordenador' && Number(setorId) > 0 && (setores(u) || []).some(s => Number(s.id) === Number(setorId))),
         veSatisfacao: (u) => SATISFACAO.includes(tipoDe(u)),
         /** Cruzamento de Dados (17/11/2026): visão total e coordenador (nos setores dele); gestor não */
         veCruzamento: (u) => VISAO_TOTAL.includes(tipoDe(u)) || tipoDe(u) === 'coordenador',

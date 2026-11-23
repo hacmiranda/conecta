@@ -67,6 +67,39 @@ function rotuloPendencia(p) {
     return p.data ? `${acompBr(data)} · ${tipo}` : `semana de ${acompBr(p.semana_ini)} · ${tipo}`;
 }
 
+// Rótulo do período do relatório do setor: "Semana de dd/mm a dd/mm" ou "Mês mm/aaaa" (parcial: "(até dd/mm)").
+// periodo_fim pode ser anterior ao fim do calendário (vigência recortada), por isso é ele que manda.
+function rotuloPeriodoSetor(periodo, ini, fim) {
+    if (periodo === 'mes' || periodo === 'mensal') {
+        const [a, m] = String(ini).split('-');
+        const base = `Mês ${m}/${a}`;
+        const ultimo = new Date(Number(a), Number(m), 0).getDate();
+        return fim && String(fim).slice(0, 7) === `${a}-${m}` && Number(String(fim).slice(8, 10)) < ultimo
+            ? `${base} (até ${acompDiaMes(fim)})` : base;
+    }
+    return `Semana de ${acompDiaMes(ini)} a ${acompDiaMes(fim || ini)}`;
+}
+
+// Chip e botões de uma pendência do relatório do setor (Painel e Relatório)
+function botoesPendenciaSetor(setorId, setorNome, p) {
+    const rotulo = rotuloPeriodoSetor(p.periodo, p.data_referencia, p.periodo_fim);
+    const pode = Papeis.abonaRelatorioSetor(setorId); // só mostra o botão; o servidor decide
+    if (p.status === 'abonado') {
+        const por = p.abonado_por ? ` (por ${p.abonado_por})` : '';
+        return `<span class="acomp-chip acomp-chip--abonado" title="${sanitizeHTML((p.justificativa || '') + por)}">Abonado: ${sanitizeHTML(rotulo)}</span>
+            ${pode ? `<button type="button" class="acomp-mini" data-acao="acomp-remover-abono-setor" data-id="${Number(p.abono_id)}"
+                aria-label="Remover o abono do relatório do setor ${sanitizeHTML(setorNome)} (${sanitizeHTML(rotulo)})">✕</button>` : ''}`;
+    }
+    if (p.status !== 'atrasado') {
+        return `<span class="acomp-chip">Dentro do prazo: ${sanitizeHTML(rotulo)}</span>`;
+    }
+    return `<span class="acomp-chip acomp-chip--atrasado">Atrasado: ${sanitizeHTML(rotulo)}</span>
+        ${pode ? `<button type="button" class="acomp-mini" data-acao="acomp-abonar-setor" data-setor="${Number(setorId)}"
+            data-setor-nome="${sanitizeHTML(setorNome)}" data-periodo="${p.periodo === 'mes' ? 'mes' : 'semana'}"
+            data-data="${sanitizeHTML(p.data_referencia)}" data-rotulo="${sanitizeHTML(rotulo)}"
+            aria-label="Abonar o relatório do setor ${sanitizeHTML(setorNome)} (${sanitizeHTML(rotulo)})">Abonar</button>` : ''}`;
+}
+
 // Botões de abonar / remover abono de uma pendência (Painel e Relatório)
 function botoesPendencia(usuarioId, nome, p) {
     const data = p.data || p.semana_ini;
@@ -103,6 +136,9 @@ function montarPainelAtividades(d) {
     const soma = campo => usuarios.reduce((t, u) => t + u[campo], 0);
     const semEnvioHoje = usuarios.filter(u => u.situacao_hoje === 'atrasado' || u.situacao_hoje === 'no_prazo').length;
     const atrasos = usuarios.flatMap(u => u.atrasadas.map(x => ({ nome: u.nome, p: x })));
+    const atrasosSetor = d.setores.flatMap(s => ((s.relatorio_setor && s.relatorio_setor.pendencias) || [])
+        .filter(x => x.status === 'atrasado').map(x => ({ setor: s.nome, p: x })));
+    const totalAtrasos = atrasos.length + atrasosSetor.length;
     const visao = (() => { try { return localStorage.getItem('cd_painelAtividadesVisao') || 'tabela'; } catch (e) { return 'tabela'; } })();
     const meses = ['janeiro', 'fevereiro', 'março', 'abril', 'maio', 'junho', 'julho', 'agosto', 'setembro', 'outubro', 'novembro', 'dezembro'];
     const mes = meses[Number(p.mes_atual_ini.slice(5, 7)) - 1] + '/' + p.mes_atual_ini.slice(0, 4);
@@ -112,10 +148,11 @@ function montarPainelAtividades(d) {
 
     return `
         <p class="acomp-intro">Semana atual: <strong>${acompDiaMes(p.sem_atual_ini)} a ${acompDiaMes(p.sem_atual_fim)}</strong> · Mês atual: <strong>${mes}</strong></p>
-        ${atrasos.length ? `
+        ${totalAtrasos ? `
             <details class="acomp-alerta">
-                <summary>⚠️ ${atrasos.length} pendência${atrasos.length !== 1 ? 's' : ''} de envio de relatório em atraso</summary>
-                <ul class="acomp-chips">${atrasos.map(a => `<li class="acomp-chip">${sanitizeHTML(a.nome)} <em>${sanitizeHTML(rotuloPendencia(a.p))}</em></li>`).join('')}</ul>
+                <summary>⚠️ ${totalAtrasos} pendência${totalAtrasos !== 1 ? 's' : ''} de envio de relatório em atraso</summary>
+                <ul class="acomp-chips">${atrasos.map(a => `<li class="acomp-chip">${sanitizeHTML(a.nome)} <em>${sanitizeHTML(rotuloPendencia(a.p))}</em></li>`).join('')}
+                ${atrasosSetor.map(a => `<li class="acomp-chip">Relatório do setor ${sanitizeHTML(a.setor)} <em>${sanitizeHTML(rotuloPeriodoSetor(a.p.periodo, a.p.data_referencia, a.p.periodo_fim))}</em></li>`).join('')}</ul>
             </details>` : ''}
         <ul class="acomp-kpis" aria-label="Indicadores do escopo">
             ${kpi('Servidores', usuarios.length, 'no escopo')}
@@ -133,7 +170,10 @@ function montarPainelAtividades(d) {
             : '<p class="acomp-aviso">Nenhum gestor ou operador no seu escopo.</p>'}`;
 }
 
+const SELO_DESOBRIGADO = '<span class="acomp-selo acomp-selo--neutro" title="O coordenador envia o relatório do setor; este servidor não precisa enviar o dele">Desobrigado (relatório do setor)</span>';
+
 function situacaoHoje(u) {
+    if (u.desobrigado) return SELO_DESOBRIGADO;
     return {
         fim_de_semana: '<span class="acomp-situacao acomp-situacao--neutra">Fim de semana</span>',
         enviou: '<span class="acomp-situacao acomp-situacao--ok">✓ Enviou hoje</span>',
@@ -149,8 +189,34 @@ function tendenciaHtml(t) {
 
 function pendenciasUsuarioHtml(u) {
     const lista = [...u.atrasadas, ...u.abonadas];
+    // Desobrigado: selo no lugar do aviso; pendências antigas (de antes da vigência) continuam visíveis e abonáveis
+    if (u.desobrigado && !lista.length) return SELO_DESOBRIGADO;
     if (!lista.length) return '<span class="acomp-traco">—</span>';
-    return `<div class="acomp-pendencias">${lista.map(p => `<span class="acomp-pendencia">${botoesPendencia(u.id, u.nome, p)}</span>`).join('')}</div>`;
+    const pendencias = `<div class="acomp-pendencias">${lista.map(p => `<span class="acomp-pendencia">${botoesPendencia(u.id, u.nome, p)}</span>`).join('')}</div>`;
+    return (u.desobrigado ? SELO_DESOBRIGADO : '') + pendencias;
+}
+
+// Cartão "Relatório do setor" do Painel: coordenador, período atual e anterior, pendências com Abonar
+function montarRelatorioSetorPainel(s) {
+    const r = s.relatorio_setor;
+    if (!r) return '';
+    const per = r.periodicidade === 'mensal' ? 'mensal' : 'semanal';
+    const nomePer = per === 'mensal' ? 'mes' : 'semana';
+    const coord = r.coordenador ? sanitizeHTML(r.coordenador.nome) : 'sem coordenador';
+    const situacao = (rotulo, x) => {
+        if (!x) return '';
+        const rot = rotuloPeriodoSetor(nomePer, x.data_referencia, x.periodo_fim);
+        return `<div><dt>${rotulo}</dt><dd>${sanitizeHTML(rot)}: ${x.enviado
+            ? '<span class="acomp-situacao acomp-situacao--ok">✓ Enviado</span>'
+            : '<span class="acomp-situacao acomp-situacao--prazo">Ainda não enviado</span>'}</dd></div>`;
+    };
+    const pend = r.pendencias || [];
+    return `<div class="acomp-relatorio-setor">
+        <p class="acomp-relatorio-setor-titulo">📋 Relatório do setor — coordenador: <strong>${coord}</strong> (${per})</p>
+        <dl class="acomp-relatorio-setor-situacao">${situacao('Período atual', r.atual)}${situacao('Período anterior', r.anterior)}</dl>
+        ${pend.length ? `<div class="acomp-pendencias">${pend.map(p => `<span class="acomp-pendencia">${botoesPendenciaSetor(s.id, s.nome, p)}</span>`).join('')}</div>`
+            : '<p class="acomp-dica">Nenhuma pendência do relatório do setor.</p>'}
+    </div>`;
 }
 
 function montarSetorPainel(s, visao) {
@@ -165,7 +231,10 @@ function montarSetorPainel(s, visao) {
                 <div><dt>Mês atual</dt><dd>${soma('mes_atual')}</dd></div>
                 <div><dt>Mês passado</dt><dd>${soma('mes_ant')}</dd></div>
             </dl>
-        </div>`;
+        </div>${montarRelatorioSetorPainel(s)}`;
+    if (!s.usuarios.length) {
+        return `<section class="acomp-setor" aria-label="${sanitizeHTML(s.nome)}">${cabecalho}</section>`;
+    }
     if (visao === 'cartoes') {
         return `<section class="acomp-setor" aria-label="${sanitizeHTML(s.nome)}">${cabecalho}
             <ul class="acomp-cartoes">${s.usuarios.map(u => `
@@ -208,8 +277,9 @@ async function carregarRelatorioAtividades() {
     }
 }
 
-function opcoesUsuarios(usuarios, selecionado, rotuloTodos) {
-    return `${rotuloTodos !== null ? `<option value="">${rotuloTodos}</option>` : ''}${usuarios.map(u =>
+function opcoesUsuarios(usuarios, selecionado, rotuloTodos, comRelatorioSetor) {
+    return `${rotuloTodos !== null ? `<option value="">${rotuloTodos}</option>` : ''}${comRelatorioSetor
+        ? `<option value="-1"${String(selecionado || '') === '-1' ? ' selected' : ''}>Relatório do setor</option>` : ''}${usuarios.map(u =>
         `<option value="${u.id}"${String(u.id) === String(selecionado || '') ? ' selected' : ''}>${sanitizeHTML(u.nome)} (${sanitizeHTML(u.setor_nome)})</option>`).join('')}`;
 }
 
@@ -226,16 +296,16 @@ function montarRelatorioAtividades(d, f) {
             <li class="acomp-kpi"><span class="acomp-kpi-rotulo">Servidores com envio${noPeriodo}</span><span class="acomp-kpi-valor">${m.total_usuarios}</span></li>
             <li class="acomp-kpi"><span class="acomp-kpi-rotulo">Atividades registradas${noPeriodo}</span><span class="acomp-kpi-valor">${m.total_atividades}</span></li>
         </ul>
-        ${pm.presencial.relatorios ? `
+        ${pm.presencial.relatorios || (pm.setor && pm.setor.relatorios) ? `
             <section class="acomp-bloco" aria-labelledby="acomp-comparativo">
                 <h3 id="acomp-comparativo" class="acomp-bloco-titulo">Remoto × Presencial${noPeriodo}</h3>
                 <div class="acomp-tabela-wrap"><table class="acomp-tabela">
                     <caption class="sr-only">Comparativo de relatórios remotos e presenciais</caption>
                     <thead><tr><th scope="col">Modalidade</th><th scope="col">Relatórios</th><th scope="col">Servidores</th>
                         <th scope="col">Atividades por relatório</th><th scope="col">Tarefas por relatório</th></tr></thead>
-                    <tbody>${[['remoto', 'Remoto'], ['presencial', 'Presencial']].map(([k, r]) => {
-                        const x = pm[k]; const rel = Math.max(1, x.relatorios);
-                        return `<tr><th scope="row">${r}</th><td>${x.relatorios}</td><td>${x.usuarios}</td>
+                    <tbody>${[['remoto', 'Remoto'], ['presencial', 'Presencial'], ['setor', 'Relatório do setor']].map(([k, r]) => {
+                        const x = pm[k] || { relatorios: 0, usuarios: 0, atividades: 0, tarefas: 0 }; const rel = Math.max(1, x.relatorios);
+                        return `<tr><th scope="row">${r}</th><td>${x.relatorios}</td><td>${k === 'setor' ? '—' : x.usuarios}</td>
                             <td>${(x.atividades / rel).toFixed(1).replace('.', ',')}</td><td>${(x.tarefas / rel).toFixed(1).replace('.', ',')}</td></tr>`;
                     }).join('')}</tbody>
                 </table></div>
@@ -243,16 +313,19 @@ function montarRelatorioAtividades(d, f) {
         ${d.pendencias.length ? `
             <details class="acomp-alerta"${atrasadas ? ' open' : ''}>
                 <summary>⚠️ ${atrasadas} pendência${atrasadas !== 1 ? 's' : ''} de envio de relatório em atraso (últimos 60 dias)</summary>
-                <ul class="acomp-chips">${d.pendencias.map(x => `<li class="acomp-pendencia"><strong>${sanitizeHTML(x.usuario_nome)}</strong> ${botoesPendencia(x.usuario_id, x.usuario_nome, x.pendencia)}</li>`).join('')}</ul>
+                <ul class="acomp-chips">${d.pendencias.map(x => `<li class="acomp-pendencia">${x.setor_id
+                    ? `<strong>Relatório do setor ${sanitizeHTML(x.setor_nome)}</strong> ${botoesPendenciaSetor(x.setor_id, x.setor_nome, x.pendencia)}`
+                    : `<strong>${sanitizeHTML(x.usuario_nome)}</strong> ${botoesPendencia(x.usuario_id, x.usuario_nome, x.pendencia)}`}</li>`).join('')}</ul>
             </details>` : ''}
         <form class="acomp-filtros" data-acao-form="relatorio" autocomplete="off">
             <div class="form-group"><label for="acomp-f-usuario">Servidor</label>
-                <select id="acomp-f-usuario" name="usuario_id">${opcoesUsuarios(d.usuarios, f.usuario_id, 'Todos')}</select></div>
+                <select id="acomp-f-usuario" name="usuario_id">${opcoesUsuarios(d.usuarios, f.usuario_id, 'Todos', true)}</select></div>
             <div class="form-group"><label for="acomp-f-modalidade">Modalidade</label>
                 <select id="acomp-f-modalidade" name="modalidade">
                     <option value="">Todas</option>
                     <option value="remoto"${f.modalidade === 'remoto' ? ' selected' : ''}>Remoto</option>
                     <option value="presencial"${f.modalidade === 'presencial' ? ' selected' : ''}>Presencial</option>
+                    <option value="setor"${f.modalidade === 'setor' ? ' selected' : ''}>Relatório do setor</option>
                 </select></div>
             <div class="form-group"><label for="acomp-f-ini">Data início</label><input type="date" id="acomp-f-ini" name="data_ini" value="${sanitizeHTML(f.data_ini || '')}"></div>
             <div class="form-group"><label for="acomp-f-fim">Data fim</label><input type="date" id="acomp-f-fim" name="data_fim" value="${sanitizeHTML(f.data_fim || '')}"></div>
@@ -269,9 +342,13 @@ function montarRelatorioAtividades(d, f) {
             ${d.itens.length ? `<ul class="acomp-registros">${d.itens.map(r => `
                 <li class="acomp-registro">
                     <button type="button" class="acomp-registro-botao" data-acao="detalhe" data-id="${r.id}" aria-expanded="false" aria-controls="acomp-det-${r.id}">
-                        <span class="acomp-registro-nome"><strong>${sanitizeHTML(r.usuario_nome)}</strong> <small>${sanitizeHTML(r.setor_nome || '—')}</small>
-                            <span class="acomp-selo acomp-selo--${r.modalidade}">${r.modalidade === 'presencial' ? 'Presencial' : 'Remoto'}</span></span>
-                        <span class="acomp-registro-data">${acompDiaSemana(r.data_referencia)}, ${acompBr(r.data_referencia)}
+                        <span class="acomp-registro-nome">${r.tipo === 'setor'
+                            ? `<strong>Relatório do setor (${sanitizeHTML(r.usuario_nome)})</strong>`
+                            : `<strong>${sanitizeHTML(r.usuario_nome)}</strong>`} <small>${sanitizeHTML(r.setor_nome || '—')}</small>
+                            <span class="acomp-selo acomp-selo--${r.tipo === 'setor' ? 'neutro' : r.modalidade}">${r.tipo === 'setor' ? 'Setor' : (r.modalidade === 'presencial' ? 'Presencial' : 'Remoto')}</span></span>
+                        <span class="acomp-registro-data">${r.tipo === 'setor'
+                            ? sanitizeHTML(rotuloPeriodoSetor(r.periodo, r.data_referencia, r.periodo_fim))
+                            : `${acompDiaSemana(r.data_referencia)}, ${acompBr(r.data_referencia)}`}
                             ${r.enviado_em ? `<small>Enviado ${acompBr(r.enviado_em)} às ${String(r.enviado_em).slice(11, 16)}</small>` : ''}</span>
                         <span class="acomp-registro-qtd">Atividades: ${String(r.total_atividades).padStart(2, '0')} • Tarefas: ${String(r.total_tarefas).padStart(2, '0')}</span>
                     </button>
@@ -351,7 +428,7 @@ function montarHistoricoAusencias(d) {
             const pct = u.total_esperado > 0 ? Math.round(u.total_enviado / u.total_esperado * 100) : 0;
             return `<li class="acomp-registro">
                 <button type="button" class="acomp-registro-botao" data-acao="expandir" aria-expanded="false" aria-controls="acomp-hist-${i}">
-                    <span class="acomp-registro-nome"><strong>${sanitizeHTML(u.nome)}</strong> <small>${sanitizeHTML(u.setor_nome)}</small></span>
+                    <span class="acomp-registro-nome"><strong>${sanitizeHTML(u.nome)}</strong> <small>${sanitizeHTML(u.setor_nome)}</small>${u.tipo === 'setor' ? ' <span class="acomp-selo acomp-selo--neutro">Setor</span>' : ''}</span>
                     <span class="acomp-registro-qtd">
                         <span class="acomp-selo ${pct >= 80 ? 'acomp-selo--aviso' : 'acomp-selo--atraso'}">${u.total_enviado}/${u.total_esperado} relatórios (${pct}%)</span>
                         <span class="acomp-selo acomp-selo--atraso">${u.total_ausencias} faltante${u.total_ausencias !== 1 ? 's' : ''}</span>
@@ -361,8 +438,8 @@ function montarHistoricoAusencias(d) {
                 </button>
                 <div class="acomp-registro-detalhe" id="acomp-hist-${i}" hidden>
                     ${u.semanas.length ? `<table class="acomp-tabela acomp-tabela--compacta"><caption class="sr-only">Semanas com falta de ${sanitizeHTML(u.nome)}</caption>
-                        <thead><tr><th scope="col">Semana</th><th scope="col">Período</th><th scope="col">Esperado</th><th scope="col">Enviado</th><th scope="col">Faltaram</th><th scope="col">Abonados</th></tr></thead>
-                        <tbody>${u.semanas.map(s => `<tr><td>${sanitizeHTML(s.semana)}</td><td>${acompBr(s.de)} a ${acompBr(s.ate)}</td>
+                        <thead><tr><th scope="col">${u.tipo === 'setor' ? 'Referência' : 'Semana'}</th><th scope="col">Período</th><th scope="col">Esperado</th><th scope="col">Enviado</th><th scope="col">Faltaram</th><th scope="col">Abonados</th></tr></thead>
+                        <tbody>${u.semanas.map(s => `<tr><td>${sanitizeHTML(s.semana)}</td><td>${u.tipo === 'setor' ? sanitizeHTML(rotuloPeriodoSetor(s.periodo, s.de, s.ate)) : `${acompBr(s.de)} a ${acompBr(s.ate)}`}</td>
                             <td>${s.esperado}</td><td>${s.enviado}</td><td>${s.faltaram}</td><td>${s.abonados}</td></tr>`).join('')}</tbody></table>` : ''}
                     ${u.dias.length ? `<table class="acomp-tabela acomp-tabela--compacta"><caption class="sr-only">Dias sem relatório de ${sanitizeHTML(u.nome)}</caption>
                         <thead><tr><th scope="col">Data</th><th scope="col">Tipo</th><th scope="col">Situação</th></tr></thead>
@@ -523,6 +600,7 @@ function montarCruzamentoSetor(d, f) {
         <section class="acomp-bloco" aria-labelledby="acomp-cs-graf">
             <h3 class="acomp-bloco-titulo" id="acomp-cs-graf">Nota diária do setor × Tarefas da equipe por dia</h3>
             <p class="acomp-dica">Tarefas: soma dos servidores lotados no setor. Nota: média das avaliações dos convites enviados pelo setor, pelo dia do envio.</p>
+            ${a.relatorio_setor_na_serie ? '<p class="acomp-dica">Os relatórios do setor aparecem no primeiro dia do período.</p>' : ''}
             <div class="acomp-grafico-wrap"><canvas id="acomp-grafico-cruzamento" width="900" height="260" role="img"></canvas></div>
             <p class="acomp-legenda"><span class="acomp-legenda-barra"></span> Tarefas no dia <span class="acomp-legenda-linha"></span> Nota média do dia (0 a 5)</p>
         </section>
@@ -623,6 +701,36 @@ function abonarPendencia(b) {
         });
 }
 
+// Abono do relatório do setor (admin ou coordenador do setor; o servidor confere de novo)
+function abonarRelatorioSetor(b) {
+    mostrarPrompt('Abonar relatório do setor',
+        `${b.dataset.setorNome}: ${b.dataset.rotulo}. Justificativa (pelo menos 5 caracteres):`,
+        async (confirmado) => {
+            if (!confirmado) return;
+            const justificativa = document.getElementById('modal-prompt-input').value;
+            try {
+                await Api.post(acompUrl('abonar-setor'), { setor_id: Number(b.dataset.setor), periodo: b.dataset.periodo, data: b.dataset.data, justificativa: String(justificativa).trim() });
+                mostrarToast('Sucesso', 'Relatório do setor abonado.', 'success');
+                ACOMP_TELAS[acompTela].carregar();
+            } catch (e) {
+                mostrarAlert('Erro', mensagemDeErro(e, 'Erro ao abonar o relatório do setor.'));
+            }
+        });
+}
+
+function removerAbonoSetor(id) {
+    mostrarConfirm('Remover abono', 'Remover este abono? O relatório do setor volta a aparecer como atrasado ou pendente.', async (ok) => {
+        if (!ok) return;
+        try {
+            await Api.delete(acompUrl('abono-setor', { id }));
+            mostrarToast('Sucesso', 'Abono removido.', 'success');
+            ACOMP_TELAS[acompTela].carregar();
+        } catch (e) {
+            mostrarAlert('Erro', mensagemDeErro(e, 'Erro ao remover o abono.'));
+        }
+    }, true);
+}
+
 function removerAbono(id) {
     mostrarConfirm('Remover abono', 'Remover este abono? A pendência volta a aparecer como atrasada ou pendente.', async (ok) => {
         if (!ok) return;
@@ -648,7 +756,9 @@ function ligarAcoesAcompanhamento(conteudo) {
         if (acao === 'visao') {
             try { localStorage.setItem('cd_painelAtividadesVisao', alvo.dataset.visao); } catch (e) { /* sem armazenamento */ }
             carregarPainelAtividades();
-        } else if (acao === 'abonar') abonarPendencia(alvo);
+        } else if (acao === 'acomp-abonar-setor') abonarRelatorioSetor(alvo);
+        else if (acao === 'acomp-remover-abono-setor') removerAbonoSetor(Number(alvo.dataset.id));
+        else if (acao === 'abonar') abonarPendencia(alvo);
         else if (acao === 'remover-abono') removerAbono(Number(alvo.dataset.id));
         else if (acao === 'detalhe') abrirDetalheRegistro(alvo);
         else if (acao === 'cruz-modo') trocarModoCruzamento(alvo.dataset.modo);
