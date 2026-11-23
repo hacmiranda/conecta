@@ -314,6 +314,108 @@ class PrazoAtividadeService {
         return $pendencias;
     }
 
+    /** Primeiro dia do período do calendário que contém $data (semana: segunda; mês: dia 1º). */
+    public static function inicioDoPeriodo(string $periodicidade, string $data): string {
+        $d = new DateTimeImmutable($data);
+        if ($periodicidade === 'mensal') {
+            return $d->format('Y-m-01');
+        }
+        return $d->modify('-' . ((int) $d->format('N') - 1) . ' days')->format('Y-m-d');
+    }
+
+    /** Último dia do período do calendário que contém $data (semana: domingo; mês: último dia). */
+    public static function fimDoPeriodo(string $periodicidade, string $data): string {
+        $d = new DateTimeImmutable($data);
+        if ($periodicidade === 'mensal') {
+            return $d->format('Y-m-t');
+        }
+        return $d->modify('+' . (7 - (int) $d->format('N')) . ' days')->format('Y-m-d');
+    }
+
+    /**
+     * Períodos do calendário de uma vigência que cruzam [$ini, $fim], recortados pela vigência.
+     * `data_referencia` = início do período do calendário (mesmo antes do início da vigência);
+     * `periodo_fim` = o menor entre o fim do período do calendário e o fim da vigência.
+     *
+     * @param array $vigencia ['periodicidade' => semanal|mensal, 'inicio' => 'Y-m-d', 'fim' => ?'Y-m-d']
+     */
+    public static function periodosDaVigencia(array $vigencia, string $ini, string $fim): array {
+        $periodicidade = $vigencia['periodicidade'];
+        $nome = $periodicidade === 'mensal' ? 'mes' : 'semana';
+        $vigIni = (string) $vigencia['inicio'];
+        $vigFim = !empty($vigencia['fim']) ? (string) $vigencia['fim'] : null;
+
+        // Intervalo efetivo: vigência ∩ [ini, fim]
+        $de  = max($vigIni, $ini);
+        $ate = $vigFim !== null ? min($vigFim, $fim) : $fim;
+        if ($de > $ate) return [];
+
+        $itens = [];
+        $cursor = self::inicioDoPeriodo($periodicidade, $de);
+        while ($cursor <= $ate) {
+            $calFim = self::fimDoPeriodo($periodicidade, $cursor);
+            $itens[] = [
+                'periodo'         => $nome,
+                'data_referencia' => $cursor,
+                'periodo_fim'     => $vigFim !== null ? min($calFim, $vigFim) : $calFim,
+            ];
+            $cursor = (new DateTimeImmutable($calFim))->modify('+1 day')->format('Y-m-d');
+        }
+        return $itens;
+    }
+
+    /**
+     * Pendências do relatório do setor (enviado pelo coordenador) por semana ou mês (pura).
+     * Um período só é cobrado depois de terminar; o prazo conta a partir do `periodo_fim`.
+     *
+     * @param array $vigencias [['periodicidade', 'inicio', 'fim'], ...]
+     * @param array $enviados  ['semana|2026-11-23' => true, ...]
+     * @param array $abonos    mesma chave => ['abono_id', 'justificativa', 'abonado_por', 'abonado_em']
+     */
+    public static function calcularPendenciasRelatorioSetor(array $vigencias, int $prazo, ?string $dataBase,
+                                                            array $feriados, array $enviados, array $abonos,
+                                                            string $ini, string $fim,
+                                                            ?DateTimeImmutable $agora = null): array {
+        $agora ??= new DateTimeImmutable();
+
+        // Nunca cobrar antes da data base do setor
+        if ($dataBase) {
+            if ($fim < $dataBase) return [];
+            if ($ini < $dataBase) $ini = $dataBase;
+        }
+
+        $itens = [];
+        foreach ($vigencias as $vigencia) {
+            foreach (self::periodosDaVigencia($vigencia, $ini, $fim) as $p) {
+                // Período em curso (ou que termina hoje) ainda não é cobrado
+                if ($agora->format('Y-m-d') <= $p['periodo_fim']) continue;
+                $chave = $p['periodo'] . '|' . $p['data_referencia'];
+                if (isset($enviados[$chave])) continue;
+
+                $prazoFinal = self::calcularPrazoFinal($p['periodo_fim'], $prazo, $feriados);
+                $item = [
+                    'tipo'            => 'relatorio_setor',
+                    'periodo'         => $p['periodo'],
+                    'data_referencia' => $p['data_referencia'],
+                    'periodo_fim'     => $p['periodo_fim'],
+                    'prazo_final'     => $prazoFinal->format('Y-m-d'),
+                    'status'          => $agora > $prazoFinal ? 'atrasado' : 'pendente',
+                ];
+                if (isset($abonos[$chave])) {
+                    $a = $abonos[$chave];
+                    $item['status']        = 'abonado';
+                    $item['abono_id']      = $a['abono_id'];
+                    $item['justificativa'] = $a['justificativa'];
+                    $item['abonado_por']   = $a['abonado_por'];
+                    $item['abonado_em']    = $a['abonado_em'];
+                }
+                $itens[] = $item;
+            }
+        }
+        usort($itens, fn($a, $b) => [$a['periodo_fim'], $a['data_referencia']] <=> [$b['periodo_fim'], $b['data_referencia']]);
+        return $itens;
+    }
+
     /**
      * Modalidade pré-selecionada na tela: a do rascunho; no controle diário de quem trabalha remoto,
      * dia fixo de remoto sugere "remoto" e os demais "presencial". No semanal o servidor escolhe.

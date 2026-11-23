@@ -208,4 +208,100 @@ final class PrazoAtividadeServiceTest extends TestCase {
         $this->assertSame('presencial', PrazoAtividadeService::modalidadeSugerida('presencial', $diario, $u, '2026-08-10'));
         $this->assertNull(PrazoAtividadeService::modalidadeSugerida(null, $this->setor(), $u, '2026-08-10'));
     }
+
+    // ── Relatório do setor (cobrança por semana ou mês) ─────────────────────────
+
+    private function relatorio(array $vigencias, int $prazo, string $agora, array $enviados = [], array $abonos = [],
+                               array $feriados = [], ?string $dataBase = null, string $ini = '2026-01-01',
+                               string $fim = '2027-12-31'): array {
+        return PrazoAtividadeService::calcularPendenciasRelatorioSetor($vigencias, $prazo, $dataBase, $feriados,
+            $enviados, $abonos, $ini, $fim, new DateTimeImmutable($agora));
+    }
+
+    public function test_semanal_sem_envio_vira_pendente_e_depois_atrasado(): void {
+        $vig = [['periodicidade' => 'semanal', 'inicio' => '2026-11-02', 'fim' => null]];
+        $r = $this->relatorio($vig, 2, '2026-11-10 12:00:00');
+        $this->assertCount(1, $r);
+        $this->assertSame('relatorio_setor', $r[0]['tipo']);
+        $this->assertSame('semana', $r[0]['periodo']);
+        $this->assertSame('2026-11-02', $r[0]['data_referencia']);
+        $this->assertSame('2026-11-08', $r[0]['periodo_fim']);
+        $this->assertSame('2026-11-10', $r[0]['prazo_final']);
+        $this->assertSame('pendente', $r[0]['status']);
+        $r = $this->relatorio($vig, 2, '2026-11-12 12:00:00');
+        $this->assertSame('atrasado', $r[0]['status']);
+    }
+
+    public function test_semana_em_curso_nao_e_cobrada(): void {
+        $vig = [['periodicidade' => 'semanal', 'inicio' => '2026-11-02', 'fim' => null]];
+        $r = $this->relatorio($vig, 0, '2026-11-25 12:00:00');
+        $refs = array_column($r, 'data_referencia');
+        $this->assertSame(['2026-11-02', '2026-11-09', '2026-11-16'], $refs);
+    }
+
+    public function test_mensal_cobra_o_mes_inteiro(): void {
+        $vig = [['periodicidade' => 'mensal', 'inicio' => '2026-10-01', 'fim' => null]];
+        $this->assertSame([], $this->relatorio($vig, 0, '2026-11-20 12:00:00', ['mes|2026-10-01' => true]));
+        $r = $this->relatorio($vig, 0, '2026-11-20 12:00:00');
+        $this->assertCount(1, $r);
+        $this->assertSame('mes', $r[0]['periodo']);
+        $this->assertSame('2026-10-01', $r[0]['data_referencia']);
+        $this->assertSame('2026-10-31', $r[0]['periodo_fim']);
+    }
+
+    public function test_prazo_pula_feriado_do_setor(): void {
+        $vig = [['periodicidade' => 'semanal', 'inicio' => '2026-11-09', 'fim' => null]];
+        $r = $this->relatorio($vig, 1, '2026-11-20 12:00:00', [], [], ['2026-11-16']);
+        $this->assertSame('2026-11-15', $r[0]['periodo_fim']);
+        $this->assertSame('2026-11-17', $r[0]['prazo_final']);
+    }
+
+    public function test_abono_marca_abonado(): void {
+        $vig = [['periodicidade' => 'semanal', 'inicio' => '2026-11-02', 'fim' => null]];
+        $abono = ['semana|2026-11-02' => ['abono_id' => 7, 'justificativa' => 'Licença',
+                                           'abonado_por' => 'Ana', 'abonado_em' => '2026-11-12 10:00:00']];
+        $r = $this->relatorio($vig, 0, '2026-11-12 12:00:00', [], $abono);
+        $this->assertSame('abonado', $r[0]['status']);
+        $this->assertSame(7, $r[0]['abono_id']);
+        $this->assertSame('Licença', $r[0]['justificativa']);
+    }
+
+    public function test_troca_de_semanal_para_mensal(): void {
+        $vig = [
+            ['periodicidade' => 'semanal', 'inicio' => '2026-11-02', 'fim' => '2026-11-29'],
+            ['periodicidade' => 'mensal', 'inicio' => '2026-11-30', 'fim' => null],
+        ];
+        $r = $this->relatorio($vig, 0, '2027-01-10 12:00:00');
+        $this->assertSame(
+            ['semana|2026-11-02', 'semana|2026-11-09', 'semana|2026-11-16', 'semana|2026-11-23',
+             'mes|2026-11-01', 'mes|2026-12-01'],
+            array_map(fn($i) => $i['periodo'] . '|' . $i['data_referencia'], $r));
+        $this->assertSame('2026-11-30', $r[4]['periodo_fim']);
+        $this->assertSame('2026-12-31', $r[5]['periodo_fim']);
+    }
+
+    public function test_data_base_corta_periodos_anteriores(): void {
+        $vig = [['periodicidade' => 'semanal', 'inicio' => '2026-11-02', 'fim' => null]];
+        $r = $this->relatorio($vig, 0, '2026-11-30 12:00:00', [], [], [], '2026-11-16');
+        $this->assertSame(['2026-11-16', '2026-11-23'], array_column($r, 'data_referencia'));
+    }
+
+    public function test_intervalo_consultado_limita_os_periodos(): void {
+        $vig = [['periodicidade' => 'semanal', 'inicio' => '2026-11-02', 'fim' => null]];
+        $r = $this->relatorio($vig, 0, '2026-11-30 12:00:00', [], [], [], null, '2026-11-10', '2026-11-20');
+        $this->assertSame(['2026-11-09', '2026-11-16'], array_column($r, 'data_referencia'));
+    }
+
+    public function test_periodos_da_vigencia_e_limites_do_calendario(): void {
+        $this->assertSame('2026-11-02', PrazoAtividadeService::inicioDoPeriodo('semanal', '2026-11-05'));
+        $this->assertSame('2026-11-08', PrazoAtividadeService::fimDoPeriodo('semanal', '2026-11-05'));
+        $this->assertSame('2026-02-01', PrazoAtividadeService::inicioDoPeriodo('mensal', '2026-02-17'));
+        $this->assertSame('2026-02-28', PrazoAtividadeService::fimDoPeriodo('mensal', '2026-02-17'));
+        $p = PrazoAtividadeService::periodosDaVigencia(
+            ['periodicidade' => 'mensal', 'inicio' => '2026-11-15', 'fim' => '2026-12-10'], '2026-01-01', '2026-12-31');
+        $this->assertSame([
+            ['periodo' => 'mes', 'data_referencia' => '2026-11-01', 'periodo_fim' => '2026-11-30'],
+            ['periodo' => 'mes', 'data_referencia' => '2026-12-01', 'periodo_fim' => '2026-12-10'],
+        ], $p);
+    }
 }
