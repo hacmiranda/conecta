@@ -635,6 +635,112 @@ try {
     [$c] = req('GET', $baseUrl . "tickets.php?id=$demandaB", $T['coordenador']);
     verifica('com o setor adicional liberado, o coordenador volta a ler (200)', $c === 200, (string) $c);
 
+    echo "\n[7g] Relatório do setor enviado pelo coordenador (23/11/2026; usa o coordenador, o supervisor e o coordenador geral da seção [9])\n";
+    // Fica depois da [9] porque precisa do coordenador (setor A principal + B adicional) e dos perfis de consulta
+    $cfgSetor = $baseUrl . 'atividades-config.php?acao=relatorio-setor';
+    $regSetor = $baseUrl . 'registro-atividades.php';
+    $acompSetor = $baseUrl . 'atividades-acompanhamento.php';
+    $maxVigencia = (int) $db->query('SELECT COALESCE(MAX(id), 0) FROM atividades_relatorio_setor')->fetchColumn();
+    $maxAbonoSetor = (int) $db->query('SELECT COALESCE(MAX(id), 0) FROM atividades_abonos_setor')->fetchColumn();
+    $coordOutroId = criarUsuario($db, 'zz Coordenador Outro', 'coordenador', $outroSetor);
+    $usuariosCriados[] = $coordOutroId;
+    $T['coordOutro'] = tokenDe($db, $coordOutroId);
+    $corpoLiga = ['setor_id' => $setorA, 'ligado' => true, 'periodicidade' => 'semanal'];
+
+    // Ligar e desligar: só o admin ou o coordenador do setor
+    [$c] = req('PUT', $cfgSetor, $T['gestorA'], $corpoLiga);
+    verifica('gestor não liga o relatório do setor (403)', $c === 403, (string) $c);
+    [$c] = req('PUT', $cfgSetor, $T['operadorA'], $corpoLiga);
+    verifica('operador não liga o relatório do setor (403)', $c === 403, (string) $c);
+    [$c] = req('PUT', $cfgSetor, $T['coordOutro'], $corpoLiga);
+    verifica('coordenador de outro setor não liga o relatório do setor (403)', $c === 403, (string) $c);
+    [$c] = req('PUT', $cfgSetor, $T['coordenador'], $corpoLiga);
+    $vigA = $db->query("SELECT id, inicio FROM atividades_relatorio_setor WHERE setor_id = " . (int) $setorA . " AND id > $maxVigencia ORDER BY id LIMIT 1")->fetch(PDO::FETCH_ASSOC);
+    verifica('coordenador do setor liga o relatório do setor (200)', $c === 200 && $vigA !== false, (string) $c);
+    $inicioA = (string) ($vigA['inicio'] ?? date('Y-m-d'));
+
+    // Abrir o período e salvar
+    [$c] = req('GET', "$regSetor?modo=setor&setor_id=$setorA&data=$inicioA", $T['coordOutro']);
+    verifica('coordenador de outro setor não abre o relatório do setor (403)', $c === 403, (string) $c);
+    [$c] = req('GET', "$regSetor?modo=setor&setor_id=$setorA&data=$inicioA", $T['gestorA']);
+    verifica('gestor não abre o relatório do setor (403)', $c === 403, (string) $c);
+    [$c] = req('GET', "$regSetor?modo=setor&setor_id=$setorA&data=2026-01-05", $T['coordenador']);
+    verifica('data fora de qualquer vigência é recusada (400)', $c === 400, (string) $c);
+    [$c, $j] = req('GET', "$regSetor?modo=setor&setor_id=$setorA&data=$inicioA", $T['coordenador']);
+    $regSetorA = (int) ($j['registro']['id'] ?? 0);
+    verifica('coordenador abre o período do setor e o rascunho é criado (200)', $c === 200 && $regSetorA > 0 && ($j['registro']['status'] ?? '') === 'rascunho' && ($j['periodo'] ?? '') === 'semana', (string) $c);
+
+    // Desobrigação: o servidor do setor não envia mais o relatório da data coberta
+    [$c, $j] = req('GET', "$regSetor?data=$inicioA", $T['operadorA']);
+    $regDiaCoberto = (int) ($j['registro']['id'] ?? 0);
+    verifica('operador do setor abre a data coberta e vem marcado como desobrigado (200)', $c === 200 && $regDiaCoberto > 0 && !empty($j['desobrigado']), (string) $c);
+    [$c] = req('PUT', "$regSetor?id=$regDiaCoberto", $T['operadorA'], ['itens' => [['atividade_tipo_id' => $tipoRestante, 'quantidade' => 1]], 'modalidade' => 'remoto']);
+    verifica('operador desobrigado não salva o relatório da data coberta (409)', $c === 409, (string) $c);
+    [$c] = req('POST', "$regSetor?acao=finalizar&id=$regDiaCoberto", $T['operadorA'], ['itens' => [['atividade_tipo_id' => $tipoRestante, 'quantidade' => 1]], 'modalidade' => 'remoto']);
+    verifica('operador desobrigado não envia o relatório da data coberta (409)', $c === 409, (string) $c);
+
+    // Perfis que nunca enviam o relatório do setor
+    foreach (['supervisor' => 'supervisor', 'coordGeral' => 'coordenador geral'] as $chave => $rotulo) {
+        [$c] = req('PUT', "$regSetor?modo=setor&id=$regSetorA", $T[$chave], ['itens' => []]);
+        verifica("$rotulo não salva o relatório do setor (403)", $c === 403, (string) $c);
+        [$c] = req('POST', "$regSetor?modo=setor&acao=finalizar&id=$regSetorA", $T[$chave], ['itens' => []]);
+        verifica("$rotulo não envia o relatório do setor (403)", $c === 403, (string) $c);
+    }
+    [$c] = req('PUT', "$regSetor?modo=setor&id=$regSetorA", $T['gestorA'], ['itens' => []]);
+    verifica('gestor não salva o relatório do setor (403)', $c === 403, (string) $c);
+    [$c] = req('PUT', "$regSetor?modo=setor&id=$regSetorA", $T['coordOutro'], ['itens' => []]);
+    verifica('coordenador de outro setor não salva o relatório do setor (403)', $c === 403, (string) $c);
+    [$c] = req('GET', "$regSetor?modo=setor&acao=itens&id=$regSetorA", $T['coordOutro']);
+    verifica('coordenador de outro setor não lê os itens do relatório do setor (403)', $c === 403, (string) $c);
+
+    // O modo setor não alcança o relatório diário de ninguém, nem de quem é do próprio setor
+    [$c] = req('PUT', "$regSetor?modo=setor&id=$regA", $T['coordenador'], ['itens' => []]);
+    verifica('coordenador não altera o relatório diário de um servidor pelo modo setor (403)', $c === 403, (string) $c);
+    [$c] = req('GET', "$regSetor?modo=setor&acao=itens&id=$regA", $T['coordenador']);
+    verifica('coordenador não lê os itens do relatório diário de um servidor pelo modo setor (403)', $c === 403, (string) $c);
+
+    // Salvar e enviar
+    [$c] = req('PUT', "$regSetor?modo=setor&id=$regSetorA", $T['coordenador'], ['itens' => [['atividade_tipo_id' => $tipoRestante, 'quantidade' => 3]]]);
+    verifica('coordenador salva o rascunho do setor (200)', $c === 200, (string) $c);
+    [$c, $j] = req('GET', "$regSetor?modo=setor&acao=itens&id=$regSetorA", $T['coordenador']);
+    verifica('coordenador lê os itens do relatório do setor (200)', $c === 200 && count($j['itens'] ?? []) === 1, (string) $c);
+    [$c] = req('POST', "$regSetor?modo=setor&acao=finalizar&id=$regSetorA", $T['coordenador'], ['itens' => [['atividade_tipo_id' => $tipoRestante, 'quantidade' => 3]]]);
+    verifica('coordenador envia o relatório do setor (200)', $c === 200, (string) $c);
+    [$c] = req('POST', "$regSetor?modo=setor&acao=finalizar&id=$regSetorA", $T['coordenador'], ['itens' => []]);
+    verifica('o mesmo relatório do setor não é enviado duas vezes (409)', $c === 409, (string) $c);
+    [$c] = req('PUT', "$regSetor?modo=setor&id=$regSetorA", $T['coordenador'], ['itens' => []]);
+    verifica('relatório do setor enviado não aceita alteração (409)', $c === 409, (string) $c);
+
+    // Período parcial: vigência semanal começando numa quarta-feira (a data do período é a segunda anterior)
+    $segundaPassada = (new DateTimeImmutable('monday this week'))->modify('-7 days');
+    $quartaPassada = $segundaPassada->modify('+2 days')->format('Y-m-d');
+    $segundaPassada = $segundaPassada->format('Y-m-d');
+    $db->prepare("INSERT INTO atividades_relatorio_setor (setor_id, periodicidade, inicio, fim, criado_por) VALUES (?, 'semanal', ?, NULL, ?)")
+       ->execute([$setorB, $quartaPassada, $coordenadorId]);
+    [$c, $j] = req('GET', "$regSetor?modo=setor&setor_id=$setorB&data=$segundaPassada", $T['coordenador']);
+    verifica('período parcial: a data de referência (a segunda anterior à vigência) abre o período (200)',
+        $c === 200 && ($j['data'] ?? '') === $segundaPassada && ($j['periodo'] ?? '') === 'semana', "$c " . ($j['data'] ?? ''));
+
+    // Abono: admin ou o coordenador do setor, nunca gestor, e nunca de período já enviado
+    $corpoAbono = fn(int $setor, string $data) => ['setor_id' => $setor, 'periodo' => 'semana', 'data' => $data, 'justificativa' => 'zz_matriz abono do setor'];
+    [$c] = req('POST', "$acompSetor?acao=abonar-setor", $T['gestorB'], $corpoAbono($setorB, $segundaPassada));
+    verifica('gestor não abona o relatório do setor (403)', $c === 403, (string) $c);
+    [$c] = req('POST', "$acompSetor?acao=abonar-setor", $T['supervisor'], $corpoAbono($setorB, $segundaPassada));
+    verifica('supervisor não abona o relatório do setor (403)', $c === 403, (string) $c);
+    [$c] = req('POST', "$acompSetor?acao=abonar-setor", $T['coordOutro'], $corpoAbono($setorB, $segundaPassada));
+    verifica('coordenador de outro setor não abona o relatório do setor (403)', $c === 403, (string) $c);
+    [$c] = req('POST', "$acompSetor?acao=abonar-setor", $T['coordenador'], $corpoAbono($setorB, $segundaPassada));
+    verifica('coordenador abona o relatório do próprio setor (200)', $c === 200, (string) $c);
+    [$c] = req('POST', "$acompSetor?acao=abonar-setor", $T['admin'], $corpoAbono($setorB, $segundaPassada));
+    verifica('admin abona o relatório de qualquer setor (200)', $c === 200, (string) $c);
+    [$c] = req('POST', "$acompSetor?acao=abonar-setor", $T['coordenador'], $corpoAbono($setorA, $inicioA));
+    verifica('período já enviado não é abonado (409)', $c === 409, (string) $c);
+
+    // Desligar: a vigência fecha no fim do período corrente
+    [$c] = req('PUT', $cfgSetor, $T['coordenador'], ['setor_id' => $setorA, 'ligado' => false, 'periodicidade' => 'semanal']);
+    $fimA = $db->query("SELECT fim FROM atividades_relatorio_setor WHERE id = " . (int) ($vigA['id'] ?? 0))->fetchColumn();
+    verifica('coordenador desliga o relatório do setor (200) e a vigência ganha um fim', $c === 200 && $fimA !== null && $fimA !== false, (string) $c);
+
     echo "\n[10] Módulo Satisfação (avaliações, convites, triagem, configuração e página pública)\n";
     // Convites com avaliação: um no setor A, um no setor B e um sem setor
     $conviteIds = [];
@@ -837,6 +943,13 @@ try {
         $db->exec("DELETE FROM auditoria WHERE tabela = 'registros_atividades' AND usuario_id IN ($idsUsuarios)");
         $db->exec("DELETE FROM auditoria WHERE tabela LIKE 'atividades_config_%' AND registro_id IN ($idsUsuarios)");
         $db->exec("DELETE FROM auditoria WHERE tabela = 'atividades_abonos' AND usuario_id IN ($idsUsuarios)");
+    }
+    // Relatório do setor (seção [7g]): vigências, abonos e auditoria criados pela seção
+    if (isset($maxVigencia, $maxAbonoSetor)) {
+        $db->prepare("DELETE FROM atividades_relatorio_setor WHERE id > ? AND setor_id IN (?, ?)")->execute([$maxVigencia, $setorA, $setorB]);
+        $db->prepare("DELETE FROM atividades_abonos_setor WHERE id > ? AND setor_id IN (?, ?)")->execute([$maxAbonoSetor, $setorA, $setorB]);
+        $db->exec("DELETE FROM auditoria WHERE tabela IN ('atividades_relatorio_setor', 'atividades_abonos_setor') AND criado_em >= NOW() - INTERVAL 1 HOUR"
+            . " AND usuario_id IN (" . (implode(',', array_filter(array_merge($usuariosCriados, [$adminId]))) ?: '0') . ")");
     }
     $db->exec("DELETE FROM atividades_tipos WHERE nome LIKE 'zz_matriz_%'");
     $db->exec("DELETE FROM auditoria WHERE tabela = 'atividades_tipos' AND (dados_novos LIKE '%zz_matriz_%' OR dados_anteriores LIKE '%zz_matriz_%')");
