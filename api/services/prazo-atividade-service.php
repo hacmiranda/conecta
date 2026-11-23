@@ -658,4 +658,56 @@ class PrazoAtividadeService {
             ON DUPLICATE KEY UPDATE justificativa = VALUES(justificativa), criado_por = VALUES(criado_por)");
         return $stmt->execute([$usuarioId, $data, $tipo, $justificativa, $criadoPor]);
     }
+
+    // ── Abono do relatório do setor (enviado pelo coordenador) ─────────────────
+
+    /** O período do relatório do setor já foi enviado? */
+    public function relatorioSetorEnviado(int $setorId, string $periodo, string $data): bool {
+        $stmt = $this->db->prepare("SELECT COUNT(*) FROM registros_atividades
+            WHERE setor_id = ? AND periodo = ? AND data_referencia = ? AND status = 'enviado'");
+        $stmt->execute([$setorId, $periodo, $data]);
+        return (int) $stmt->fetchColumn() > 0;
+    }
+
+    /** $data é o início (data_referencia) de um período do calendário de alguma vigência do setor? */
+    public function periodoExisteNaVigencia(int $setorId, string $periodo, string $data): bool {
+        foreach ($this->vigenciasDoSetor($setorId) as $v) {
+            if (($v['periodicidade'] === 'mensal' ? 'mes' : 'semana') !== $periodo) continue;
+            foreach (self::periodosDaVigencia($v, $data, $data) as $p) {
+                if ($p['data_referencia'] === $data) return true;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * Abona um período do relatório do setor. Recusa (false) se o período já foi enviado ou se a data não é o
+     * início de um período de nenhuma vigência do setor (só se abona pendência que existe).
+     */
+    public function abonarRelatorioSetor(int $setorId, string $periodo, string $data, string $justificativa, int $criadoPor): bool {
+        if (!in_array($periodo, ['semana', 'mes'], true)) return false;
+        if ($this->relatorioSetorEnviado($setorId, $periodo, $data)) return false;
+        if (!$this->periodoExisteNaVigencia($setorId, $periodo, $data)) return false;
+
+        $stmt = $this->db->prepare("
+            INSERT INTO atividades_abonos_setor (setor_id, periodo, data_referencia, justificativa, criado_por)
+            VALUES (?, ?, ?, ?, ?)
+            ON DUPLICATE KEY UPDATE justificativa = VALUES(justificativa), criado_por = VALUES(criado_por)");
+        return $stmt->execute([$setorId, $periodo, $data, $justificativa, $criadoPor]);
+    }
+
+    /** Um abono do relatório do setor, ou null. */
+    public function buscarAbonoSetor(int $abonoId): ?array {
+        $stmt = $this->db->prepare("SELECT * FROM atividades_abonos_setor WHERE id = ?");
+        $stmt->execute([$abonoId]);
+        return $stmt->fetch(PDO::FETCH_ASSOC) ?: null;
+    }
+
+    /** Remove o abono e devolve a linha apagada (null se não existia). */
+    public function removerAbonoSetor(int $abonoId): ?array {
+        $abono = $this->buscarAbonoSetor($abonoId);
+        if (!$abono) return null;
+        $this->db->prepare("DELETE FROM atividades_abonos_setor WHERE id = ?")->execute([$abonoId]);
+        return $abono;
+    }
 }

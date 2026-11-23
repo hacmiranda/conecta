@@ -3,6 +3,7 @@ use PHPUnit\Framework\TestCase;
 
 require_once __DIR__ . '/../../services/relatorio-setor-service.php';
 require_once __DIR__ . '/../../services/registro-atividade-service.php';
+require_once __DIR__ . '/../../services/atividades-acompanhamento-service.php';
 
 /**
  * Esquema da migração 43 (setor no registro de atividades e relatório do setor enviado pelo coordenador).
@@ -396,5 +397,170 @@ final class RelatorioSetorTest extends TestCase {
         $lista = RelatorioSetorService::setoresDoCoordenador($this->db, $user);
         $this->assertSame([$this->setor], array_column($lista, 'setor_id'));
         $this->assertSame('semanal', $lista[0]['periodicidade']);
+    }
+
+    // ---------- Acompanhamento e abono (Tarefa 7) ----------
+
+    /** Vigência semanal aberta desde 2026-08-03, sem prazo extra nem data base. */
+    private function prepararSetorComRelatorio(): void {
+        $this->db->prepare("INSERT INTO atividades_config_setor (setor_id, modo_controle_remoto, prazo_dias_atraso, entrega_ativa, data_base) VALUES (?, 'semanal', 0, 0, NULL)
+            ON DUPLICATE KEY UPDATE prazo_dias_atraso = 0, data_base = NULL")->execute([$this->setor]);
+        $this->db->prepare("DELETE FROM atividades_relatorio_setor WHERE setor_id = ?")->execute([$this->setor]);
+        $this->db->prepare("INSERT INTO atividades_relatorio_setor (setor_id, periodicidade, inicio, fim) VALUES (?, 'semanal', '2026-08-03', NULL)")->execute([$this->setor]);
+    }
+
+    public function test_relatorio_do_setor_soma_no_relatorio_e_no_cruzamento(): void {
+        $this->prepararSetorComRelatorio();
+        $coord = $this->criarCoordenador($this->setor);
+        $op = $this->criarUsuario($this->setor);
+        $tipo = $this->criarTipo($this->setor);
+        $reg = new RegistroAtividadeService($this->db);
+        $acomp = new AtividadesAcompanhamentoService($this->db);
+
+        $antes = $acomp->atividadesDoSetor($this->setor, '2026-08-01', '2026-08-31');
+        $antesRel = $acomp->relatorio($this->setor, null, '2026-08-01', '2026-08-31', '', 1, 1000);
+
+        $s = $reg->buscarOuCriarRascunhoSetor($this->setor, 'semana', '2026-08-03', $coord);
+        $reg->salvarRascunhoSetor((int) $s['id'], [$this->item($tipo, 7)]);
+        $this->assertTrue($reg->finalizarSetor((int) $s['id'], $coord));
+        $d = $reg->buscarOuCriarRascunho($op, $this->setor, '2026-08-04');
+        $reg->salvarRascunho((int) $d['id'], $op, [$this->item($tipo, 3)], 'remoto');
+        $this->assertTrue($reg->finalizar((int) $d['id'], $op, 'remoto'));
+
+        $rel = $acomp->relatorio($this->setor, null, '2026-08-01', '2026-08-31', '', 1, 1000);
+        $this->assertSame($antesRel['total'] + 2, $rel['total']);
+        $this->assertSame($antesRel['por_modalidade']['setor']['relatorios'] + 1, $rel['por_modalidade']['setor']['relatorios']);
+        $this->assertSame($antesRel['por_modalidade']['setor']['tarefas'] + 7, $rel['por_modalidade']['setor']['tarefas']);
+        $this->assertSame($antesRel['metricas']['total_usuarios'] + 1, $rel['metricas']['total_usuarios']); // só o servidor
+
+        $itemSetor = current(array_filter($rel['itens'], fn($i) => $i['id'] === (int) $s['id']));
+        $this->assertSame('setor', $itemSetor['tipo']);
+        $this->assertSame('semana', $itemSetor['periodo']);
+        $this->assertSame('2026-08-09', $itemSetor['periodo_fim']);
+        $this->assertSame('setor', $itemSetor['modalidade']);
+        $itemDia = current(array_filter($rel['itens'], fn($i) => $i['id'] === (int) $d['id']));
+        $this->assertSame('servidor', $itemDia['tipo']);
+
+        $soSetor = $acomp->relatorio($this->setor, -1, '2026-08-01', '2026-08-31', '', 1, 1000);
+        $this->assertNotContains((int) $d['id'], array_column($soSetor['itens'], 'id'));
+        $this->assertContains((int) $s['id'], array_column($soSetor['itens'], 'id'));
+        $porModalidade = $acomp->relatorio($this->setor, null, '2026-08-01', '2026-08-31', 'setor', 1, 1000);
+        $this->assertSame($soSetor['total'], $porModalidade['total']);
+        $remotos = $acomp->relatorio($this->setor, null, '2026-08-01', '2026-08-31', 'remoto', 1, 1000);
+        $this->assertNotContains((int) $s['id'], array_column($remotos['itens'], 'id'));
+
+        $det = $acomp->detalhe((int) $s['id'], [$this->setor]);
+        $this->assertSame('setor', $det['tipo']);
+        $this->assertSame(7, (int) $det['itens'][0]['quantidade']);
+
+        $dep = $acomp->atividadesDoSetor($this->setor, '2026-08-01', '2026-08-31');
+        $this->assertSame($antes['total_tarefas'] + 10, $dep['total_tarefas']);
+        $this->assertSame($antes['total_enviados'] + 2, $dep['total_enviados']);
+        $this->assertTrue($dep['relatorio_setor_na_serie']);
+        $uso = $acomp->atividadesDoUsuario($op, '2026-08-01', '2026-08-31'); // conta do servidor: só o relatório diário
+        $this->assertSame(3, $uso['total_tarefas']);
+        $this->assertSame(1, $uso['total_enviados']);
+    }
+
+    public function test_registro_antigo_fica_no_setor_onde_foi_enviado_apos_transferencia(): void {
+        $outro = $this->outroSetor();
+        $op = $this->criarUsuario($this->setor);
+        $reg = new RegistroAtividadeService($this->db);
+        $acomp = new AtividadesAcompanhamentoService($this->db);
+        $d = $reg->buscarOuCriarRascunho($op, $this->setor, '2026-08-04');
+        $this->assertTrue($reg->finalizar((int) $d['id'], $op, 'remoto'));
+
+        $this->db->prepare("UPDATE usuarios SET setor_id = ? WHERE id = ?")->execute([$outro, $op]);
+
+        $noAntigo = $acomp->relatorio($this->setor, null, '2026-08-01', '2026-08-31', '', 1, 1000);
+        $noNovo = $acomp->relatorio($outro, null, '2026-08-01', '2026-08-31', '', 1, 1000);
+        $this->assertContains((int) $d['id'], array_column($noAntigo['itens'], 'id'));
+        $this->assertNotContains((int) $d['id'], array_column($noNovo['itens'], 'id'));
+        $this->assertNotNull($acomp->detalhe((int) $d['id'], [$this->setor]));
+        $this->assertNull($acomp->detalhe((int) $d['id'], [$outro]));
+    }
+
+    public function test_painel_mostra_pendencia_do_setor_e_servidor_desobrigado(): void {
+        $this->prepararSetorComRelatorio();
+        $coord = $this->criarCoordenador($this->setor);
+        $op = $this->criarUsuario($this->setor);
+        $reg = new RegistroAtividadeService($this->db);
+        $s = $reg->buscarOuCriarRascunhoSetor($this->setor, 'semana', '2026-08-03', $coord);
+        $reg->finalizarSetor((int) $s['id'], $coord);
+
+        $acomp = new AtividadesAcompanhamentoService($this->db);
+        $painel = $acomp->painel($this->setor, '2026-08-20');
+        $setor = current(array_filter($painel['setores'], fn($x) => $x['id'] === $this->setor));
+        $rs = $setor['relatorio_setor'];
+        $this->assertSame('semanal', $rs['periodicidade']);
+        $this->assertSame($coord, $rs['coordenador']['id']);
+        $this->assertSame('2026-08-17', $rs['atual']['data_referencia']);
+        $this->assertSame('2026-08-23', $rs['atual']['periodo_fim']);
+        $this->assertFalse($rs['atual']['enviado']);
+        $this->assertSame('2026-08-10', $rs['anterior']['data_referencia']);
+        $this->assertFalse($rs['anterior']['enviado']);
+        $datas = array_column($rs['pendencias'], 'data_referencia');
+        $this->assertContains('2026-08-10', $datas);
+        $this->assertNotContains('2026-08-03', $datas); // já enviado
+        $servidor = current(array_filter($setor['usuarios'], fn($u) => $u['id'] === $op));
+        $this->assertTrue($servidor['desobrigado']);
+
+        $alerta = $acomp->pendenciasDoEscopo($this->setor, '2026-08-20');
+        $doSetor = array_values(array_filter($alerta, fn($l) => isset($l['setor_id']) && $l['setor_id'] === $this->setor));
+        $this->assertNotEmpty($doSetor);
+        $this->assertSame('relatorio_setor', $doSetor[0]['pendencia']['tipo']);
+
+        $hist = $acomp->historicoAusencias($this->setor, '2026-08-03', '2026-08-23');
+        $linha = current(array_filter($hist, fn($l) => ($l['tipo'] ?? '') === 'setor'));
+        $this->assertSame('2026-08-10', $linha['semanas'][0]['de']);
+        $this->assertSame(1, $linha['total_enviado']);
+    }
+
+    public function test_painel_sem_vigencia_nem_pendencia_deixa_relatorio_setor_nulo(): void {
+        $this->db->prepare("DELETE FROM atividades_relatorio_setor WHERE setor_id = ?")->execute([$this->setor]);
+        $this->criarUsuario($this->setor);
+        $painel = (new AtividadesAcompanhamentoService($this->db))->painel($this->setor, '2026-08-20');
+        $setor = current(array_filter($painel['setores'], fn($x) => $x['id'] === $this->setor));
+        $this->assertNull($setor['relatorio_setor']);
+    }
+
+    public function test_coordenador_abona_o_proprio_setor(): void {
+        $this->prepararSetorComRelatorio();
+        $coord = $this->criarCoordenador($this->setor);
+        $outroSetor = $this->outroSetor();
+        $prazo = new PrazoAtividadeService($this->db);
+
+        $user = ['id' => $coord, 'tipo' => 'coordenador', 'setor_id' => $this->setor, 'setores_extras' => []];
+        $this->assertTrue(AcessoService::podeAbonarRelatorioSetor($user, $this->setor));
+        $this->assertFalse(AcessoService::podeAbonarRelatorioSetor($user, $outroSetor));
+        $this->assertFalse(AcessoService::podeAbonarRelatorioSetor(['id' => 1, 'tipo' => 'gestor', 'setor_id' => $this->setor], $this->setor));
+
+        $this->assertTrue($prazo->abonarRelatorioSetor($this->setor, 'semana', '2026-08-10', 'zz justificativa', $coord));
+        $pend = $prazo->pendenciasRelatorioSetor($this->setor, '2026-08-10', '2026-08-16');
+        $this->assertSame('abonado', $pend[0]['status']);
+        $this->assertSame('zz justificativa', $pend[0]['justificativa']);
+
+        $removido = $prazo->removerAbonoSetor((int) $pend[0]['abono_id']);
+        $this->assertSame($this->setor, (int) $removido['setor_id']);
+        $this->assertNull($prazo->removerAbonoSetor((int) $pend[0]['abono_id']));
+        $pend = $prazo->pendenciasRelatorioSetor($this->setor, '2026-08-10', '2026-08-16');
+        $this->assertNotSame('abonado', $pend[0]['status']);
+    }
+
+    public function test_abonar_periodo_ja_enviado_recusa(): void {
+        $this->prepararSetorComRelatorio();
+        $coord = $this->criarCoordenador($this->setor);
+        $reg = new RegistroAtividadeService($this->db);
+        $prazo = new PrazoAtividadeService($this->db);
+        $s = $reg->buscarOuCriarRascunhoSetor($this->setor, 'semana', '2026-08-03', $coord);
+        $reg->finalizarSetor((int) $s['id'], $coord);
+
+        $this->assertFalse($prazo->abonarRelatorioSetor($this->setor, 'semana', '2026-08-03', 'zz justificativa', $coord));
+        $this->assertTrue($prazo->relatorioSetorEnviado($this->setor, 'semana', '2026-08-03'));
+        // Data que não é o início de um período da vigência, período de outra periodicidade e antes da vigência
+        $this->assertFalse($prazo->abonarRelatorioSetor($this->setor, 'semana', '2026-08-12', 'zz justificativa', $coord));
+        $this->assertFalse($prazo->abonarRelatorioSetor($this->setor, 'mes', '2026-08-10', 'zz justificativa', $coord));
+        $this->assertFalse($prazo->abonarRelatorioSetor($this->setor, 'semana', '2026-07-27', 'zz justificativa', $coord));
+        $this->assertSame(0, (int) $this->db->query("SELECT COUNT(*) FROM atividades_abonos_setor WHERE setor_id = {$this->setor}")->fetchColumn());
     }
 }

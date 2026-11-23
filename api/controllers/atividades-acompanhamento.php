@@ -4,7 +4,7 @@
  * Escopo: AcessoService::setorEscopo (admin escolhe ?setor_id, vazio = todos; gestor sempre o próprio setor).
  *
  *   GET    ?acao=painel                                             Painel de Atividades
- *   GET    ?acao=relatorio&usuario_id=&data_ini=&data_fim=&modalidade=&p=   Relatório (20 por página) + pendências
+ *   GET    ?acao=relatorio&usuario_id= (-1 = só relatórios do setor)&data_ini=&data_fim=&modalidade=&p=   Relatório (20 por página) + pendências
  *   GET    ?acao=detalhe&id=                                        itens de um relatório enviado
  *   GET    ?acao=historico&data_ini=&data_fim=                      Histórico de ausências
  *   GET    ?acao=cruzamento&usuario_id=&data_ini=&data_fim=         Cruzamento atividades × satisfação (módulo Satisfação)
@@ -13,6 +13,8 @@
  *   O Cruzamento (as duas formas) é só de administrador, coordenador geral, supervisor e coordenador (nos setores dele).
  *   POST   ?acao=abonar {usuario_id, data, tipo, justificativa}
  *   DELETE ?acao=abono&id=
+ *   POST   ?acao=abonar-setor {setor_id, periodo (semana|mes), data, justificativa}   abono do relatório do setor (admin ou coordenador do setor)
+ *   DELETE ?acao=abono-setor&id=
  */
 
 require_once __DIR__ . '/../config/database.php';
@@ -58,6 +60,17 @@ function brData(?string $iso): string {
     return $iso ? date('d/m/Y', strtotime($iso)) : '';
 }
 
+/** Texto do período de uma linha do relatório (dia, semana ou mês) para o CSV. */
+function rotuloPeriodo(array $l): string {
+    if (($l['periodo'] ?? 'dia') === 'dia') return brData($l['data_referencia']);
+    return ($l['periodo'] === 'mes' ? 'Mês ' : 'Semana ') . brData($l['data_referencia']) . ' a ' . brData($l['periodo_fim'] ?? null);
+}
+
+/** O setor está dentro do escopo da pessoa (null = todos)? */
+function setorNoEscopo(int|array|null $escopo, int $setorId): bool {
+    return $escopo === null || in_array($setorId, $escopo, true);
+}
+
 /** Período com padrão e limite de 366 dias (cruzamento/histórico). */
 function periodo(string $iniPadrao, string $fimPadrao): array {
     $ini = dataFiltro('data_ini') ?: $iniPadrao;
@@ -87,17 +100,18 @@ try {
     }
 
     if ($metodo === 'GET' && in_array($acao, ['relatorio', 'csv-relatorio'], true)) {
-        $usuarioId = (int) ($_GET['usuario_id'] ?? 0) ?: null;
-        if ($usuarioId) usuarioDoEscopo($servico, $setorId, $usuarioId);
+        $usuarioId = (int) ($_GET['usuario_id'] ?? 0) ?: null; // -1 = só os relatórios do setor
+        if ($usuarioId === -1 || $usuarioId < -1) $usuarioId = $usuarioId === -1 ? -1 : null;
+        if ($usuarioId > 0) usuarioDoEscopo($servico, $setorId, $usuarioId);
         $modalidade = (string) ($_GET['modalidade'] ?? '');
         $ini = dataFiltro('data_ini');
         $fim = dataFiltro('data_fim');
         if ($acao === 'csv-relatorio') {
             $r = $servico->relatorio($setorId, $usuarioId, $ini, $fim, $modalidade, 1, 100000);
             AtividadesAcompanhamentoService::enviarCsv('relatorio-atividades-' . date('Ymd-His') . '.csv',
-                ['Servidor', 'Setor', 'Data', 'Modalidade', 'Atividades', 'Tarefas', 'Enviado em'],
-                array_map(fn($l) => [$l['usuario_nome'], $l['setor_nome'] ?? '', brData($l['data_referencia']),
-                    $l['modalidade'] === 'presencial' ? 'Presencial' : 'Remoto', $l['total_atividades'], $l['total_tarefas'],
+                ['Tipo', 'Servidor', 'Setor', 'Data', 'Período', 'Modalidade', 'Atividades', 'Tarefas', 'Enviado em'],
+                array_map(fn($l) => [$l['tipo'] === 'setor' ? 'Relatório do setor' : 'Servidor', $l['usuario_nome'], $l['setor_nome'] ?? '', brData($l['data_referencia']),
+                    rotuloPeriodo($l), $l['modalidade'] === 'setor' ? 'Setor' : ($l['modalidade'] === 'presencial' ? 'Presencial' : 'Remoto'), $l['total_atividades'], $l['total_tarefas'],
                     $l['enviado_em'] ? date('d/m/Y H:i', strtotime($l['enviado_em'])) : ''], $r['itens']));
             exit;
         }
@@ -122,15 +136,16 @@ try {
         if ($acao === 'csv-historico') {
             $linhas = [];
             foreach ($lista as $u) {
+                $tipoLinha = ($u['tipo'] ?? '') === 'setor' ? 'Relatório do setor' : 'Servidor';
                 foreach ($u['semanas'] as $s) {
-                    $linhas[] = [$u['nome'], $u['setor_nome'], $s['semana'], brData($s['de']) . ' a ' . brData($s['ate']), $s['esperado'], $s['enviado'], $s['faltaram'], $s['abonados']];
+                    $linhas[] = [$tipoLinha, $u['nome'], $u['setor_nome'], $s['semana'], brData($s['de']) . ' a ' . brData($s['ate']), $s['esperado'], $s['enviado'], $s['faltaram'], $s['abonados']];
                 }
                 foreach ($u['dias'] as $d) {
-                    $linhas[] = [$u['nome'], $u['setor_nome'], brData($d['data']), brData($d['data']), 1, $d['abonado'] ? 1 : 0, $d['abonado'] ? 0 : 1, $d['abonado'] ? 1 : 0];
+                    $linhas[] = [$tipoLinha, $u['nome'], $u['setor_nome'], brData($d['data']), brData($d['data']), 1, $d['abonado'] ? 1 : 0, $d['abonado'] ? 0 : 1, $d['abonado'] ? 1 : 0];
                 }
             }
             AtividadesAcompanhamentoService::enviarCsv("historico-ausencias_{$ini}_{$fim}.csv",
-                ['Servidor', 'Setor', 'Semana', 'Período', 'Esperado', 'Enviado', 'Faltaram', 'Abonados'], $linhas);
+                ['Tipo', 'Servidor', 'Setor', 'Semana', 'Período', 'Esperado', 'Enviado', 'Faltaram', 'Abonados'], $linhas);
             exit;
         }
         echo json_encode(['data_ini' => $ini, 'data_fim' => $fim, 'ausencias' => $lista], JSON_UNESCAPED_UNICODE);
@@ -242,6 +257,48 @@ try {
         }
         (new AuditoriaService($db))->registrar($user['id'], 'abonar_atividade', 'atividades_abonos', null, null,
             json_encode(['usuario_id' => $usuarioId, 'data' => $data, 'tipo' => $tipo, 'justificativa' => $justificativa], JSON_UNESCAPED_UNICODE));
+        echo json_encode(['success' => true]);
+        exit;
+    }
+
+    if ($metodo === 'POST' && $acao === 'abonar-setor') {
+        $corpo = json_decode(file_get_contents('php://input'), true) ?? [];
+        $sid = (int) ($corpo['setor_id'] ?? 0);
+        $periodo = (string) ($corpo['periodo'] ?? '');
+        $data = (string) ($corpo['data'] ?? '');
+        $justificativa = HtmlSanitizer::texto((string) ($corpo['justificativa'] ?? ''), 1000);
+        $d = DateTimeImmutable::createFromFormat('!Y-m-d', $data);
+        if (!$sid || !in_array($periodo, ['semana', 'mes'], true) || !$d || $d->format('Y-m-d') !== $data || mb_strlen($justificativa) < 5) {
+            erroAcomp(400, 'Informe o setor, o período e uma justificativa com pelo menos 5 caracteres.');
+        }
+        if (!setorNoEscopo($setorId, $sid) || !AcessoService::podeAbonarRelatorioSetor($user, $sid)) {
+            erroAcomp(403, 'Só o administrador ou o coordenador do setor abona o relatório do setor.');
+        }
+        $prazo = new PrazoAtividadeService($db);
+        if ($prazo->relatorioSetorEnviado($sid, $periodo, $data)) {
+            erroAcomp(409, 'Este relatório do setor já foi enviado: não há o que abonar.');
+        }
+        if (!$prazo->abonarRelatorioSetor($sid, $periodo, $data, $justificativa, (int) $user['id'])) {
+            erroAcomp(409, 'Esta data não é o início de um período cobrado do relatório do setor: não há o que abonar.');
+        }
+        (new AuditoriaService($db))->registrar($user['id'], 'abonar_relatorio_setor', 'atividades_abonos_setor', null, null,
+            json_encode(['setor_id' => $sid, 'periodo' => $periodo, 'data' => $data, 'justificativa' => $justificativa], JSON_UNESCAPED_UNICODE));
+        echo json_encode(['success' => true]);
+        exit;
+    }
+
+    if ($metodo === 'DELETE' && $acao === 'abono-setor') {
+        $id = (int) ($_GET['id'] ?? 0);
+        $prazo = new PrazoAtividadeService($db);
+        $abono = $prazo->buscarAbonoSetor($id);
+        if (!$abono) erroAcomp(404, 'Abono não encontrado.');
+        $sid = (int) $abono['setor_id'];
+        if (!setorNoEscopo($setorId, $sid) || !AcessoService::podeAbonarRelatorioSetor($user, $sid)) {
+            erroAcomp(403, 'Só o administrador ou o coordenador do setor remove o abono do relatório do setor.');
+        }
+        $prazo->removerAbonoSetor($id);
+        (new AuditoriaService($db))->registrar($user['id'], 'remover_abono_relatorio_setor', 'atividades_abonos_setor', $id,
+            json_encode($abono, JSON_UNESCAPED_UNICODE), null);
         echo json_encode(['success' => true]);
         exit;
     }
