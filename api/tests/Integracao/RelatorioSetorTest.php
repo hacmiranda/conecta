@@ -69,6 +69,14 @@ final class RelatorioSetorTest extends TestCase {
         $this->assertTrue(true);
     }
 
+    /** Linha do servidor em statusSetor (a chave 'desobrigado' precisa existir). */
+    private function linhaDoStatus(PrazoAtividadeService $svc, int $usuarioId): array {
+        foreach ($svc->statusSetor($this->setor, '2026-08-10', '2026-08-16') as $l) {
+            if ($l['usuario_id'] === $usuarioId) return $l;
+        }
+        $this->fail('Servidor não apareceu em statusSetor.');
+    }
+
     public function test_pendencias_do_servidor_respeitam_a_vigencia_do_setor(): void {
         require_once __DIR__ . '/../../services/prazo-atividade-service.php';
         $u = $this->criarUsuario($this->setor);
@@ -80,11 +88,12 @@ final class RelatorioSetorTest extends TestCase {
         $svc = new PrazoAtividadeService($this->db);
         $antes = $svc->pendenciasUsuario($u, '2026-08-10', '2026-08-16');
         $this->assertCount(1, $antes);
-        $this->assertFalse($svc->statusSetor($this->setor, '2026-08-10', '2026-08-16')[0]['desobrigado'] ?? false);
+        $this->assertFalse($this->linhaDoStatus($svc, $u)['desobrigado']);
 
         $this->db->prepare("INSERT INTO atividades_relatorio_setor (setor_id, periodicidade, inicio, fim) VALUES (?, 'semanal', '2026-08-10', NULL)")->execute([$this->setor]);
         $this->assertSame([], $svc->pendenciasUsuario($u, '2026-08-10', '2026-08-16'));
         $this->assertCount(1, $svc->vigenciasDoSetor($this->setor));
+        $this->assertTrue($this->linhaDoStatus($svc, $u)['desobrigado']);
 
         // Relatório do setor enviado não conta como relatório individual do servidor
         $this->db->prepare("INSERT INTO registros_atividades (usuario_id, setor_id, periodo, data_referencia, status) VALUES (?, ?, 'semana', '2026-08-10', 'enviado')")->execute([$u, $this->setor]);
