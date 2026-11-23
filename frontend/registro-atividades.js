@@ -33,7 +33,7 @@ function raEhSetor() {
 // Chave da cópia local do rascunho: por registro (servidor) ou por setor e período (relatório do setor)
 function raChaveLocal() {
     if (!raDados) return null;
-    return raEhSetor() ? `cd_ra_rascunho_setor_${raDados.setor.id}_${raDados.data}` : `cd_ra_rascunho_${raDados.registro.id}`;
+    return raEhSetor() ? `cd_ra_rascunho_setor_${raDados.setor.id}_${raDados.periodo}_${raDados.data}` : `cd_ra_rascunho_${raDados.registro.id}`;
 }
 
 // Endereço da API do registro atual (acrescenta modo=setor no relatório do setor)

@@ -165,6 +165,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'DELETE') {
             ['tabela' => 'ticket_setor_log', 'coluna' => 'setor_id', 'msg' => 'demandas que já passaram por ele'],
             ['tabela' => 'macrocategorias',  'coluna' => 'setor_id', 'msg' => 'categorias'],
             ['tabela' => 'categorias',       'coluna' => 'setor_id', 'msg' => 'subcategorias'],
+            ['tabela' => 'registros_atividades', 'coluna' => 'setor_id', 'msg' => 'relatórios de atividades'],
         ];
         foreach ($vinculos as $v) {
             $stmt = $db->prepare("SELECT COUNT(*) as total FROM {$v['tabela']} WHERE {$v['coluna']} = ?");

@@ -279,7 +279,7 @@ try {
             erroAcomp(409, 'Este relatório do setor já foi enviado: não há o que abonar.');
         }
         if (!$prazo->abonarRelatorioSetor($sid, $periodo, $data, $justificativa, (int) $user['id'])) {
-            erroAcomp(409, 'Esta data não é o início de um período cobrado do relatório do setor: não há o que abonar.');
+            erroAcomp(409, 'Este período não existe, ainda não terminou ou não é cobrado do relatório do setor: não há o que abonar.');
         }
         (new AuditoriaService($db))->registrar($user['id'], 'abonar_relatorio_setor', 'atividades_abonos_setor', null, null,
             json_encode(['setor_id' => $sid, 'periodo' => $periodo, 'data' => $data, 'justificativa' => $justificativa], JSON_UNESCAPED_UNICODE));

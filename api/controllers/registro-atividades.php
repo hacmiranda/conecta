@@ -79,7 +79,7 @@ try {
         $registro = $servico->buscar((int) ($_GET['id'] ?? 0));
         $permitido = $modoSetor
             ? ($registro !== null && $registro['periodo'] !== 'dia' && AcessoService::podeEnviarRelatorioSetor($user, (int) $registro['setor_id']))
-            : RegistroAtividadeService::dono($registro, $usuarioId);
+            : (RegistroAtividadeService::dono($registro, $usuarioId) && $registro['periodo'] === 'dia');
         if (!$permitido) erroRegistro(403, 'Relatório não encontrado');
         echo json_encode(['itens' => $servico->itens((int) $registro['id'], true)]);
         exit;
@@ -96,9 +96,9 @@ try {
         $abertas = array_values(array_filter($prazo->pendenciasRelatorioSetor($setorAlvo, $inicioJanela, $hoje),
             fn($p) => $p['status'] !== 'abonado'));
 
-        $data = RegistroAtividadeService::dataValida($_GET['data'] ?? null);
+        $data = RegistroAtividadeService::dataValida(is_string($_GET['data'] ?? null) ? $_GET['data'] : null);
         if ($data !== null) {
-            $alvo = PrazoAtividadeService::resolverPeriodoDoSetor($vigencias, $data, $_GET['periodo'] ?? null);
+            $alvo = PrazoAtividadeService::resolverPeriodoDoSetor($vigencias, $data, is_string($_GET['periodo'] ?? null) ? $_GET['periodo'] : null);
         } else {
             // Sem data: a pendência mais antiga; sem pendência, o período corrente
             $alvo = PrazoAtividadeService::resolverPeriodoDoSetor($vigencias, $abertas ? $abertas[0]['periodo_fim'] : $hoje);
@@ -142,7 +142,7 @@ try {
         $abertas = array_values(array_filter($prazo->pendenciasUsuario($usuarioId, $inicioJanela, $hoje),
             fn($p) => $p['status'] !== 'abonado'));
 
-        $data = RegistroAtividadeService::dataValida($_GET['data'] ?? null);
+        $data = RegistroAtividadeService::dataValida(is_string($_GET['data'] ?? null) ? $_GET['data'] : null);
         if ($data === null) {
             $data = $abertas ? ($abertas[0]['data'] ?? $abertas[0]['semana_ini']) : $hoje;
         }
@@ -236,7 +236,7 @@ try {
     if (($metodo === 'PUT') || ($metodo === 'POST' && $acao === 'finalizar')) {
         $registroId = (int) ($_GET['id'] ?? 0);
         $registro = $servico->buscar($registroId);
-        if (!RegistroAtividadeService::dono($registro, $usuarioId)) erroRegistro(403, 'Relatório não encontrado');
+        if (!RegistroAtividadeService::dono($registro, $usuarioId) || $registro['periodo'] !== 'dia') erroRegistro(403, 'Relatório não encontrado');
         if ($registro['status'] !== 'rascunho') erroRegistro(409, 'Este relatório já foi enviado e não pode mais ser alterado.');
 
         // Servidor desobrigado: o relatório da data é do setor, enviado pelo coordenador
@@ -280,7 +280,7 @@ try {
     }
 
     erroRegistro(405, 'Método não permitido');
-} catch (Exception $e) {
+} catch (\Throwable $e) {
     if ($db->inTransaction()) $db->rollBack();
     error_log('[REGISTRO-ATIVIDADES] Erro: ' . $e->getMessage());
     erroRegistro(500, 'Erro ao processar o registro de atividades');

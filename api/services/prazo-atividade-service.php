@@ -704,13 +704,15 @@ class PrazoAtividadeService {
     }
 
     /**
-     * Abona um período do relatório do setor. Recusa (false) se o período já foi enviado ou se a data não é o
+     * Abona um período do relatório do setor. Recusa (false) se o período já foi enviado, ainda não terminou ou se a data não é o
      * início de um período de nenhuma vigência do setor (só se abona pendência que existe).
      */
     public function abonarRelatorioSetor(int $setorId, string $periodo, string $data, string $justificativa, int $criadoPor): bool {
         if (!in_array($periodo, ['semana', 'mes'], true)) return false;
         if ($this->relatorioSetorEnviado($setorId, $periodo, $data)) return false;
         if (!$this->periodoExisteNaVigencia($setorId, $periodo, $data)) return false;
+        // Período em curso (ou futuro) ainda não está em atraso: não se abona
+        if (self::fimDoPeriodo($periodo === 'mes' ? 'mensal' : 'semanal', $data) >= date('Y-m-d')) return false;
 
         $stmt = $this->db->prepare("
             INSERT INTO atividades_abonos_setor (setor_id, periodo, data_referencia, justificativa, criado_por)
