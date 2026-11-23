@@ -129,6 +129,14 @@
             }
         }, true);
 
+        // Ajuda → Relatório do Setor (ouvinte delegado no lugar de onclick)
+        document.addEventListener('click', function (e) {
+            const botao = e.target.closest('[data-acao-ajuda]');
+            if (!botao) return;
+            if (botao.dataset.acaoAjuda === 'relatorio-setor') mostrarAjuda();
+            mostrarRelatorioSetorGuia();
+        });
+
         // Depois de qualquer clique (sidebar, menu do avatar, atalhos), reavalia o destaque
         document.addEventListener('click', agendarMarcacao);
 
