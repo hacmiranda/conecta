@@ -147,7 +147,10 @@ mais API entre os dois, nem `INTEGRACAO_CONECTA_API_KEY`, `METRICA360_URL_*` ou 
    `atividades_abonos_setor`; **faça backup antes**: a 43 apaga rascunhos de registro sem setor e para se
    houver relatório enviado sem setor — conferir antes com
    `SELECT COUNT(*) FROM registros_atividades r JOIN usuarios u ON u.id = r.usuario_id WHERE u.setor_id IS NULL AND r.status = 'enviado'`), ou confirmar com `--status` que a réplica do
-   banco local já vem com elas. A 42 já marca como "setor de coordenação" a Coordenação Administrativa, a
+   banco local já vem com elas. **Se a 43 parar no `MODIFY setor_id INT NOT NULL`** (relatório enviado sem
+   setor), ela só tinha criado a coluna `registros_atividades.setor_id` e preenchido: reverter à mão com
+   `ALTER TABLE registros_atividades DROP COLUMN setor_id;` (nada mais foi criado até ali; as tabelas e os
+   índices vêm depois), resolver os registros sem setor e rodar `php database/migrar.php` de novo. A 42 já marca como "setor de coordenação" a Coordenação Administrativa, a
    Financeira e a Técnica (conferir em Configurações → Setores).
 2. **Pessoas e setores:** **já feito no banco local em 16/11/2026** (17 setores e 35 contas, sem os dois
    administradores genéricos do METRICA360; o login aceita e-mail ou nome de usuário `nome.sobrenome`), com
