@@ -10,6 +10,8 @@
  *   PUT    ?acao=setor {setor_id, modo, prazo, entrega_ativa, entrega_dias[], entrega_inicio, data_base}
  *   PUT    ?acao=usuario&id= {trabalho_remoto, qtd_semana, dias_remotos[], entrega_modo, entrega_dias[]}
  *          entrega_modo: seguir (segue o setor) | dispensado | personalizado (dias próprios)
+ *   PUT    ?acao=relatorio-setor {setor_id, ligado, periodicidade}   relatório do setor enviado pelo coordenador
+ *          (só admin e o coordenador do setor; devolve o mesmo objeto relatorio_setor do GET)
  */
 
 header('Content-Type: application/json');
@@ -20,6 +22,7 @@ require_once __DIR__ . '/../services/acesso-service.php';
 require_once __DIR__ . '/../services/auditoria-service.php';
 require_once __DIR__ . '/../services/html-sanitizer.php';
 require_once __DIR__ . '/../services/prazo-atividade-service.php';
+require_once __DIR__ . '/../services/relatorio-setor-service.php';
 
 AuthMiddleware::configurarCORS(['GET', 'POST', 'PUT', 'DELETE']);
 
@@ -64,6 +67,23 @@ function dataOuNull($valor): ?string {
     return $valor;
 }
 
+/** Estado do relatório do setor pelo coordenador, no formato da resposta (lê depois de qualquer alteração). */
+function relatorioSetorParaResposta(PDO $db, array $user, int $setorId): array {
+    $servico = new RelatorioSetorService($db);
+    $atual = $servico->vigenciaAtual($setorId);
+    $proxima = $servico->proximaVigencia($setorId);
+    $historico = (new PrazoAtividadeService($db))->vigenciasDoSetor($setorId);
+    return [
+        'ligado' => ($atual !== null && $atual['fim'] === null) || $proxima !== null,
+        'periodicidade' => $proxima['periodicidade'] ?? ($atual['periodicidade'] ?? null),
+        'atual' => $atual ? ['periodicidade' => $atual['periodicidade'], 'inicio' => $atual['inicio'], 'fim' => $atual['fim']] : null,
+        'proxima' => $proxima ? ['periodicidade' => $proxima['periodicidade'], 'inicio' => $proxima['inicio']] : null,
+        'coordenador' => $servico->coordenadorDoSetor($setorId),
+        'pode_alterar' => AcessoService::podeConfigurarRelatorioSetor($user, $setorId),
+        'historico' => array_reverse($historico),
+    ];
+}
+
 try {
     $corpo = json_decode(file_get_contents('php://input'), true) ?? [];
 
@@ -83,6 +103,7 @@ try {
         $stmt = $db->prepare("SELECT id, nome, tipo FROM usuarios WHERE setor_id = ? AND ativo = 1 AND tipo IN (" . AcessoService::listaSql(AcessoService::PAPEIS_REGISTRAM_ATIVIDADES) . ") ORDER BY nome");
         $stmt->execute([$setorId]);
         $usuarios = [];
+        $desobrigado = PrazoAtividadeService::desobrigadoEm($prazo->vigenciasDoSetor($setorId), date('Y-m-d'));
         foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $u) {
             $c = $prazo->configUsuario((int) $u['id']);
             $usuarios[] = [
@@ -91,12 +112,14 @@ try {
                 'entrega_modo' => $c['entrega_dias'] === null ? 'seguir' : ($c['entrega_dias'] === '' ? 'dispensado' : 'personalizado'),
                 'entrega_dias' => PrazoAtividadeService::normalizarDias($c['entrega_dias']),
                 'entrega_inicio' => $c['entrega_inicio'],
+                'desobrigado' => $desobrigado,
             ];
         }
 
         $setor = $prazo->configSetor($setorId);
         $setor['entrega_dias'] = PrazoAtividadeService::normalizarDias($setor['entrega_dias']);
-        echo json_encode(['setor_id' => $setorId, 'setor' => $setor, 'tipos' => $tipos, 'usuarios' => $usuarios]);
+        echo json_encode(['setor_id' => $setorId, 'setor' => $setor, 'tipos' => $tipos, 'usuarios' => $usuarios,
+            'relatorio_setor' => relatorioSetorParaResposta($db, $user, $setorId)]);
         exit;
     }
 
@@ -245,6 +268,34 @@ try {
         $auditoria->registrar($user['id'], 'alterar_regras_atividades_usuario', 'atividades_config_usuario', $usuarioId,
             json_encode($antes, JSON_UNESCAPED_UNICODE), json_encode($prazo->configUsuario($usuarioId), JSON_UNESCAPED_UNICODE));
         echo json_encode(['success' => true]);
+        exit;
+    }
+
+    // ── Relatório do setor pelo coordenador ──────────────────────────────────
+    if ($metodo === 'PUT' && $acao === 'relatorio-setor') {
+        $setorId = setorPermitido($db, $user, $corpo['setor_id'] ?? 0);
+        if (!AcessoService::podeConfigurarRelatorioSetor($user, $setorId)) {
+            erroAtividades(403, 'Só o administrador ou o coordenador do setor pode alterar o relatório do setor');
+        }
+        if (!isset($corpo['ligado']) || !is_bool($corpo['ligado'])) erroAtividades(400, 'Informe se o relatório do setor fica ligado');
+        $periodicidade = (string) ($corpo['periodicidade'] ?? '');
+        if (!in_array($periodicidade, RelatorioSetorService::PERIODICIDADES, true)) {
+            erroAtividades(400, 'Periodicidade inválida: use semanal ou mensal.');
+        }
+        try {
+            $r = (new RelatorioSetorService($db))->alterar($setorId, $corpo['ligado'], $periodicidade, (int) $user['id']);
+        } catch (InvalidArgumentException $e) {
+            erroAtividades(400, $e->getMessage());
+        }
+        $limpar = fn($e) => ['atual' => $e['atual'] ? ['periodicidade' => $e['atual']['periodicidade'], 'inicio' => $e['atual']['inicio'], 'fim' => $e['atual']['fim']] : null,
+                             'proxima' => $e['proxima'] ? ['periodicidade' => $e['proxima']['periodicidade'], 'inicio' => $e['proxima']['inicio']] : null];
+        $antes = $limpar($r['antes']);
+        $depois = $limpar($r['depois']);
+        if ($antes !== $depois) {
+            $auditoria->registrar($user['id'], 'alterar_relatorio_setor', 'atividades_relatorio_setor', $setorId,
+                json_encode($antes, JSON_UNESCAPED_UNICODE), json_encode($depois, JSON_UNESCAPED_UNICODE));
+        }
+        echo json_encode(['success' => true, 'relatorio_setor' => relatorioSetorParaResposta($db, $user, $setorId)]);
         exit;
     }
 

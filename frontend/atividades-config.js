@@ -52,7 +52,7 @@ async function carregarAtividadesDoSetorCfg() {
     painel.innerHTML = '<p class="ativcfg-aviso">Carregando...</p>';
     try {
         ativCfgDados = await Api.get(`atividades-config.php?setor_id=${encodeURIComponent(ativCfgSetorAtual)}`);
-        painel.innerHTML = montarTiposCfg(ativCfgDados.tipos) + montarRegrasSetorCfg(ativCfgDados.setor) + montarUsuariosCfg(ativCfgDados.usuarios, ativCfgDados.setor);
+        painel.innerHTML = montarTiposCfg(ativCfgDados.tipos) + montarRegrasSetorCfg(ativCfgDados.setor) + montarRelatorioSetorCfg(ativCfgDados.relatorio_setor) + montarUsuariosCfg(ativCfgDados.usuarios, ativCfgDados.setor);
     } catch (e) {
         painel.innerHTML = `<p class="ativcfg-aviso" role="alert">${sanitizeHTML(mensagemDeErro(e, 'Erro ao carregar as atividades.'))}</p>`;
     }
@@ -149,6 +149,88 @@ function montarRegrasSetorCfg(s) {
         </form>`;
 }
 
+/** "2026-11-19" + 1 dia = "2026-11-20". */
+function diaSeguinteCfg(iso) {
+    const d = new Date(`${String(iso).slice(0, 10)}T12:00:00`);
+    d.setDate(d.getDate() + 1);
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
+/** Frase de quando o relatório do setor vale, a partir do objeto relatorio_setor. */
+function textoVigenciaRelatorioCfg(r) {
+    const { atual, proxima } = r;
+    if (proxima && atual) {
+        return `Passa a ser ${proxima.periodicidade} em ${formatarDataCfg(proxima.inicio)}; até lá continua ${atual.periodicidade}.`;
+    }
+    if (proxima) return `Começa em ${formatarDataCfg(proxima.inicio)} (${proxima.periodicidade}).`;
+    if (atual && atual.fim === null) {
+        return `Ligado desde ${formatarDataCfg(atual.inicio)} (${atual.periodicidade}). Os servidores do setor estão desobrigados.`;
+    }
+    if (atual) {
+        return `Desligado a partir de ${formatarDataCfg(diaSeguinteCfg(atual.fim))}: o período atual, até ${formatarDataCfg(atual.fim)}, continua sendo do coordenador.`;
+    }
+    return 'Desligado: cada servidor envia o próprio relatório.';
+}
+
+function montarRelatorioSetorCfg(r) {
+    if (!r) return '';
+    const semCoordenador = !r.coordenador;
+    const travado = !r.pode_alterar || (semCoordenador && !r.ligado);
+    const periodicidade = r.periodicidade || 'semanal';
+    const dis = travado ? ' disabled' : '';
+    const disRadio = (travado || !r.ligado) ? ' disabled' : '';
+    const historico = (r.historico || []).length ? `
+        <details class="ativcfg-historico">
+            <summary>Histórico do relatório do setor</summary>
+            <ul>${r.historico.map(h => `<li>${h.periodicidade === 'mensal' ? 'Mensal' : 'Semanal'}:
+                de ${sanitizeHTML(formatarDataCfg(h.inicio))} ${h.fim ? `até ${sanitizeHTML(formatarDataCfg(h.fim))}` : 'em diante'}</li>`).join('')}</ul>
+        </details>` : '';
+    return `
+        <h3 class="ativcfg-titulo">4. Relatório do setor pelo coordenador</h3>
+        <p class="ativcfg-intro">Em vez de cada servidor enviar o próprio relatório, o <strong>coordenador</strong> envia um só,
+            em nome do setor. Enquanto estiver ligado, os servidores ficam <strong>desobrigados</strong> de enviar.
+            Quem decide é o administrador ou o coordenador do setor.</p>
+        <div class="ativcfg-relatorio" id="ativcfg-relatorio">
+            ${semCoordenador ? '<p class="ativcfg-aviso" role="status">Este setor não tem coordenador ativo: cadastre um coordenador para poder ligar o relatório do setor.</p>'
+                : `<p class="ativcfg-ajuda">Coordenador do setor: <strong>${sanitizeHTML(r.coordenador.nome)}</strong>.</p>`}
+            ${r.pode_alterar ? '' : '<p class="ativcfg-ajuda">Somente leitura: só o administrador ou o coordenador do setor altera esta opção.</p>'}
+            <label class="ativcfg-opcao"><span class="switch"><input type="checkbox" role="switch" id="ativcfg-rel-ligado"
+                data-acao="cfg-relatorio-setor-ligado"${r.ligado ? ' checked' : ''}${dis}><span class="slider"></span></span>
+                <span>O coordenador envia o relatório do setor</span></label>
+            <fieldset class="ativcfg-grupo ativcfg-periodicidade">
+                <legend>Periodicidade</legend>
+                <label class="ativcfg-opcao"><input type="radio" name="ativcfg-rel-periodo" value="semanal"${periodicidade === 'semanal' ? ' checked' : ''}${disRadio}>
+                    <span><strong>Semanal:</strong> um relatório por semana (segunda a domingo).</span></label>
+                <label class="ativcfg-opcao"><input type="radio" name="ativcfg-rel-periodo" value="mensal"${periodicidade === 'mensal' ? ' checked' : ''}${disRadio}>
+                    <span><strong>Mensal:</strong> um relatório por mês.</span></label>
+            </fieldset>
+            <p class="ativcfg-vigencia" role="status">${sanitizeHTML(textoVigenciaRelatorioCfg(r))}</p>
+            ${r.pode_alterar ? `<button type="button" class="btn-primary" data-acao="cfg-relatorio-setor"${dis}>💾 Salvar relatório do setor</button>` : ''}
+            ${historico}
+        </div>`;
+}
+
+async function salvarRelatorioSetorCfg() {
+    const ligado = document.getElementById('ativcfg-rel-ligado').checked;
+    const periodicidade = document.querySelector('input[name="ativcfg-rel-periodo"]:checked')?.value || 'semanal';
+    const gravar = async () => {
+        try {
+            await Api.put('atividades-config.php?acao=relatorio-setor', { setor_id: ativCfgSetorAtual, ligado, periodicidade });
+            mostrarToast('Sucesso', 'Relatório do setor atualizado.', 'success');
+            await carregarAtividadesDoSetorCfg();
+        } catch (e) {
+            mostrarAlert('Erro', mensagemDeErro(e, 'Erro ao salvar o relatório do setor'));
+        }
+    };
+    if (!ligado && ativCfgDados.relatorio_setor?.ligado) {
+        mostrarConfirm('Desligar relatório do setor',
+            'Ao desligar, o período atual termina no fim da semana ou do mês e, depois dele, cada servidor volta a enviar o próprio relatório. Desligar?',
+            (ok) => { if (ok) gravar(); }, true);
+        return;
+    }
+    await gravar();
+}
+
 /** "Seg, Qua e Sex" a partir de [1, 3, 5]. */
 function nomesDiasCfg(dias) {
     const marcados = (dias || []).map(Number);
@@ -171,11 +253,14 @@ function valoresLinhaCfg(linha, u) {
         diasRemotos: linha.querySelector('input[name="dias-remotos"]') ? diasMarcados(linha, 'dias-remotos') : (u.dias_remotos || []),
         entregaModo: linha.querySelector('select[name="entrega-modo"]').value,
         entregaDias: diasMarcados(linha, 'entrega-dias'),
+        desobrigado: !!u.desobrigado,
     };
 }
 
 /** Frases do que, de fato, é cobrado do servidor com estes valores e as regras salvas do setor. */
 function resumoCobrancaCfg(setor, v) {
+    // Relatório do setor pelo coordenador vigente: o servidor não é cobrado de nada
+    if (v.desobrigado) return ['Nada (relatório do setor)'];
     const partes = [];
     if (v.remoto) {
         if (setor.modo === 'diario') {
@@ -198,7 +283,7 @@ function resumoCobrancaCfg(setor, v) {
 
 function montarResumoCfg(setor, v) {
     const partes = resumoCobrancaCfg(setor, v);
-    const nada = partes.length === 1 && partes[0] === 'Não é cobrado';
+    const nada = partes.length === 1 && (partes[0] === 'Não é cobrado' || v.desobrigado);
     return `<ul class="ativcfg-resumo${nada ? ' ativcfg-resumo--nada' : ''}">${partes.map(p => `<li>${sanitizeHTML(p)}</li>`).join('')}</ul>`;
 }
 
@@ -214,13 +299,14 @@ function atualizarLinhaUsuarioCfg(linha) {
 }
 
 function montarUsuariosCfg(usuarios, setor) {
+    const desobrigados = usuarios.filter(u => u.desobrigado);
     if (!usuarios.length) {
         return '<h3 class="ativcfg-titulo">Regras por servidor</h3><p class="ativcfg-aviso">Nenhum gestor ou operador ativo neste setor.</p>';
     }
     const diario = setor.modo === 'diario';
     const linhas = usuarios.map(u => {
         const valores = { remoto: u.trabalho_remoto, qtd: Number(u.qtd_semana) || 0, diasRemotos: u.dias_remotos || [],
-                          entregaModo: u.entrega_modo, entregaDias: u.entrega_dias || [] };
+                          entregaModo: u.entrega_modo, entregaDias: u.entrega_dias || [], desobrigado: !!u.desobrigado };
         const bloqueado = u.trabalho_remoto ? '' : ' disabled';
         const detalheRemoto = diario
             ? caixasDiasCfg('dias-remotos', u.dias_remotos, `Dias remotos de ${u.nome}`).replace(/<input /g, `<input${bloqueado} `)
@@ -255,6 +341,8 @@ function montarUsuariosCfg(usuarios, setor) {
     }).join('');
     return `
         <h3 class="ativcfg-titulo">Regras por servidor</h3>
+        ${desobrigados.length ? `<p class="ativcfg-faixa" role="status">O relatório do setor está valendo: ${desobrigados.length === 1 ? 'o servidor abaixo está desobrigado' : `os ${desobrigados.length} servidores abaixo estão desobrigados`}
+            de enviar relatório e de cumprir a cota remota. As regras ficam guardadas e voltam a valer quando o relatório do setor terminar.</p>` : ''}
         <p class="ativcfg-intro">${diario
             ? 'O setor está no modo <strong>diário</strong>: para quem trabalha remoto, marque os dias fixos de trabalho remoto.'
             : 'O setor está no modo <strong>semanal</strong>: para quem trabalha remoto, informe quantos relatórios remotos envia por semana.'}
@@ -284,10 +372,14 @@ function ligarAcoesAtividadesConfig(container) {
         if (alvo.dataset.acao === 'renomear') renomearTipoCfg(id, alvo.dataset.nome);
         else if (alvo.dataset.acao === 'excluir-tipo') excluirTipoCfg(id, alvo.dataset.nome);
         else if (alvo.dataset.acao === 'salvar-usuario') salvarUsuarioCfg(id, alvo.closest('tr'));
+        else if (alvo.dataset.acao === 'cfg-relatorio-setor') salvarRelatorioSetorCfg();
     });
     container.addEventListener('change', (ev) => {
         const alvo = ev.target;
-        if (alvo.matches('[data-acao="ativar-tipo"]')) alterarTipoCfg(Number(alvo.dataset.id), { ativo: alvo.checked }, alvo);
+        if (alvo.matches('[data-acao="cfg-relatorio-setor-ligado"]')) {
+            // Desligado, a periodicidade não vale: os rádios acompanham o interruptor
+            document.querySelectorAll('input[name="ativcfg-rel-periodo"]').forEach(i => { i.disabled = !alvo.checked; });
+        } else if (alvo.matches('[data-acao="ativar-tipo"]')) alterarTipoCfg(Number(alvo.dataset.id), { ativo: alvo.checked }, alvo);
         else if (alvo.matches('[data-acao="ordem"]')) alterarTipoCfg(Number(alvo.dataset.id), { ordem: Number(alvo.value) || 0 });
         else if (alvo.closest('tr[data-usuario]')) atualizarLinhaUsuarioCfg(alvo.closest('tr[data-usuario]'));
     });

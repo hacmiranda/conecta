@@ -237,3 +237,50 @@ body.modo-escuro {
 .ativcfg-form.ativcfg-regras > .btn-primary {
     align-self: flex-end;
 }
+
+/* Bloco 4: relatório do setor pelo coordenador */
+.ativcfg-relatorio {
+    display: flex;
+    flex-direction: column;
+    gap: var(--ativcfg-espaco-2);
+    align-items: flex-start;
+}
+
+.ativcfg-periodicidade {
+    align-self: stretch;
+}
+
+.ativcfg-vigencia,
+.ativcfg-faixa {
+    margin: 0;
+    padding: var(--ativcfg-espaco-2) var(--ativcfg-espaco-3);
+    border-left: 4px solid var(--laranja-500);
+    background: var(--neutro-50);
+    border-radius: var(--radius-sm);
+    color: var(--neutro-900);
+}
+
+.ativcfg-faixa {
+    margin-bottom: var(--ativcfg-espaco-2);
+}
+
+.ativcfg-historico summary {
+    color: var(--neutro-900);
+    cursor: pointer;
+    font-weight: 600;
+}
+
+.ativcfg-historico ul {
+    margin: var(--ativcfg-espaco-1) 0 0;
+    padding-left: 1.25rem;
+}
+
+body.modo-escuro .ativcfg-historico summary {
+    color: var(--neutro-50);
+}
+
+body.modo-escuro .ativcfg-vigencia,
+body.modo-escuro .ativcfg-faixa {
+    background: var(--neutro-900);
+    color: var(--neutro-50);
+}
