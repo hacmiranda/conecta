@@ -57,14 +57,14 @@ final class RegistroAtividadeTest extends TestCase {
     }
 
     public function test_rascunho_e_unico_por_dia(): void {
-        $a = $this->svc->buscarOuCriarRascunho($this->usuario, '2026-08-10');
-        $b = $this->svc->buscarOuCriarRascunho($this->usuario, '2026-08-10');
+        $a = $this->svc->buscarOuCriarRascunho($this->usuario, $this->setor, '2026-08-10');
+        $b = $this->svc->buscarOuCriarRascunho($this->usuario, $this->setor, '2026-08-10');
         $this->assertSame($a['id'], $b['id']);
         $this->assertSame('rascunho', $a['status']);
     }
 
     public function test_salva_itens_so_do_setor_e_limita_valores(): void {
-        $reg = $this->svc->buscarOuCriarRascunho($this->usuario, '2026-08-10');
+        $reg = $this->svc->buscarOuCriarRascunho($this->usuario, $this->setor, '2026-08-10');
         $itens = RegistroAtividadeService::normalizarItens([
             ['atividade_tipo_id' => $this->tipoA, 'quantidade' => 99999, 'observacao' => '<b>ok</b>'],
             ['atividade_tipo_id' => $this->tipoB, 'quantidade' => -5],
@@ -81,7 +81,7 @@ final class RegistroAtividadeTest extends TestCase {
     }
 
     public function test_enviado_nao_muda_mais_e_so_o_dono_envia(): void {
-        $reg = $this->svc->buscarOuCriarRascunho($this->usuario, '2026-08-11');
+        $reg = $this->svc->buscarOuCriarRascunho($this->usuario, $this->setor, '2026-08-11');
         $id = (int) $reg['id'];
 
         $this->assertFalse($this->svc->finalizar($id, $this->outro, 'remoto'), 'outro usuário não envia');
@@ -97,13 +97,13 @@ final class RegistroAtividadeTest extends TestCase {
     }
 
     public function test_historico_conta_atividades_e_tarefas(): void {
-        $reg = $this->svc->buscarOuCriarRascunho($this->usuario, '2026-08-12');
+        $reg = $this->svc->buscarOuCriarRascunho($this->usuario, $this->setor, '2026-08-12');
         $this->svc->salvarRascunho((int) $reg['id'], $this->usuario, [
             ['atividade_tipo_id' => $this->tipoA, 'quantidade' => 3, 'observacao' => ''],
             ['atividade_tipo_id' => $this->tipoB, 'quantidade' => 0, 'observacao' => ''],
         ], null);
         $this->svc->finalizar((int) $reg['id'], $this->usuario, null);
-        $this->svc->buscarOuCriarRascunho($this->usuario, '2026-08-13'); // rascunho não entra
+        $this->svc->buscarOuCriarRascunho($this->usuario, $this->setor, '2026-08-13'); // rascunho não entra
 
         $h = $this->svc->historico($this->usuario);
         $this->assertCount(1, $h);
@@ -127,7 +127,7 @@ final class RegistroAtividadeTest extends TestCase {
                             ON DUPLICATE KEY UPDATE entrega_ativa = 1, entrega_dias = '1,2,3,4,5', data_base = NULL, entrega_inicio = NULL, prazo_dias_atraso = 0")
                  ->execute([$this->setor]);
         $this->db->prepare("INSERT INTO atividades_config_usuario (usuario_id, trabalho_remoto) VALUES (?, 0)")->execute([$this->usuario]);
-        $reg = $this->svc->buscarOuCriarRascunho($this->usuario, '2026-08-10');
+        $reg = $this->svc->buscarOuCriarRascunho($this->usuario, $this->setor, '2026-08-10');
         $this->svc->finalizar((int) $reg['id'], $this->usuario, 'presencial');
 
         $prazo = new PrazoAtividadeService($this->db);

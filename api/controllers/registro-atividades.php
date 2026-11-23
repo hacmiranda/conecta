@@ -71,7 +71,7 @@ try {
             $data = $abertas ? ($abertas[0]['data'] ?? $abertas[0]['semana_ini']) : $hoje;
         }
 
-        $registro = $servico->buscarOuCriarRascunho($usuarioId, $data);
+        $registro = $servico->buscarOuCriarRascunho($usuarioId, $setorId, $data);
         $itens = array_column($servico->itens((int) $registro['id']), null, 'atividade_tipo_id');
         $atividades = array_map(function ($a) use ($itens) {
             $i = $itens[$a['id']] ?? null;

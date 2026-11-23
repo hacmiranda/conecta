@@ -31,12 +31,21 @@ class RegistroAtividadeService {
             $stmt->fetchAll(PDO::FETCH_ASSOC));
     }
 
-    /** Rascunho do dia (criado se não existir; INSERT IGNORE por causa do índice único usuario+data). */
-    public function buscarOuCriarRascunho(int $usuarioId, string $data): array {
-        $this->db->prepare("INSERT IGNORE INTO registros_atividades (usuario_id, data_referencia, status) VALUES (?, ?, 'rascunho')")
-                 ->execute([$usuarioId, $data]);
-        $stmt = $this->db->prepare("SELECT * FROM registros_atividades WHERE usuario_id = ? AND data_referencia = ?");
-        $stmt->execute([$usuarioId, $data]);
+    /**
+     * Rascunho do período (criado se não existir; INSERT IGNORE por causa dos índices únicos). Por padrão é o do
+     * dia do servidor; periodo semana/mes é o relatório do setor (um por setor/período/data_referencia).
+     */
+    public function buscarOuCriarRascunho(int $usuarioId, int $setorId, string $data, string $periodo = 'dia'): array {
+        $this->db->prepare("INSERT IGNORE INTO registros_atividades (usuario_id, setor_id, periodo, data_referencia, status) VALUES (?, ?, ?, ?, 'rascunho')")
+                 ->execute([$usuarioId, $setorId, $periodo, $data]);
+        if ($periodo === 'dia') {
+            $stmt = $this->db->prepare("SELECT * FROM registros_atividades WHERE usuario_id = ? AND setor_id = ? AND periodo = 'dia' AND data_referencia = ?");
+            $stmt->execute([$usuarioId, $setorId, $data]);
+        } else {
+            // Relatório do setor: único por setor/período/data, de quem quer que o tenha iniciado
+            $stmt = $this->db->prepare("SELECT * FROM registros_atividades WHERE setor_id = ? AND periodo = ? AND data_referencia = ?");
+            $stmt->execute([$setorId, $periodo, $data]);
+        }
         return $stmt->fetch(PDO::FETCH_ASSOC);
     }
 
