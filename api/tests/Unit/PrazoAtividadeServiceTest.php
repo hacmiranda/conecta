@@ -24,9 +24,10 @@ final class PrazoAtividadeServiceTest extends TestCase {
     }
 
     private function pendencias(array $setor, array $usuario, array $enviados = [], array $feriados = [],
-                                array $abonos = [], ?string $agora = '2026-10-27 12:00:00'): array {
-        return PrazoAtividadeService::calcularPendencias($setor, $usuario, self::SEG, self::SEX, $feriados, $enviados,
-            $abonos, new DateTimeImmutable($agora));
+                                array $abonos = [], ?string $agora = '2026-10-27 12:00:00', array $vigenciasSetor = [],
+                                string $ini = self::SEG, string $fim = self::SEX): array {
+        return PrazoAtividadeService::calcularPendencias($setor, $usuario, $ini, $fim, $feriados, $enviados,
+            $abonos, new DateTimeImmutable($agora), $vigenciasSetor);
     }
 
     private function doTipo(array $pendencias, string $tipo): array {
@@ -303,5 +304,52 @@ final class PrazoAtividadeServiceTest extends TestCase {
             ['periodo' => 'mes', 'data_referencia' => '2026-11-01', 'periodo_fim' => '2026-11-30'],
             ['periodo' => 'mes', 'data_referencia' => '2026-12-01', 'periodo_fim' => '2026-12-10'],
         ], $p);
+    }
+
+    // ── Desobrigação dos servidores pelo relatório do setor ─────────────────────
+
+    public function test_dia_dentro_da_vigencia_nao_e_cobrado_no_modo_diario(): void {
+        $vig = [['periodicidade' => 'semanal', 'inicio' => '2026-08-10', 'fim' => '2026-08-11']];
+        $r = $this->pendencias($this->setor(['modo' => 'diario']), $this->usuario(['dias_remotos' => [1, 2, 3]]), [], [], [], '2026-10-27 12:00:00', $vig);
+        $this->assertSame(['2026-08-12'], array_column($r, 'data'));
+    }
+
+    public function test_entrega_dentro_da_vigencia_nao_e_cobrada(): void {
+        $vig = [['periodicidade' => 'semanal', 'inicio' => '2026-08-10', 'fim' => '2026-08-12']];
+        $r = $this->pendencias($this->setor(['entrega_ativa' => true]), $this->usuario(['trabalho_remoto' => false]), [], [], [], '2026-10-27 12:00:00', $vig);
+        $this->assertSame(['2026-08-13', '2026-08-14'], array_column($r, 'data'));
+    }
+
+    public function test_semana_coberta_some_no_modo_semanal(): void {
+        $vig = [['periodicidade' => 'semanal', 'inicio' => '2026-08-10', 'fim' => null]];
+        $this->assertSame([], $this->pendencias($this->setor(), $this->usuario(['qtd_semana' => 3]), [], [], [], '2026-10-27 12:00:00', $vig));
+    }
+
+    public function test_semana_parcial_limita_a_cota_aos_dias_fora_da_vigencia(): void {
+        // Vigência mensal começa na quinta 01/10: na semana de 28/09 só seg a qua ficam fora dela
+        $vig = [['periodicidade' => 'mensal', 'inicio' => '2026-10-01', 'fim' => null]];
+        foreach ([3, 4] as $cota) {
+            $r = $this->pendencias($this->setor(), $this->usuario(['qtd_semana' => $cota]), [], [], [], '2026-10-27 12:00:00', $vig, '2026-09-28', '2026-10-02');
+            $this->assertCount(1, $r);
+            $this->assertSame(3, $r[0]['esperado']);
+            $this->assertSame(3, $r[0]['faltam']);
+        }
+    }
+
+    public function test_depois_do_fim_da_vigencia_volta_a_cobrar(): void {
+        $vig = [['periodicidade' => 'semanal', 'inicio' => '2026-08-03', 'fim' => '2026-08-09']];
+        $r = $this->pendencias($this->setor(), $this->usuario(['qtd_semana' => 3]), [], [], [], '2026-10-27 12:00:00', $vig);
+        $this->assertCount(1, $r);
+        $this->assertSame('2026-08-10', $r[0]['semana_ini']);
+        $this->assertSame(3, $r[0]['faltam']);
+    }
+
+    public function test_desobrigado_em(): void {
+        $vig = [['periodicidade' => 'semanal', 'inicio' => '2026-08-10', 'fim' => '2026-08-16'], ['periodicidade' => 'mensal', 'inicio' => '2026-09-01', 'fim' => null]];
+        $this->assertFalse(PrazoAtividadeService::desobrigadoEm($vig, '2026-08-09'));
+        $this->assertTrue(PrazoAtividadeService::desobrigadoEm($vig, '2026-08-16'));
+        $this->assertFalse(PrazoAtividadeService::desobrigadoEm($vig, '2026-08-17'));
+        $this->assertTrue(PrazoAtividadeService::desobrigadoEm($vig, '2027-01-01'));
+        $this->assertFalse(PrazoAtividadeService::desobrigadoEm([], '2026-08-10'));
     }
 }

@@ -68,4 +68,27 @@ final class RelatorioSetorTest extends TestCase {
         $this->db->prepare($sql)->execute([$b, $this->setor]);
         $this->assertTrue(true);
     }
+
+    public function test_pendencias_do_servidor_respeitam_a_vigencia_do_setor(): void {
+        require_once __DIR__ . '/../../services/prazo-atividade-service.php';
+        $u = $this->criarUsuario($this->setor);
+        $this->db->prepare("INSERT INTO atividades_config_usuario (usuario_id, trabalho_remoto, qtd_dias_remoto_semana, entrega_dias) VALUES (?, 1, 3, '')")->execute([$u]);
+        $this->db->prepare("INSERT INTO atividades_config_setor (setor_id, modo_controle_remoto, prazo_dias_atraso, entrega_ativa, data_base) VALUES (?, 'semanal', 0, 0, NULL)
+            ON DUPLICATE KEY UPDATE modo_controle_remoto = 'semanal', prazo_dias_atraso = 0, entrega_ativa = 0, data_base = NULL")->execute([$this->setor]);
+        $this->db->prepare("DELETE FROM atividades_relatorio_setor WHERE setor_id = ?")->execute([$this->setor]);
+
+        $svc = new PrazoAtividadeService($this->db);
+        $antes = $svc->pendenciasUsuario($u, '2026-08-10', '2026-08-16');
+        $this->assertCount(1, $antes);
+        $this->assertFalse($svc->statusSetor($this->setor, '2026-08-10', '2026-08-16')[0]['desobrigado'] ?? false);
+
+        $this->db->prepare("INSERT INTO atividades_relatorio_setor (setor_id, periodicidade, inicio, fim) VALUES (?, 'semanal', '2026-08-10', NULL)")->execute([$this->setor]);
+        $this->assertSame([], $svc->pendenciasUsuario($u, '2026-08-10', '2026-08-16'));
+        $this->assertCount(1, $svc->vigenciasDoSetor($this->setor));
+
+        // Relatório do setor enviado não conta como relatório individual do servidor
+        $this->db->prepare("INSERT INTO registros_atividades (usuario_id, setor_id, periodo, data_referencia, status) VALUES (?, ?, 'semana', '2026-08-10', 'enviado')")->execute([$u, $this->setor]);
+        $this->db->prepare("UPDATE atividades_relatorio_setor SET fim = '2026-08-09' WHERE setor_id = ?")->execute([$this->setor]);
+        $this->assertCount(1, $svc->pendenciasUsuario($u, '2026-08-10', '2026-08-16'));
+    }
 }

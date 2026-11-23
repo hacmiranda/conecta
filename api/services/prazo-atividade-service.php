@@ -118,10 +118,12 @@ class PrazoAtividadeService {
      * @param string[] $feriados  datas de feriado (de $ini até bem depois de $fim, por causa do prazo)
      * @param array $enviados     [data => modalidade] dos relatórios enviados (da segunda da 1ª semana ao domingo da última)
      * @param array $abonos       ['remoto' => [data => info], 'entrega' => [data => info]]
+     * @param array $vigenciasSetor vigências do relatório do setor enviado pelo coordenador (ver periodosDaVigencia):
+     *                        dentro delas o servidor está desobrigado (dia, entrega e cota não são cobrados)
      */
     public static function calcularPendencias(array $setor, array $usuario, string $ini, string $fim,
                                               array $feriados, array $enviados, array $abonos,
-                                              ?DateTimeImmutable $agora = null): array {
+                                              ?DateTimeImmutable $agora = null, array $vigenciasSetor = []): array {
         $agora ??= new DateTimeImmutable();
 
         // Nunca cobrar antes da data base do setor
@@ -146,11 +148,11 @@ class PrazoAtividadeService {
         $remotas = [];
         if (!empty($usuario['trabalho_remoto'])) {
             $remotas = $diario
-                ? self::pendenciasModoDiario($ini, $fim, $usuario['dias_remotos'] ?? [], $prazo, $feriados, $todos, $agora)
-                : self::pendenciasModoSemanal($ini, $fim, (int) ($usuario['qtd_semana'] ?? 0), $prazo, $feriados, $remotos, $agora, $dataBase);
+                ? self::pendenciasModoDiario($ini, $fim, $usuario['dias_remotos'] ?? [], $prazo, $feriados, $todos, $agora, $vigenciasSetor)
+                : self::pendenciasModoSemanal($ini, $fim, (int) ($usuario['qtd_semana'] ?? 0), $prazo, $feriados, $remotos, $agora, $dataBase, $vigenciasSetor);
         }
 
-        $entregas = self::pendenciasEntrega($setor, $usuario, $ini, $fim, $feriados, $todos, $agora);
+        $entregas = self::pendenciasEntrega($setor, $usuario, $ini, $fim, $feriados, $todos, $agora, $vigenciasSetor);
 
         // Sem cobrança dupla: dia remoto que também é de entrega vale uma pendência só; no semanal,
         // dias de entrega sem envio já cobrem a falta da cota remota daquela semana.
@@ -170,7 +172,8 @@ class PrazoAtividadeService {
     }
 
     private static function pendenciasEntrega(array $setor, array $usuario, string $ini, string $fim,
-                                              array $feriados, array $enviados, DateTimeImmutable $agora): array {
+                                              array $feriados, array $enviados, DateTimeImmutable $agora,
+                                              array $vigenciasSetor = []): array {
         $usuarioDias = $usuario['entrega_dias'] ?? null;
         $dias = self::diasDeEntrega($usuarioDias, !empty($setor['entrega_ativa']), (string) ($setor['entrega_dias'] ?? self::DIAS_PADRAO));
         if (empty($dias)) return [];
@@ -187,7 +190,8 @@ class PrazoAtividadeService {
 
         while ($cursor <= $fimObj) {
             $data = $cursor->format('Y-m-d');
-            if (isset($diasSet[(int) $cursor->format('N')]) && !isset($feriadosSet[$data]) && !isset($enviados[$data])) {
+            if (isset($diasSet[(int) $cursor->format('N')]) && !isset($feriadosSet[$data]) && !isset($enviados[$data])
+                && !self::desobrigadoEm($vigenciasSetor, $data)) {
                 $prazoFinal = self::calcularPrazoFinal($data, $prazo, $feriados);
                 $pendencias[] = [
                     'tipo'     => 'entrega',
@@ -217,7 +221,8 @@ class PrazoAtividadeService {
     }
 
     private static function pendenciasModoDiario(string $ini, string $fim, array $diasSemana, int $prazo,
-                                                 array $feriados, array $enviados, DateTimeImmutable $agora): array {
+                                                 array $feriados, array $enviados, DateTimeImmutable $agora,
+                                                 array $vigenciasSetor = []): array {
         if (empty($diasSemana)) return [];
 
         $diasSet = array_flip(array_map('intval', $diasSemana));
@@ -230,7 +235,8 @@ class PrazoAtividadeService {
         while ($cursor <= $fimObj) {
             $data = $cursor->format('Y-m-d');
             // Dia remoto que cai em feriado do setor não é cobrado (19/11/2026; no METRICA360 era)
-            if (isset($diasSet[(int) $cursor->format('N')]) && !isset($feriadosSet[$data]) && !isset($enviados[$data])) {
+            if (isset($diasSet[(int) $cursor->format('N')]) && !isset($feriadosSet[$data]) && !isset($enviados[$data])
+                && !self::desobrigadoEm($vigenciasSetor, $data)) {
                 $prazoFinal = self::calcularPrazoFinal($data, $prazo, $feriados);
                 $pendencias[] = [
                     'tipo'     => 'remoto',
@@ -251,7 +257,7 @@ class PrazoAtividadeService {
      */
     private static function pendenciasModoSemanal(string $ini, string $fim, int $qtdSemana, int $prazo,
                                                   array $feriados, array $enviados, DateTimeImmutable $agora,
-                                                  ?string $dataBase = null): array {
+                                                  ?string $dataBase = null, array $vigenciasSetor = []): array {
         if ($qtdSemana <= 0) return [];
         $feriadosSet = array_flip($feriados);
 
@@ -264,7 +270,7 @@ class PrazoAtividadeService {
             $semanaFim = $cursor->modify('+6 days')->format('Y-m-d');
             $sexta     = $cursor->modify('+4 days')->format('Y-m-d');
 
-            $esperado = min($qtdSemana, self::diasUteisDaSemana($cursor, $feriadosSet, $dataBase));
+            $esperado = min($qtdSemana, self::diasUteisDaSemana($cursor, $feriadosSet, $dataBase, $vigenciasSetor));
 
             $enviadoSemana = 0;
             foreach ($enviados as $data => $_) {
@@ -289,15 +295,35 @@ class PrazoAtividadeService {
         return $pendencias;
     }
 
-    /** Dias úteis (segunda a sexta, fora feriados) da semana que começa em $segunda, a partir da data base. */
-    private static function diasUteisDaSemana(DateTimeImmutable $segunda, array $feriadosSet, ?string $dataBase): int {
+    /**
+     * Dias úteis (segunda a sexta, fora feriados) da semana que começa em $segunda, a partir da data base e
+     * fora das vigências do relatório do setor (dias em que o servidor está desobrigado).
+     */
+    private static function diasUteisDaSemana(DateTimeImmutable $segunda, array $feriadosSet, ?string $dataBase,
+                                              array $vigenciasSetor = []): int {
         $uteis = 0;
         for ($i = 0; $i < 5; $i++) {
             $data = $segunda->modify("+{$i} days")->format('Y-m-d');
-            if (isset($feriadosSet[$data]) || ($dataBase && $data < $dataBase)) continue;
+            if (isset($feriadosSet[$data]) || ($dataBase && $data < $dataBase) || self::desobrigadoEm($vigenciasSetor, $data)) continue;
             $uteis++;
         }
         return $uteis;
+    }
+
+    /** O dia está dentro de alguma vigência do relatório do setor (fim NULL = em vigor; limites inclusivos)? Pura. */
+    public static function desobrigadoEm(array $vigencias, string $data): bool {
+        foreach ($vigencias as $v) {
+            if ($data >= $v['inicio'] && ($v['fim'] === null || $data <= $v['fim'])) return true;
+        }
+        return false;
+    }
+
+    /** Todas as vigências do relatório do setor, da mais antiga para a mais nova. */
+    public function vigenciasDoSetor(int $setorId): array {
+        $stmt = $this->db->prepare("SELECT periodicidade, inicio, fim FROM atividades_relatorio_setor WHERE setor_id = ? ORDER BY inicio, id");
+        $stmt->execute([$setorId]);
+        return array_map(fn($l) => ['periodicidade' => $l['periodicidade'], 'inicio' => $l['inicio'], 'fim' => $l['fim']],
+            $stmt->fetchAll(PDO::FETCH_ASSOC));
     }
 
     private static function aplicarAbonos(array $pendencias, array $abonos, string $chave): array {
@@ -495,7 +521,7 @@ class PrazoAtividadeService {
         $fimSemana = (new DateTimeImmutable($fim))->modify('Sunday this week')->format('Y-m-d');
         $stmt = $this->db->prepare("
             SELECT data_referencia, modalidade FROM registros_atividades
-            WHERE usuario_id = ? AND status = 'enviado' AND data_referencia BETWEEN ? AND ?");
+            WHERE usuario_id = ? AND status = 'enviado' AND periodo = 'dia' AND data_referencia BETWEEN ? AND ?");
         $stmt->execute([$usuarioId, $iniSemana, $fimSemana]);
         $enviados = [];
         foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $l) {
@@ -503,7 +529,8 @@ class PrazoAtividadeService {
         }
 
         return self::calcularPendencias($setor, $usuario, $ini, $fim, $feriados, $enviados,
-            ['remoto' => $this->abonos($usuarioId, $ini, $fim, 'remoto'), 'entrega' => $this->abonos($usuarioId, $ini, $fim, 'entrega')]);
+            ['remoto' => $this->abonos($usuarioId, $ini, $fim, 'remoto'), 'entrega' => $this->abonos($usuarioId, $ini, $fim, 'entrega')],
+            null, $this->vigenciasDoSetor((int) $usuario['setor_id']));
     }
 
     /** @return array<string, array> chave = data_referencia */
@@ -541,12 +568,14 @@ class PrazoAtividadeService {
             ORDER BY u.nome");
         $stmt->execute([$setorId, $setor['entrega_ativa'] ? 1 : 0]);
 
+        $desobrigado = self::desobrigadoEm($this->vigenciasDoSetor($setorId), date('Y-m-d'));
         $resultado = [];
         foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $u) {
             $resultado[] = [
                 'usuario_id'   => (int) $u['id'],
                 'usuario_nome' => $u['nome'],
                 'pendencias'   => $this->pendenciasUsuario((int) $u['id'], $ini, $fim),
+                'desobrigado'  => $desobrigado,
             ];
         }
         return $resultado;
