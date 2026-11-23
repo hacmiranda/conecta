@@ -1153,6 +1153,8 @@ function restaurarSecaoAtiva() {
             mostrarFluxosEmail();
         } else if (subSecaoSalva === 'atalhos') {
             mostrarAtalhosGuia();
+        } else if (subSecaoSalva === 'relatorio-setor') {
+            mostrarRelatorioSetorGuia();
         } else {
             mostrarSLA();
         }

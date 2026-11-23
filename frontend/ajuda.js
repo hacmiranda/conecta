@@ -427,6 +427,53 @@ function mostrarAtalhosGuia() {
     }, 10);
 }
 
+// Guia do relatório do setor enviado pelo coordenador (23/11/2026)
+function mostrarRelatorioSetorGuia() {
+    document.querySelectorAll('.btn-ajuda').forEach(btn => btn.classList.remove('active'));
+    const btnRelatorio = document.getElementById('btn-relatorio-setor');
+    if (btnRelatorio) btnRelatorio.classList.add('active');
+    localStorage.setItem('cd_subSecaoAtiva', 'relatorio-setor');
+
+    const content = document.getElementById('ajuda-content');
+    content.style.animation = 'none';
+    setTimeout(() => {
+        content.style.animation = '';
+        content.innerHTML = `
+        <div class="ajuda-card">
+            <h3>📑 Relatório do setor (Registro de Atividades)</h3>
+            <p>Por padrão, cada gestor e operador envia o próprio relatório de atividades. O setor pode, em vez disso,
+            ter <strong>um único relatório enviado pelo coordenador</strong>, semanal ou mensal.</p>
+
+            <h4>Como ligar</h4>
+            <ul>
+                <li>Em <strong>Configurações → Atividades</strong>, escolha o setor no seletor da barra lateral e use o bloco
+                <strong>4. Relatório do setor pelo coordenador</strong> (só o administrador e o coordenador do setor).</li>
+                <li>Escolha <strong>semanal</strong> ou <strong>mensal</strong>. O setor precisa ter um coordenador ativo.</li>
+                <li>A cobrança vale a partir do início da semana (ou do mês) em que foi ligado. Os períodos seguem o calendário
+                (semana de segunda a domingo; mês do dia 1º ao último dia).</li>
+            </ul>
+
+            <h4>O que acontece com os servidores</h4>
+            <ul>
+                <li>Enquanto o relatório do setor está em vigor, gestores e operadores do setor ficam <strong>desobrigados</strong>
+                do relatório diário nessas datas: não aparecem como pendentes e não conseguem enviar o dia.</li>
+                <li>As pendências de antes da vigência continuam valendo.</li>
+                <li>Ao desligar ou trocar a periodicidade, a regra atual vai até o fim do período corrente e a nova começa no dia
+                seguinte; por isso o primeiro ou o último período pode ser parcial.</li>
+            </ul>
+
+            <h4>Como o coordenador envia</h4>
+            <ul>
+                <li>Em <strong>Registro de Atividades</strong>, escolha o setor e o período (semana ou mês), preencha as
+                quantidades e use <strong>Finalizar e enviar</strong>. Depois de enviado, o relatório não muda mais.</li>
+                <li>O período não enviado vira pendência do setor no grupo <strong>Atividades</strong>. O administrador ou o
+                coordenador do setor pode <strong>abonar</strong> o período, com justificativa; o gestor não abona.</li>
+            </ul>
+        </div>
+    `;
+    }, 10);
+}
+
 // Dica de atalhos
 function mostrarDicaAtalhos() {
     const dica = document.createElement('div');

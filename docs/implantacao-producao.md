@@ -96,7 +96,7 @@ cabeçalho `X-Cron-Key: <valor>` (o parâmetro `?key=` na URL não é mais aceit
 ## 6. Depois do primeiro deploy
 
 - [ ] Login funciona com o primeiro administrador
-- [ ] `php database/migrar.php --status` mostra todas as migrações aplicadas (9 a 40 em 03/11/2026)
+- [ ] `php database/migrar.php --status` mostra todas as migrações aplicadas (9 a 43 em 23/11/2026)
 - [ ] `php api/tests/matriz-de-acesso.php https://<dominio>` roda limpo contra o ambiente (cuidado: cria e apaga dados de teste — só rodar antes de haver dados reais, ou usar um ambiente de homologação)
 - [ ] Teste de envio de e-mail pela tela "Configurar e-mail" (teste de uma caixa de setor) chega de verdade
 - [ ] Cron de e-mail rodou ao menos uma vez com sucesso (ver `backend/logs/email-cron-AAAA-MM-DD.log`: linha
@@ -141,8 +141,12 @@ O METRICA360 deixou de ser um sistema à parte: pesquisa de satisfação, Meu Pa
 são do próprio Conecta, no mesmo banco, com o mesmo login. **Nada do METRICA360 precisa ser publicado**: não há
 mais API entre os dois, nem `INTEGRACAO_CONECTA_API_KEY`, `METRICA360_URL_*` ou `METRICA360_API_KEY_*`.
 
-1. **Banco:** `php database/migrar.php` (aplica a 39, papéis de coordenação, a 40, módulo Satisfação, e a 42,
-   setores de coordenação e prioridade "Baixíssima (Sem SLA)"), ou confirmar com `--status` que a réplica do
+1. **Banco:** `php database/migrar.php` (aplica a 39, papéis de coordenação, a 40, módulo Satisfação, a 42,
+   setores de coordenação e prioridade "Baixíssima (Sem SLA)", e a 43, relatório do setor enviado pelo
+   coordenador: `registros_atividades.setor_id`/`periodo`/`chave_setor`, `atividades_relatorio_setor` e
+   `atividades_abonos_setor`; **faça backup antes**: a 43 apaga rascunhos de registro sem setor e para se
+   houver relatório enviado sem setor — conferir antes com
+   `SELECT COUNT(*) FROM registros_atividades r JOIN usuarios u ON u.id = r.usuario_id WHERE u.setor_id IS NULL AND r.status = 'enviado'`), ou confirmar com `--status` que a réplica do
    banco local já vem com elas. A 42 já marca como "setor de coordenação" a Coordenação Administrativa, a
    Financeira e a Técnica (conferir em Configurações → Setores).
 2. **Pessoas e setores:** **já feito no banco local em 16/11/2026** (17 setores e 35 contas, sem os dois
@@ -182,7 +186,9 @@ Conferência depois da implantação:
 - [ ] Um servidor com atendimento externo vê "Meu Painel", com indicadores e histórico; o convite enviado chega por e-mail e o link abre a página de avaliação
 - [ ] Encerrar uma demanda de um solicitante externo gera o convite (log `pesquisa-satisfacao` e a fila de e-mail)
 - [ ] Widget do Google Reviews carrega sem erro de CSP no console (Meu Painel)
-- [ ] `php api/tests/matriz-de-acesso.php` (seções 7c a 7f, 9 e 10) limpo, se rodado em homologação
+- [ ] Relatório do setor (23/11/2026): o coordenador liga em Configurações → Atividades (bloco 4) e o setor precisa ter coordenador ativo; com ele ligado, os gestores e operadores do setor ficam desobrigados do relatório diário nas datas cobertas (a tela do dia avisa e o envio responde 409)
+- [ ] O coordenador abre o Registro de Atividades no modo setor, preenche e envia o período (semana ou mês); o envio repetido é recusado; o período não enviado aparece como pendência do setor em Atividades, e só o admin ou o coordenador do setor abona
+- [ ] `php api/tests/matriz-de-acesso.php` (seções 7c a 7g, 9 e 10) limpo, se rodado em homologação
 
 ## Pendências técnicas conhecidas (não bloqueiam a implantação)
 
