@@ -157,6 +157,64 @@ class RegistroAtividadeService {
         ], $stmt->fetchAll(PDO::FETCH_ASSOC));
     }
 
+    // ── Relatório do setor (enviado pelo coordenador) ───────────────────────────
+
+    /** Rascunho do setor para o período (semana/mes) e a data de início do período do calendário. */
+    public function buscarOuCriarRascunhoSetor(int $setorId, string $periodo, string $dataReferencia, int $usuarioId): array {
+        return $this->buscarOuCriarRascunho($usuarioId, $setorId, $dataReferencia, $periodo);
+    }
+
+    /** Grava os itens de um rascunho do setor (qualquer coordenador do setor continua o mesmo). false se já foi enviado. */
+    public function salvarRascunhoSetor(int $registroId, array $itens): bool {
+        $stmt = $this->db->prepare("SELECT status FROM registros_atividades WHERE id = ? AND periodo <> 'dia' FOR UPDATE");
+        $stmt->execute([$registroId]);
+        if ($stmt->fetchColumn() !== 'rascunho') return false;
+
+        $ins = $this->db->prepare("
+            INSERT INTO registros_atividades_itens (registro_id, atividade_tipo_id, quantidade, observacao)
+            VALUES (?, ?, ?, ?)
+            ON DUPLICATE KEY UPDATE quantidade = VALUES(quantidade), observacao = VALUES(observacao)");
+        foreach ($itens as $i) {
+            $ins->execute([$registroId, $i['atividade_tipo_id'], $i['quantidade'], $i['observacao'] !== '' ? $i['observacao'] : null]);
+        }
+        return true;
+    }
+
+    /** Envia o relatório do setor; `usuario_id` passa a ser quem enviou; modalidade fica NULL. */
+    public function finalizarSetor(int $registroId, int $usuarioId): bool {
+        $stmt = $this->db->prepare("
+            UPDATE registros_atividades SET status = 'enviado', enviado_em = NOW(), usuario_id = ?
+            WHERE id = ? AND periodo <> 'dia' AND status = 'rascunho'");
+        $stmt->execute([$usuarioId, $registroId]);
+        return $stmt->rowCount() > 0;
+    }
+
+    /** Últimos relatórios do setor enviados (de qualquer coordenador), no formato de historico() + periodo e usuario_nome. */
+    public function historicoSetor(int $setorId, int $limite = 10): array {
+        $stmt = $this->db->prepare("
+            SELECT r.id, r.periodo, r.data_referencia, r.enviado_em, r.modalidade, u.nome AS usuario_nome,
+                   COUNT(CASE WHEN i.quantidade > 0 THEN 1 END) AS total_itens,
+                   COALESCE(SUM(i.quantidade), 0) AS total_tarefas
+            FROM registros_atividades r
+            LEFT JOIN registros_atividades_itens i ON i.registro_id = r.id
+            LEFT JOIN usuarios u ON u.id = r.usuario_id
+            WHERE r.setor_id = ? AND r.periodo <> 'dia' AND r.status = 'enviado'
+            GROUP BY r.id
+            ORDER BY r.data_referencia DESC
+            LIMIT " . max(1, min(50, $limite)));
+        $stmt->execute([$setorId]);
+        return array_map(fn($r) => [
+            'id'              => (int) $r['id'],
+            'periodo'         => $r['periodo'],
+            'data_referencia' => $r['data_referencia'],
+            'enviado_em'      => $r['enviado_em'],
+            'modalidade'      => $r['modalidade'],
+            'usuario_nome'    => $r['usuario_nome'],
+            'total_itens'     => (int) $r['total_itens'],
+            'total_tarefas'   => (int) $r['total_tarefas'],
+        ], $stmt->fetchAll(PDO::FETCH_ASSOC));
+    }
+
     /** Liga/desliga a estrela. Só atividade do setor do usuário. Devolve o novo estado, ou null se não pode. */
     public function alternarFavorito(int $usuarioId, int $setorId, int $tipoId): ?bool {
         $stmt = $this->db->prepare("SELECT 1 FROM atividades_tipos WHERE id = ? AND setor_id = ?");

@@ -11,6 +11,7 @@ header('Content-Type: application/json');
 require_once __DIR__ . '/../config/database.php';
 require_once __DIR__ . '/../middleware/auth.php';
 require_once __DIR__ . '/../services/acesso-service.php';
+require_once __DIR__ . '/../services/relatorio-setor-service.php';
 
 AuthMiddleware::configurarCORS(['GET']);
 if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
@@ -48,6 +49,7 @@ try {
         'setores'      => AcessoService::setoresComNome($db, $usuario),
         'somente_leitura' => AcessoService::ehSomenteLeitura($usuario),
         'atendimento_externo' => (int) ($usuario['atendimento_externo'] ?? 0) === 1,
+        'relatorio_setor' => RelatorioSetorService::setoresDoCoordenador($db, $usuario),
         'trocar_senha' => (int) ($usuario['trocar_senha'] ?? 0) === 1,
     ]], JSON_UNESCAPED_UNICODE);
 } catch (Throwable $e) {

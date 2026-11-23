@@ -326,6 +326,57 @@ class PrazoAtividadeService {
             $stmt->fetchAll(PDO::FETCH_ASSOC));
     }
 
+    /** A vigência (a primeira) que cobre o dia, ou null. Pura. */
+    public static function vigenciaQueCobre(array $vigencias, string $data): ?array {
+        foreach ($vigencias as $v) {
+            if ($data >= $v['inicio'] && ($v['fim'] === null || $data <= $v['fim'])) return $v;
+        }
+        return null;
+    }
+
+    /**
+     * Pendências do relatório do setor (enviado pelo coordenador) no intervalo: carrega vigências, prazo e
+     * data base do setor, feriados (com folga depois de $fim, por causa do prazo), envios de semana/mês
+     * e abonos (com o nome de quem abonou) e chama a função pura.
+     */
+    public function pendenciasRelatorioSetor(int $setorId, string $ini, string $fim, ?DateTimeImmutable $agora = null): array {
+        $vigencias = $this->vigenciasDoSetor($setorId);
+        if (!$vigencias) return [];
+        $config = $this->configSetor($setorId);
+
+        $fimFeriados = (new DateTimeImmutable($fim))->modify('+60 days')->format('Y-m-d');
+        $stmt = $this->db->prepare("SELECT data, recorrente FROM feriados WHERE setor_id = ?");
+        $stmt->execute([$setorId]);
+        $feriados = self::datasDeFeriado($stmt->fetchAll(PDO::FETCH_ASSOC), $ini, $fimFeriados);
+
+        // data_referencia é o início do período do calendário: pode ser anterior a $ini (até 31 dias)
+        $iniEnvios = (new DateTimeImmutable($ini))->modify('-31 days')->format('Y-m-d');
+        $stmt = $this->db->prepare("SELECT periodo, data_referencia FROM registros_atividades
+            WHERE setor_id = ? AND status = 'enviado' AND periodo <> 'dia' AND data_referencia BETWEEN ? AND ?");
+        $stmt->execute([$setorId, $iniEnvios, $fim]);
+        $enviados = [];
+        foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $l) {
+            $enviados[$l['periodo'] . '|' . $l['data_referencia']] = true;
+        }
+
+        $stmt = $this->db->prepare("SELECT a.id, a.periodo, a.data_referencia, a.justificativa, a.criado_em, u.nome AS abonado_por
+            FROM atividades_abonos_setor a LEFT JOIN usuarios u ON u.id = a.criado_por
+            WHERE a.setor_id = ? AND a.data_referencia BETWEEN ? AND ?");
+        $stmt->execute([$setorId, $iniEnvios, $fim]);
+        $abonos = [];
+        foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $l) {
+            $abonos[$l['periodo'] . '|' . $l['data_referencia']] = [
+                'abono_id'      => (int) $l['id'],
+                'justificativa' => $l['justificativa'],
+                'abonado_por'   => $l['abonado_por'],
+                'abonado_em'    => $l['criado_em'],
+            ];
+        }
+
+        return self::calcularPendenciasRelatorioSetor($vigencias, $config['prazo'], $config['data_base'],
+            $feriados, $enviados, $abonos, $ini, $fim, $agora);
+    }
+
     private static function aplicarAbonos(array $pendencias, array $abonos, string $chave): array {
         foreach ($pendencias as &$p) {
             if (isset($abonos[$p[$chave]])) {

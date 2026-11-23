@@ -183,25 +183,39 @@ class RelatorioSetorService {
         if (($user['tipo'] ?? '') !== 'coordenador') {
             return [];
         }
+        // A linha de `usuarios` (login e me.php) não traz setores_extras: lê de usuario_setores
+        if (!array_key_exists('setores_extras', $user)) {
+            $stmt = $db->prepare("SELECT setor_id FROM usuario_setores WHERE usuario_id = ?");
+            $stmt->execute([(int) $user['id']]);
+            $user['setores_extras'] = array_map('intval', $stmt->fetchAll(PDO::FETCH_COLUMN));
+        }
         $setores = AcessoService::setoresDoUsuario($user) ?? [];
         if (!$setores) {
             return [];
         }
         $hoje = date('Y-m-d');
+        $corte = (new DateTimeImmutable($hoje))->modify('-180 days')->format('Y-m-d');
         $marcas = implode(',', array_fill(0, count($setores), '?'));
+        // Vigência cobrindo hoje ou terminada há até 180 dias (janela de pendências do Registro)
         $stmt = $db->prepare(
             "SELECT s.id AS setor_id, s.nome, v.periodicidade
                FROM setores s
                JOIN atividades_relatorio_setor v ON v.setor_id = s.id
                 AND v.inicio <= ? AND (v.fim IS NULL OR v.fim >= ?)
               WHERE s.id IN ($marcas)
-              ORDER BY s.nome, s.id"
+              ORDER BY s.nome, s.id, v.inicio DESC, v.id DESC"
         );
-        $stmt->execute(array_merge([$hoje, $hoje], $setores));
-        return array_map(fn($l) => [
-            'setor_id'      => (int) $l['setor_id'],
-            'nome'          => $l['nome'],
-            'periodicidade' => $l['periodicidade'],
-        ], $stmt->fetchAll(PDO::FETCH_ASSOC));
+        $stmt->execute(array_merge([$hoje, $corte], $setores));
+        $resultado = [];
+        foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $l) {
+            // A primeira linha de cada setor é a vigência mais recente (a atual, se houver)
+            if (isset($resultado[$l['setor_id']])) continue;
+            $resultado[$l['setor_id']] = [
+                'setor_id'      => (int) $l['setor_id'],
+                'nome'          => $l['nome'],
+                'periodicidade' => $l['periodicidade'],
+            ];
+        }
+        return array_values($resultado);
     }
 }

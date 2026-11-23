@@ -2,6 +2,7 @@
 use PHPUnit\Framework\TestCase;
 
 require_once __DIR__ . '/../../services/relatorio-setor-service.php';
+require_once __DIR__ . '/../../services/registro-atividade-service.php';
 
 /**
  * Esquema da migração 43 (setor no registro de atividades e relatório do setor enviado pelo coordenador).
@@ -252,5 +253,148 @@ final class RelatorioSetorTest extends TestCase {
         $this->assertSame([$this->setor], array_column($lista, 'setor_id'));
         $this->assertSame('mensal', $lista[0]['periodicidade']);
         $this->assertSame([], RelatorioSetorService::setoresDoCoordenador($this->db, ['id' => 1, 'tipo' => 'operador', 'setor_id' => $this->setor]));
+    }
+
+    // ---------- Envio do relatório do setor (Tarefa 5) ----------
+
+    private function criarTipo(int $setor): int {
+        $this->db->prepare("INSERT INTO atividades_tipos (setor_id, nome) VALUES (?, ?)")->execute([$setor, 'zz tipo ' . bin2hex(random_bytes(3))]);
+        return (int) $this->db->lastInsertId();
+    }
+
+    private function item(int $tipo, int $qtd): array {
+        return ['atividade_tipo_id' => $tipo, 'quantidade' => $qtd, 'observacao' => ''];
+    }
+
+    private function outroSetor(): int {
+        $id = (int) $this->db->query("SELECT id FROM setores WHERE ativo = 1 AND id <> {$this->setor} ORDER BY id LIMIT 1")->fetchColumn();
+        if ($id <= 0) {
+            $this->markTestSkipped('Precisa de dois setores ativos.');
+        }
+        return $id;
+    }
+
+    public function test_coordenador_envia_relatorio_semanal_do_setor(): void {
+        $coord = $this->criarCoordenador($this->setor);
+        $tipo = $this->criarTipo($this->setor);
+        $svc = new RegistroAtividadeService($this->db);
+
+        $reg = $svc->buscarOuCriarRascunhoSetor($this->setor, 'semana', '2026-08-10', $coord);
+        $this->assertSame('rascunho', $reg['status']);
+        $this->assertSame($coord, (int) $reg['usuario_id']);
+        $this->assertTrue($svc->salvarRascunhoSetor((int) $reg['id'], [$this->item($tipo, 7)]));
+        $this->assertTrue($svc->finalizarSetor((int) $reg['id'], $coord));
+
+        $enviado = $svc->buscar((int) $reg['id']);
+        $this->assertSame('enviado', $enviado['status']);
+        $this->assertNull($enviado['modalidade']);
+        $this->assertSame('semana', $enviado['periodo']);
+        $this->assertSame(7, $svc->itens((int) $reg['id'])[0]['quantidade']);
+
+        $hist = $svc->historicoSetor($this->setor);
+        $this->assertSame((int) $reg['id'], $hist[0]['id']);
+        $this->assertSame('semana', $hist[0]['periodo']);
+        $this->assertSame('zz Coord', $hist[0]['usuario_nome']);
+        $this->assertSame(7, $hist[0]['total_tarefas']);
+    }
+
+    public function test_coordenador_de_dois_setores_envia_os_dois_no_mesmo_periodo(): void {
+        $outro = $this->outroSetor();
+        $coord = $this->criarCoordenador($this->setor);
+        $svc = new RegistroAtividadeService($this->db);
+        $a = $svc->buscarOuCriarRascunhoSetor($this->setor, 'semana', '2026-08-10', $coord);
+        $b = $svc->buscarOuCriarRascunhoSetor($outro, 'semana', '2026-08-10', $coord);
+        $this->assertNotSame($a['id'], $b['id']);
+        $this->assertTrue($svc->finalizarSetor((int) $a['id'], $coord));
+        $this->assertTrue($svc->finalizarSetor((int) $b['id'], $coord));
+    }
+
+    public function test_novo_coordenador_continua_o_mesmo_rascunho(): void {
+        $antigo = $this->criarCoordenador($this->setor);
+        $novo = $this->criarCoordenador($this->setor);
+        $tipo = $this->criarTipo($this->setor);
+        $svc = new RegistroAtividadeService($this->db);
+        $reg = $svc->buscarOuCriarRascunhoSetor($this->setor, 'mes', '2026-08-01', $antigo);
+        $svc->salvarRascunhoSetor((int) $reg['id'], [$this->item($tipo, 3)]);
+
+        $continuado = $svc->buscarOuCriarRascunhoSetor($this->setor, 'mes', '2026-08-01', $novo);
+        $this->assertSame($reg['id'], $continuado['id']);
+        $this->assertSame(3, $svc->itens((int) $reg['id'])[0]['quantidade']);
+        $this->assertTrue($svc->finalizarSetor((int) $reg['id'], $novo));
+        $this->assertSame($novo, (int) $svc->buscar((int) $reg['id'])['usuario_id']);
+    }
+
+    public function test_relatorio_enviado_nao_muda(): void {
+        $coord = $this->criarCoordenador($this->setor);
+        $tipo = $this->criarTipo($this->setor);
+        $svc = new RegistroAtividadeService($this->db);
+        $reg = $svc->buscarOuCriarRascunhoSetor($this->setor, 'semana', '2026-08-10', $coord);
+        $svc->salvarRascunhoSetor((int) $reg['id'], [$this->item($tipo, 2)]);
+        $this->assertTrue($svc->finalizarSetor((int) $reg['id'], $coord));
+
+        $this->assertFalse($svc->salvarRascunhoSetor((int) $reg['id'], [$this->item($tipo, 9)]));
+        $this->assertFalse($svc->finalizarSetor((int) $reg['id'], $this->criarCoordenador($this->setor)));
+        $this->assertSame(2, $svc->itens((int) $reg['id'])[0]['quantidade']);
+        $this->assertSame($coord, (int) $svc->buscar((int) $reg['id'])['usuario_id']);
+    }
+
+    public function test_servidor_desobrigado_recebe_409_e_fora_da_vigencia_envia_normal(): void {
+        $prazo = new PrazoAtividadeService($this->db);
+        $this->db->prepare("DELETE FROM atividades_relatorio_setor WHERE setor_id = ?")->execute([$this->setor]);
+        $this->db->prepare("INSERT INTO atividades_relatorio_setor (setor_id, periodicidade, inicio, fim) VALUES (?, 'semanal', '2026-08-10', '2026-08-23')")->execute([$this->setor]);
+        $vigencias = $prazo->vigenciasDoSetor($this->setor);
+
+        // A regra que o controller usa para o 409 (e para o campo desobrigado do GET)
+        $dentro = PrazoAtividadeService::vigenciaQueCobre($vigencias, '2026-08-12');
+        $this->assertSame('2026-08-10', $dentro['inicio']);
+        $this->assertNull(PrazoAtividadeService::vigenciaQueCobre($vigencias, '2026-08-09'));
+        $this->assertNull(PrazoAtividadeService::vigenciaQueCobre($vigencias, '2026-08-24'));
+
+        // Fora da vigência o relatório individual segue o caminho normal
+        $u = $this->criarUsuario($this->setor);
+        $svc = new RegistroAtividadeService($this->db);
+        $reg = $svc->buscarOuCriarRascunho($u, $this->setor, '2026-08-24');
+        $this->assertTrue($svc->finalizar((int) $reg['id'], $u, 'remoto'));
+    }
+
+    public function test_pendencias_do_relatorio_do_setor_leem_envios_e_abonos(): void {
+        $coord = $this->criarCoordenador($this->setor);
+        $this->db->prepare("INSERT INTO atividades_config_setor (setor_id, modo_controle_remoto, prazo_dias_atraso, entrega_ativa, data_base) VALUES (?, 'semanal', 0, 0, NULL)
+            ON DUPLICATE KEY UPDATE prazo_dias_atraso = 0, data_base = NULL")->execute([$this->setor]);
+        $this->db->prepare("DELETE FROM atividades_relatorio_setor WHERE setor_id = ?")->execute([$this->setor]);
+        $this->db->prepare("INSERT INTO atividades_relatorio_setor (setor_id, periodicidade, inicio, fim) VALUES (?, 'semanal', '2026-08-03', NULL)")->execute([$this->setor]);
+
+        $prazo = new PrazoAtividadeService($this->db);
+        $agora = new DateTimeImmutable('2026-08-20 12:00:00');
+        $datas = fn(array $l) => array_column($l, 'data_referencia');
+        $this->assertSame(['2026-08-03', '2026-08-10'], $datas($prazo->pendenciasRelatorioSetor($this->setor, '2026-08-01', '2026-08-20', $agora)));
+
+        $svc = new RegistroAtividadeService($this->db);
+        $reg = $svc->buscarOuCriarRascunhoSetor($this->setor, 'semana', '2026-08-03', $coord);
+        $svc->finalizarSetor((int) $reg['id'], $coord);
+        $this->db->prepare("INSERT INTO atividades_abonos_setor (setor_id, periodo, data_referencia, justificativa, criado_por) VALUES (?, 'semana', '2026-08-10', 'zz teste', ?)")->execute([$this->setor, $coord]);
+
+        $pend = $prazo->pendenciasRelatorioSetor($this->setor, '2026-08-01', '2026-08-20', $agora);
+        $this->assertSame(['2026-08-10'], $datas($pend));
+        $this->assertSame('abonado', $pend[0]['status']);
+        $this->assertSame('zz Coord', $pend[0]['abonado_por']);
+        $this->assertSame('zz teste', $pend[0]['justificativa']);
+        $this->assertSame([], $prazo->pendenciasRelatorioSetor($this->outroSetor(), '2026-08-01', '2026-08-20', $agora));
+    }
+
+    public function test_setores_do_coordenador_inclui_vigencia_terminada_ha_ate_180_dias(): void {
+        $this->servico();
+        $coord = (int) $this->db->query("SELECT id FROM usuarios WHERE tipo = 'coordenador' AND setor_id = {$this->setor} ORDER BY id DESC LIMIT 1")->fetchColumn();
+        // Sem 'setores_extras' no array (como a linha de usuarios em login/me.php): lê usuario_setores
+        $user = ['id' => $coord, 'tipo' => 'coordenador', 'setor_id' => $this->setor];
+        $ins = $this->db->prepare("INSERT INTO atividades_relatorio_setor (setor_id, periodicidade, inicio, fim) VALUES (?, 'semanal', ?, ?)");
+
+        $ins->execute([$this->setor, date('Y-m-d', strtotime('-400 days')), date('Y-m-d', strtotime('-200 days'))]);
+        $this->assertSame([], RelatorioSetorService::setoresDoCoordenador($this->db, $user));
+
+        $ins->execute([$this->setor, date('Y-m-d', strtotime('-199 days')), date('Y-m-d', strtotime('-100 days'))]);
+        $lista = RelatorioSetorService::setoresDoCoordenador($this->db, $user);
+        $this->assertSame([$this->setor], array_column($lista, 'setor_id'));
+        $this->assertSame('semanal', $lista[0]['periodicidade']);
     }
 }
