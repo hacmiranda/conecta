@@ -60,7 +60,7 @@ function raDiaSemana(iso, completo) {
     return nomes[new Date(a, m - 1, d).getDay()];
 }
 
-async function carregarRegistroAtividades(data) {
+async function carregarRegistroAtividades(data, periodo) {
     const conteudo = document.getElementById('registro-atividades-conteudo');
     if (!conteudo) return;
     // Rascunho pendente de outro dia: grava antes de trocar
@@ -72,7 +72,7 @@ async function carregarRegistroAtividades(data) {
     iniciarRelogioRegistro();
     try {
         raDados = raModo === 'setor'
-            ? await RegistroSetor.buscar(data)
+            ? await RegistroSetor.buscar(data, periodo)
             : await Api.get('registro-atividades.php' + (data ? `?data=${encodeURIComponent(data)}` : ''));
         conteudo.innerHTML = montarRegistroAtividades(raDados);
         aplicarAlturasGraficoRegistro();
@@ -487,7 +487,7 @@ function finalizarRegistroAtividades() {
                 raSujo = false;
                 try { localStorage.removeItem(chaveLocal); } catch (e) { /* sem armazenamento */ }
                 mostrarToast('Sucesso', 'Relatório enviado!', 'success');
-                await carregarRegistroAtividades(raDados.data);
+                await carregarRegistroAtividades(raDados.data, raDados.periodo);
             } catch (e) {
                 if (botao) botao.disabled = false;
                 mostrarAlert('Erro', mensagemDeErro(e, 'Erro ao enviar o relatório.'));
@@ -573,7 +573,7 @@ function ligarAcoesRegistroAtividades(conteudo) {
         else if (acao === 'ignorar-local') {
             try { localStorage.removeItem(raChaveLocal()); } catch (e) { /* sem armazenamento */ }
             document.getElementById('ra-restaurar').hidden = true;
-        } else if (acao === 'abrir-dia') carregarRegistroAtividades(alvo.dataset.data);
+        } else if (acao === 'abrir-dia') carregarRegistroAtividades(alvo.dataset.data, alvo.dataset.periodo);
         else if (acao === 'historico') abrirHistoricoRegistro(alvo);
     });
 
@@ -603,7 +603,7 @@ function ligarAcoesRegistroAtividades(conteudo) {
         if (tipo === 'modalidade') marcarAlteracaoRegistro();
         else if (tipo === 'data' && ev.target.value && (raModo === 'setor' || ev.target.checkValidity())) {
             const data = raModo === 'setor' ? RegistroSetor.dataDoCampo(ev.target) : ev.target.value;
-            if (data) carregarRegistroAtividades(data);
+            if (data) carregarRegistroAtividades(data, raModo === 'setor' ? RegistroSetor.periodoDoCampo(ev.target) : undefined);
         } else if (tipo === 'setor') RegistroSetor.trocarSetor(Number(ev.target.value));
         else if (tipo === 'qtd') {
             ev.target.value = Math.max(0, Math.min(9999, Number(ev.target.value) || 0));

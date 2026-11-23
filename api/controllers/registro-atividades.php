@@ -98,7 +98,7 @@ try {
 
         $data = RegistroAtividadeService::dataValida($_GET['data'] ?? null);
         if ($data !== null) {
-            $alvo = PrazoAtividadeService::resolverPeriodoDoSetor($vigencias, $data);
+            $alvo = PrazoAtividadeService::resolverPeriodoDoSetor($vigencias, $data, $_GET['periodo'] ?? null);
         } else {
             // Sem data: a pendência mais antiga; sem pendência, o período corrente
             $alvo = PrazoAtividadeService::resolverPeriodoDoSetor($vigencias, $abertas ? $abertas[0]['periodo_fim'] : $hoje);

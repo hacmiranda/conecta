@@ -86,8 +86,9 @@ const RegistroSetor = (function () {
     }
 
     // ---------- API ----------
-    async function buscar(data) {
-        const d = await Api.get(`registro-atividades.php?modo=setor&setor_id=${setorId}` + (data ? `&data=${encodeURIComponent(data)}` : ''));
+    async function buscar(data, periodo) {
+        const d = await Api.get(`registro-atividades.php?modo=setor&setor_id=${setorId}` + (data ? `&data=${encodeURIComponent(data)}` : '')
+            + (data && ['semana', 'mes'].includes(periodo) ? `&periodo=${periodo}` : ''));
         tipoPeriodo = d.periodo;
         return d;
     }
@@ -117,15 +118,15 @@ const RegistroSetor = (function () {
         </div>`;
     }
 
-    function montarPendencias(pendencias, dataAtual) {
+    function montarPendencias(pendencias, atual) {
         if (!pendencias.length) return '';
         return `<ul class="ra-pendencias" aria-label="Relatórios do setor pendentes">${pendencias.map(p => {
             const atrasado = p.status === 'atrasado';
             const texto = p.periodo === 'mes'
                 ? `Relatório de ${p.data_referencia.slice(5, 7)}/${p.data_referencia.slice(0, 4)}.`
                 : `Relatório da semana de ${raDataBr(p.data_referencia)} a ${raDataBr(p.periodo_fim)}.`;
-            const abrir = p.data_referencia !== dataAtual
-                ? `<button type="button" class="btn-small" data-acao="abrir-dia" data-data="${sanitizeHTML(p.data_referencia)}">Preencher</button>` : '';
+            const abrir = p.data_referencia !== atual.data || p.periodo !== atual.periodo
+                ? `<button type="button" class="btn-small" data-acao="abrir-dia" data-data="${sanitizeHTML(p.data_referencia)}" data-periodo="${sanitizeHTML(p.periodo)}">Preencher</button>` : '';
             return `<li class="ra-faixa ${atrasado ? 'ra-faixa--atrasado' : 'ra-faixa--pendente'}">
                 <span><strong>${atrasado ? '⚠️ Atrasado' : '🕒 Pendente'}</strong> ${sanitizeHTML(texto)}</span>${abrir}</li>`;
         }).join('')}</ul>`;
@@ -133,7 +134,7 @@ const RegistroSetor = (function () {
 
     function montarTopo(d) {
         return `<div class="ra-topo-setor">${montarSeletorSetor()}${montarCampoPeriodo(d)}</div>
-            ${montarPendencias(d.pendencias, d.data)}`;
+            ${montarPendencias(d.pendencias, d)}`;
     }
 
     // Só o seletor de setor (quando a data pedida não está em vigor e a API recusou)
@@ -165,9 +166,14 @@ const RegistroSetor = (function () {
         return semana ? segundaDaSemana(valor) : `${valor}-01`;
     }
 
+    function periodoDoCampo(campo) {
+        return campo.type === 'week' || campo.placeholder.includes('W') ? 'semana' : 'mes';
+    }
+
     function trocarSetor(id) {
         if (!id || id === setorId) return;
         setorId = id;
+        tipoPeriodo = null;
         try { localStorage.setItem(CHAVE_SETOR, String(id)); } catch (e) { /* sem armazenamento */ }
         definirTitulo();
         carregarRegistroAtividades();
@@ -182,5 +188,5 @@ const RegistroSetor = (function () {
         carregarRegistroAtividades(data);
     }
 
-    return { abrir, buscar, montarTopo, montarTopoVazio, descricaoPeriodo, dataDoCampo, trocarSetor, restaurarTitulo };
+    return { abrir, buscar, montarTopo, montarTopoVazio, descricaoPeriodo, dataDoCampo, periodoDoCampo, trocarSetor, restaurarTitulo };
 })();

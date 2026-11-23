@@ -608,6 +608,17 @@ final class RelatorioSetorTest extends TestCase {
         $this->assertSame(['mes', '2026-11-01'], [PrazoAtividadeService::resolverPeriodoDoSetor($vig2, '2026-11-01')['periodo'], '2026-11-01']);
         $this->assertSame('2026-10-26', PrazoAtividadeService::resolverPeriodoDoSetor($vig2, '2026-10-26')['data_referencia']);
         $this->assertSame(['semana', '2026-11-09'], [PrazoAtividadeService::resolverPeriodoDoSetor($vig2, '2026-11-10')['periodo'], PrazoAtividadeService::resolverPeriodoDoSetor($vig2, '2026-11-10')['data_referencia']]);
+        // Troca no meio da semana que começa no dia 1º: semana e mês parcial têm a mesma data_referencia; o tipo desempata
+        $this->db->prepare("DELETE FROM atividades_relatorio_setor WHERE setor_id = ?")->execute([$this->setor]);
+        $ins->execute([$this->setor, 'semanal', '2026-06-01', '2026-06-07']);
+        $ins->execute([$this->setor, 'mensal', '2026-06-08', null]);
+        $vig3 = (new PrazoAtividadeService($this->db))->vigenciasDoSetor($this->setor);
+        $m = PrazoAtividadeService::resolverPeriodoDoSetor($vig3, '2026-06-01', 'mes');
+        $this->assertSame(['mes', '2026-06-30'], [$m['periodo'], $m['periodo_fim']]);
+        $w = PrazoAtividadeService::resolverPeriodoDoSetor($vig3, '2026-06-01', 'semana');
+        $this->assertSame(['semana', '2026-06-07'], [$w['periodo'], $w['periodo_fim']]);
+        $this->assertSame('semana', PrazoAtividadeService::resolverPeriodoDoSetor($vig3, '2026-06-01')['periodo']);
+        $this->assertSame('semana', PrazoAtividadeService::resolverPeriodoDoSetor($vig3, '2026-06-01', 'xx')['periodo']);
         // Antes de qualquer vigência
         $this->assertNull(PrazoAtividadeService::resolverPeriodoDoSetor($vig, '2026-10-15'));
     }

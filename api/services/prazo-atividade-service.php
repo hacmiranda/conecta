@@ -676,15 +676,18 @@ class PrazoAtividadeService {
      * vigência (ou dentro de outro período, como o dia 1º numa semana que atravessa o mês). Depois, o período
      * recortado que contém o dia. Fora disso, null.
      */
-    public static function resolverPeriodoDoSetor(array $vigencias, string $data): ?array {
+    public static function resolverPeriodoDoSetor(array $vigencias, string $data, ?string $periodo = null): ?array {
+        // Duas vigências podem ter períodos de tipos diferentes com a mesma data_referencia (semana e mês parcial
+        // começando no dia 1º): o tipo pedido desempata. Valor inválido é ignorado.
+        if (!in_array($periodo, ['semana', 'mes'], true)) $periodo = null;
         foreach ($vigencias as $v) {
             foreach (self::periodosDaVigencia($v, $data, self::fimDoPeriodo($v['periodicidade'], $data)) as $p) {
-                if ($p['data_referencia'] === $data) return $p + ['periodicidade' => $v['periodicidade']];
+                if ($p['data_referencia'] === $data && ($periodo === null || $p['periodo'] === $periodo)) return $p + ['periodicidade' => $v['periodicidade']];
             }
         }
         foreach ($vigencias as $v) {
             $periodos = self::periodosDaVigencia($v, $data, $data);
-            if ($periodos) return $periodos[0] + ['periodicidade' => $v['periodicidade']];
+            if ($periodos && ($periodo === null || $periodos[0]['periodo'] === $periodo)) return $periodos[0] + ['periodicidade' => $v['periodicidade']];
         }
         return null;
     }
