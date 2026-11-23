@@ -101,7 +101,7 @@ try {
 
     if ($metodo === 'GET' && in_array($acao, ['relatorio', 'csv-relatorio'], true)) {
         $usuarioId = (int) ($_GET['usuario_id'] ?? 0) ?: null; // -1 = só os relatórios do setor
-        if ($usuarioId === -1 || $usuarioId < -1) $usuarioId = $usuarioId === -1 ? -1 : null;
+        if ($usuarioId !== null && $usuarioId < -1) $usuarioId = null;
         if ($usuarioId > 0) usuarioDoEscopo($servico, $setorId, $usuarioId);
         $modalidade = (string) ($_GET['modalidade'] ?? '');
         $ini = dataFiltro('data_ini');

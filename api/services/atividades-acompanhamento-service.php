@@ -125,7 +125,7 @@ class AtividadesAcompanhamentoService {
                    COUNT(CASE WHEN r.data_referencia BETWEEN ? AND ? THEN 1 END) AS mes_atual,
                    COUNT(CASE WHEN r.data_referencia BETWEEN ? AND ? THEN 1 END) AS mes_ant
             FROM usuarios u
-            LEFT JOIN registros_atividades r ON r.usuario_id = u.id AND r.status = 'enviado' AND r.periodo = 'dia'
+            LEFT JOIN registros_atividades r ON r.usuario_id = u.id AND r.status = 'enviado' AND r.periodo = 'dia' AND r.setor_id = u.setor_id
             WHERE u.ativo = 1 AND u.tipo IN (" . self::tiposSql() . ") AND u.setor_id IS NOT NULL" . self::andSetor('u.setor_id', $setorId) . "
             GROUP BY u.id");
         $params = [$p['sem_atual_ini'], $p['sem_atual_fim'], $p['sem_ant_ini'], $p['sem_ant_fim'],
@@ -140,9 +140,9 @@ class AtividadesAcompanhamentoService {
             if ((int) $d->format('N') <= 5) $diasUteis[] = $d->format('Y-m-d');
         }
         $enviadosSemana = [];
-        $stmt = $this->db->prepare("SELECT usuario_id, data_referencia FROM registros_atividades WHERE status = 'enviado' AND periodo = 'dia' AND data_referencia BETWEEN ? AND ?");
+        $stmt = $this->db->prepare("SELECT usuario_id, setor_id, data_referencia FROM registros_atividades WHERE status = 'enviado' AND periodo = 'dia' AND data_referencia BETWEEN ? AND ?");
         $stmt->execute([$p['sem_atual_ini'], $hoje]);
-        foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $l) $enviadosSemana[(int) $l['usuario_id']][$l['data_referencia']] = true;
+        foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $l) $enviadosSemana[(int) $l['usuario_id'] . '|' . (int) $l['setor_id']][$l['data_referencia']] = true;
 
         // Pendências dos últimos 60 dias (como no METRICA360)
         $inicio = (new DateTimeImmutable($hoje))->modify('-60 days')->format('Y-m-d');
@@ -151,11 +151,12 @@ class AtividadesAcompanhamentoService {
         $obrigacaoSetor = []; // setor => relatório do setor cobre hoje?
         foreach ($this->usuariosDoEscopo($setorId) as $u) {
             $id = (int) $u['id'];
+            $chaveEnvio = $id . '|' . (int) $u['setor_id'];
             $c = $contagens[$id] ?? ['sem_atual' => 0, 'sem_ant' => 0, 'mes_atual' => 0, 'mes_ant' => 0];
             $pend = $this->prazo->pendenciasUsuario($id, $inicio, $hoje);
             $atrasadas = array_values(array_filter($pend, fn($x) => $x['status'] === 'atrasado'));
             $abonadas = array_values(array_filter($pend, fn($x) => $x['status'] === 'abonado'));
-            $enviouHoje = isset($enviadosSemana[$id][$hoje]);
+            $enviouHoje = isset($enviadosSemana[$chaveEnvio][$hoje]);
             $semAtual = (int) $c['sem_atual'];
             $semAnt = (int) $c['sem_ant'];
             [$direcao, $rotulo] = self::tendencia($semAtual, $semAnt);
@@ -174,7 +175,7 @@ class AtividadesAcompanhamentoService {
                 'mes_ant'        => (int) $c['mes_ant'],
                 'situacao_hoje'  => $fimDeSemana ? 'fim_de_semana' : ($enviouHoje ? 'enviou' : ($atrasadas ? 'atrasado' : 'no_prazo')),
                 'tendencia'      => ['direcao' => $direcao, 'rotulo' => $rotulo],
-                'dias_sem_envio' => array_values(array_filter($diasUteis, fn($d) => !isset($enviadosSemana[$id][$d]))),
+                'dias_sem_envio' => array_values(array_filter($diasUteis, fn($d) => !isset($enviadosSemana[$chaveEnvio][$d]))),
                 'atrasadas'      => $atrasadas,
                 'abonadas'       => $abonadas,
                 'desobrigado'    => $obrigacaoSetor[$sid],
@@ -412,13 +413,13 @@ class AtividadesAcompanhamentoService {
                     // Enviados limitados à cota de cada semana (semanas acima da cota não compensam as outras)
                     $cota = (int) ($this->prazo->configUsuario($uid)['qtd_semana'] ?? 0);
                     $stmt = $this->db->prepare("SELECT YEARWEEK(data_referencia, 3) AS s, COUNT(*) AS n FROM registros_atividades
-                                                WHERE usuario_id = ? AND status = 'enviado' AND periodo = 'dia' AND data_referencia BETWEEN ? AND ? GROUP BY s");
-                    $stmt->execute([$uid, $iniSemana, $fimSemana]);
+                                                WHERE usuario_id = ? AND setor_id = ? AND status = 'enviado' AND periodo = 'dia' AND data_referencia BETWEEN ? AND ? GROUP BY s");
+                    $stmt->execute([$uid, $sid, $iniSemana, $fimSemana]);
                     $enviado = 0;
                     foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $l) $enviado += min((int) $l['n'], $cota);
                 } else {
-                    $stmt = $this->db->prepare("SELECT COUNT(*) FROM registros_atividades WHERE usuario_id = ? AND status = 'enviado' AND periodo = 'dia' AND data_referencia BETWEEN ? AND ?");
-                    $stmt->execute([$uid, $ini, $fim]);
+                    $stmt = $this->db->prepare("SELECT COUNT(*) FROM registros_atividades WHERE usuario_id = ? AND setor_id = ? AND status = 'enviado' AND periodo = 'dia' AND data_referencia BETWEEN ? AND ?");
+                    $stmt->execute([$uid, $sid, $ini, $fim]);
                     $enviado = (int) $stmt->fetchColumn();
                 }
                 $resultado[] = [
@@ -480,13 +481,14 @@ class AtividadesAcompanhamentoService {
 
     // ── Cruzamento de dados (lado das atividades) ──────────────────────────────
 
-    public function atividadesDoUsuario(int $usuarioId, string $ini, string $fim): array {
+    public function atividadesDoUsuario(int $usuarioId, string $ini, string $fim, ?int $setorId = null): array {
+        $andSetor = $setorId !== null ? ' AND r.setor_id = ' . (int) $setorId : '';
         $stmt = $this->db->prepare("
             SELECT r.data_referencia,
                    (SELECT COUNT(*) FROM registros_atividades_itens i WHERE i.registro_id = r.id AND i.quantidade > 0) AS atividades,
                    (SELECT COALESCE(SUM(i.quantidade), 0) FROM registros_atividades_itens i WHERE i.registro_id = r.id) AS tarefas
             FROM registros_atividades r
-            WHERE r.usuario_id = ? AND r.status = 'enviado' AND r.periodo = 'dia' AND r.data_referencia BETWEEN ? AND ?");
+            WHERE r.usuario_id = ? AND r.status = 'enviado' AND r.periodo = 'dia' AND r.data_referencia BETWEEN ? AND ?" . $andSetor);
         $stmt->execute([$usuarioId, $ini, $fim]);
         $porDia = [];
         foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $l) $porDia[$l['data_referencia']] = $l;
@@ -505,7 +507,7 @@ class AtividadesAcompanhamentoService {
             FROM registros_atividades_itens i
             JOIN registros_atividades r ON r.id = i.registro_id
             JOIN atividades_tipos t ON t.id = i.atividade_tipo_id
-            WHERE r.usuario_id = ? AND r.status = 'enviado' AND r.periodo = 'dia' AND r.data_referencia BETWEEN ? AND ? AND i.quantidade > 0
+            WHERE r.usuario_id = ? AND r.status = 'enviado' AND r.periodo = 'dia' AND r.data_referencia BETWEEN ? AND ? AND i.quantidade > 0" . $andSetor . "
             GROUP BY t.id, t.nome ORDER BY total DESC LIMIT 5");
         $stmt->execute([$usuarioId, $ini, $fim]);
         $top = array_map(fn($r) => ['atividade_nome' => $r['atividade_nome'], 'total' => (int) $r['total']], $stmt->fetchAll(PDO::FETCH_ASSOC));
@@ -538,7 +540,7 @@ class AtividadesAcompanhamentoService {
         $porDia = [];
         $tot = ['total_enviados' => 0, 'total_esperado' => 0, 'total_tarefas' => 0, 'pendencias_atrasadas' => 0, 'pendencias_abonadas' => 0];
         foreach ($this->usuariosDoEscopo([$setorId]) as $u) {
-            $a = $this->atividadesDoUsuario((int) $u['id'], $ini, $fim);
+            $a = $this->atividadesDoUsuario((int) $u['id'], $ini, $fim, $setorId);
             foreach ($a['serie_diaria'] as $d) {
                 $porDia[$d['data']] ??= ['data' => $d['data'], 'enviados' => 0, 'atividades' => 0, 'tarefas' => 0];
                 $porDia[$d['data']]['enviados'] += $d['enviado'] ? 1 : 0;

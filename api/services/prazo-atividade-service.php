@@ -673,7 +673,7 @@ class PrazoAtividadeService {
     public function periodoExisteNaVigencia(int $setorId, string $periodo, string $data): bool {
         foreach ($this->vigenciasDoSetor($setorId) as $v) {
             if (($v['periodicidade'] === 'mensal' ? 'mes' : 'semana') !== $periodo) continue;
-            foreach (self::periodosDaVigencia($v, $data, $data) as $p) {
+            foreach (self::periodosDaVigencia($v, $data, self::fimDoPeriodo($v['periodicidade'], $data)) as $p) {
                 if ($p['data_referencia'] === $data) return true;
             }
         }
