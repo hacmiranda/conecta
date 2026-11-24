@@ -407,8 +407,12 @@ body.modo-escuro {
     transform: translateY(-1px);
 }
 
+/* Selecionado: texto branco sobre vinho (o .btn-ajuda.active do style.css punha texto laranja,
+   ilegível sobre o vinho) e o traço laranja da marca embaixo, como o item ativo da sidebar */
 .btn-ajuda.active {
     background: linear-gradient(135deg, var(--vinho-600) 0%, var(--vinho-900) 100%);
+    color: white;
+    box-shadow: inset 0 -3px 0 var(--laranja-500);
 }
 
 .ajuda-card {
@@ -541,6 +545,7 @@ body.modo-escuro {
 .modo-escuro .btn-ajuda.active {
     background: linear-gradient(135deg, var(--vinho-600) 0%, var(--vinho-700) 100%);
     border-color: var(--vinho-600);
+    color: white;
 }
 
 .modo-escuro .atalho-tecla {
