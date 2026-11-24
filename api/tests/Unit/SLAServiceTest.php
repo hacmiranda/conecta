@@ -17,13 +17,14 @@ final class SLAServiceTest extends TestCase {
     protected function setUp(): void {
         $this->db = new PDO('sqlite::memory:');
         $this->db->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
-        $this->db->exec('CREATE TABLE setores (id INTEGER PRIMARY KEY, nome TEXT)');
+        $this->db->exec('CREATE TABLE setores (id INTEGER PRIMARY KEY, nome TEXT, sla_ativo INTEGER DEFAULT 0)');
         $this->db->exec('CREATE TABLE horarios_uteis (setor_id INTEGER, dia_semana INTEGER, hora_inicio TEXT, hora_fim TEXT, ativo INTEGER)');
         $this->db->exec('CREATE TABLE feriados (setor_id INTEGER, data TEXT, recorrente INTEGER)');
+        $this->db->exec('CREATE TABLE setor_prioridades (setor_id INTEGER, prioridade_id INTEGER, ativo INTEGER DEFAULT 1, sla_resposta_dias INTEGER, sla_resposta_minutos INTEGER, sla_resolucao_dias INTEGER, sla_resolucao_minutos INTEGER, sla_sem_prazo INTEGER DEFAULT 0)');
         $this->db->exec('CREATE TABLE ticket_status (nome TEXT, congela_sla INTEGER)');
-        $this->db->exec('CREATE TABLE ticket_prioridades (nome TEXT, sla_resposta_minutos INTEGER, sla_resolucao_horas INTEGER, sem_sla INTEGER DEFAULT 0)');
+        $this->db->exec('CREATE TABLE ticket_prioridades (id INTEGER PRIMARY KEY, nome TEXT, sla_resposta_minutos INTEGER, sla_resolucao_horas INTEGER, sem_sla INTEGER DEFAULT 0)');
 
-        $this->db->exec("INSERT INTO setores (id, nome) VALUES (1, 'Geral')");
+        $this->db->exec("INSERT INTO setores (id, nome, sla_ativo) VALUES (1, 'Geral', 1)");
         // Segunda(2) a sexta(6) das 08:00 às 17:00 — tabela usa 1=domingo .. 7=sábado
         foreach ([2, 3, 4, 5, 6] as $dia) {
             $this->db->prepare('INSERT INTO horarios_uteis (setor_id, dia_semana, hora_inicio, hora_fim, ativo) VALUES (1, ?, "08:00:00", "17:00:00", 1)')
@@ -33,7 +34,7 @@ final class SLAServiceTest extends TestCase {
         // Setor "sempre aberto" (expediente cobre o dia inteiro, todos os dias): usado pelos testes de
         // situacao(), que dependem do relógio real (date()) — assim o tempo decorrido é previsível
         // independente de quando os testes rodam, sem precisar simular o "agora".
-        $this->db->exec("INSERT INTO setores (id, nome) VALUES (3, 'SempreAberto')");
+        $this->db->exec("INSERT INTO setores (id, nome, sla_ativo) VALUES (3, 'SempreAberto', 1)");
         foreach (range(1, 7) as $dia) {
             $this->db->prepare('INSERT INTO horarios_uteis (setor_id, dia_semana, hora_inicio, hora_fim, ativo) VALUES (3, ?, "00:00:00", "23:59:59", 1)')
                      ->execute([$dia]);
@@ -44,7 +45,7 @@ final class SLAServiceTest extends TestCase {
         // um setor com todo dia ativo=0 fica com lerHorarios() vazio e buscarHorariosUteis() cai
         // no fallback do setor "Geral" (comportamento intencional para setor sem config nenhuma),
         // o que tornaria este teste dependente do horário real em que ele é executado.
-        $this->db->exec("INSERT INTO setores (id, nome) VALUES (4, 'SempreFechado')");
+        $this->db->exec("INSERT INTO setores (id, nome, sla_ativo) VALUES (4, 'SempreFechado', 1)");
         foreach (range(1, 7) as $dia) {
             $this->db->prepare('INSERT INTO horarios_uteis (setor_id, dia_semana, hora_inicio, hora_fim, ativo) VALUES (4, ?, "00:00:00", "00:00:00", 1)')
                      ->execute([$dia]);
@@ -52,9 +53,14 @@ final class SLAServiceTest extends TestCase {
 
         // Catálogo global usado por situacao(): status que pausa o SLA e prazos da prioridade "normal".
         $this->db->exec("INSERT INTO ticket_status (nome, congela_sla) VALUES ('novo', 0), ('em_atendimento', 0), ('aguardando', 1), ('resolvido', 0), ('encerrado', 0), ('cancelado', 0)");
-        $this->db->exec("INSERT INTO ticket_prioridades (nome, sla_resposta_minutos, sla_resolucao_horas) VALUES ('normal', 60, 2)");
+        $this->db->exec("INSERT INTO ticket_prioridades (id, nome, sla_resposta_minutos, sla_resolucao_horas) VALUES (1, 'normal', 60, 2)");
         // Prioridade sem SLA (migração 42)
-        $this->db->exec("INSERT INTO ticket_prioridades (nome, sla_resposta_minutos, sla_resolucao_horas, sem_sla) VALUES ('baixissima', 0, 0, 1)");
+        $this->db->exec("INSERT INTO ticket_prioridades (id, nome, sla_resposta_minutos, sla_resolucao_horas, sem_sla) VALUES (2, 'baixissima', 0, 0, 1)");
+
+        // Prazos por setor (migração 44): os setores 1, 3 e 4 ficam ligados com os prazos do catálogo (60 min / 2 h)
+        foreach ([1, 3, 4] as $setor) {
+            $this->db->exec("INSERT INTO setor_prioridades (setor_id, prioridade_id, sla_resposta_dias, sla_resposta_minutos, sla_resolucao_dias, sla_resolucao_minutos) VALUES ($setor, 1, NULL, 60, NULL, 120)");
+        }
 
         $this->sla = new SLAService($this->db);
 
@@ -255,6 +261,94 @@ final class SLAServiceTest extends TestCase {
              'primeira_resposta_em' => '2026-01-05 09:00:00', 'tempo_primeira_resposta_segundos' => 600],
             // Fica fora da média, por mais longa que tenha sido a espera
             ['criado_em' => '2026-01-05 08:00:00', 'setor_id' => 3, 'prioridade' => 'baixissima',
+             'primeira_resposta_em' => '2026-01-09 09:00:00', 'tempo_primeira_resposta_segundos' => 999999],
+        ];
+        $this->assertSame(600, $this->sla->mediaPrimeiraResposta($linhas));
+    }
+
+    // --- SLA por setor (migração 44) ----------------------------------------------------
+
+    private function criarSetor(int $id, int $slaAtivo, array $expedientes): void {
+        $this->db->exec("INSERT INTO setores (id, nome, sla_ativo) VALUES ($id, 'zz_$id', $slaAtivo)");
+        foreach ($expedientes as $dia => [$ini, $fim]) {
+            $this->db->exec("INSERT INTO horarios_uteis (setor_id, dia_semana, hora_inicio, hora_fim, ativo) VALUES ($id, $dia, '$ini', '$fim', 1)");
+        }
+    }
+
+    public function test_jornada_e_o_expediente_mais_comum(): void {
+        $exp = [];
+        foreach ([2, 3, 4, 5] as $d) { $exp[$d] = ['08:00:00', '17:00:00']; }
+        $exp[6] = ['08:00:00', '12:00:00'];
+        $this->criarSetor(10, 1, $exp);
+        $this->assertSame(540, $this->sla->jornadaMinutos(10));
+    }
+
+    public function test_jornada_empate_fica_com_a_maior(): void {
+        $this->criarSetor(11, 1, [2 => ['08:00:00', '12:00:00'], 3 => ['08:00:00', '17:00:00']]);
+        $this->assertSame(540, $this->sla->jornadaMinutos(11));
+    }
+
+    public function test_jornada_sem_expediente_usa_a_do_geral(): void {
+        $this->criarSetor(12, 1, []);
+        $this->assertSame(540, $this->sla->jornadaMinutos(12));
+    }
+
+    public function test_prazo_em_dias_e_horas_usa_a_jornada(): void {
+        $this->criarSetor(13, 1, [2 => ['08:00:00', '17:00:00']]);
+        $this->db->exec("INSERT INTO setor_prioridades (setor_id, prioridade_id, sla_resposta_dias, sla_resposta_minutos, sla_resolucao_dias, sla_resolucao_minutos) VALUES (13, 1, 1, 120, 2, NULL)");
+        $p = $this->sla->prazosDoSetor(13, 'normal');
+        $this->assertSame(39600, $p['resposta']);   // (1 * 540 + 120) * 60
+        $this->assertSame(64800, $p['resolucao']);  // 2 * 540 * 60
+    }
+
+    public function test_prazo_sem_valor_ou_marcado_sem_prazo_e_null(): void {
+        $this->criarSetor(14, 1, [2 => ['08:00:00', '17:00:00']]);
+        $this->db->exec("INSERT INTO setor_prioridades (setor_id, prioridade_id) VALUES (14, 1)");
+        $this->assertNull($this->sla->prazosDoSetor(14, 'normal'));
+        $this->criarSetor(15, 1, []);
+        $this->db->exec("INSERT INTO setor_prioridades (setor_id, prioridade_id, sla_resposta_minutos, sla_resolucao_minutos, sla_sem_prazo) VALUES (15, 1, 60, 120, 1)");
+        $this->assertNull($this->sla->prazosDoSetor(15, 'normal'));
+    }
+
+    public function test_situacao_null_com_setor_desligado(): void {
+        $this->criarSetor(16, 0, [1 => ['00:00:00', '23:59:59']]);
+        $this->db->exec("INSERT INTO setor_prioridades (setor_id, prioridade_id, sla_resposta_minutos, sla_resolucao_minutos) VALUES (16, 1, 60, 120)");
+        $ticket = ['criado_em' => (new DateTime('-5 minutes'))->format('Y-m-d H:i:s'), 'status' => 'novo', 'prioridade' => 'normal'];
+        $this->assertNull($this->sla->situacao($ticket, $this->slaVazio(), 16));
+        $this->assertFalse($this->sla->slaAtivo(16));
+        $this->assertFalse($this->sla->slaAtivo(null));
+        $this->assertFalse($this->sla->slaAtivo(999));
+    }
+
+    public function test_situacao_null_com_prioridade_sem_prazo_no_setor(): void {
+        $this->criarSetor(17, 1, []);
+        $ticket = ['criado_em' => (new DateTime('-5 minutes'))->format('Y-m-d H:i:s'), 'status' => 'novo', 'prioridade' => 'normal'];
+        $this->assertNull($this->sla->situacao($ticket, $this->slaVazio(), 17));
+    }
+
+    public function test_situacao_usa_os_prazos_do_setor_e_nao_os_do_catalogo(): void {
+        // Catálogo diz 60 min; o setor 18 (sempre aberto) diz 30 min
+        $this->criarSetor(18, 1, array_fill(1, 7, ['00:00:00', '23:59:59']));
+        $this->db->exec("INSERT INTO setor_prioridades (setor_id, prioridade_id, sla_resposta_minutos, sla_resolucao_minutos) VALUES (18, 1, 30, 90)");
+        $ticket = ['criado_em' => (new DateTime('-5 minutes'))->format('Y-m-d H:i:s'), 'status' => 'novo', 'prioridade' => 'normal'];
+        $s = $this->sla->situacao($ticket, $this->slaVazio(), 18);
+        $this->assertEqualsWithDelta(1500, $s['segundos_restantes'], 5);
+    }
+
+    public function test_pausa_sla_com_setor_desligado(): void {
+        $this->criarSetor(19, 0, []);
+        $this->assertTrue($this->sla->pausaSla('em_atendimento', 'normal', 19));
+        $this->assertFalse($this->sla->pausaSla('em_atendimento', 'normal', 3));
+        $this->assertTrue($this->sla->pausaSla('aguardando', 'normal', 3));
+        $this->assertTrue($this->sla->pausaSla('em_atendimento', 'baixissima', 3));
+    }
+
+    public function test_medias_ignoram_setor_desligado(): void {
+        $this->criarSetor(20, 0, []);
+        $linhas = [
+            ['criado_em' => '2026-01-05 08:00:00', 'setor_id' => 3, 'prioridade' => 'normal',
+             'primeira_resposta_em' => '2026-01-05 09:00:00', 'tempo_primeira_resposta_segundos' => 600],
+            ['criado_em' => '2026-01-05 08:00:00', 'setor_id' => 20, 'prioridade' => 'normal',
              'primeira_resposta_em' => '2026-01-09 09:00:00', 'tempo_primeira_resposta_segundos' => 999999],
         ];
         $this->assertSame(600, $this->sla->mediaPrimeiraResposta($linhas));

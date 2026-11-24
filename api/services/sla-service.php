@@ -5,8 +5,10 @@ class SLAService {
     private $cacheHorarios = []; // [setor_id => horários]
     private $cacheFeriados = []; // [setor_id => feriados]
     private $cacheCongelaSla = []; // [status => bool]
-    private $cachePrazosPrioridade = []; // [prioridade => [minutos_resposta, horas_resolucao]]
     private $cacheSemSla = []; // [prioridade => bool]
+    private $cacheJornada = []; // [setor_id => minutos da jornada]
+    private $cacheSlaAtivo = []; // [setor_id => bool]
+    private $cachePrazosSetor = []; // ["setor|prioridade" => ['resposta'=>s,'resolucao'=>s]|null]
 
     public function __construct($db) {
         $this->db = $db;
@@ -25,8 +27,9 @@ class SLAService {
             return null;
         }
 
-        // Prioridade sem SLA ("Baixíssima"): não há prazo a mostrar
-        if ($this->semSla((string) ($ticket['prioridade'] ?? ''))) {
+        // Setor com SLA desligado, prioridade sem SLA ou sem prazo definido no setor: não há prazo a mostrar
+        $prazos = $this->prazosDoSetor($setorId, (string) ($ticket['prioridade'] ?? 'normal'));
+        if ($prazos === null) {
             return null;
         }
 
@@ -44,17 +47,15 @@ class SLAService {
 
         $tempoDecorrido = $this->calcularSegundosUteis($ticket['criado_em'], date('Y-m-d H:i:s'), $setorId) - $tempoPausado;
 
-        [$slaRespostaMinutos, $slaResolucaoHoras] = $this->prazosDaPrioridade((string) ($ticket['prioridade'] ?? 'normal'));
-
         // SLA de resposta: enquanto a demanda não teve a primeira resposta do time (e não foi
         // concluída sem uma — dado legado/importado, já que o fluxo normal sempre grava a resposta)
         if (empty($sla['primeira_resposta_em']) && !$jaConcluida) {
-            return $this->montarSituacao('resposta', $slaRespostaMinutos * 60, $tempoDecorrido, $pausadoAgora);
+            return $this->montarSituacao('resposta', $prazos['resposta'], $tempoDecorrido, $pausadoAgora);
         }
 
         // SLA de resolução: enquanto não foi resolvida/encerrada/cancelada
         if (empty($sla['resolvido_em']) && !$jaConcluida) {
-            return $this->montarSituacao('resolucao', $slaResolucaoHoras * 3600, $tempoDecorrido, $pausadoAgora);
+            return $this->montarSituacao('resolucao', $prazos['resolucao'], $tempoDecorrido, $pausadoAgora);
         }
 
         return null;
@@ -81,8 +82,8 @@ class SLAService {
             if (empty($l[$campoData]) || empty($l['criado_em'])) {
                 continue;
             }
-            // Demanda em prioridade sem SLA ("Baixíssima") não entra nos tempos médios
-            if (isset($l['prioridade']) && $this->semSla((string) $l['prioridade'])) {
+            // Demanda sem SLA (setor desligado, prioridade sem SLA ou sem prazo) não entra nos tempos médios
+            if ($this->prazosDoSetor($l['setor_id'] ?? null, (string) ($l['prioridade'] ?? '')) === null) {
                 continue;
             }
             $segundos = (int) ($l[$campoSegundos] ?? 0);
@@ -136,27 +137,90 @@ class SLAService {
     }
 
     /**
-     * O SLA fica pausado com este status e esta prioridade? Pausa se o status congela o SLA ou se a
-     * prioridade não tem SLA. Regra única de DemandaService::ajustarPausaSla.
+     * O SLA fica pausado com este status e esta prioridade? Pausa se o status congela o SLA ou se não
+     * há prazo de SLA. Com o setor informado vale a regra do setor (desligado, prioridade sem prazo...);
+     * sem setor, só a prioridade sem SLA do catálogo (comportamento antigo). Regra única de
+     * DemandaService::ajustarPausaSla.
      */
-    public function pausaSla(string $status, string $prioridade): bool {
-        return $this->congelaSla($status) || $this->semSla($prioridade);
+    public function pausaSla(string $status, string $prioridade, ?int $setorId = null): bool {
+        if ($setorId === null) {
+            return $this->congelaSla($status) || $this->semSla($prioridade);
+        }
+        return $this->congelaSla($status) || $this->prazosDoSetor($setorId, $prioridade) === null;
     }
 
     /**
-     * Prazos (minutos de resposta, horas de resolução) da prioridade no catálogo global
-     * `ticket_prioridades`, com cache por request. Prioridade desconhecida cai no prazo "normal".
+     * Duração, em minutos, de um "dia útil" do setor: o expediente ativo mais comum entre os dias
+     * (empate: o maior). Setor sem expediente usa o do Geral; sem nada, 540 (9 h).
      */
-    private function prazosDaPrioridade(string $prioridade): array {
-        if (!isset($this->cachePrazosPrioridade[$prioridade])) {
-            $stmt = $this->db->prepare("SELECT sla_resposta_minutos, sla_resolucao_horas FROM ticket_prioridades WHERE nome = ?");
-            $stmt->execute([$prioridade]);
-            $row = $stmt->fetch(PDO::FETCH_ASSOC);
-            $this->cachePrazosPrioridade[$prioridade] = $row
-                ? [(int) $row['sla_resposta_minutos'], (int) $row['sla_resolucao_horas']]
-                : [720, 24];
+    public function jornadaMinutos(?int $setorId): int {
+        $chave = $setorId ? (int) $setorId : 0;
+        if (!isset($this->cacheJornada[$chave])) {
+            $contagem = [];
+            foreach ($this->buscarHorariosUteis($setorId) as $h) {
+                [$h1, $m1] = array_map('intval', explode(':', (string) $h['hora_inicio']));
+                [$h2, $m2] = array_map('intval', explode(':', (string) $h['hora_fim']));
+                $minutos = ($h2 * 60 + $m2) - ($h1 * 60 + $m1);
+                if ($minutos > 0) {
+                    $contagem[$minutos] = ($contagem[$minutos] ?? 0) + 1;
+                }
+            }
+            $melhor = 540;
+            $maior = 0;
+            foreach ($contagem as $minutos => $qtd) {
+                if ($qtd > $maior || ($qtd === $maior && $minutos > $melhor)) {
+                    $maior = $qtd;
+                    $melhor = $minutos;
+                }
+            }
+            $this->cacheJornada[$chave] = $melhor;
         }
-        return $this->cachePrazosPrioridade[$prioridade];
+        return $this->cacheJornada[$chave];
+    }
+
+    /** O setor tem o SLA ligado (`setores.sla_ativo`)? Setor nulo ou inexistente = não. Com cache. */
+    public function slaAtivo(?int $setorId): bool {
+        if (!$setorId) {
+            return false;
+        }
+        if (!isset($this->cacheSlaAtivo[$setorId])) {
+            $stmt = $this->db->prepare("SELECT sla_ativo FROM setores WHERE id = ?");
+            $stmt->execute([$setorId]);
+            $this->cacheSlaAtivo[$setorId] = (bool) ($stmt->fetchColumn() ?: false);
+        }
+        return $this->cacheSlaAtivo[$setorId];
+    }
+
+    /**
+     * Prazos do SLA da prioridade neste setor, em segundos úteis: ['resposta' => int, 'resolucao' => int].
+     * null quando não há SLA: setor desligado, prioridade sem SLA no catálogo, "sem prazo" no setor
+     * ou prazo não definido (dias e minutos vazios, ou soma zero). "1 dia" = a jornada do setor.
+     */
+    public function prazosDoSetor(?int $setorId, string $prioridade): ?array {
+        $chave = (int) $setorId . '|' . $prioridade;
+        if (array_key_exists($chave, $this->cachePrazosSetor)) {
+            return $this->cachePrazosSetor[$chave];
+        }
+        $prazos = null;
+        if ($this->slaAtivo($setorId)) {
+            $stmt = $this->db->prepare(
+                "SELECT p.sem_sla, sp.sla_sem_prazo, sp.sla_resposta_dias, sp.sla_resposta_minutos,
+                        sp.sla_resolucao_dias, sp.sla_resolucao_minutos
+                 FROM ticket_prioridades p
+                 JOIN setor_prioridades sp ON sp.prioridade_id = p.id AND sp.setor_id = ?
+                 WHERE p.nome = ?");
+            $stmt->execute([(int) $setorId, $prioridade]);
+            $l = $stmt->fetch(PDO::FETCH_ASSOC);
+            if ($l && empty($l['sem_sla']) && empty($l['sla_sem_prazo'])) {
+                $jornada = $this->jornadaMinutos($setorId);
+                $resposta = ((int) $l['sla_resposta_dias'] * $jornada + (int) $l['sla_resposta_minutos']) * 60;
+                $resolucao = ((int) $l['sla_resolucao_dias'] * $jornada + (int) $l['sla_resolucao_minutos']) * 60;
+                if ($resposta > 0 && $resolucao > 0) {
+                    $prazos = ['resposta' => $resposta, 'resolucao' => $resolucao];
+                }
+            }
+        }
+        return $this->cachePrazosSetor[$chave] = $prazos;
     }
 
     /**

@@ -21,6 +21,11 @@ final class FluxoDemandaTest extends TestCase {
         $this->db->beginTransaction();
 
         $this->setor = (int) $this->db->query("SELECT id FROM setores WHERE ativo = 1 ORDER BY id LIMIT 1")->fetchColumn();
+        // O SLA é por setor (migração 44): liga o do setor de teste, com prazo na prioridade normal (desfeito no rollback)
+        $this->db->prepare("UPDATE setores SET sla_ativo = 1 WHERE id = ?")->execute([$this->setor]);
+        $this->db->prepare("UPDATE setor_prioridades sp JOIN ticket_prioridades p ON p.id = sp.prioridade_id
+                            SET sp.sla_sem_prazo = 0, sp.sla_resposta_dias = 0, sp.sla_resposta_minutos = 60, sp.sla_resolucao_dias = 1, sp.sla_resolucao_minutos = 0
+                            WHERE sp.setor_id = ? AND p.nome = 'normal'")->execute([$this->setor]);
         $this->db->prepare("INSERT INTO usuarios (nome, email, senha, tipo, setor_id, ativo, trocar_senha) VALUES ('zz Fluxo', ?, 'x', 'gestor', ?, 1, 0)")
                  ->execute(['zz.fluxo.' . bin2hex(random_bytes(4)) . '@teste.local', $this->setor]);
         $this->autor = (int) $this->db->lastInsertId();
