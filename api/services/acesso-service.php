@@ -492,12 +492,18 @@ class AcessoService {
                       SELECT ? FROM DUAL WHERE NOT EXISTS (SELECT 1 FROM ticket_sla WHERE ticket_id = ?)")
            ->execute([$ticketId, $ticketId]);
 
-        // Demanda que já nasce em prioridade sem SLA ("Baixíssima"): o SLA começa pausado
-        $db->prepare("UPDATE ticket_sla s JOIN tickets t ON t.id = s.ticket_id
-                        JOIN ticket_prioridades p ON p.nome = t.prioridade AND p.sem_sla = 1
-                         SET s.pausado = TRUE, s.pausado_em = t.criado_em
-                       WHERE s.ticket_id = ? AND s.pausado_em IS NULL")
-           ->execute([$ticketId]);
+        // Demanda que já nasce sem SLA (setor com SLA desligado, prioridade sem prazo ou status que
+        // congela): o SLA começa pausado, desde a abertura
+        require_once __DIR__ . '/sla-service.php';
+        $dados = $db->prepare("SELECT status, prioridade FROM tickets WHERE id = ?");
+        $dados->execute([$ticketId]);
+        $t = $dados->fetch(PDO::FETCH_ASSOC);
+        if ($t && (new SLAService($db))->pausaSla((string) $t['status'], (string) $t['prioridade'], $setorId)) {
+            $db->prepare("UPDATE ticket_sla s JOIN tickets t ON t.id = s.ticket_id
+                             SET s.pausado = TRUE, s.pausado_em = t.criado_em
+                           WHERE s.ticket_id = ? AND s.pausado_em IS NULL")
+               ->execute([$ticketId]);
+        }
 
         if ($setorId) {
             $db->prepare("INSERT INTO ticket_setor_log (ticket_id, setor_id) VALUES (?, ?)")

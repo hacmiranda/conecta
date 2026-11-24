@@ -181,8 +181,8 @@ class DemandaService {
         $prioAtual->execute([$ticketId]);
         $prioridadeNova = (string) ($prioAtual->fetchColumn() ?: '');
         $prioridadeAnterior = (string) ($opcoes['prioridade_anterior'] ?? $prioridadeNova);
-        self::ajustarPausaSla($db, $ticketId, $sla->pausaSla($anterior, $prioridadeAnterior),
-            $sla->pausaSla($novo, $prioridadeNova), $setorId);
+        self::ajustarPausaSla($db, $ticketId, $sla->pausaSla($anterior, $prioridadeAnterior, $setorId),
+            $sla->pausaSla($novo, $prioridadeNova, $setorId), $setorId);
 
         // Primeira resposta: a equipe tirou a demanda de "novo"
         if ($anterior === 'novo' && ($opcoes['resposta_da_equipe'] ?? true)) {
@@ -280,7 +280,61 @@ class DemandaService {
         }
         require_once __DIR__ . '/sla-service.php';
         $sla = new SLAService($db);
-        self::ajustarPausaSla($db, $ticketId, $sla->pausaSla($status, $anterior), $sla->pausaSla($status, $nova), $setorId);
+        self::ajustarPausaSla($db, $ticketId, $sla->pausaSla($status, $anterior, $setorId), $sla->pausaSla($status, $nova, $setorId), $setorId);
+    }
+
+    /**
+     * Confere, pelo estado real do banco (ticket_sla.pausado_em), se a pausa do SLA da demanda bate com
+     * a regra atual (status que congela, prioridade sem prazo, setor com SLA desligado) e ajusta se
+     * não bater. Cria a linha de ticket_sla se faltar (dado antigo). Usa um SLAService novo, sem cache
+     * de configuração anterior. Devolve true se mudou a pausa. Usa a transação de quem chama.
+     */
+    public static function conferirPausaSla(PDO $db, int $ticketId): bool {
+        require_once __DIR__ . '/sla-service.php';
+        $stmt = $db->prepare("SELECT t.status, t.prioridade, t.setor_id, s.pausado_em, s.ticket_id AS tem_sla
+                              FROM tickets t LEFT JOIN ticket_sla s ON s.ticket_id = t.id WHERE t.id = ?");
+        $stmt->execute([$ticketId]);
+        $t = $stmt->fetch(PDO::FETCH_ASSOC);
+        if (!$t) {
+            return false;
+        }
+        if (empty($t['tem_sla'])) {
+            $db->prepare("INSERT INTO ticket_sla (ticket_id) VALUES (?)")->execute([$ticketId]);
+        }
+        $setorId = $t['setor_id'] ? (int) $t['setor_id'] : null;
+        $pausavaAntes = !empty($t['pausado_em']);
+        $pausaAgora = (new SLAService($db))->pausaSla((string) $t['status'], (string) $t['prioridade'], $setorId);
+        if ($pausavaAntes === $pausaAgora) {
+            return false;
+        }
+        self::ajustarPausaSla($db, $ticketId, $pausavaAntes, $pausaAgora, $setorId);
+        return true;
+    }
+
+    /**
+     * Aplica a configuração atual de SLA do setor às demandas abertas dele (não concluídas, fora da
+     * lixeira, não mescladas; com $soPrioridade, só as dessa prioridade): pausa as que passaram a não
+     * ter SLA e retoma, sem contar o período parado, as que voltaram a ter. Chamar DEPOIS de gravar a
+     * configuração nova. Devolve quantas demandas mudaram. Usa a transação de quem chama.
+     */
+    public static function aplicarSlaDoSetor(PDO $db, int $setorId, ?string $soPrioridade = null): int {
+        $encerradas = "'" . implode("','", array_merge(AcessoService::STATUS_CONCLUIDOS, AcessoService::STATUS_ARQUIVO)) . "'";
+        $sql = "SELECT id FROM tickets WHERE setor_id = ? AND status NOT IN ($encerradas)
+                AND excluido_em IS NULL AND mesclada_em IS NULL";
+        $params = [$setorId];
+        if ($soPrioridade !== null) {
+            $sql .= " AND prioridade = ?";
+            $params[] = $soPrioridade;
+        }
+        $stmt = $db->prepare($sql);
+        $stmt->execute($params);
+        $mudaram = 0;
+        foreach ($stmt->fetchAll(PDO::FETCH_COLUMN) as $id) {
+            if (self::conferirPausaSla($db, (int) $id)) {
+                $mudaram++;
+            }
+        }
+        return $mudaram;
     }
 
     public static function marcarPrimeiraResposta(PDO $db, int $ticketId, ?int $setorId): void {
