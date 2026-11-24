@@ -9,7 +9,7 @@ const SlaSetor = (function () {
 
     const CAMPOS = [
         { chave: 'dias', rotulo: 'dias', max: 365 },
-        { chave: 'horas', rotulo: 'horas', max: 23 },
+        { chave: 'horas', rotulo: 'horas', max: 999 },
         { chave: 'minutos', rotulo: 'min', max: 59 }
     ];
 
@@ -23,32 +23,17 @@ const SlaSetor = (function () {
         return m ? `${h}h${String(m).padStart(2, '0')}` : `${h}h`;
     }
 
-    // Minutos de um prazo em "1 dia útil 2h 30min"; o dia útil usa a jornada do setor.
+    // Minutos de um prazo em "12h" ou "1h30min"
     function textoPrazo(minutos) {
-        const jornada = (dados && dados.jornada_minutos) || 480;
-        const partes = [];
-        let resto = minutos;
-        const dias = Math.floor(resto / jornada);
-        resto -= dias * jornada;
-        if (dias) partes.push(`${dias} ${dias === 1 ? 'dia útil' : 'dias úteis'}`);
-        const h = Math.floor(resto / 60);
-        const m = resto % 60;
-        if (h) partes.push(`${h}h`);
-        if (m) partes.push(`${m}min`);
-        return partes.length ? partes.join(' ') : '0';
+        const h = Math.floor(minutos / 60);
+        const m = minutos % 60;
+        return m ? `${h}h${m}min` : `${h}h`;
     }
 
-    // O servidor devolve horas sem limite (ex.: 24h do modelo), mas a gravação só aceita 0-23. Reescreve o
-    // mesmo total em dias úteis da jornada + horas + minutos, sem mudar o prazo.
-    function receber(resp) {
-        const jornada = resp.jornada_minutos || 480;
-        const norm = (p) => {
-            const total = p.dias * jornada + p.horas * 60 + p.minutos;
-            const resto = total % jornada;
-            return { dias: Math.floor(total / jornada), horas: Math.floor(resto / 60), minutos: resto % 60 };
-        };
-        resp.prioridades.forEach(p => { p.resposta = norm(p.resposta); p.resolucao = norm(p.resolucao); });
-        return resp;
+    // Rótulo do frontend (ex.: "Baixíssima (Sem SLA)"); cai no nome da API
+    function rotuloPrioridade(prio) {
+        const cfg = window.PRIORIDADE_CONFIG && window.PRIORIDADE_CONFIG[prio.prioridade];
+        return (cfg && cfg.nome) || prio.nome;
     }
 
     function campoNumero(prio, bloco, c, valor, desabilitado) {
@@ -57,7 +42,7 @@ const SlaSetor = (function () {
         return `<span class="sla-campo">
             <input type="number" id="${sanitizeHTML(id)}" class="sla-numero" inputmode="numeric" min="0" max="${c.max}" step="1"
                 value="${Number(valor) || 0}" data-sla-bloco="${bloco}" data-sla-unidade="${c.chave}"
-                aria-label="${sanitizeHTML(prio.nome)}: ${nome}, ${c.rotulo}" ${desabilitado ? 'disabled' : ''}>
+                aria-label="${sanitizeHTML(rotuloPrioridade(prio))}: ${nome}, ${c.rotulo}" ${desabilitado ? 'disabled' : ''}>
             <label for="${sanitizeHTML(id)}" class="sla-unidade">${c.rotulo}</label>
         </span>`;
     }
@@ -67,12 +52,12 @@ const SlaSetor = (function () {
         const semPrazo = semCatalogo || !!prio.sem_prazo;
         const trava = somenteLeitura || semCatalogo;
         return `<tr data-sla-linha="${sanitizeHTML(prio.prioridade)}">
-            <th scope="row">${sanitizeHTML(prio.nome)}</th>
+            <th scope="row">${sanitizeHTML(rotuloPrioridade(prio))}</th>
             <td>${CAMPOS.map(c => campoNumero(prio, 'resposta', c, prio.resposta && prio.resposta[c.chave], trava)).join('')}</td>
             <td>${CAMPOS.map(c => campoNumero(prio, 'resolucao', c, prio.resolucao && prio.resolucao[c.chave], trava)).join('')}</td>
             <td class="sla-col-sem">
                 <input type="checkbox" data-sla-sem ${semPrazo ? 'checked' : ''} ${trava ? 'disabled' : ''}
-                    aria-label="${sanitizeHTML(prio.nome)}: sem SLA">
+                    aria-label="${sanitizeHTML(rotuloPrioridade(prio))}: sem SLA">
                 ${semCatalogo ? '<span class="sla-nota">Sempre sem SLA</span>' : ''}
             </td>
         </tr>`;
@@ -125,7 +110,7 @@ const SlaSetor = (function () {
         }
         lista.innerHTML = '<p>Carregando...</p>';
         try {
-            dados = receber(await Api.get(`setor-sla.php?setor_id=${setorId}`));
+            dados = await Api.get(`setor-sla.php?setor_id=${setorId}`);
             renderizar();
         } catch (e) {
             lista.innerHTML = `<p>${sanitizeHTML(mensagemDeErro(e, 'Erro ao carregar o SLA do setor.'))}</p>`;
@@ -160,7 +145,7 @@ const SlaSetor = (function () {
     async function enviarSalvar() {
         mostrarLoader();
         try {
-            dados = receber(await Api.put(`setor-sla.php?setor_id=${setorAtual}`, lerFormulario()));
+            dados = await Api.put(`setor-sla.php?setor_id=${setorAtual}`, lerFormulario());
             ocultarLoader();
             renderizar();
             mostrarToast('Sucesso', 'SLA do setor salvo.', 'success');
@@ -184,7 +169,7 @@ const SlaSetor = (function () {
 
     function nomeDe(codigo) {
         const p = dados.prioridades.find(x => x.prioridade === codigo);
-        return p ? p.nome : codigo;
+        return p ? rotuloPrioridade(p) : codigo;
     }
 
     function aplicarModelo() {
@@ -198,7 +183,7 @@ const SlaSetor = (function () {
                 if (!ok) return;
                 mostrarLoader();
                 try {
-                    dados = receber(await Api.post(`setor-sla.php?acao=aplicar-modelo&setor_id=${setorAtual}`, {}));
+                    dados = await Api.post(`setor-sla.php?acao=aplicar-modelo&setor_id=${setorAtual}`, {});
                     ocultarLoader();
                     renderizar();
                     mostrarToast('Sucesso', 'Padrão CRPRS aplicado.', 'success');

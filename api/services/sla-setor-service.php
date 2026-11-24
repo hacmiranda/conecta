@@ -82,7 +82,7 @@ class SlaSetorService {
         if (!is_array($campo) || ($campo !== [] && array_is_list($campo))) {
             throw new InvalidArgumentException("$rotulo: informe dias, horas e minutos");
         }
-        $limites = ['dias' => 365, 'horas' => 23, 'minutos' => 59];
+        $limites = ['dias' => 365, 'horas' => 999, 'minutos' => 59];
         $v = [];
         foreach ($limites as $k => $max) {
             $x = $campo[$k] ?? 0;

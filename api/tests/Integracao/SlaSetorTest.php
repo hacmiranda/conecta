@@ -334,6 +334,20 @@ final class SlaSetorTest extends TestCase {
         $this->assertNull($this->linhaSla($id)['pausado_em']);
     }
 
+    public function test_aplicar_modelo_e_salvar_de_novo_sem_mudar_nada(): void {
+        $setor = $this->setorComSla(false);
+        $svc = new SlaSetorService($this->db);
+        $lido = $svc->aplicarModelo($setor)['depois'];
+        // Devolve exatamente o que leu (horas do modelo passam de 23)
+        $entrada = ['sla_ativo' => $lido['sla_ativo'], 'prioridades' => array_map(fn($p) => [
+            'prioridade' => $p['prioridade'], 'sem_prazo' => $p['sem_prazo'],
+            'resposta' => $p['resposta'], 'resolucao' => $p['resolucao'],
+        ], $lido['prioridades'])];
+        $r = $svc->salvar($setor, $entrada);
+        $this->assertSame($lido['prioridades'], $r['depois']['prioridades']);
+        $this->assertSame($lido['sla_ativo'], $r['depois']['sla_ativo']);
+    }
+
     /** @return array<string, array{0: array}> */
     public static function entradasInvalidas(): array {
         $ok = ['horas' => 1];
@@ -344,7 +358,7 @@ final class SlaSetorTest extends TestCase {
             'texto' => $um(['horas' => 'abc'], ['dias' => 1]),
             'decimal' => $um(['horas' => 1.5], ['dias' => 1]),
             'dias acima de 365' => $um($ok, ['dias' => 366]),
-            'horas acima de 23' => $um(['horas' => 24], ['dias' => 1]),
+            'horas acima de 999' => $um(['horas' => 1000], ['dias' => 1]),
             'só a resposta' => $um($ok, []),
             'só a resolução' => $um([], ['dias' => 1]),
             'resposta não é objeto' => $um('abc', ['dias' => 1]),
