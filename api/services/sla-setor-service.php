@@ -66,9 +66,22 @@ class SlaSetorService {
         ];
     }
 
+    /** Aceita só booleano de verdade ou 0/1 inteiro ("false", null e texto são recusados). */
+    private static function booleano($valor, string $campo): bool {
+        if (is_bool($valor)) {
+            return $valor;
+        }
+        if (is_int($valor) && ($valor === 0 || $valor === 1)) {
+            return $valor === 1;
+        }
+        throw new InvalidArgumentException("$campo deve ser verdadeiro ou falso");
+    }
+
     /** Converte {dias, horas, minutos} validando as faixas; devolve [dias, minutos totais]. */
     private static function converter($campo, string $rotulo): array {
-        $campo = is_array($campo) ? $campo : [];
+        if (!is_array($campo) || ($campo !== [] && array_is_list($campo))) {
+            throw new InvalidArgumentException("$rotulo: informe dias, horas e minutos");
+        }
         $limites = ['dias' => 365, 'horas' => 23, 'minutos' => 59];
         $v = [];
         foreach ($limites as $k => $max) {
@@ -101,7 +114,7 @@ class SlaSetorService {
         $antes = $this->ler($setorId);
         $jornada = $antes['jornada_minutos'];
 
-        $ligar = array_key_exists('sla_ativo', $entrada) ? (bool) $entrada['sla_ativo'] : $antes['sla_ativo'];
+        $ligar = array_key_exists('sla_ativo', $entrada) ? self::booleano($entrada['sla_ativo'], 'sla_ativo') : $antes['sla_ativo'];
         $porNome = [];
         foreach ($antes['prioridades'] as $p) {
             $porNome[$p['prioridade']] = $p;
@@ -114,7 +127,8 @@ class SlaSetorService {
                 throw new InvalidArgumentException('Prioridade desconhecida neste setor: ' . ($nome !== '' ? $nome : '(vazia)'));
             }
             $rotulo = $porNome[$nome]['nome'];
-            if ($porNome[$nome]['sem_sla_catalogo'] || !empty($item['sem_prazo'])) {
+            $semPrazo = array_key_exists('sem_prazo', $item) ? self::booleano($item['sem_prazo'], 'sem_prazo') : false;
+            if ($porNome[$nome]['sem_sla_catalogo'] || $semPrazo) {
                 $novo[$nome] = ['sem_prazo' => true];
                 continue;
             }

@@ -305,4 +305,77 @@ final class SlaSetorTest extends TestCase {
         (new SlaSetorService($this->db))->salvar($setor, $this->entrada(false, []));
         $this->assertNotNull($this->linhaSla($id)['pausado_em']);
     }
+
+    // ---- Reaplicação por prioridade e validação (correção da revisão) ----
+
+    public function test_marcar_sem_prazo_com_setor_ligado_pausa_as_abertas_daquela_prioridade(): void {
+        $setor = $this->setorComSla(true);
+        $normal = $this->criarDemanda($setor, 'novo', 'normal', 1);
+        $baixa = $this->criarDemanda($setor, 'novo', 'baixa', 1);
+        $svc = new SlaSetorService($this->db);
+        $svc->salvar($setor, $this->entrada(true, [$this->prio('baixa', [], [], true)]));
+        $this->assertNotNull($this->linhaSla($baixa)['pausado_em']);
+        $this->assertNull($this->linhaSla($normal)['pausado_em']);
+        // Desmarcar: os prazos antigos (0h60 / 1 dia) continuam gravados e a contagem retoma
+        $svc->salvar($setor, $this->entrada(true, [$this->prio('baixa', ['horas' => 2], ['dias' => 2])]));
+        $this->assertNull($this->linhaSla($baixa)['pausado_em']);
+        $this->assertNull($this->linhaSla($normal)['pausado_em']);
+    }
+
+    public function test_aplicar_modelo_com_setor_ligado_retoma_prioridade_que_estava_sem_prazo(): void {
+        $setor = $this->setorComSla(true);
+        $id = $this->criarDemanda($setor, 'novo', 'baixa', 1);
+        $svc = new SlaSetorService($this->db);
+        $svc->salvar($setor, $this->entrada(true, [$this->prio('baixa', [], [], true)]));
+        $this->assertNotNull($this->linhaSla($id)['pausado_em']);
+        $r = $svc->aplicarModelo($setor);
+        $this->assertTrue($r['depois']['sla_ativo']);
+        $this->assertFalse($this->dePrioridade($r['depois'], 'baixa')['sem_prazo']);
+        $this->assertNull($this->linhaSla($id)['pausado_em']);
+    }
+
+    /** @return array<string, array{0: array}> */
+    public static function entradasInvalidas(): array {
+        $ok = ['horas' => 1];
+        $um = fn($resp, $resol) => [['sla_ativo' => false, 'prioridades' => [
+            ['prioridade' => 'normal', 'sem_prazo' => false, 'resposta' => $resp, 'resolucao' => $resol]]]];
+        return [
+            'dias negativo' => $um(['dias' => -1], ['dias' => 1]),
+            'texto' => $um(['horas' => 'abc'], ['dias' => 1]),
+            'decimal' => $um(['horas' => 1.5], ['dias' => 1]),
+            'dias acima de 365' => $um($ok, ['dias' => 366]),
+            'horas acima de 23' => $um(['horas' => 24], ['dias' => 1]),
+            'só a resposta' => $um($ok, []),
+            'só a resolução' => $um([], ['dias' => 1]),
+            'resposta não é objeto' => $um('abc', ['dias' => 1]),
+            'resolução em lista' => $um($ok, [1, 2]),
+            'sem_prazo texto' => [['prioridades' => [['prioridade' => 'normal', 'sem_prazo' => 'false']]]],
+            'sem_prazo nulo' => [['prioridades' => [['prioridade' => 'normal', 'sem_prazo' => null]]]],
+            'sla_ativo texto' => [['sla_ativo' => 'false']],
+            'sla_ativo nulo' => [['sla_ativo' => null]],
+        ];
+    }
+
+    #[\PHPUnit\Framework\Attributes\DataProvider('entradasInvalidas')]
+    public function test_entrada_invalida_recusa(array $entrada): void {
+        $setor = $this->setorSemPrazos();
+        $this->expectException(InvalidArgumentException::class);
+        (new SlaSetorService($this->db))->salvar($setor, $entrada);
+    }
+
+    public function test_prazo_zerado_com_setor_desligado_e_aceito_e_grava_nulo(): void {
+        $setor = $this->setorComSla(false);
+        (new SlaSetorService($this->db))->salvar($setor, $this->entrada(false, [$this->prio('normal', [], [])]));
+        $l = $this->db->prepare("SELECT sp.sla_resposta_dias, sp.sla_resposta_minutos, sp.sla_resolucao_dias, sp.sla_resolucao_minutos
+            FROM setor_prioridades sp JOIN ticket_prioridades p ON p.id = sp.prioridade_id WHERE sp.setor_id = ? AND p.nome = 'normal'");
+        $l->execute([$setor]);
+        $this->assertSame([null, null, null, null], array_values($l->fetch(PDO::FETCH_ASSOC)));
+    }
+
+    public function test_prazo_zerado_ao_ligar_prioridade_ativa_recusa(): void {
+        $setor = $this->setorComSla(false);
+        $this->expectException(InvalidArgumentException::class);
+        $this->expectExceptionMessageMatches('/Normal/');
+        (new SlaSetorService($this->db))->salvar($setor, $this->entrada(true, [$this->prio('normal', [], [])]));
+    }
 }
