@@ -587,6 +587,29 @@ function executarAlteracaoCategoria(ticketId, categoriaId) {
 }
 
 // Alterar prioridade do ticket
+// Minutos úteis em texto curto, com o dia útil = jornada do setor: "12h", "1 dia 3h", "30min"
+function textoPrazoSla(minutos, jornada) {
+    const dias = jornada > 0 ? Math.floor(minutos / jornada) : 0;
+    const resto = minutos - dias * (jornada > 0 ? jornada : 0);
+    const h = Math.floor(resto / 60);
+    const m = resto % 60;
+    const partes = [];
+    if (dias) partes.push(`${dias} ${dias === 1 ? 'dia' : 'dias'}`);
+    if (h) partes.push(`${h}h`);
+    if (m) partes.push(`${m}min`);
+    return partes.length ? partes.join(' ') : '0min';
+}
+
+// Descrição de uma prioridade no seletor: o texto do catálogo + o prazo DO SETOR (nunca o do catálogo)
+function descricaoPrioridadeComSla(p, setorId) {
+    const base = p.descricao || '';
+    if (!setorId) return base;
+    const prazo = p.sla
+        ? `SLA: 1ª resposta ${textoPrazoSla(p.sla.resposta_minutos, p.sla.jornada_minutos)} / resolução ${textoPrazoSla(p.sla.resolucao_minutos, p.sla.jornada_minutos)}`
+        : 'Sem SLA neste setor';
+    return base ? `${base} (${prazo})` : prazo;
+}
+
 function alterarPrioridade(ticketId, setorId) {
     if (Papeis.somenteLeitura()) return;
     if (setorId === undefined || setorId === null) {
@@ -622,11 +645,7 @@ function alterarPrioridade(ticketId, setorId) {
         const opcoes = prioridadesList.map(p => ({
             id: p.nome,
             nome: `${window.PRIORIDADE_CONFIG?.[p.nome]?.icone || ''} ${typeof formatarNomePrioridade === 'function' ? formatarNomePrioridade(p.nome) : p.nome}`,
-            descricao: Number(p.sem_sla) === 1
-                ? (p.descricao || 'Sem SLA')
-                : (p.descricao
-                    ? `${p.descricao} (SLA: ${p.sla_resposta_minutos}min resposta / ${p.sla_resolucao_horas}h resolução)`
-                    : '')
+            descricao: descricaoPrioridadeComSla(p, setorId)
         }));
         abrirSelect(opcoes.length > 0 ? opcoes : prioridadeOpcoesFallback);
     }).catch(() => abrirSelect(prioridadeOpcoesFallback));
@@ -800,6 +819,8 @@ function mostrarAlert(titulo, mensagem, callback) {
 
 // Confirm customizado
 function mostrarConfirm(titulo, mensagem, callback, isPerigoso = false) {
+    // Telas que quebram linha na mensagem ligam estas classes; fechar por ESC/fundo/X não as desligava
+    document.getElementById('modal-confirm-message').classList.remove('sla-quebra-linhas', 'ra-quebra-linhas');
     document.getElementById('modal-confirm-title').textContent = titulo;
     document.getElementById('modal-confirm-message').textContent = mensagem;
 
