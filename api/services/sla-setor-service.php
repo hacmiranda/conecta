@@ -182,7 +182,6 @@ class SlaSetorService {
              SET sp.sla_sem_prazo = 0, sp.sla_resposta_dias = NULL, sp.sla_resposta_minutos = NULL,
                  sp.sla_resolucao_dias = NULL, sp.sla_resolucao_minutos = NULL
              WHERE sp.setor_id = ? AND p.nome = ?");
-        $mudouSemPrazo = [];
         foreach ($novo as $nome => $n) {
             if (!empty($n['sem_prazo'])) {
                 $upSem->execute([$setorId, $nome]);
@@ -191,12 +190,10 @@ class SlaSetorService {
             } else {
                 $upPrazo->execute([$n['rd'], $n['rm'], $n['sd'], $n['sm'], $setorId, $nome]);
             }
-            if ((bool) ($n['sem_prazo'] ?? false) !== $porNome[$nome]['sem_prazo']) {
-                $mudouSemPrazo[] = $nome;
-            }
         }
 
-        $this->reaplicar($setorId, $ligar !== $antes['sla_ativo'], $mudouSemPrazo);
+        // Sempre o setor inteiro: preencher ou apagar um prazo também muda se a prioridade tem SLA
+        DemandaService::aplicarSlaDoSetor($this->db, $setorId);
         return ['antes' => $antes, 'depois' => $this->ler($setorId)];
     }
 
@@ -210,26 +207,7 @@ class SlaSetorService {
                  sp.sla_sem_prazo = p.sem_sla
              WHERE sp.setor_id = ?")->execute([$setorId]);
         $depois = $this->ler($setorId);
-        if ($depois['sla_ativo']) {
-            $mudou = [];
-            foreach ($depois['prioridades'] as $i => $p) {
-                if ($p['sem_prazo'] !== $antes['prioridades'][$i]['sem_prazo']) {
-                    $mudou[] = $p['prioridade'];
-                }
-            }
-            $this->reaplicar($setorId, false, $mudou);
-        }
+        DemandaService::aplicarSlaDoSetor($this->db, $setorId);
         return ['antes' => $antes, 'depois' => $depois];
-    }
-
-    /** Confere a pausa das demandas abertas: o setor inteiro se o interruptor mudou, senão só as prioridades afetadas. */
-    private function reaplicar(int $setorId, bool $interruptorMudou, array $prioridades): void {
-        if ($interruptorMudou) {
-            DemandaService::aplicarSlaDoSetor($this->db, $setorId);
-            return;
-        }
-        foreach ($prioridades as $nome) {
-            DemandaService::aplicarSlaDoSetor($this->db, $setorId, $nome);
-        }
     }
 }

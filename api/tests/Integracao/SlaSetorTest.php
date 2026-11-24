@@ -306,6 +306,34 @@ final class SlaSetorTest extends TestCase {
         $this->assertNotNull($this->linhaSla($id)['pausado_em']);
     }
 
+    public function test_preencher_prazo_vazio_retoma_a_demanda_pausada(): void {
+        $setor = $this->setorComSla(true);
+        // Prioridade ativa com prazo vazio (sem_prazo = 0, campos NULL): a demanda nasce pausada
+        $this->db->prepare("UPDATE setor_prioridades sp JOIN ticket_prioridades p ON p.id = sp.prioridade_id
+                            SET sp.sla_resposta_dias = NULL, sp.sla_resposta_minutos = NULL,
+                                sp.sla_resolucao_dias = NULL, sp.sla_resolucao_minutos = NULL
+                            WHERE sp.setor_id = ? AND p.nome = 'normal'")->execute([$setor]);
+        $id = $this->criarDemanda($setor, 'novo', 'normal', 1);
+        $this->assertNotNull($this->linhaSla($id)['pausado_em']);
+        (new SlaSetorService($this->db))->salvar($setor, $this->entrada(true, [
+            $this->prio('normal', ['horas' => 10], ['dias' => 2]),
+        ]));
+        $this->assertNull($this->linhaSla($id)['pausado_em']);
+        $this->assertNotNull($this->situacao($id));
+    }
+
+    public function test_aplicar_modelo_retoma_a_demanda_pausada_por_prazo_vazio(): void {
+        $setor = $this->setorComSla(true);
+        $this->db->prepare("UPDATE setor_prioridades sp JOIN ticket_prioridades p ON p.id = sp.prioridade_id
+                            SET sp.sla_resposta_dias = NULL, sp.sla_resposta_minutos = NULL,
+                                sp.sla_resolucao_dias = NULL, sp.sla_resolucao_minutos = NULL
+                            WHERE sp.setor_id = ? AND p.nome = 'normal'")->execute([$setor]);
+        $id = $this->criarDemanda($setor, 'novo', 'normal', 1);
+        $this->assertNotNull($this->linhaSla($id)['pausado_em']);
+        (new SlaSetorService($this->db))->aplicarModelo($setor);
+        $this->assertNull($this->linhaSla($id)['pausado_em']);
+    }
+
     // ---- Reaplicação por prioridade e validação (correção da revisão) ----
 
     public function test_marcar_sem_prazo_com_setor_ligado_pausa_as_abertas_daquela_prioridade(): void {
