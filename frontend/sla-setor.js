@@ -110,9 +110,13 @@ const SlaSetor = (function () {
         }
         lista.innerHTML = '<p>Carregando...</p>';
         try {
-            dados = await Api.get(`setor-sla.php?setor_id=${setorId}`);
+            const resposta = await Api.get(`setor-sla.php?setor_id=${setorId}`);
+            // Resposta fora de ordem (o setor mudou durante a espera): descarta, para o Salvar não gravar no setor errado
+            if (setorAtual !== setorId) return;
+            dados = resposta;
             renderizar();
         } catch (e) {
+            if (setorAtual !== setorId) return;
             lista.innerHTML = `<p>${sanitizeHTML(mensagemDeErro(e, 'Erro ao carregar o SLA do setor.'))}</p>`;
         }
     }

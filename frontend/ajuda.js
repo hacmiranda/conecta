@@ -32,7 +32,7 @@ function mostrarSLA() {
 
             <h4>🏢 O SLA é Configurado por Setor</h4>
             <ul>
-                <li><strong>Ligar e desligar:</strong> cada setor decide se conta SLA. Com o SLA <strong>desligado</strong>, as demandas do setor não mostram o selo de prazo, não contam como "SLA vencido" e ficam fora dos tempos médios. O período em que o SLA ficou desligado nunca é contado, nem depois de religado.</li>
+                <li><strong>Ligar e desligar:</strong> cada setor decide se conta SLA. Com o SLA <strong>desligado</strong>, as demandas do setor não mostram o selo de prazo, não contam como "SLA vencido" e ficam fora dos tempos médios. O período em que o SLA ficou desligado nunca é contado, nem depois de religado. <strong>Atenção:</strong> as demandas já resolvidas enquanto o setor estava desligado entram nas médias com tempo quase zero, porque ficaram pausadas o tempo todo.</li>
                 <li><strong>Prazos próprios:</strong> para cada prioridade ativa do setor, define-se o prazo da 1ª resposta e o da resolução em <strong>dias úteis e horas</strong>, ou marca-se "Sem SLA" naquela prioridade. Para ligar o SLA, toda prioridade ativa precisa de prazo ou de "Sem SLA".</li>
                 <li><strong>1 dia útil = a jornada do setor:</strong> o dia vale o expediente mais comum do setor (por exemplo, 9 horas). Fins de semana e feriados do setor não contam.</li>
                 <li><strong>Modelo Padrão CRPRS:</strong> a tabela de prazos abaixo. O administrador pode aplicá-la a um setor com o botão "Aplicar modelo Padrão CRPRS", que só copia os prazos e não liga o setor.</li>
