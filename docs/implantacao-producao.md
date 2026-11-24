@@ -97,7 +97,7 @@ cabeçalho `X-Cron-Key: <valor>` (o parâmetro `?key=` na URL não é mais aceit
 ## 6. Depois do primeiro deploy
 
 - [ ] Login funciona com o primeiro administrador
-- [ ] `php database/migrar.php --status` mostra todas as migrações aplicadas (9 a 43 em 23/11/2026)
+- [ ] `php database/migrar.php --status` mostra todas as migrações aplicadas (9 a 44 em 24/11/2026)
 - [ ] `php api/tests/matriz-de-acesso.php https://<dominio>` roda limpo contra o ambiente (cuidado: cria e apaga dados de teste — só rodar antes de haver dados reais, ou usar um ambiente de homologação)
 - [ ] Teste de envio de e-mail pela tela "Configurar e-mail" (teste de uma caixa de setor) chega de verdade
 - [ ] Cron de e-mail rodou ao menos uma vez com sucesso (ver `backend/logs/email-cron-AAAA-MM-DD.log`: linha
@@ -178,12 +178,21 @@ mais API entre os dois, nem `INTEGRACAO_CONECTA_API_KEY`, `METRICA360_URL_*` ou 
    que o METRICA360 de teste enviou não migram: seus links deixam de funcionar.
 8. **Avisar os servidores:** registro de atividades, envio de pesquisas e (para a coordenação) a Satisfação
    agora são feitos dentro do Conecta.
+9. **SLA por setor (migração 44, 24/11/2026):** `php database/migrar.php` aplica a 44 (`setores.sla_ativo` e os
+   prazos em `setor_prioridades`); faça backup antes. **Só o setor de nome exatamente "Setor de TI" começa com o
+   SLA ligado** (com os prazos do catálogo); todos os outros começam **desligados**, e as demandas abertas deles
+   entram em pausa. Se o banco de produção não tiver um setor com esse nome exato, nenhum setor fica ligado.
+   Depois, em Configurações → Ativação por Setor → ⏱️ SLA (admin ou coordenador do setor), definir os prazos
+   de cada setor e ligar o interruptor; o admin pode aplicar o modelo "Padrão CRPRS" antes. Para ligar, toda
+   prioridade ativa do setor precisa de prazo ou de "Sem SLA".
 
 Conferência depois da implantação:
 - [ ] Só gestor e operador veem "Registro de Atividades" (desde 19/11/2026); registrar, salvar rascunho e enviar um dia de teste
 - [ ] Os setores de coordenação não aparecem no seletor de setor do topo nem no Cruzamento de Dados
 - [ ] Coordenador cadastra gestor e operador nos setores dele; supervisor e coordenador geral não veem Configurações
 - [ ] Trocar uma demanda para "Baixíssima (Sem SLA)": o selo de SLA some; voltar para "Normal": volta a contar sem o período parado
+- [ ] Aba "⏱️ SLA" da Ativação por Setor: o admin e o coordenador do setor veem e gravam; o gestor só vê; o "Setor de TI" aparece ligado e os demais desligados; ligar um setor com prioridade ativa sem prazo é recusado com o nome da prioridade; "Aplicar modelo Padrão CRPRS" só para o admin
+- [ ] Demanda de um setor com SLA desligado não mostra selo de SLA e fica fora do "SLA vencido"; ao ligar o setor ela passa a contar
 - [ ] Admin, gestor, coordenador, supervisor e coordenador geral veem o grupo "Atividades" (só gestão abona) e o CSV abre no Excel com acentos
 - [ ] Admin, coordenador geral, supervisor e coordenador veem o grupo "Satisfação"; gestor e operador não
 - [ ] Supervisor e coordenador geral não conseguem alterar nada, mas conseguem fazer a triagem de uma avaliação

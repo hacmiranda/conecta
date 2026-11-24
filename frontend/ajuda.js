@@ -28,7 +28,17 @@ function mostrarSLA() {
         content.innerHTML = `
         <div class="ajuda-card">
             <h3>⏰ SLA - Acordo de Nível de Serviço</h3>
-            <p>O SLA (Service Level Agreement) define os <strong>tempos máximos</strong> para resposta e resolução de demandas baseado na prioridade. Os prazos são contados em <strong>horas úteis</strong> (Segunda a Sexta, 8h às 17h).</p>
+            <p>O SLA (Service Level Agreement) define os <strong>tempos máximos</strong> para resposta e resolução de demandas baseado na prioridade. Os prazos são contados em <strong>tempo útil</strong>, dentro do expediente e fora dos feriados do setor.</p>
+
+            <h4>🏢 O SLA é Configurado por Setor</h4>
+            <ul>
+                <li><strong>Ligar e desligar:</strong> cada setor decide se conta SLA. Com o SLA <strong>desligado</strong>, as demandas do setor não mostram o selo de prazo, não contam como "SLA vencido" e ficam fora dos tempos médios. O período em que o SLA ficou desligado nunca é contado, nem depois de religado.</li>
+                <li><strong>Prazos próprios:</strong> para cada prioridade ativa do setor, define-se o prazo da 1ª resposta e o da resolução em <strong>dias úteis e horas</strong>, ou marca-se "Sem SLA" naquela prioridade. Para ligar o SLA, toda prioridade ativa precisa de prazo ou de "Sem SLA".</li>
+                <li><strong>1 dia útil = a jornada do setor:</strong> o dia vale o expediente mais comum do setor (por exemplo, 9 horas). Fins de semana e feriados do setor não contam.</li>
+                <li><strong>Modelo Padrão CRPRS:</strong> a tabela de prazos abaixo. O administrador pode aplicá-la a um setor com o botão "Aplicar modelo Padrão CRPRS", que só copia os prazos e não liga o setor.</li>
+                <li><strong>Quem configura:</strong> o administrador e o coordenador do setor, em <strong>Configurações → Ativação por Setor → ⏱️ SLA</strong>. O gestor apenas consulta.</li>
+                <li><strong>Efeito imediato:</strong> mudar um prazo vale na hora para as demandas abertas. Ao transferir uma demanda para outro setor, ela passa a seguir o SLA do setor novo.</li>
+            </ul>
 
             <h4>📊 Como Funciona o SLA</h4>
             <p>O sistema monitora automaticamente dois tipos de SLA para cada demanda:</p>
@@ -45,9 +55,10 @@ function mostrarSLA() {
                 <li><strong>🔴 80-100%+ do prazo:</strong> <img src="images/icone_atencao_vermelho.png" alt="Ícone vermelho de urgência" style="width: 16px; height: 16px; vertical-align: middle;"> Vermelho - Urgente ou vencido</li>
             </ul>
 
-            <h4>📋 Tabela de Prazos por Prioridade</h4>
+            <h4>📋 Modelo Padrão CRPRS: Prazos por Prioridade</h4>
+            <p>Valores do modelo (um setor pode ter prazos diferentes, definidos na aba SLA da Ativação por Setor):</p>
             <table class="sla-table">
-                <caption class="sr-only">Prazos de SLA por prioridade</caption>
+                <caption class="sr-only">Prazos do modelo Padrão CRPRS por prioridade</caption>
                 <thead>
                     <tr>
                         <th scope="col">Prioridade</th>
@@ -107,7 +118,7 @@ function mostrarSLA() {
                 <li>✅ <strong>Resolvido:</strong> Aguardando confirmação do cliente para encerrar</li>
             </ul>
             <p><em>Quando a demanda retorna ao atendimento, o SLA é retomado automaticamente, descontando o tempo pausado.</em></p>
-            <p>O SLA também fica parado enquanto a demanda estiver na prioridade <strong>Baixíssima (Sem SLA)</strong>, em qualquer status.</p>
+            <p>O SLA também fica parado enquanto a demanda estiver na prioridade <strong>Baixíssima (Sem SLA)</strong>, em qualquer status, ou numa prioridade marcada como "Sem SLA" no setor, e em todo o período em que o setor está com o SLA desligado.</p>
 
             <h4>📊 Contabilização de Demandas</h4>
             <ul>
@@ -315,7 +326,7 @@ function mostrarPrioridadeGuia() {
         content.innerHTML = `
         <div class="ajuda-card">
             <h3>🔥 Prioridades das Demandas</h3>
-            <p>A prioridade determina a urgência e o SLA da demanda:</p>
+            <p>A prioridade determina a urgência e o SLA da demanda. Os prazos abaixo são os do modelo Padrão CRPRS; cada setor pode ter os seus (ver o guia de SLA):</p>
 
             <div class="prioridade-item">
                 <span class="status prioridade urgente">Urgente</span>
