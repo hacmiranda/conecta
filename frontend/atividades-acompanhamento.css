@@ -211,6 +211,38 @@ body.modo-escuro #atividades {
     margin-bottom: var(--acomp-espaco-3);
 }
 
+/* Setor do Painel recolhível (<details>): a linha do nome é o botão de abrir/fechar */
+summary.acomp-setor-cabecalho {
+    cursor: pointer;
+    list-style: none;
+    border-radius: var(--radius-sm);
+}
+
+summary.acomp-setor-cabecalho::-webkit-details-marker {
+    display: none;
+}
+
+summary.acomp-setor-cabecalho::before {
+    content: '▸';
+    display: inline-block;
+    font-size: 1.25rem;
+    line-height: 1;
+    color: var(--acomp-texto-suave);
+    transition: transform var(--transition-fast, 0.15s) ease;
+}
+
+details.acomp-setor[open] > summary.acomp-setor-cabecalho::before {
+    transform: rotate(90deg);
+}
+
+details.acomp-setor:not([open]) > summary.acomp-setor-cabecalho {
+    margin-bottom: 0;
+}
+
+summary.acomp-setor-cabecalho:hover .acomp-setor-titulo {
+    text-decoration: underline;
+}
+
 .acomp-setor-titulo,
 .acomp-bloco-titulo {
     margin: 0;

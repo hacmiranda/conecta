@@ -166,7 +166,7 @@ function montarPainelAtividades(d) {
             <button type="button" class="btn-small" data-acao="visao" data-visao="tabela" aria-pressed="${visao === 'tabela'}">☰ Tabela</button>
             <button type="button" class="btn-small" data-acao="visao" data-visao="cartoes" aria-pressed="${visao === 'cartoes'}">▦ Cartões</button>
         </div>
-        ${d.setores.length ? d.setores.map(s => montarSetorPainel(s, visao)).join('')
+        ${d.setores.length ? d.setores.map(s => montarSetorPainel(s, visao, d.setores.length === 1)).join('')
             : '<p class="acomp-aviso">Nenhum gestor ou operador no seu escopo.</p>'}`;
 }
 
@@ -219,10 +219,16 @@ function montarRelatorioSetorPainel(s) {
     </div>`;
 }
 
-function montarSetorPainel(s, visao) {
+// Setores do Painel abertos nesta visita (começam recolhidos; ficam abertos ao recarregar a tela, ex. depois de abonar)
+const acompSetoresAbertos = new Set();
+
+// Cada setor é um <details>: recolhido mostra só a linha do nome (com a contagem e os totais); aberto, o resto.
+// Com um setor só no escopo (gestor, ou um setor escolhido no seletor), ele já abre.
+function montarSetorPainel(s, visao, unico) {
     const soma = campo => s.usuarios.reduce((t, u) => t + u[campo], 0);
-    const cabecalho = `
-        <div class="acomp-setor-cabecalho">
+    const aberto = unico || acompSetoresAbertos.has(Number(s.id));
+    const abrir = `<details class="acomp-setor" data-setor-id="${Number(s.id)}"${aberto ? ' open' : ''}>
+        <summary class="acomp-setor-cabecalho">
             <h3 class="acomp-setor-titulo">${sanitizeHTML(s.nome)}</h3>
             <span class="acomp-setor-contagem">${s.usuarios.length} servidor${s.usuarios.length !== 1 ? 'es' : ''}</span>
             <dl class="acomp-setor-kpis">
@@ -231,12 +237,13 @@ function montarSetorPainel(s, visao) {
                 <div><dt>Mês atual</dt><dd>${soma('mes_atual')}</dd></div>
                 <div><dt>Mês passado</dt><dd>${soma('mes_ant')}</dd></div>
             </dl>
-        </div>${montarRelatorioSetorPainel(s)}`;
+        </summary>`;
+    const cabecalho = abrir + montarRelatorioSetorPainel(s);
     if (!s.usuarios.length) {
-        return `<section class="acomp-setor" aria-label="${sanitizeHTML(s.nome)}">${cabecalho}</section>`;
+        return `${cabecalho}</details>`;
     }
     if (visao === 'cartoes') {
-        return `<section class="acomp-setor" aria-label="${sanitizeHTML(s.nome)}">${cabecalho}
+        return `${cabecalho}
             <ul class="acomp-cartoes">${s.usuarios.map(u => `
                 <li class="acomp-cartao acomp-cartao--${u.situacao_hoje}">
                     <div class="acomp-cartao-topo"><strong>${sanitizeHTML(u.nome)}</strong>${situacaoHoje(u)}</div>
@@ -252,9 +259,9 @@ function montarSetorPainel(s, visao) {
                             ? u.dias_sem_envio.map(d => `<span class="acomp-chip">${acompDiaSemana(d)} ${acompDiaMes(d)}</span>`).join(' ')
                             : '<span class="acomp-ok">✓ Todos os dias enviados</span>'}</p>`}
                     <div class="acomp-cartao-linha">Pendências de envio: ${pendenciasUsuarioHtml(u)}</div>
-                </li>`).join('')}</ul></section>`;
+                </li>`).join('')}</ul></details>`;
     }
-    return `<section class="acomp-setor" aria-label="${sanitizeHTML(s.nome)}">${cabecalho}
+    return `${cabecalho}
         <div class="acomp-tabela-wrap"><table class="acomp-tabela">
             <caption class="sr-only">Servidores do setor ${sanitizeHTML(s.nome)}</caption>
             <thead><tr><th scope="col">Servidor</th><th scope="col">Hoje</th><th scope="col">Sem. passada</th><th scope="col">Sem. atual</th>
@@ -263,7 +270,7 @@ function montarSetorPainel(s, visao) {
                 <th scope="row">${sanitizeHTML(u.nome)}</th><td>${situacaoHoje(u)}</td>
                 <td>${u.sem_ant}</td><td>${u.sem_atual}</td><td>${u.mes_ant}</td><td>${u.mes_atual}</td>
                 <td>${tendenciaHtml(u.tendencia)}</td><td>${pendenciasUsuarioHtml(u)}</td></tr>`).join('')}</tbody>
-        </table></div></section>`;
+        </table></div></details>`;
 }
 
 // ═══════════════ Relatório de Atividades ═══════════════
@@ -748,6 +755,14 @@ function removerAbono(id) {
 function ligarAcoesAcompanhamento(conteudo) {
     if (conteudo.dataset.acompLigado) return;
     conteudo.dataset.acompLigado = '1';
+
+    // Lembra quais setores do Painel a pessoa abriu ("toggle" não borbulha: captura)
+    conteudo.addEventListener('toggle', (ev) => {
+        const setor = ev.target;
+        if (!setor.matches || !setor.matches('details.acomp-setor')) return;
+        const id = Number(setor.dataset.setorId);
+        if (setor.open) acompSetoresAbertos.add(id); else acompSetoresAbertos.delete(id);
+    }, true);
 
     conteudo.addEventListener('click', (ev) => {
         const alvo = ev.target.closest('[data-acao]');
