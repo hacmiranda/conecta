@@ -155,8 +155,27 @@ const SlaSetor = (function () {
         }
     }
 
+    // Confere no navegador (inteiro entre min e max) antes de chamar a API; devolve o aviso ou ''
+    function erroNosCampos() {
+        for (const el of document.querySelectorAll('.sla-numero:not(:disabled)')) {
+            const n = Number(el.value);
+            if (el.value !== '' && (!Number.isInteger(n) || n < Number(el.min) || n > Number(el.max))) {
+                const tr = el.closest('tr');
+                const nome = tr ? tr.querySelector('th').textContent.trim() : '';
+                const bloco = el.dataset.slaBloco === 'resposta' ? '1ª resposta' : 'Resolução';
+                return `${nome}, ${bloco}: ${el.dataset.slaUnidade} deve ser um número inteiro de ${el.min} a ${el.max}.`;
+            }
+        }
+        return '';
+    }
+
     function salvar() {
         if (!dados || !dados.pode_alterar) return;
+        const erro = erroNosCampos();
+        if (erro) {
+            mostrarAlert('Valor inválido', erro);
+            return;
+        }
         const ligar = document.getElementById('sla-ativo').checked;
         if (dados.sla_ativo && !ligar) {
             mostrarConfirm('Desligar SLA do setor',
@@ -180,6 +199,7 @@ const SlaSetor = (function () {
         mostrarConfirm('Aplicar modelo Padrão CRPRS',
             'Os prazos de todas as prioridades deste setor serão substituídos por:\n' + linhas.join('\n') + '\n\nO interruptor do setor não muda. Deseja aplicar?',
             async (ok) => {
+                document.getElementById('modal-confirm-message')?.classList.remove('sla-quebra-linhas');
                 if (!ok) return;
                 mostrarLoader();
                 try {
@@ -192,6 +212,7 @@ const SlaSetor = (function () {
                     mostrarAlert('Erro', mensagemDeErro(e, 'Não foi possível aplicar o modelo.'));
                 }
             });
+        document.getElementById('modal-confirm-message')?.classList.add('sla-quebra-linhas');
     }
 
     // Um só ouvinte, registrado uma vez
