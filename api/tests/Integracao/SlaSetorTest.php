@@ -23,39 +23,28 @@ final class SlaSetorTest extends TestCase {
         }
     }
 
-    public function test_migracao_deixou_o_setor_de_ti_igual_ao_catalogo(): void {
-        $setor = $this->db->query("SELECT id, sla_ativo FROM setores WHERE nome = 'Setor de TI'")->fetch(PDO::FETCH_ASSOC);
-        if (!$setor) {
-            $this->markTestSkipped('Banco sem o Setor de TI.');
-        }
-        $this->assertSame(1, (int) $setor['sla_ativo']);
-
-        $linhas = $this->db->prepare("SELECT sp.*, p.sla_resposta_minutos AS cat_resp, p.sla_resolucao_horas AS cat_resol, p.sem_sla AS cat_sem
-            FROM setor_prioridades sp JOIN ticket_prioridades p ON p.id = sp.prioridade_id WHERE sp.setor_id = ?");
-        $linhas->execute([(int) $setor['id']]);
-        $todas = $linhas->fetchAll(PDO::FETCH_ASSOC);
-        $this->assertNotEmpty($todas);
-        foreach ($todas as $l) {
-            $this->assertSame(0, (int) $l['sla_resposta_dias']);
-            $this->assertSame((int) $l['cat_resp'], (int) $l['sla_resposta_minutos']);
-            $this->assertSame(0, (int) $l['sla_resolucao_dias']);
-            $this->assertSame((int) $l['cat_resol'] * 60, (int) $l['sla_resolucao_minutos']);
-            $this->assertSame((int) $l['cat_sem'], (int) $l['sla_sem_prazo']);
-        }
+    private function criarSetor(): int {
+        $this->db->prepare("INSERT INTO setores (nome, ativo) VALUES (?, 1)")->execute(['zz_sla_' . bin2hex(random_bytes(4))]);
+        return (int) $this->db->lastInsertId();
     }
 
-    public function test_migracao_desligou_os_demais_setores(): void {
-        $outros = (int) $this->db->query("SELECT COUNT(*) FROM setores WHERE nome <> 'Setor de TI' AND sla_ativo = 1")->fetchColumn();
-        $this->assertSame(0, $outros);
+    public function test_setor_novo_nasce_com_sla_desligado(): void {
+        $id = $this->criarSetor();
+        $st = $this->db->prepare("SELECT sla_ativo FROM setores WHERE id = ?");
+        $st->execute([$id]);
+        $this->assertSame(0, (int) $st->fetchColumn());
     }
 
-    public function test_demandas_abertas_de_setor_desligado_estao_pausadas(): void {
-        $naoPausadas = (int) $this->db->query("SELECT COUNT(*) FROM tickets t
-            JOIN setores st ON st.id = t.setor_id
-            JOIN ticket_sla s ON s.ticket_id = t.id
-            WHERE st.sla_ativo = 0 AND t.excluido_em IS NULL AND t.mesclada_em IS NULL
-              AND t.status NOT IN ('resolvido','encerrado','cancelado','fechado')
-              AND s.pausado_em IS NULL")->fetchColumn();
-        $this->assertSame(0, $naoPausadas);
+    public function test_prioridade_do_setor_nasce_sem_prazo(): void {
+        $id = $this->criarSetor();
+        $prio = (int) $this->db->query("SELECT id FROM ticket_prioridades ORDER BY id LIMIT 1")->fetchColumn();
+        $this->db->prepare("INSERT INTO setor_prioridades (setor_id, prioridade_id, ativo, ordem) VALUES (?, ?, 1, 1)")->execute([$id, $prio]);
+        $st = $this->db->prepare("SELECT * FROM setor_prioridades WHERE setor_id = ? AND prioridade_id = ?");
+        $st->execute([$id, $prio]);
+        $l = $st->fetch(PDO::FETCH_ASSOC);
+        foreach (['sla_resposta_dias', 'sla_resposta_minutos', 'sla_resolucao_dias', 'sla_resolucao_minutos'] as $c) {
+            $this->assertNull($l[$c], $c);
+        }
+        $this->assertSame(0, (int) $l['sla_sem_prazo']);
     }
 }
