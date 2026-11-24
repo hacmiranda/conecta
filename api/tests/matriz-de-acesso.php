@@ -741,6 +741,90 @@ try {
     $fimA = $db->query("SELECT fim FROM atividades_relatorio_setor WHERE id = " . (int) ($vigA['id'] ?? 0))->fetchColumn();
     verifica('coordenador desliga o relatório do setor (200) e a vigência ganha um fim', $c === 200 && $fimA !== null && $fimA !== false, (string) $c);
 
+    echo "\n[7h] SLA por setor (24/11/2026; usa o coordenador, o supervisor e o coordenador geral da seção [9])\n";
+    // Guarda o estado do setor A (interruptor e prazos) para devolver no fim; a auditoria nova é apagada na limpeza
+    $slaUrl = $baseUrl . 'setor-sla.php';
+    $slaAtivoOriginalA = (int) $db->query("SELECT sla_ativo FROM setores WHERE id = " . (int) $setorA)->fetchColumn();
+    $slaPrazosOriginaisA = $db->query("SELECT id, sla_resposta_dias, sla_resposta_minutos, sla_resolucao_dias, sla_resolucao_minutos, sla_sem_prazo
+                                         FROM setor_prioridades WHERE setor_id = " . (int) $setorA)->fetchAll(PDO::FETCH_ASSOC);
+    $maxAuditoriaSla = (int) $db->query('SELECT COALESCE(MAX(id), 0) FROM auditoria')->fetchColumn();
+    // Parte de um setor desligado, com a prioridade "normal" sem prazo definido
+    $db->prepare("UPDATE setores SET sla_ativo = 0 WHERE id = ?")->execute([$setorA]);
+    $db->prepare("UPDATE setor_prioridades sp JOIN ticket_prioridades p ON p.id = sp.prioridade_id
+                  SET sp.sla_sem_prazo = 0, sp.sla_resposta_dias = NULL, sp.sla_resposta_minutos = NULL,
+                      sp.sla_resolucao_dias = NULL, sp.sla_resolucao_minutos = NULL
+                  WHERE sp.setor_id = ? AND p.nome = 'normal'")->execute([$setorA]);
+
+    // Leitura: gestor do setor lê (sem poder alterar); gestor de outro setor e operador, não
+    [$c, $j] = req('GET', "$slaUrl?setor_id=$setorA", $T['gestorA']);
+    verifica('gestor do setor lê o SLA do setor (200, sem poder alterar)', $c === 200 && ($j['pode_alterar'] ?? null) === false && ($j['pode_aplicar_modelo'] ?? null) === false && !empty($j['prioridades']), (string) $c);
+    [$c] = req('GET', "$slaUrl?setor_id=$setorA", $T['gestorB']);
+    verifica('gestor de outro setor não lê o SLA do setor (403)', $c === 403, (string) $c);
+    [$c] = req('GET', "$slaUrl?setor_id=$setorA", $T['operadorA']);
+    verifica('operador não lê o SLA do setor (403)', $c === 403, (string) $c);
+    [$c, $j] = req('GET', "$slaUrl?setor_id=$setorA", $T['admin']);
+    verifica('admin lê o SLA do setor e pode alterar e aplicar o modelo (200)', $c === 200 && ($j['pode_alterar'] ?? null) === true && ($j['pode_aplicar_modelo'] ?? null) === true, (string) $c);
+    $prioridadesSla = $j['prioridades'] ?? [];
+    [$c, $j] = req('GET', "$slaUrl?setor_id=$setorA", $T['coordenador']);
+    verifica('coordenador do setor lê o SLA e pode alterar, mas não aplicar o modelo (200)', $c === 200 && ($j['pode_alterar'] ?? null) === true && ($j['pode_aplicar_modelo'] ?? null) === false, (string) $c);
+    [$c] = req('GET', "$slaUrl?setor_id=$setorA", $T['supervisor']);
+    verifica('supervisor lê o SLA do setor (200, só leitura)', $c === 200, (string) $c);
+
+    // Corpo válido: 1 hora de 1ª resposta e 10 horas de resolução em toda prioridade com SLA no catálogo
+    $corpoSla = function (bool $ligar) use ($prioridadesSla): array {
+        $itens = [];
+        foreach ($prioridadesSla as $p) {
+            $itens[] = !empty($p['sem_sla_catalogo'])
+                ? ['prioridade' => $p['prioridade'], 'sem_prazo' => true]
+                : ['prioridade' => $p['prioridade'], 'sem_prazo' => false,
+                   'resposta' => ['dias' => 0, 'horas' => 1, 'minutos' => 0], 'resolucao' => ['dias' => 0, 'horas' => 10, 'minutos' => 0]];
+        }
+        return ['sla_ativo' => $ligar, 'prioridades' => $itens];
+    };
+
+    // Ligar com prioridade ativa sem prazo: recusado, e nada muda
+    $corpoSemNormal = $corpoSla(true);
+    $corpoSemNormal['prioridades'] = array_values(array_filter($corpoSemNormal['prioridades'], fn($p) => $p['prioridade'] !== 'normal'));
+    [$c, $j] = req('PUT', "$slaUrl?setor_id=$setorA", $T['admin'], $corpoSemNormal);
+    $ligadoDepois = (int) $db->query("SELECT sla_ativo FROM setores WHERE id = " . (int) $setorA)->fetchColumn();
+    verifica('ligar o SLA com uma prioridade ativa sem prazo é recusado (400) e o setor continua desligado', $c === 400 && $ligadoDepois === 0 && stripos((string) ($j['error'] ?? ''), 'normal') !== false, "$c " . ($j['error'] ?? ''));
+
+    // Validação estrita do corpo
+    $corpoRuim = $corpoSla(false);
+    $corpoRuim['sla_ativo'] = 'true';
+    [$c] = req('PUT', "$slaUrl?setor_id=$setorA", $T['admin'], $corpoRuim);
+    verifica('sla_ativo em texto ("true") é recusado (400)', $c === 400, (string) $c);
+    $corpoRuim = $corpoSla(false);
+    foreach ($corpoRuim['prioridades'] as $i => $p) {
+        if (isset($p['resposta'])) {
+            $corpoRuim['prioridades'][$i]['resposta']['horas'] = 1000;
+            break;
+        }
+    }
+    [$c] = req('PUT', "$slaUrl?setor_id=$setorA", $T['admin'], $corpoRuim);
+    verifica('mais de 999 horas no prazo é recusado (400)', $c === 400, (string) $c);
+
+    // Quem pode gravar (setor desligado: só grava os prazos, sem mexer em demandas)
+    foreach (['gestorA' => 'gestor', 'operadorA' => 'operador', 'supervisor' => 'supervisor', 'coordGeral' => 'coordenador geral', 'coordOutro' => 'coordenador de outro setor'] as $chave => $rotulo) {
+        [$c] = req('PUT', "$slaUrl?setor_id=$setorA", $T[$chave], $corpoSla(false));
+        verifica("$rotulo não altera o SLA do setor (403)", $c === 403, (string) $c);
+    }
+    [$c, $j] = req('PUT', "$slaUrl?setor_id=$setorA", $T['admin'], $corpoSla(false));
+    $normalAdmin = array_values(array_filter($j['prioridades'] ?? [], fn($p) => $p['prioridade'] === 'normal'))[0] ?? [];
+    verifica('admin grava os prazos do setor (200)', $c === 200 && ($normalAdmin['resposta']['horas'] ?? null) === 1 && ($normalAdmin['resolucao']['horas'] ?? null) === 10, (string) $c);
+    [$c] = req('PUT', "$slaUrl?setor_id=$setorA", $T['coordenador'], $corpoSla(false));
+    verifica('coordenador do setor grava os prazos do setor (200)', $c === 200, (string) $c);
+    $auditoriaSla = (int) $db->query("SELECT COUNT(*) FROM auditoria WHERE id > $maxAuditoriaSla AND tabela = 'setores' AND registro_id = " . (int) $setorA . " AND acao = 'alterar_sla_setor'")->fetchColumn();
+    verifica('a alteração de SLA fica na auditoria', $auditoriaSla >= 1, (string) $auditoriaSla);
+
+    // Modelo Padrão CRPRS: só o admin
+    [$c] = req('POST', "$slaUrl?acao=aplicar-modelo&setor_id=$setorA", $T['coordenador'], []);
+    verifica('coordenador não aplica o modelo de SLA (403)', $c === 403, (string) $c);
+    [$c] = req('POST', "$slaUrl?acao=aplicar-modelo&setor_id=$setorA", $T['gestorA'], []);
+    verifica('gestor não aplica o modelo de SLA (403)', $c === 403, (string) $c);
+    [$c, $j] = req('POST', "$slaUrl?acao=aplicar-modelo&setor_id=$setorA", $T['admin'], []);
+    verifica('admin aplica o modelo de SLA (200) sem ligar o setor', $c === 200 && ($j['sla_ativo'] ?? null) === false && !empty($j['prioridades']), (string) $c);
+
     echo "\n[10] Módulo Satisfação (avaliações, convites, triagem, configuração e página pública)\n";
     // Convites com avaliação: um no setor A, um no setor B e um sem setor
     $conviteIds = [];
@@ -950,6 +1034,15 @@ try {
         $db->prepare("DELETE FROM atividades_abonos_setor WHERE id > ? AND setor_id IN (?, ?)")->execute([$maxAbonoSetor, $setorA, $setorB]);
         $db->exec("DELETE FROM auditoria WHERE tabela IN ('atividades_relatorio_setor', 'atividades_abonos_setor') AND criado_em >= NOW() - INTERVAL 1 HOUR"
             . " AND usuario_id IN (" . (implode(',', array_filter(array_merge($usuariosCriados, [$adminId]))) ?: '0') . ")");
+    }
+    // SLA por setor (seção [7h]): devolve o interruptor e os prazos do setor A e apaga a auditoria da seção
+    if (isset($slaPrazosOriginaisA, $slaAtivoOriginalA)) {
+        $db->prepare("UPDATE setores SET sla_ativo = ? WHERE id = ?")->execute([$slaAtivoOriginalA, $setorA]);
+        $volta = $db->prepare("UPDATE setor_prioridades SET sla_resposta_dias = ?, sla_resposta_minutos = ?, sla_resolucao_dias = ?, sla_resolucao_minutos = ?, sla_sem_prazo = ? WHERE id = ?");
+        foreach ($slaPrazosOriginaisA as $l) {
+            $volta->execute([$l['sla_resposta_dias'], $l['sla_resposta_minutos'], $l['sla_resolucao_dias'], $l['sla_resolucao_minutos'], $l['sla_sem_prazo'], $l['id']]);
+        }
+        $db->prepare("DELETE FROM auditoria WHERE id > ? AND tabela = 'setores' AND registro_id = ? AND acao IN ('alterar_sla_setor', 'aplicar_modelo_sla_setor')")->execute([$maxAuditoriaSla, $setorA]);
     }
     $db->exec("DELETE FROM atividades_tipos WHERE nome LIKE 'zz_matriz_%'");
     $db->exec("DELETE FROM auditoria WHERE tabela = 'atividades_tipos' AND (dados_novos LIKE '%zz_matriz_%' OR dados_anteriores LIKE '%zz_matriz_%')");
