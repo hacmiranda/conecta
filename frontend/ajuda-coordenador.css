@@ -1,0 +1,120 @@
+/* Ajuda → Guia do Coordenador (ajuda-coordenador.js). Só tokens da paleta; modo escuro no fim. */
+
+.gc-guia h4 {
+    scroll-margin-top: 1rem;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.5rem;
+    color: var(--vinho-600);
+}
+
+/* Lista de conferência */
+.gc-tabela {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 0.5rem 0 1.5rem;
+    font-size: 0.95rem;
+}
+
+.gc-tabela th,
+.gc-tabela td {
+    padding: 0.6rem 0.75rem;
+    border-bottom: 1px solid var(--neutro-200);
+    text-align: left;
+    vertical-align: top;
+}
+
+.gc-tabela th {
+    background: var(--neutro-100);
+    border-bottom: 2px solid var(--vinho-600);
+}
+
+.gc-tabela a {
+    color: var(--vinho-600);
+    font-weight: 600;
+}
+
+/* Selos de importância */
+.gc-selo {
+    display: inline-block;
+    padding: 0.1rem 0.6rem;
+    border-radius: 999px;
+    font-size: 0.75rem;
+    font-weight: 700;
+    line-height: 1.6;
+    white-space: nowrap;
+}
+
+.gc-selo-obrigatorio { background: var(--vinho-600); color: #fff; }
+.gc-selo-recomendado { background: var(--laranja-fundo); color: #fff; }
+.gc-selo-opcional { background: var(--neutro-100); color: var(--neutro-800); border: 1px solid var(--neutro-300); }
+.gc-selo-admin { background: var(--verde-700); color: #fff; }
+
+/* Prints das telas */
+.gc-figura {
+    margin: 0.75rem 0 1rem;
+    max-width: 760px;
+}
+
+.gc-figura img {
+    display: block;
+    width: 100%;
+    height: auto;
+    border: 1px solid var(--neutro-200);
+    border-radius: 8px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+}
+
+.gc-figura a:hover img {
+    border-color: var(--laranja-500);
+}
+
+.gc-figura figcaption {
+    margin-top: 0.35rem;
+    font-size: 0.85rem;
+    color: var(--texto-suave);
+}
+
+.gc-figura-dica {
+    font-style: italic;
+}
+
+/* Celular: a tabela rola de lado em vez de espremer */
+@media (max-width: 640px) {
+    .gc-tabela {
+        display: block;
+        overflow-x: auto;
+    }
+}
+
+/* Modo escuro */
+.modo-escuro .gc-guia h4,
+.modo-escuro .gc-tabela a {
+    color: var(--vinho-100);
+}
+
+.modo-escuro .gc-tabela th {
+    background: var(--neutro-900);
+}
+
+.modo-escuro .gc-tabela th,
+.modo-escuro .gc-tabela td {
+    border-bottom-color: var(--neutro-600);
+}
+
+.modo-escuro .gc-selo-opcional {
+    background: var(--neutro-800);
+    color: var(--neutro-100);
+    border-color: var(--neutro-600);
+}
+
+.modo-escuro .gc-figura img {
+    border-color: var(--neutro-600);
+}
+
+/* Itens do menu e botão da Ajuda escondidos para quem não é coordenador nem admin
+   (.nav-dropdown-item e .btn-ajuda têm display próprio, que venceria o atributo hidden) */
+[data-guia-coordenador][hidden] {
+    display: none !important;
+}

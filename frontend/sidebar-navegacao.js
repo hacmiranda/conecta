@@ -129,12 +129,16 @@
             }
         }, true);
 
-        // Ajuda → Relatório do Setor (ouvinte delegado no lugar de onclick)
+        // Ajuda → Relatório do Setor e Guia do Coordenador (ouvinte delegado no lugar de onclick).
+        // Itens da sidebar: "relatorio-setor"/"coordenador" (abrem antes a seção Ajuda); botões da tela: sufixo "-guia".
         document.addEventListener('click', function (e) {
             const botao = e.target.closest('[data-acao-ajuda]');
             if (!botao) return;
-            if (botao.dataset.acaoAjuda === 'relatorio-setor') mostrarAjuda();
-            mostrarRelatorioSetorGuia();
+            const acao = botao.dataset.acaoAjuda;
+            const guia = acao.replace(/-guia$/, '');
+            if (acao === guia) mostrarAjuda();
+            if (guia === 'coordenador') mostrarGuiaCoordenador();
+            else mostrarRelatorioSetorGuia();
         });
 
         // Depois de qualquer clique (sidebar, menu do avatar, atalhos), reavalia o destaque

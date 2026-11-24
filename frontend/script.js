@@ -1050,6 +1050,11 @@ function aplicarVisibilidadePorPapel(tipo) {
         if (rotulo) rotulo.hidden = tipo === 'operador';
     });
 
+    // Ajuda → Guia do Coordenador: coordenador e admin
+    document.querySelectorAll('[data-guia-coordenador]').forEach(el => {
+        el.hidden = !(tipo === 'admin' || tipo === 'coordenador');
+    });
+
     // Módulo Satisfação: admin, coordenador geral, supervisor e coordenador
     const itemSatisfacao = document.getElementById('nav-satisfacao-item');
     if (itemSatisfacao) itemSatisfacao.hidden = !Papeis.veSatisfacao(perfil);
@@ -1176,6 +1181,8 @@ function restaurarSecaoAtiva() {
             mostrarAtalhosGuia();
         } else if (subSecaoSalva === 'relatorio-setor') {
             mostrarRelatorioSetorGuia();
+        } else if (subSecaoSalva === 'guia-coordenador' && typeof mostrarGuiaCoordenador === 'function') {
+            mostrarGuiaCoordenador();
         } else {
             mostrarSLA();
         }
