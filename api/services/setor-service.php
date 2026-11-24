@@ -31,4 +31,24 @@ class SetorService {
 
         return $setorId;
     }
+
+    /**
+     * Setor de triagem: para onde vai a demanda que não tem setor de destino (integração dos sistemas satélites,
+     * caixa de e-mail global antiga). É o setor do .env SETOR_TRIAGEM_LOCAL/PROD (id), se existir e estiver ativo;
+     * senão o "Geral", se estiver ativo; senão null — e quem chama recusa, para nada nascer sem setor.
+     * Assim o Geral pode ser desativado depois de configurar outro setor de triagem.
+     *
+     * @param string|null $configurado id vindo do .env (null = lê Environment::get('setor_triagem'))
+     */
+    public static function setorDeTriagem(PDO $db, ?string $configurado = null): ?int {
+        $configurado ??= (string) Environment::get('setor_triagem', '');
+        $ativo = $db->prepare("SELECT id FROM setores WHERE id = ? AND ativo = 1");
+        if (ctype_digit(trim($configurado))) {
+            $ativo->execute([(int) $configurado]);
+            $id = $ativo->fetchColumn();
+            if ($id) return (int) $id;
+        }
+        $geral = $db->query("SELECT id FROM setores WHERE nome = 'Geral' AND ativo = 1 LIMIT 1")->fetchColumn();
+        return $geral ? (int) $geral : null;
+    }
 }

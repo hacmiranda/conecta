@@ -492,8 +492,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
 
         // Determinar setor de destino: quem cria já vinculado a um setor (operador/gestor)
-        // abre a demanda direto no próprio setor; sem setor (cliente/admin), a demanda cai no
-        // setor "Geral" para triagem — de lá, um gestor a transfere para o setor correto.
+        // abre a demanda direto no próprio setor; o admin, no setor escolhido no cabeçalho (obrigatório).
         $setor_id = !empty($user['setor_id']) ? (int) $user['setor_id'] : null;
 
         // Admin pode abrir a demanda direto em um setor (o escolhido no cabeçalho)
@@ -509,10 +508,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $setor_id = (int) $_POST['setor_id'];
         }
 
+        // Sem setor de destino (admin com "Todos os setores"): recusa, para nenhuma demanda nascer sem setor
+        // (antes caía no setor "Geral", que pode ser desativado)
         if ($setor_id === null) {
-            $setor_stmt = $db->prepare("SELECT id FROM setores WHERE nome = 'Geral' AND ativo = 1 LIMIT 1");
-            $setor_stmt->execute();
-            $setor_id = $setor_stmt->fetchColumn() ?: null;
+            http_response_code(400);
+            echo json_encode(['error' => 'Escolha o setor da demanda no seletor de setor da barra lateral antes de criá-la.']);
+            exit;
         }
 
         // A prioridade precisa estar ativa para o setor em que a demanda nasce (senão vira "normal")

@@ -38,7 +38,7 @@ php database/seed_admin.php "email@crprs.org.br" "Nome Completo"
 
 ### Testes (api/tests/, P4 da auditoria de 15/10/2026)
 ```bash
-cd api && composer test              # PHPUnit: suíte unit (sem banco) + integracao (banco local, transação desfeita) — 355 testes em 23/11/2026
+cd api && composer test              # PHPUnit: suíte unit (sem banco) + integracao (banco local, transação desfeita) — 363 testes em 24/11/2026
 php api/tests/matriz-de-acesso.php   # matriz de acesso contra a API local de verdade; cria e apaga os próprios dados zz_; recusa APP_ENV=production
 ```
 A matriz chama a página pública de avaliação, que aceita 10 avaliações por IP a cada 5 minutos: rodá-la várias vezes seguidas dá 429 nos casos da seção [10] (não é falha do código; esperar 5 minutos).
@@ -313,6 +313,13 @@ Relatório em `docs/relatorios/ANALISE_2026-11-20.md` (só análise, nada corrig
 - **Cores e foco:** token **`--texto-suave`** (texto secundário: `--neutro-600` no claro, `--neutro-300` `#b5ada5` no escuro; **use ele, não cinzas claros em hex nem `--neutro-400`, para texto**); anel de foco de 2 px no login e na redefinição de senha.
 - **Reduzir movimento:** regra geral de `prefers-reduced-motion` no fim do `acessibilidade.css`.
 - **Bibliotecas:** Quill e Cropper guardados em `frontend/lib/` (com SRI), e os CDNs `cdn.jsdelivr.net`/`cdnjs.cloudflare.com` fora da CSP. O `.gitattributes` marca `frontend/lib/**` como `-text`: com `core.autocrlf=true` o Git trocaria LF por CRLF no checkout e o hash de integridade deixaria de bater (biblioteca bloqueada). **Biblioteca nova em `frontend/lib/` não precisa de mais nada; não editar esses arquivos à mão.**
+
+### Setor "Geral" e setor de triagem (24/11/2026)
+O "Geral" nasceu na migração 9 (o CRPDESK virou multi-setor e tudo o que existia foi para ele) e ficou como caixa de triagem e modelo. Hoje está vazio (sem usuários, demandas, categorias nem caixa de e-mail) e **pode ser desativado** (Configurações → Setores), desde que haja outro setor de triagem:
+- **Setor de triagem** = `SetorService::setorDeTriagem()` (`api/services/setor-service.php`): o id de `SETOR_TRIAGEM_LOCAL|_PROD` no `.env`, se ativo; senão o "Geral", se ativo; senão `null`. Usado pela integração (`integracoes/abrir_chamado.php`: sem setor de triagem responde **503**) e pela caixa de e-mail global antiga (`EmailService`: sem setor de triagem lança erro e o e-mail volta para a próxima tentativa). Nada nasce sem setor. Teste: `SetorTriagemTest` (integração).
+- **Nova Demanda pela tela:** o admin com "Todos os setores" no seletor precisa escolher o setor (aviso em `demandas.js`, antes da categoria; `tickets.php` POST responde **400**). Antes a demanda caía no "Geral".
+- **Continuam lendo o "Geral" pelo nome, ativo ou não:** modelo de expediente e feriados de setor novo (`SetorService::criar`), reserva do SLA para setor sem expediente (`SLAService::setorGeral`) e o padrão da tela Horários do admin sem setor escolhido. Por isso o "Geral" pode ser **desativado, mas não renomeado nem excluído**. Setores inativos já saem do seletor do cabeçalho e dos painéis.
+- **Remetente global (`FROM_EMAIL`/`SMTP_*` do `.env`) não pode ser removido:** envia todo e-mail de setor sem caixa própria, as notificações internas à equipe (sempre), a recuperação de senha e os lembretes, e é a reserva quando a caixa do setor falha. A caixa IMAP global só é lida quando nenhum setor tem caixa ativa: **não apagar a caixa do "Setor de TI" de teste antes de cadastrar as caixas reais**, ou tirar `IMAP_*` do `.env`.
 
 ### Pendências conhecidas (atualizado em 19/11/2026; itens da auditoria de 01/11/2026 na seção acima)
 

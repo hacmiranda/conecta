@@ -7,6 +7,7 @@ require_once __DIR__ . '/demanda-service.php';
 require_once __DIR__ . '/protocolo-service.php';
 require_once __DIR__ . '/email-mime.php';
 require_once __DIR__ . '/filtro-email-service.php';
+require_once __DIR__ . '/setor-service.php';
 date_default_timezone_set('America/Sao_Paulo');
 
 class EmailService {
@@ -746,12 +747,15 @@ class EmailService {
         $corpo_limpo = mb_convert_encoding($corpo_limpo, 'UTF-8', 'UTF-8');
         $assunto     = mb_convert_encoding($assunto, 'UTF-8', 'UTF-8');
 
-        // Setor: o da caixa que recebeu o e-mail; a caixa global legada cai no setor "Geral"
+        // Setor: o da caixa que recebeu o e-mail; a caixa global legada cai no setor de triagem
+        // (SETOR_TRIAGEM no .env, senão o "Geral" ativo). Sem nenhum, falha: o e-mail é tentado de novo depois,
+        // em vez de abrir uma demanda sem setor.
         $setor_id = $this->setorAtualId;
         if (!$setor_id) {
-            $setor_stmt = $this->db->prepare("SELECT id FROM setores WHERE nome = 'Geral' AND ativo = 1 LIMIT 1");
-            $setor_stmt->execute();
-            $setor_id = $setor_stmt->fetchColumn() ?: null;
+            $setor_id = SetorService::setorDeTriagem($this->db);
+            if ($setor_id === null) {
+                throw new RuntimeException('Nenhum setor de triagem ativo para a caixa de e-mail global: configure SETOR_TRIAGEM no .env ou reative o setor Geral.');
+            }
         }
 
         $detalhe_abertura = 'via e-mail';

@@ -24,6 +24,7 @@ require_once __DIR__ . '/../../services/protocolo-service.php';
 require_once __DIR__ . '/../../services/rate-limit-service.php';
 require_once __DIR__ . '/../../services/rede-service.php';
 require_once __DIR__ . '/../../services/upload-service.php';
+require_once __DIR__ . '/../../services/setor-service.php';
 
 const MAX_CORPO_BYTES = 8 * 1024 * 1024;
 
@@ -204,10 +205,15 @@ try {
         $prioridade = 'normal';
     }
 
-    // 2.1 Setor de entrada: integrações externas caem em "Geral" para triagem
-    $setor_stmt = $db->prepare("SELECT id FROM setores WHERE nome = 'Geral' AND ativo = 1 LIMIT 1");
-    $setor_stmt->execute();
-    $setor_id = $setor_stmt->fetchColumn() ?: null;
+    // 2.1 Setor de entrada: o setor de triagem (SETOR_TRIAGEM no .env, senão o "Geral" ativo).
+    // Sem nenhum, recusa em vez de criar demanda sem setor.
+    $setor_id = SetorService::setorDeTriagem($db);
+    if ($setor_id === null) {
+        error_log('[INTEGRACAO] Nenhum setor de triagem ativo: configure SETOR_TRIAGEM no .env ou reative o setor Geral.');
+        http_response_code(503);
+        echo json_encode(['error' => 'Serviço temporariamente indisponível: setor de entrada não configurado.']);
+        exit;
+    }
 
     // 2.2 Subcategoria: só vale se for do setor de entrada (senão a demanda nasce sem)
     if ($categoria_id !== null) {

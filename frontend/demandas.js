@@ -112,6 +112,14 @@ document.getElementById('form-ticket').addEventListener('submit', function (e) {
         return;
     }
 
+    // Admin sem setor no cabeçalho ("Todos os setores"): a demanda precisa de um setor (o servidor também recusa).
+    // Antes da categoria: as categorias são do setor escolhido.
+    const setorContexto = window.CabecalhoSetor ? window.CabecalhoSetor.obterSetorContexto() : null;
+    if (Papeis.admin() && !setorContexto) {
+        mostrarAlert('Escolha o setor', 'Escolha o setor da demanda no seletor de setor da barra lateral antes de criá-la.');
+        return;
+    }
+
     if (!categoria_id) {
         mostrarAlert('Erro', 'Selecione uma categoria');
         return;
@@ -125,10 +133,8 @@ document.getElementById('form-ticket').addEventListener('submit', function (e) {
     formData.append('titulo', titulo);
     formData.append('descricao', descricao);
     formData.append('prioridade', prioridade || 'normal');
-    // Admin e coordenador: abrem a demanda no setor escolhido no cabeçalho (os demais usam o próprio setor)
-    const setorContexto = window.CabecalhoSetor ? window.CabecalhoSetor.obterSetorContexto() : null;
-    const usuarioCriador = JSON.parse(localStorage.getItem('cd_usuario') || '{}');
-    if ((usuarioCriador.tipo === 'admin' || usuarioCriador.tipo === 'coordenador') && setorContexto) {
+    // Admin e coordenador com vários setores abrem a demanda no setor escolhido no cabeçalho (o servidor confere)
+    if ((Papeis.admin() || Papeis.variosSetores()) && setorContexto) {
         formData.append('setor_id', setorContexto);
     }
     if (categoria_id) {

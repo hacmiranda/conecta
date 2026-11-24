@@ -61,6 +61,7 @@ Copie `api/config/.env.example` para `api/config/.env` no servidor e preencha os
 - `JWT_SECRET_PROD`, `CSRF_SECRET_PROD` — gere um valor **novo**, não copie do `.env` local
 - `SETOR_EMAIL_ENCRYPTION_KEY_PROD` — cifra as senhas das caixas de e-mail de setor; gerar uma vez e nunca trocar depois (perderia o acesso às senhas já cifradas)
 - `INTEGRATION_API_KEY_PROD` — só se a integração M2M (`abrir_chamado.php`) for usada em produção
+- `SETOR_TRIAGEM_PROD` — id do setor que recebe as demandas dos sistemas satélites e da caixa de e-mail global antiga. Vazio = o setor "Geral". **Para desativar o "Geral"**, defina antes um setor aqui; sem nenhum setor de triagem ativo, a integração responde 503 e o e-mail da caixa global fica para a próxima tentativa
 - `CRON_KEY_PROD` — exigido pelos crons quando acionados por HTTP (ver seção 5)
 - `CORS_ALLOWED_ORIGINS_PROD`, `SSO_SHARED_SECRET_PROD` — só se o sistema for incorporado por um painel agregador
 
