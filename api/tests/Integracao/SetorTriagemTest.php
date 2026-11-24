@@ -39,7 +39,7 @@ final class SetorTriagemTest extends TestCase {
     }
 
     public function test_sem_configuracao_usa_o_geral_ativo(): void {
-        $this->assertSame($this->geral, SetorService::setorDeTriagem($this->db, null));
+        $this->assertSame($this->geral, SetorService::setorDeTriagem($this->db, ''));
     }
 
     public function test_setor_configurado_e_ativo_vence_o_geral(): void {
@@ -56,7 +56,7 @@ final class SetorTriagemTest extends TestCase {
 
     public function test_geral_desativado_e_nada_configurado_devolve_null(): void {
         $this->db->prepare("UPDATE setores SET ativo = 0 WHERE id = ?")->execute([$this->geral]);
-        $this->assertNull(SetorService::setorDeTriagem($this->db, null));
+        $this->assertNull(SetorService::setorDeTriagem($this->db, ''));
     }
 
     public function test_geral_desativado_com_setor_configurado_usa_o_configurado(): void {
