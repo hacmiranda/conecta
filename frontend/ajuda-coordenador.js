@@ -21,6 +21,11 @@ function seloGuiaCoordenador(tipo) {
 }
 
 function mostrarGuiaCoordenador() {
+    // Só coordenador e admin; para os demais (gestor, operador...) abre o guia padrão da Ajuda
+    if (!Papeis.veGuiaCoordenador()) {
+        mostrarSLA();
+        return;
+    }
     document.querySelectorAll('.btn-ajuda').forEach(btn => btn.classList.remove('active'));
     const botao = document.getElementById('btn-guia-coordenador');
     if (botao) botao.classList.add('active');
