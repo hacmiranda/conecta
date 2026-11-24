@@ -1,0 +1,221 @@
+/**
+ * Ativação por Setor → aba "⏱️ SLA": liga/desliga a contagem do SLA do setor e edita os prazos
+ * por prioridade. Só mostra/esconde: quem decide é o servidor (`setor-sla.php`), que devolve
+ * `pode_alterar` e `pode_aplicar_modelo`. Ações por `data-acao` com ouvinte delegado único.
+ */
+const SlaSetor = (function () {
+    let dados = null;
+    let setorAtual = null;
+
+    const CAMPOS = [
+        { chave: 'dias', rotulo: 'dias', max: 365 },
+        { chave: 'horas', rotulo: 'horas', max: 23 },
+        { chave: 'minutos', rotulo: 'min', max: 59 }
+    ];
+
+    function area() {
+        return document.getElementById('config-setor-lista');
+    }
+
+    function textoJornada(minutos) {
+        const h = Math.floor(minutos / 60);
+        const m = minutos % 60;
+        return m ? `${h}h${String(m).padStart(2, '0')}` : `${h}h`;
+    }
+
+    // Minutos de um prazo em "1 dia útil 2h 30min"; o dia útil usa a jornada do setor.
+    function textoPrazo(minutos) {
+        const jornada = (dados && dados.jornada_minutos) || 480;
+        const partes = [];
+        let resto = minutos;
+        const dias = Math.floor(resto / jornada);
+        resto -= dias * jornada;
+        if (dias) partes.push(`${dias} ${dias === 1 ? 'dia útil' : 'dias úteis'}`);
+        const h = Math.floor(resto / 60);
+        const m = resto % 60;
+        if (h) partes.push(`${h}h`);
+        if (m) partes.push(`${m}min`);
+        return partes.length ? partes.join(' ') : '0';
+    }
+
+    // O servidor devolve horas sem limite (ex.: 24h do modelo), mas a gravação só aceita 0-23. Reescreve o
+    // mesmo total em dias úteis da jornada + horas + minutos, sem mudar o prazo.
+    function receber(resp) {
+        const jornada = resp.jornada_minutos || 480;
+        const norm = (p) => {
+            const total = p.dias * jornada + p.horas * 60 + p.minutos;
+            const resto = total % jornada;
+            return { dias: Math.floor(total / jornada), horas: Math.floor(resto / 60), minutos: resto % 60 };
+        };
+        resp.prioridades.forEach(p => { p.resposta = norm(p.resposta); p.resolucao = norm(p.resolucao); });
+        return resp;
+    }
+
+    function campoNumero(prio, bloco, c, valor, desabilitado) {
+        const id = `sla-${prio.prioridade}-${bloco}-${c.chave}`;
+        const nome = bloco === 'resposta' ? '1ª resposta' : 'Resolução';
+        return `<span class="sla-campo">
+            <input type="number" id="${sanitizeHTML(id)}" class="sla-numero" inputmode="numeric" min="0" max="${c.max}" step="1"
+                value="${Number(valor) || 0}" data-sla-bloco="${bloco}" data-sla-unidade="${c.chave}"
+                aria-label="${sanitizeHTML(prio.nome)}: ${nome}, ${c.rotulo}" ${desabilitado ? 'disabled' : ''}>
+            <label for="${sanitizeHTML(id)}" class="sla-unidade">${c.rotulo}</label>
+        </span>`;
+    }
+
+    function linhaPrioridade(prio, somenteLeitura) {
+        const semCatalogo = !!prio.sem_sla_catalogo;
+        const semPrazo = semCatalogo || !!prio.sem_prazo;
+        const trava = somenteLeitura || semCatalogo;
+        return `<tr data-sla-linha="${sanitizeHTML(prio.prioridade)}">
+            <th scope="row">${sanitizeHTML(prio.nome)}</th>
+            <td>${CAMPOS.map(c => campoNumero(prio, 'resposta', c, prio.resposta && prio.resposta[c.chave], trava)).join('')}</td>
+            <td>${CAMPOS.map(c => campoNumero(prio, 'resolucao', c, prio.resolucao && prio.resolucao[c.chave], trava)).join('')}</td>
+            <td class="sla-col-sem">
+                <input type="checkbox" data-sla-sem ${semPrazo ? 'checked' : ''} ${trava ? 'disabled' : ''}
+                    aria-label="${sanitizeHTML(prio.nome)}: sem SLA">
+                ${semCatalogo ? '<span class="sla-nota">Sempre sem SLA</span>' : ''}
+            </td>
+        </tr>`;
+    }
+
+    function renderizar() {
+        const lista = area();
+        if (!lista || !dados) return;
+        const podeAlterar = !!dados.pode_alterar;
+        const ativas = dados.prioridades.filter(p => p.ativa_no_setor);
+
+        lista.innerHTML = `
+        <div class="sla-painel">
+            <div class="sla-interruptor">
+                <label class="switch">
+                    <input type="checkbox" id="sla-ativo" role="switch" ${dados.sla_ativo ? 'checked' : ''} ${podeAlterar ? '' : 'disabled'}>
+                    <span class="slider"></span>
+                </label>
+                <label for="sla-ativo" class="sla-interruptor-rotulo">Contar SLA neste setor</label>
+            </div>
+            <p class="sla-texto">Ligado, as demandas do setor ganham o selo de SLA e a contagem de prazo (1ª resposta e resolução) em horário útil. Desligado, as demandas continuam normais, só sem prazo nem selo. Você pode preparar os prazos antes de ligar.</p>
+            <p class="sla-texto">1 dia útil = <strong>${textoJornada(dados.jornada_minutos)}</strong> (jornada do setor). Prazos em dias contam jornadas inteiras de expediente.</p>
+            ${podeAlterar ? '' : '<p class="sla-aviso-leitura" role="status">Você pode consultar, mas só o administrador ou o coordenador do setor altera o SLA.</p>'}
+            <div class="sla-tabela-rolagem">
+            <table class="sla-tabela">
+                <caption class="sr-only">Prazos de SLA por prioridade deste setor</caption>
+                <thead><tr>
+                    <th scope="col">Prioridade</th>
+                    <th scope="col">1ª resposta</th>
+                    <th scope="col">Resolução</th>
+                    <th scope="col">Sem SLA</th>
+                </tr></thead>
+                <tbody>${ativas.map(p => linhaPrioridade(p, !podeAlterar)).join('')}</tbody>
+            </table>
+            </div>
+            <div class="sla-acoes">
+                ${podeAlterar ? '<button type="button" class="btn-primary" data-acao="sla-salvar">Salvar</button>' : ''}
+                ${dados.pode_aplicar_modelo ? '<button type="button" class="btn-secondary" data-acao="sla-modelo">Aplicar Padrão CRPRS</button>' : ''}
+            </div>
+        </div>`;
+    }
+
+    async function carregar(setorId) {
+        setorAtual = setorId;
+        const lista = area();
+        if (!lista) return;
+        if (!setorId) {
+            lista.innerHTML = '<p class="aviso-escolher-setor" role="status">Escolha um setor no seletor de setor da barra lateral.</p>';
+            return;
+        }
+        lista.innerHTML = '<p>Carregando...</p>';
+        try {
+            dados = receber(await Api.get(`setor-sla.php?setor_id=${setorId}`));
+            renderizar();
+        } catch (e) {
+            lista.innerHTML = `<p>${sanitizeHTML(mensagemDeErro(e, 'Erro ao carregar o SLA do setor.'))}</p>`;
+        }
+    }
+
+    function lerFormulario() {
+        const prioridades = dados.prioridades.map(p => {
+            const linha = document.querySelector(`[data-sla-linha="${CSS.escape(p.prioridade)}"]`);
+            // Prioridade inativa no setor não aparece: vai como veio, para não apagar a configuração dela
+            if (!linha) {
+                return { prioridade: p.prioridade, sem_prazo: !!p.sem_prazo, resposta: p.resposta, resolucao: p.resolucao };
+            }
+            const bloco = (nome) => {
+                const o = {};
+                CAMPOS.forEach(c => {
+                    const el = linha.querySelector(`[data-sla-bloco="${nome}"][data-sla-unidade="${c.chave}"]`);
+                    o[c.chave] = el && el.value !== '' ? Number(el.value) : 0;
+                });
+                return o;
+            };
+            return {
+                prioridade: p.prioridade,
+                sem_prazo: linha.querySelector('[data-sla-sem]').checked,
+                resposta: bloco('resposta'),
+                resolucao: bloco('resolucao')
+            };
+        });
+        return { sla_ativo: document.getElementById('sla-ativo').checked, prioridades };
+    }
+
+    async function enviarSalvar() {
+        mostrarLoader();
+        try {
+            dados = receber(await Api.put(`setor-sla.php?setor_id=${setorAtual}`, lerFormulario()));
+            ocultarLoader();
+            renderizar();
+            mostrarToast('Sucesso', 'SLA do setor salvo.', 'success');
+        } catch (e) {
+            ocultarLoader();
+            mostrarAlert('Erro', mensagemDeErro(e, 'Não foi possível salvar o SLA.'));
+        }
+    }
+
+    function salvar() {
+        if (!dados || !dados.pode_alterar) return;
+        const ligar = document.getElementById('sla-ativo').checked;
+        if (dados.sla_ativo && !ligar) {
+            mostrarConfirm('Desligar SLA do setor',
+                'Desligando, as demandas do setor perdem o selo e a contagem de SLA. Deseja continuar?',
+                (ok) => { if (ok) enviarSalvar(); }, true);
+            return;
+        }
+        enviarSalvar();
+    }
+
+    function nomeDe(codigo) {
+        const p = dados.prioridades.find(x => x.prioridade === codigo);
+        return p ? p.nome : codigo;
+    }
+
+    function aplicarModelo() {
+        if (!dados || !dados.pode_aplicar_modelo) return;
+        const linhas = (dados.modelo || []).map(m => m.sem_sla
+            ? `${nomeDe(m.prioridade)}: sem SLA`
+            : `${nomeDe(m.prioridade)}: 1ª resposta ${textoPrazo(m.resposta_minutos)}, resolução ${textoPrazo(m.resolucao_minutos)}`);
+        mostrarConfirm('Aplicar modelo Padrão CRPRS',
+            'Os prazos de todas as prioridades deste setor serão substituídos por:\n' + linhas.join('\n') + '\n\nO interruptor do setor não muda. Deseja aplicar?',
+            async (ok) => {
+                if (!ok) return;
+                mostrarLoader();
+                try {
+                    dados = receber(await Api.post(`setor-sla.php?acao=aplicar-modelo&setor_id=${setorAtual}`, {}));
+                    ocultarLoader();
+                    renderizar();
+                    mostrarToast('Sucesso', 'Padrão CRPRS aplicado.', 'success');
+                } catch (e) {
+                    ocultarLoader();
+                    mostrarAlert('Erro', mensagemDeErro(e, 'Não foi possível aplicar o modelo.'));
+                }
+            });
+    }
+
+    // Um só ouvinte, registrado uma vez
+    document.addEventListener('click', (ev) => {
+        const alvo = ev.target.closest('[data-acao="sla-salvar"], [data-acao="sla-modelo"]');
+        if (!alvo) return;
+        if (alvo.dataset.acao === 'sla-salvar') salvar();
+        else aplicarModelo();
+    });
+
+    return { carregar };
+})();

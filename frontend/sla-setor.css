@@ -1,0 +1,27 @@
+/* Ativação por Setor → aba SLA. Só tokens do style.css; modo escuro pelos próprios tokens. */
+.sla-painel { max-width: 62rem; }
+.sla-interruptor { display: flex; align-items: center; gap: 0.75rem; margin-bottom: 0.75rem; }
+.sla-interruptor-rotulo { font-weight: 600; color: var(--neutro-800); cursor: pointer; }
+.sla-texto { color: var(--texto-suave); margin-bottom: 0.5rem; }
+.sla-aviso-leitura { margin: 0.75rem 0; padding: 0.5rem 0.75rem; border-left: 3px solid var(--laranja-500); background: var(--laranja-50); color: var(--neutro-800); }
+.sla-tabela-rolagem { overflow-x: auto; margin: 1rem 0; }
+.sla-tabela { width: 100%; border-collapse: collapse; }
+.sla-tabela th, .sla-tabela td { padding: 0.5rem 0.75rem; border-bottom: 1px solid var(--neutro-200); text-align: left; vertical-align: middle; }
+.sla-tabela thead th { background: var(--neutro-100); color: var(--neutro-800); border-bottom: 2px solid var(--vinho-600); }
+.sla-tabela tbody th { font-weight: 600; color: var(--neutro-800); }
+.sla-campo { display: inline-flex; align-items: center; gap: 0.25rem; margin-right: 0.5rem; white-space: nowrap; }
+.sla-numero { width: 4.2rem; padding: 0.3rem 0.4rem; border: 1px solid var(--neutro-300); border-radius: 4px; background: var(--branco); color: var(--neutro-900); }
+.sla-numero:disabled { background: var(--neutro-100); color: var(--texto-suave); }
+.sla-unidade { color: var(--texto-suave); font-size: 0.85rem; }
+.sla-col-sem { white-space: nowrap; }
+.sla-nota { margin-left: 0.4rem; color: var(--texto-suave); font-size: 0.85rem; }
+.sla-acoes { display: flex; flex-wrap: wrap; gap: 0.75rem; }
+body.modo-escuro .sla-interruptor-rotulo,
+body.modo-escuro .sla-tabela tbody th,
+body.modo-escuro .sla-aviso-leitura { color: var(--neutro-100); }
+body.modo-escuro .sla-aviso-leitura { background: var(--neutro-900); }
+body.modo-escuro .sla-tabela thead th { background: var(--neutro-900); color: var(--neutro-100); }
+body.modo-escuro .sla-tabela th, body.modo-escuro .sla-tabela td { border-bottom-color: var(--neutro-600); }
+body.modo-escuro .sla-numero { background: var(--neutro-900); color: var(--neutro-100); border-color: var(--neutro-600); }
+body.modo-escuro .sla-numero:disabled { color: var(--neutro-300); }
+@media (max-width: 480px) { .sla-numero { width: 3.6rem; } }

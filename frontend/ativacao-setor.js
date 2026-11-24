@@ -45,6 +45,7 @@ function renderizarPainelConfigSetor(setorId) {
             <button type="button" class="tab-btn active" id="tab-config-status" onclick="carregarAbaConfigSetor('status')">🚦 Status</button>
             ${Papeis.admin(usuario) ? `<button type="button" class="tab-btn" id="tab-config-prioridades" onclick="carregarAbaConfigSetor('prioridades')">🔥 Prioridades</button>` : ''}
             <button type="button" class="tab-btn" id="tab-config-notificacoes" onclick="carregarAbaConfigSetor('notificacoes')">🔔 Envio de E-mails</button>
+            ${Papeis.administraSetor(usuario) ? `<button type="button" class="tab-btn" id="tab-config-sla" data-aba-config="sla">⏱️ SLA</button>` : ''}
         </div>
         <div id="config-setor-lista"></div>
     `;
@@ -55,6 +56,7 @@ function renderizarPainelConfigSetor(setorId) {
 async function carregarAbaConfigSetor(tipo) {
     // Prioridades: só o administrador (o servidor também recusa)
     if (tipo === 'prioridades' && !Papeis.admin()) tipo = 'status';
+    if (tipo === 'sla' && !Papeis.administraSetor()) tipo = 'status';
     abaConfigSetorAtiva = tipo;
     document.querySelectorAll('.tabs-container .tab-btn').forEach(b => b.classList.remove('active'));
     const btnAtivo = document.getElementById('tab-config-' + tipo);
@@ -67,6 +69,11 @@ async function carregarAbaConfigSetor(tipo) {
 
     if (tipo === 'notificacoes') {
         carregarNotificacoesEmailSetor();
+        return;
+    }
+
+    if (tipo === 'sla') {
+        SlaSetor.carregar(setorConfigAtual);
         return;
     }
 
@@ -582,3 +589,9 @@ async function testarConexaoEmail() {
         ocultarLoader();
     }
 }
+
+// Aba SLA (botão sem onclick): um ouvinte delegado, registrado uma vez
+document.addEventListener('click', (ev) => {
+    const aba = ev.target.closest('[data-aba-config]');
+    if (aba) carregarAbaConfigSetor(aba.dataset.abaConfig);
+});
