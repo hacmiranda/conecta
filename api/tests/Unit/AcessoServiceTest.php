@@ -268,4 +268,25 @@ final class AcessoServiceTest extends TestCase {
             $this->assertFalse(AcessoService::podeAbonarRelatorioSetor($u, 2), $tipo);
         }
     }
+
+    public function test_sla_do_setor_admin_e_coordenador_do_setor_configuram(): void {
+        $this->assertTrue(AcessoService::podeConfigurarSlaSetor($this->usuario('admin'), 9));
+        $coord = ['id' => 5, 'tipo' => 'coordenador', 'setor_id' => 2, 'setores_extras' => [4]];
+        $this->assertTrue(AcessoService::podeConfigurarSlaSetor($coord, 2));
+        $this->assertTrue(AcessoService::podeConfigurarSlaSetor($coord, 4));
+        $this->assertFalse(AcessoService::podeConfigurarSlaSetor($coord, 3));
+    }
+
+    public function test_sla_do_setor_demais_papeis_nao_configuram(): void {
+        foreach (['gestor', 'operador', 'supervisor', 'coordenador_geral'] as $tipo) {
+            $this->assertFalse(AcessoService::podeConfigurarSlaSetor($this->usuario($tipo, 8, 2), 2), $tipo);
+        }
+    }
+
+    public function test_modelo_de_sla_so_o_admin_aplica(): void {
+        $this->assertTrue(AcessoService::podeAplicarModeloSla($this->usuario('admin')));
+        foreach (['coordenador', 'gestor', 'operador', 'supervisor', 'coordenador_geral'] as $tipo) {
+            $this->assertFalse(AcessoService::podeAplicarModeloSla($this->usuario($tipo, 8, 2)), $tipo);
+        }
+    }
 }

@@ -167,6 +167,17 @@ class AcessoService {
         return ($user['tipo'] ?? '') === 'admin' || self::podeEnviarRelatorioSetor($user, $setorId);
     }
 
+    /** SLA do setor (interruptor e prazos): admin ou o coordenador do setor. Gestor só lê. */
+    public static function podeConfigurarSlaSetor(array $user, int $setorId): bool {
+        return ($user['tipo'] ?? '') === 'admin'
+            || (($user['tipo'] ?? '') === 'coordenador' && self::temAcessoAoSetor($user, $setorId));
+    }
+
+    /** Aplicar o modelo "Padrão CRPRS" de SLA num setor: só o admin. */
+    public static function podeAplicarModeloSla(array $user): bool {
+        return ($user['tipo'] ?? '') === 'admin';
+    }
+
     /**
      * Condição SQL "coluna IN (...)" para um escopo de setores (ids inteiros, sem risco de injeção):
      * null = todos ("1=1"); lista vazia = nenhum ("1=0").

@@ -184,4 +184,125 @@ final class SlaSetorTest extends TestCase {
         $this->assertTrue(DemandaService::conferirPausaSla($this->db, $id));
         $this->assertNotNull($this->linhaSla($id)['pausado_em']);
     }
+
+    // ---- API de SLA por setor: serviço (Tarefa 4) ----
+
+    /** Setor zz com as prioridades normal, baixa e baixissima ativas, ainda sem prazos. */
+    private function setorSemPrazos(): int {
+        $id = $this->criarSetor();
+        foreach (['normal', 'baixa', 'baixissima'] as $i => $nome) {
+            $prio = (int) $this->db->query("SELECT id FROM ticket_prioridades WHERE nome = '$nome'")->fetchColumn();
+            $this->db->prepare("INSERT INTO setor_prioridades (setor_id, prioridade_id, ativo, ordem) VALUES (?, ?, 1, ?)")
+                     ->execute([$id, $prio, $i + 1]);
+        }
+        return $id;
+    }
+
+    private function entrada(bool $ligar, array $prioridades): array {
+        return ['sla_ativo' => $ligar, 'prioridades' => $prioridades];
+    }
+
+    private function prio(string $nome, array $resp, array $resol, bool $sem = false): array {
+        return ['prioridade' => $nome, 'sem_prazo' => $sem, 'resposta' => $resp, 'resolucao' => $resol];
+    }
+
+    private function dePrioridade(array $dados, string $nome): array {
+        return array_values(array_filter($dados['prioridades'], fn($p) => $p['prioridade'] === $nome))[0];
+    }
+
+    public function test_ligar_com_prioridade_ativa_sem_prazo_recusa(): void {
+        $setor = $this->setorSemPrazos();
+        $this->expectException(InvalidArgumentException::class);
+        $this->expectExceptionMessageMatches('/Normal/');
+        (new SlaSetorService($this->db))->salvar($setor, $this->entrada(true, [
+            $this->prio('baixa', ['horas' => 1], ['dias' => 1]),
+        ]));
+    }
+
+    public function test_resolucao_menor_que_resposta_recusa(): void {
+        $setor = $this->setorSemPrazos();
+        $this->expectException(InvalidArgumentException::class);
+        $this->expectExceptionMessageMatches('/resolução não pode ser menor/');
+        (new SlaSetorService($this->db))->salvar($setor, $this->entrada(false, [
+            $this->prio('normal', ['dias' => 2], ['horas' => 3]),
+        ]));
+    }
+
+    public function test_faixa_invalida_recusa(): void {
+        $setor = $this->setorSemPrazos();
+        $this->expectException(InvalidArgumentException::class);
+        (new SlaSetorService($this->db))->salvar($setor, $this->entrada(false, [
+            $this->prio('normal', ['minutos' => 60], ['dias' => 1]),
+        ]));
+    }
+
+    public function test_prioridade_fora_do_setor_recusa(): void {
+        $setor = $this->setorSemPrazos();
+        $this->expectException(InvalidArgumentException::class);
+        (new SlaSetorService($this->db))->salvar($setor, $this->entrada(false, [
+            $this->prio('inexistente', ['horas' => 1], ['dias' => 1]),
+        ]));
+    }
+
+    public function test_salvar_e_ler_dias_horas_minutos(): void {
+        $setor = $this->setorSemPrazos();
+        $svc = new SlaSetorService($this->db);
+        $r = $svc->salvar($setor, $this->entrada(false, [
+            $this->prio('normal', ['dias' => 1, 'horas' => 2, 'minutos' => 30], ['dias' => 3, 'horas' => 0, 'minutos' => 5]),
+        ]));
+        $normal = $this->dePrioridade($r['depois'], 'normal');
+        $this->assertSame(['dias' => 1, 'horas' => 2, 'minutos' => 30], $normal['resposta']);
+        $this->assertSame(['dias' => 3, 'horas' => 0, 'minutos' => 5], $normal['resolucao']);
+        $this->assertFalse($normal['sem_prazo']);
+        $this->assertSame($r['depois'], $svc->ler($setor));
+        $this->assertContains('urgente', array_column($r['depois']['modelo'], 'prioridade'));
+    }
+
+    public function test_prioridade_baixissima_fica_sem_prazo(): void {
+        $setor = $this->setorSemPrazos();
+        $r = (new SlaSetorService($this->db))->salvar($setor, $this->entrada(false, [
+            $this->prio('baixissima', ['horas' => 1], ['dias' => 1], false),
+        ]));
+        $b = $this->dePrioridade($r['depois'], 'baixissima');
+        $this->assertTrue($b['sem_prazo']);
+        $this->assertTrue($b['sem_sla_catalogo']);
+    }
+
+    public function test_ligar_com_tudo_definido_funciona_e_liga(): void {
+        $setor = $this->setorSemPrazos();
+        $r = (new SlaSetorService($this->db))->salvar($setor, $this->entrada(true, [
+            $this->prio('normal', ['horas' => 1], ['dias' => 1]),
+            $this->prio('baixa', ['horas' => 2], ['dias' => 2]),
+        ]));
+        $this->assertTrue($r['depois']['sla_ativo']);
+        $this->assertFalse($r['antes']['sla_ativo']);
+    }
+
+    public function test_aplicar_modelo_copia_o_catalogo_e_nao_liga(): void {
+        $setor = $this->setorSemPrazos();
+        $r = (new SlaSetorService($this->db))->aplicarModelo($setor);
+        $this->assertFalse($r['depois']['sla_ativo']);
+        $normal = $this->dePrioridade($r['depois'], 'normal');
+        $this->assertSame(['dias' => 0, 'horas' => 12, 'minutos' => 0], $normal['resposta']);
+        $this->assertSame(['dias' => 0, 'horas' => 24, 'minutos' => 0], $normal['resolucao']);
+        $this->assertTrue($this->dePrioridade($r['depois'], 'baixissima')['sem_prazo']);
+    }
+
+    public function test_mudar_prazo_vale_na_hora_para_as_abertas(): void {
+        $setor = $this->setorComSla(true);
+        $id = $this->criarDemanda($setor, 'novo', 'normal', 0);
+        $this->assertLessThanOrEqual(3600, $this->situacao($id)['segundos_restantes']);
+        (new SlaSetorService($this->db))->salvar($setor, $this->entrada(true, [
+            $this->prio('normal', ['horas' => 10], ['dias' => 2]),
+        ]));
+        $this->assertNull($this->linhaSla($id)['pausado_em']);
+        $this->assertGreaterThan(9 * 3600, $this->situacao($id)['segundos_restantes']);
+    }
+
+    public function test_desligar_pelo_servico_pausa_as_abertas(): void {
+        $setor = $this->setorComSla(true);
+        $id = $this->criarDemanda($setor, 'novo', 'normal', 0);
+        (new SlaSetorService($this->db))->salvar($setor, $this->entrada(false, []));
+        $this->assertNotNull($this->linhaSla($id)['pausado_em']);
+    }
 }
