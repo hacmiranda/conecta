@@ -20,10 +20,14 @@ final class RelatorioSetorTest extends TestCase {
         }
         $this->db = (new Database())->getConnection();
         $this->db->beginTransaction();
-        $this->setor = (int) $this->db->query("SELECT id FROM setores WHERE ativo = 1 ORDER BY id LIMIT 1")->fetchColumn();
-        if ($this->setor <= 0) {
-            $this->markTestSkipped('Precisa de um setor ativo.');
-        }
+        // Setor próprio do teste (dentro da transação desfeita): um setor real pode já ter coordenador
+        $this->setor = $this->criarSetor();
+    }
+
+    /** Cria um setor zz com o expediente, os feriados, status e prioridades do modelo (SetorService::criar). */
+    private function criarSetor(): int {
+        require_once __DIR__ . '/../../services/setor-service.php';
+        return (int) SetorService::criar($this->db, 'zz RelSetor ' . bin2hex(random_bytes(4)));
     }
 
     protected function tearDown(): void {
@@ -233,12 +237,7 @@ final class RelatorioSetorTest extends TestCase {
 
     public function test_coordenador_adicional_conta_como_coordenador_do_setor(): void {
         $svc = $this->servico(false);
-        $stmt = $this->db->prepare("SELECT id FROM setores WHERE ativo = 1 AND id <> ? ORDER BY id LIMIT 1");
-        $stmt->execute([$this->setor]);
-        $outro = (int) $stmt->fetchColumn();
-        if ($outro <= 0) {
-            $this->markTestSkipped('Precisa de dois setores ativos.');
-        }
+        $outro = $this->outroSetor();
         $coord = $this->criarCoordenador($outro);
         $this->db->prepare("INSERT INTO usuario_setores (usuario_id, setor_id) VALUES (?, ?)")->execute([$coord, $this->setor]);
         $this->assertSame($coord, $svc->coordenadorDoSetor($this->setor)['id']);
@@ -268,11 +267,7 @@ final class RelatorioSetorTest extends TestCase {
     }
 
     private function outroSetor(): int {
-        $id = (int) $this->db->query("SELECT id FROM setores WHERE ativo = 1 AND id <> {$this->setor} ORDER BY id LIMIT 1")->fetchColumn();
-        if ($id <= 0) {
-            $this->markTestSkipped('Precisa de dois setores ativos.');
-        }
-        return $id;
+        return $this->criarSetor();
     }
 
     public function test_coordenador_envia_relatorio_semanal_do_setor(): void {
